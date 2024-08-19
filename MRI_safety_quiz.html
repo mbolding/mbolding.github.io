@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRI Safety Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .quiz-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .question {
+            margin-bottom: 20px;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+        }
+        .option {
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #e0e0e0;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .option:hover {
+            background-color: #d0d0d0;
+        }
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .correct {
+            color: green;
+        }
+        .incorrect {
+            color: red;
+        }
+        #result {
+            text-align: center;
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+        #next-btn, #restart-btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #next-btn:hover, #restart-btn:hover {
+            background-color: #0056b3;
+        }
+        #progress {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>MRI Safety Quiz</h1>
+        <div id="progress"></div>
+        <div id="quiz"></div>
+        <div id="result"></div>
+        <button id="next-btn" style="display: none;">Next Question</button>
+        <button id="restart-btn" style="display: none;">Restart Quiz</button>
+    </div>
+
+    <script>
+        const quizData = [
+            {
+                question: "Which of the following items is safe to bring into the MRI room?",
+                options: ["Cellphone", "Oxygen tank", "Plastic water bottle", "Metal hairpin"],
+                correctAnswer: 2
+            },
+            {
+                question: "What should you do if you have a pacemaker?",
+                options: ["Proceed with the MRI as usual", "Inform the MRI technologist immediately", "Remove the pacemaker before the scan", "Ignore it, as MRI is safe for all implants"],
+                correctAnswer: 1
+            },
+            {
+                question: "Which of these is NOT a potential risk in the MRI environment?",
+                options: ["Projectile accidents", "Burns", "Radiation exposure", "Acoustic damage"],
+                correctAnswer: 2
+            },
+            {
+                question: "What is the main component of an MRI machine that creates a strong magnetic field?",
+                options: ["X-ray tube", "Radioactive isotopes", "Superconducting electromagnet", "Ultrasound transducer"],
+                correctAnswer: 2
+            },
+            {
+                question: "When is it safe to enter the MRI room with metal objects?",
+                options: ["Anytime, as the magnetic field is only active during scanning", "Never, as the magnetic field is always on", "Only when the technologist gives permission", "When the patient is not present"],
+                correctAnswer: 2
+            },
+            {
+                question: "What type of implant absolutely prohibits a patient from having an MRI?",
+                options: ["Dental fillings", "Knee replacement", "Cochlear implant", "Some types of pacemakers"],
+                correctAnswer: 3
+            },
+            {
+                question: "What should a patient do if they feel warming or tingling during an MRI scan?",
+                options: ["Ignore it, as it's normal", "Wait until the scan is over to report it", "Immediately inform the technologist", "Try to move to a different position"],
+                correctAnswer: 2
+            },
+            {
+                question: "Which of the following is true about MRI contrast agents?",
+                options: ["They are radioactive", "They are always required for every MRI", "They contain gadolinium", "They are injected into the spine"],
+                correctAnswer: 2
+            },
+            {
+                question: "What precaution should be taken for patients with tattoos during an MRI?",
+                options: ["Remove the tattoos before the scan", "No special precautions are needed", "Inform the technologist about any tattoos", "Cover all tattoos with lead shields"],
+                correctAnswer: 2
+            },
+            {
+                question: "Which of these clothing items is generally safe to wear during an MRI?",
+                options: ["Underwire bra", "Clothing with metal zippers", "Cotton t-shirt and sweatpants", "Jewelry"],
+                correctAnswer: 2
+            }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+
+        const quizElement = document.getElementById("quiz");
+        const resultElement = document.getElementById("result");
+        const nextButton = document.getElementById("next-btn");
+        const restartButton = document.getElementById("restart-btn");
+        const progressElement = document.getElementById("progress");
+
+        function loadQuestion() {
+            const question = quizData[currentQuestion];
+            let html = `<div class="question"><h2>${question.question}</h2><div class="options">`;
+            
+            for (let i = 0; i < question.options.length; i++) {
+                html += `<button class="option" onclick="checkAnswer(${i})">${question.options[i]}</button>`;
+            }
+            
+            html += '</div></div>';
+            quizElement.innerHTML = html;
+            nextButton.style.display = "none";
+            updateProgress();
+        }
+
+        function checkAnswer(selectedOption) {
+            const question = quizData[currentQuestion];
+            const options = document.querySelectorAll('.option');
+            
+            options.forEach(option => {
+                option.disabled = true;
+            });
+
+            if (selectedOption === question.correctAnswer) {
+                options[selectedOption].style.backgroundColor = "#90EE90";
+                quizElement.innerHTML += '<p class="feedback correct">Correct!</p>';
+                score++;
+            } else {
+                options[selectedOption].style.backgroundColor = "#FFB6C1";
+                options[question.correctAnswer].style.backgroundColor = "#90EE90";
+                quizElement.innerHTML += '<p class="feedback incorrect">Incorrect. The correct answer is highlighted in green.</p>';
+            }
+
+            nextButton.style.display = "block";
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            if (currentQuestion < quizData.length) {
+                loadQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        function showResult() {
+            quizElement.style.display = "none";
+            nextButton.style.display = "none";
+            progressElement.style.display = "none";
+            resultElement.innerHTML = `You scored ${score} out of ${quizData.length}!`;
+            restartButton.style.display = "block";
+        }
+
+        function restartQuiz() {
+            currentQuestion = 0;
+            score = 0;
+            quizElement.style.display = "block";
+            progressElement.style.display = "block";
+            resultElement.innerHTML = "";
+            restartButton.style.display = "none";
+            loadQuestion();
+        }
+
+        function updateProgress() {
+            progressElement.textContent = `Question ${currentQuestion + 1} of ${quizData.length}`;
+        }
+
+        nextButton.addEventListener("click", nextQuestion);
+        restartButton.addEventListener("click", restartQuiz);
+
+        loadQuestion();
+    </script>
+</body>
+</html>
