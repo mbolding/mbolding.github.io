@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnetic Domain Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .slider {
+            width: 200px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Magnetic Domain Simulator</h1>
+        <canvas id="canvas" width="400" height="400"></canvas>
+        <div class="controls">
+            <div>
+                <label for="domainSize">Domain Size:</label>
+                <input type="range" id="domainSize" class="slider" min="5" max="50" value="20">
+            </div>
+            <div>
+                <label for="magneticStrength">Magnetic Strength:</label>
+                <input type="range" id="magneticStrength" class="slider" min="1" max="100" value="50">
+            </div>
+            <div>
+                <label for="temperature">Temperature:</label>
+                <input type="range" id="temperature" class="slider" min="0" max="100" value="25">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        let domains = [];
+        let domainSize = 20;
+        let magneticStrength = 50;
+        let temperature = 25;
+
+        function createDomains() {
+            domains = [];
+            const cols = Math.floor(width / domainSize);
+            const rows = Math.floor(height / domainSize);
+
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    domains.push({
+                        x: j * domainSize,
+                        y: i * domainSize,
+                        direction: Math.random() > 0.5 ? 1 : -1
+                    });
+                }
+            }
+        }
+
+        function drawDomains() {
+            ctx.clearRect(0, 0, width, height);
+            domains.forEach(domain => {
+                ctx.fillStyle = domain.direction > 0 ? 'red' : 'blue';
+                ctx.fillRect(domain.x, domain.y, domainSize, domainSize);
+            });
+        }
+
+        function updateDomains() {
+            domains.forEach(domain => {
+                const neighborDirection = getNeighborDirection(domain);
+                const alignmentForce = neighborDirection * (magneticStrength / 100);
+                const randomForce = (Math.random() - 0.5) * (temperature / 50);
+
+                if (Math.random() < Math.abs(alignmentForce + randomForce)) {
+                    domain.direction = Math.sign(alignmentForce + randomForce);
+                }
+            });
+        }
+
+        function getNeighborDirection(domain) {
+            let sum = 0;
+            let count = 0;
+
+            domains.forEach(neighbor => {
+                const dx = Math.abs(domain.x - neighbor.x);
+                const dy = Math.abs(domain.y - neighbor.y);
+                if ((dx === domainSize && dy === 0) || (dx === 0 && dy === domainSize)) {
+                    sum += neighbor.direction;
+                    count++;
+                }
+            });
+
+            return count > 0 ? sum / count : 0;
+        }
+
+        function simulate() {
+            updateDomains();
+            drawDomains();
+            requestAnimationFrame(simulate);
+        }
+
+        function initSimulation() {
+            createDomains();
+            drawDomains();
+            simulate();
+        }
+
+        // Event listeners for sliders
+        document.getElementById('domainSize').addEventListener('input', (e) => {
+            domainSize = parseInt(e.target.value);
+            createDomains();
+        });
+
+        document.getElementById('magneticStrength').addEventListener('input', (e) => {
+            magneticStrength = parseInt(e.target.value);
+        });
+
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            temperature = parseInt(e.target.value);
+        });
+
+        initSimulation();
+    </script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnetic Spins: Dephasing and Rephasing (Grid)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+        button {
+            margin: 10px;
+            padding: 5px 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Magnetic Spins: Dephasing and Rephasing (Grid)</h1>
+    <canvas id="spinCanvas" width="400" height="400"></canvas>
+    <div>
+        <button id="dephaseBtn">Dephase</button>
+        <button id="rephaseBtn">Rephase</button>
+        <button id="reverseTimeBtn">Reverse Time</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('spinCanvas');
+        const ctx = canvas.getContext('2d');
+        const dephaseBtn = document.getElementById('dephaseBtn');
+        const rephaseBtn = document.getElementById('rephaseBtn');
+        const reverseTimeBtn = document.getElementById('reverseTimeBtn');
+
+        const gridSize = 8; // 8x8 grid
+        const cellSize = 40;
+        const spinLength = 15;
+        const margin = (canvas.width - gridSize * cellSize) / 2;
+
+        let spins = [];
+        let timeDirection = 1; // 1 for forward, -1 for backward
+        let isAnimating = false;
+        let animationId;
+
+        function initializeSpins() {
+            spins = [];
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    spins.push({
+                        angle: 0,
+                        x: margin + col * cellSize + cellSize / 2,
+                        y: margin + row * cellSize + cellSize / 2,
+                        dephaseSpeed: Math.random() * 0.1 - 0.05
+                    });
+                }
+            }
+        }
+
+        function drawSpins() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#ddd';
+            for (let i = 0; i <= gridSize; i++) {
+                ctx.beginPath();
+                ctx.moveTo(margin + i * cellSize, margin);
+                ctx.lineTo(margin + i * cellSize, canvas.height - margin);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(margin, margin + i * cellSize);
+                ctx.lineTo(canvas.width - margin, margin + i * cellSize);
+                ctx.stroke();
+            }
+
+            // Draw spins
+            ctx.strokeStyle = '#000';
+            spins.forEach(spin => {
+                const endX = spin.x + spinLength * Math.cos(spin.angle);
+                const endY = spin.y + spinLength * Math.sin(spin.angle);
+                ctx.beginPath();
+                ctx.moveTo(spin.x, spin.y);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+            });
+        }
+
+        function animate() {
+            if (isAnimating) {
+                spins.forEach(spin => {
+                    spin.angle += spin.dephaseSpeed * timeDirection;
+                });
+                drawSpins();
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        function startAnimation() {
+            if (!isAnimating) {
+                isAnimating = true;
+                animate();
+            }
+        }
+
+        function stopAnimation() {
+            isAnimating = false;
+            cancelAnimationFrame(animationId);
+        }
+
+        function dephase() {
+            timeDirection = 1;
+            startAnimation();
+            setTimeout(stopAnimation, 3000);
+        }
+
+        function rephase() {
+            spins.forEach(spin => {
+                spin.angle = 0;
+            });
+            drawSpins();
+            stopAnimation();
+        }
+
+        function reverseTime() {
+            timeDirection *= -1;
+            if (!isAnimating) {
+                startAnimation();
+            }
+        }
+
+        dephaseBtn.addEventListener('click', dephase);
+        rephaseBtn.addEventListener('click', rephase);
+        reverseTimeBtn.addEventListener('click', reverseTime);
+
+        initializeSpins();
+        drawSpins();
+    </script>
+</body>
+</html>

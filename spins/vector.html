@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precessing Vector with Three.js and Keyboard Controls</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Create an arrow helper to represent the vector
+        const arrowDir = new THREE.Vector3(1, 0, 0); // Initial direction of the vector
+        const arrowLength = 5;
+        const arrowColor = 0xffff00;
+        const arrowHeadLength = 1;
+        const arrowHeadWidth = 0.5;
+        const arrowHelper = new THREE.ArrowHelper(arrowDir, new THREE.Vector3(0, 0, 0), arrowLength, arrowColor, arrowHeadLength, arrowHeadWidth);
+        scene.add(arrowHelper);
+
+        // Set the camera position
+        camera.position.z = 10;
+
+        // Precession parameters
+        let angle = 0;
+        const axis = new THREE.Vector3(0, 1, 0); // Axis around which the vector precesses
+        const precessionSpeed = 0.02; // Speed of precession
+
+        // Rotation control variables
+        const rotationSpeed = 0.02;
+        let rotateLeft = false;
+        let rotateRight = false;
+        let rotateUp = false;
+        let rotateDown = false;
+
+        // Handle keydown events
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'ArrowLeft':
+                    rotateLeft = true;
+                    break;
+                case 'ArrowRight':
+                    rotateRight = true;
+                    break;
+                case 'ArrowUp':
+                    rotateUp = true;
+                    break;
+                case 'ArrowDown':
+                    rotateDown = true;
+                    break;
+            }
+        });
+
+        // Handle keyup events
+        document.addEventListener('keyup', (event) => {
+            switch (event.code) {
+                case 'ArrowLeft':
+                    rotateLeft = false;
+                    break;
+                case 'ArrowRight':
+                    rotateRight = false;
+                    break;
+                case 'ArrowUp':
+                    rotateUp = false;
+                    break;
+                case 'ArrowDown':
+                    rotateDown = false;
+                    break;
+            }
+        });
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update the vector direction to show precession
+            angle += precessionSpeed;
+            arrowDir.set(Math.cos(angle), 0, Math.sin(angle));
+            arrowHelper.setDirection(arrowDir);
+
+            // Handle scene rotation based on key presses
+            if (rotateLeft) {
+                scene.rotation.y -= rotationSpeed;
+            }
+            if (rotateRight) {
+                scene.rotation.y += rotationSpeed;
+            }
+            if (rotateUp) {
+                scene.rotation.x -= rotationSpeed;
+            }
+            if (rotateDown) {
+                scene.rotation.x += rotationSpeed;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

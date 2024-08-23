@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three Spinning Vectors</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        .controls {
+            display: inline-block;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="vectorCanvas" width="400" height="400"></canvas>
+    <br>
+    <div class="controls">
+        <h3>Vector 1 (Red)</h3>
+        <label for="speedInput1">Rotation Speed:</label>
+        <input type="range" id="speedInput1" min="1" max="10" value="5">
+        <br>
+        <label for="lengthInput1">Vector Length:</label>
+        <input type="range" id="lengthInput1" min="50" max="150" value="100">
+    </div>
+    <div class="controls">
+        <h3>Vector 2 (Blue)</h3>
+        <label for="speedInput2">Rotation Speed:</label>
+        <input type="range" id="speedInput2" min="1" max="10" value="3">
+        <br>
+        <label for="lengthInput2">Vector Length:</label>
+        <input type="range" id="lengthInput2" min="50" max="150" value="80">
+    </div>
+
+    <script>
+        const canvas = document.getElementById('vectorCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const speedInput1 = document.getElementById('speedInput1');
+        const lengthInput1 = document.getElementById('lengthInput1');
+        const speedInput2 = document.getElementById('speedInput2');
+        const lengthInput2 = document.getElementById('lengthInput2');
+
+        let angle1 = 0;
+        let speed1 = 0.05;
+        let length1 = 100;
+
+        let angle2 = 0;
+        let speed2 = 0.03;
+        let length2 = 80;
+
+        function drawVector(x, y, angle, length, color) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(length, 0);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(length, 0);
+            ctx.lineTo(length - 10, -5);
+            ctx.lineTo(length - 10, 5);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function calculateSumVector(x1, y1, x2, y2) {
+            return {
+                x: x1 + x2,
+                y: y1 + y2
+            };
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Calculate end points of vectors
+            const x1 = length1 * Math.cos(angle1);
+            const y1 = length1 * Math.sin(angle1);
+            const x2 = length2 * Math.cos(angle2);
+            const y2 = length2 * Math.sin(angle2);
+
+            // Draw Vector 1
+            drawVector(centerX, centerY, angle1, length1, 'red');
+
+            // Draw Vector 2
+            drawVector(centerX, centerY, angle2, length2, 'blue');
+
+            // Calculate and draw sum vector
+            const sumVector = calculateSumVector(x1, y1, x2, y2);
+            const sumLength = Math.sqrt(sumVector.x * sumVector.x + sumVector.y * sumVector.y);
+            const sumAngle = Math.atan2(sumVector.y, sumVector.x);
+            drawVector(centerX, centerY, sumAngle, sumLength, 'green');
+
+            angle1 += speed1;
+            angle2 += speed2;
+
+            requestAnimationFrame(animate);
+        }
+
+        speedInput1.addEventListener('input', (e) => {
+            speed1 = e.target.value * 0.01;
+        });
+
+        lengthInput1.addEventListener('input', (e) => {
+            length1 = parseInt(e.target.value);
+        });
+
+        speedInput2.addEventListener('input', (e) => {
+            speed2 = e.target.value * 0.01;
+        });
+
+        lengthInput2.addEventListener('input', (e) => {
+            length2 = parseInt(e.target.value);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js 3x3 Array of Independently Rotating Spheres with Sum Vector</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Array to store all sphere-arrow groups
+        const sphereGroups = [];
+
+        // Function to create a sphere with an arrow
+        function createSphereWithArrow(x, y, z) {
+            const group = new THREE.Group();
+
+            // Create a sphere
+            const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x3399ff });
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            group.add(sphere);
+
+            // Create an arrow
+            const arrowDirection = new THREE.Vector3(1, 0, 0);
+            const arrowOrigin = new THREE.Vector3(-1.5, 0, 0);
+            const arrowLength = 3;
+            const arrowColor = 0xff0000;
+            const arrowHelper = new THREE.ArrowHelper(arrowDirection, arrowOrigin, arrowLength, arrowColor, 0.3, 0.2);
+            group.add(arrowHelper);
+
+            group.position.set(x, y, z);
+            // Add random rotation speeds
+            group.userData = {
+                rotationSpeed: {
+                    x: Math.random() * 0.02 - 0.01,
+                    y: Math.random() * 0.02 - 0.01,
+                    z: Math.random() * 0.02 - 0.01
+                }
+            };
+            return group;
+        }
+
+        // Create a 3x3 array of spheres with arrows
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                const sphereWithArrow = createSphereWithArrow(i * 2.5, j * 2.5, 0);
+                scene.add(sphereWithArrow);
+                sphereGroups.push(sphereWithArrow);
+            }
+        }
+
+        // Create the sum vector
+        const sumVectorOrigin = new THREE.Vector3(0, 0, 0);
+        const sumVectorDirection = new THREE.Vector3(1, 0, 0);
+        const sumVectorLength = 5;
+        const sumVectorColor = 0x00ff00;
+        const sumVectorArrow = new THREE.ArrowHelper(sumVectorDirection, sumVectorOrigin, sumVectorLength, sumVectorColor, 0.5, 0.3);
+        scene.add(sumVectorArrow);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        pointLight.position.set(5, 5, 5);
+        scene.add(pointLight);
+
+        camera.position.z = 12;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate each sphere-arrow group independently
+            sphereGroups.forEach((group) => {
+                group.rotation.x += group.userData.rotationSpeed.x;
+                group.rotation.y += group.userData.rotationSpeed.y;
+                group.rotation.z += group.userData.rotationSpeed.z;
+            });
+
+            // Update the sum vector
+            const sumVector = new THREE.Vector3(0, 0, 0);
+            sphereGroups.forEach((group) => {
+                const arrowDirection = new THREE.Vector3(1, 0, 0);
+                arrowDirection.applyQuaternion(group.quaternion);
+                sumVector.add(arrowDirection);
+            });
+            sumVector.normalize();
+            sumVectorArrow.setDirection(sumVector);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle window resizing
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
