@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waveform Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        #controlPanel {
+            margin-bottom: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fourier Transform Demo</h1>
+    <div id="controlPanel">
+        <label for="waveType">Wave Type:</label>
+        <select id="waveType">
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Sawtooth</option>
+        </select>
+        <label for="frequency">Frequency:</label>
+        <input type="range" id="frequency" min="1" max="10" value="1" step="0.1">
+        <span id="frequencyValue">1 Hz</span>
+    </div>
+    <canvas id="canvas" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const waveTypeSelect = document.getElementById('waveType');
+        const frequencyInput = document.getElementById('frequency');
+        const frequencyValue = document.getElementById('frequencyValue');
+
+        let time = 0;
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let oscillator;
+
+        function initAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+
+            oscillator = audioContext.createOscillator();
+            oscillator.type = waveTypeSelect.value;
+            oscillator.frequency.setValueAtTime(parseFloat(frequencyInput.value), audioContext.currentTime);
+            
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Reduce volume
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+            
+            oscillator.start();
+
+            waveTypeSelect.addEventListener('change', () => {
+                oscillator.type = waveTypeSelect.value;
+            });
+
+            frequencyInput.addEventListener('input', () => {
+                oscillator.frequency.setValueAtTime(parseFloat(frequencyInput.value), audioContext.currentTime);
+                frequencyValue.textContent = `${frequencyInput.value} Hz`;
+            });
+        }
+
+        function drawWaveform() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.strokeStyle = 'black';
+            ctx.beginPath();
+            for (let i = 0; i < width; i++) {
+                const x = i;
+                const t = i / width * 2 * Math.PI * parseFloat(frequencyInput.value) + time;
+                let y;
+                switch (waveTypeSelect.value) {
+                    case 'sine':
+                        y = Math.sin(t);
+                        break;
+                    case 'square':
+                        y = Math.sin(t) > 0 ? 1 : -1;
+                        break;
+                    case 'sawtooth':
+                        y = (t % (2 * Math.PI)) / Math.PI - 1;
+                        break;
+                }
+                y = (y * 0.5 + 0.5) * height / 2;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        function drawSpectrum() {
+            analyser.getByteFrequencyData(dataArray);
+            const width = canvas.width;
+            const height = canvas.height;
+            const barWidth = width / analyser.frequencyBinCount;
+
+            ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
+            for (let i = 0; i < analyser.frequencyBinCount; i++) {
+                const barHeight = (dataArray[i] / 255) * height / 2;
+                ctx.fillRect(i * barWidth, height - barHeight, barWidth, barHeight);
+            }
+        }
+
+        function draw() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.fillStyle = 'rgb(240, 240, 240)';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            ctx.translate(0, height / 4);
+            ctx.scale(1, 0.5);
+            drawWaveform();
+            ctx.restore();
+
+            drawSpectrum();
+
+            time += 0.05;
+            requestAnimationFrame(draw);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAudio();
+            draw();
+        });
+    </script>
+</body>
+</html>
