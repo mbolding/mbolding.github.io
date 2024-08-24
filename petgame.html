@@ -55,15 +55,30 @@
         <div id="hand"></div>
     </div>
 
-    <script>
-        const deck = [
-            'Fluorine-18', 'Carbon-11', 'Brain', 'Heart', 'Lungs',
-            'Annihilation', 'Detection', 'Reconstruction',
-            'Cancer Detection', 'Neurology', 'Cardiology'
-        ];
+    <button onclick="checkSet()">Check for Complete Set</button>
+    <button onclick="restartGame()">Restart Game</button>
+    <div id="message"></div>
 
-        const hand = [];
-        const discardPile = [];
+    <script>
+        const categories = {
+            'Radioisotopes': ['Fluorine-18', 'Carbon-11'],
+            'Organs': ['Brain', 'Heart', 'Lungs'],
+            'Processes': ['Annihilation', 'Detection', 'Reconstruction'],
+            'Applications': ['Cancer Detection', 'Neurology', 'Cardiology']
+        };
+
+        let deck = [];
+        let hand = [];
+        let discardPile = [];
+
+        function initializeGame() {
+            deck = Object.values(categories).flat();
+            hand = [];
+            discardPile = [];
+            shuffle(deck);
+            updateDisplay();
+            document.getElementById('message').textContent = '';
+        }
 
         function shuffle(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -77,6 +92,10 @@
                 alert("The deck is empty!");
                 return;
             }
+            if (hand.length >= 4) {
+                alert("You can only have 4 cards in your hand!");
+                return;
+            }
             const card = deck.pop();
             hand.push(card);
             updateDisplay();
@@ -86,6 +105,34 @@
             const card = hand.splice(index, 1)[0];
             discardPile.push(card);
             updateDisplay();
+        }
+
+        function checkSet() {
+            if (hand.length !== 4) {
+                document.getElementById('message').textContent = "Your hand must have exactly 4 cards.";
+                return;
+            }
+
+            const handCategories = {
+                'Radioisotopes': 0,
+                'Organs': 0,
+                'Processes': 0,
+                'Applications': 0
+            };
+
+            hand.forEach(card => {
+                for (const category in categories) {
+                    if (categories[category].includes(card)) {
+                        handCategories[category]++;
+                    }
+                }
+            });
+
+            const isCompleteSet = Object.values(handCategories).every(count => count === 1);
+
+            document.getElementById('message').textContent = isCompleteSet
+                ? "You have a complete set!"
+                : "Your hand is not a complete set.";
         }
 
         function updateDisplay() {
@@ -110,7 +157,11 @@
             });
         }
 
-        shuffle(deck);
+        function restartGame() {
+            initializeGame();
+        }
+
+        initializeGame();
     </script>
 
 </body>
