@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PET Imaging Card Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px;
+            display: inline-block;
+            width: 100px;
+            background-color: #fff;
+        }
+        .deck, .hand, .discard {
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:disabled {
+            background-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>PET Imaging Card Game</h1>
+    <div class="deck">
+        <h2>Deck</h2>
+        <button onclick="drawCard()">Draw Card</button>
+    </div>
+
+    <div class="discard">
+        <h2>Discard Pile</h2>
+        <div id="discardPile"></div>
+    </div>
+
+    <div class="hand">
+        <h2>Your Hand</h2>
+        <div id="hand"></div>
+    </div>
+
+    <script>
+        const deck = [
+            'Fluorine-18', 'Carbon-11', 'Brain', 'Heart', 'Lungs',
+            'Annihilation', 'Detection', 'Reconstruction',
+            'Cancer Detection', 'Neurology', 'Cardiology'
+        ];
+
+        const hand = [];
+        const discardPile = [];
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function drawCard() {
+            if (deck.length === 0) {
+                alert("The deck is empty!");
+                return;
+            }
+            const card = deck.pop();
+            hand.push(card);
+            updateDisplay();
+        }
+
+        function discardCard(index) {
+            const card = hand.splice(index, 1)[0];
+            discardPile.push(card);
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const handDiv = document.getElementById('hand');
+            const discardPileDiv = document.getElementById('discardPile');
+
+            handDiv.innerHTML = '';
+            discardPileDiv.innerHTML = '';
+
+            hand.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = card + `<br><button onclick="discardCard(${index})">Discard</button>`;
+                handDiv.appendChild(cardElement);
+            });
+
+            discardPile.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = card;
+                discardPileDiv.appendChild(cardElement);
+            });
+        }
+
+        shuffle(deck);
+    </script>
+
+</body>
+</html>
