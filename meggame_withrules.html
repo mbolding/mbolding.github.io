@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEG Card Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px;
+            display: inline-block;
+            width: 120px;
+            background-color: #fff;
+        }
+        .deck, .hand, .discard {
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:disabled {
+            background-color: #ccc;
+        }
+        .rules {
+            text-align: left;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>MEG Card Game</h1>
+    <div class="rules">
+        <h2>Game Rules</h2>
+        <ol>
+            <li><strong>Objective:</strong> Form a complete set of cards, one from each category.</li>
+            <li><strong>Setup:</strong> Shuffle the deck and place it face down. Draw cards to form your hand.</li>
+            <li><strong>Gameplay:</strong> Each player can hold up to 4 cards. Players take turns drawing a card from the deck or discarding a card from their hand.</li>
+            <li><strong>Complete Set:</strong> A complete set consists of one card from each category.</li>
+            <li><strong>Winning:</strong> The first player to collect a complete set wins the game.</li>
+            <li><strong>Restart:</strong> If the deck runs out, shuffle the discard pile to form a new deck. Players can restart the game at any time.</li>
+        </ol>
+    </div>
+
+    <div class="deck">
+        <h2>Deck</h2>
+        <button onclick="drawCard()">Draw Card</button>
+    </div>
+
+    <div class="discard">
+        <h2>Discard Pile</h2>
+        <div id="discardPile"></div>
+    </div>
+
+    <div class="hand">
+        <h2>Your Hand</h2>
+        <div id="hand"></div>
+    </div>
+
+    <button onclick="checkSet()">Check for Complete Set</button>
+    <button onclick="restartGame()">Restart Game</button>
+    <div id="message"></div>
+
+    <script>
+        const categories = {
+            'Sensors': ['SQUID', 'Optically Pumped', 'Planar Gradiometer'],
+            'Brain Waves': ['Alpha', 'Beta', 'Theta', 'Gamma'],
+            'Processes': ['Magnetic Field Detection', 'Signal Processing', 'Source Localization'],
+            'Applications': ['Epilepsy', 'Language Mapping', 'Sensory Processing', 'Cognitive Research']
+        };
+
+        let deck = [];
+        let hand = [];
+        let discardPile = [];
+
+        function initializeGame() {
+            deck = Object.values(categories).flat();
+            hand = [];
+            discardPile = [];
+            shuffle(deck);
+            updateDisplay();
+            document.getElementById('message').textContent = '';
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function drawCard() {
+            if (deck.length === 0) {
+                alert("The deck is empty!");
+                return;
+            }
+            if (hand.length >= 4) {
+                alert("You can only have 4 cards in your hand!");
+                return;
+            }
+            const card = deck.pop();
+            hand.push(card);
+            updateDisplay();
+        }
+
+        function discardCard(index) {
+            const card = hand.splice(index, 1)[0];
+            discardPile.push(card);
+            updateDisplay();
+        }
+
+        function checkSet() {
+            if (hand.length !== 4) {
+                document.getElementById('message').textContent = "Your hand must have exactly 4 cards.";
+                return;
+            }
+
+            const handCategories = {
+                'Sensors': 0,
+                'Brain Waves': 0,
+                'Processes': 0,
+                'Applications': 0
+            };
+
+            hand.forEach(card => {
+                for (const category in categories) {
+                    if (categories[category].includes(card)) {
+                        handCategories[category]++;
+                    }
+                }
+            });
+
+            const isCompleteSet = Object.values(handCategories).every(count => count === 1);
+
+            document.getElementById('message').textContent = isCompleteSet
+                ? "You have a complete set!"
+                : "Your hand is not a complete set.";
+        }
+
+        function updateDisplay() {
+            const handDiv = document.getElementById('hand');
+            const discardPileDiv = document.getElementById('discardPile');
+
+            handDiv.innerHTML = '';
+            discardPileDiv.innerHTML = '';
+
+            hand.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = card + `<br><button onclick="discardCard(${index})">Discard</button>`;
+                handDiv.appendChild(cardElement);
+            });
+
+            discardPile.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = card;
+                discardPileDiv.appendChild(cardElement);
+            });
+        }
+
+        function restartGame() {
+            initializeGame();
+        }
+
+        initializeGame();
+    </script>
+
+</body>
+</html>
