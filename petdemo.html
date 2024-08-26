@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PET Imaging Principles Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        #canvas {
+            border: 1px solid black;
+            margin-bottom: 20px;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>PET Imaging Principles Demo</h1>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <div id="controls">
+        <button id="emitButton">Emit Positron</button>
+        <button id="resetButton">Reset</button>
+    </div>
+    <p id="info">Click "Emit Positron" to start the demonstration.</p>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const emitButton = document.getElementById('emitButton');
+        const resetButton = document.getElementById('resetButton');
+        const info = document.getElementById('info');
+
+        const centerX = 200;
+        const centerY = 200;
+        const ringRadius = 180;
+        const bodyRadius = 100;
+
+        let positronX, positronY, angle;
+
+        function drawDetectorRing() {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, ringRadius, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 20;
+            ctx.stroke();
+        }
+
+        function drawBody() {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, bodyRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 200, 200, 0.5)';
+            ctx.fill();
+        }
+
+        function emitPositron() {
+            const r = Math.random() * bodyRadius;
+            const theta = Math.random() * 2 * Math.PI;
+            positronX = centerX + r * Math.cos(theta);
+            positronY = centerY + r * Math.sin(theta);
+            angle = Math.random() * 2 * Math.PI;
+
+            ctx.clearRect(0, 0, 400, 400);
+            drawDetectorRing();
+            drawBody();
+
+            // Draw positron
+            ctx.beginPath();
+            ctx.arc(positronX, positronY, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+
+            info.textContent = 'Positron emitted. Click again to show annihilation.';
+            emitButton.textContent = 'Show Annihilation';
+            emitButton.onclick = showAnnihilation;
+        }
+
+        function intersectLineCircle(x1, y1, x2, y2, cx, cy, r) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const a = dx * dx + dy * dy;
+            const b = 2 * (dx * (x1 - cx) + dy * (y1 - cy));
+            const c = (x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy) - r * r;
+            const discriminant = b * b - 4 * a * c;
+            
+            if (discriminant < 0) return null;
+            
+            const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+            
+            return [
+                { x: x1 + t1 * dx, y: y1 + t1 * dy },
+                { x: x1 + t2 * dx, y: y1 + t2 * dy }
+            ];
+        }
+
+        function showAnnihilation() {
+            const endX = positronX + Math.cos(angle) * 400;
+            const endY = positronY + Math.sin(angle) * 400;
+
+            const intersections = intersectLineCircle(positronX, positronY, endX, endY, centerX, centerY, ringRadius);
+
+            if (intersections) {
+                ctx.beginPath();
+                ctx.moveTo(intersections[0].x, intersections[0].y);
+                ctx.lineTo(intersections[1].x, intersections[1].y);
+                ctx.strokeStyle = 'yellow';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw detection points
+                ctx.beginPath();
+                ctx.arc(intersections[0].x, intersections[0].y, 8, 0, 2 * Math.PI);
+                ctx.arc(intersections[1].x, intersections[1].y, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = 'green';
+                ctx.fill();
+
+                info.textContent = 'Annihilation detected. The line of response is shown.';
+            } else {
+                info.textContent = 'Error: No intersection with detector ring found.';
+            }
+
+            emitButton.textContent = 'Emit Positron';
+            emitButton.onclick = emitPositron;
+        }
+
+        function reset() {
+            ctx.clearRect(0, 0, 400, 400);
+            drawDetectorRing();
+            drawBody();
+            info.textContent = 'Click "Emit Positron" to start the demonstration.';
+            emitButton.textContent = 'Emit Positron';
+            emitButton.onclick = emitPositron;
+        }
+
+        emitButton.onclick = emitPositron;
+        resetButton.onclick = reset;
+
+        reset();
+    </script>
+</body>
+</html>
