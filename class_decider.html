@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Class Activity Randomizer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 90%;
+            width: 400px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+        #result {
+            font-size: 1.5rem;
+            margin: 1.5rem 0;
+            font-weight: 600;
+            min-height: 2em;
+            color: #4a4a4a;
+            transition: all 0.3s ease;
+        }
+        button {
+            background-color: #667eea;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 18px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(102, 126, 234, 0.4);
+            font-weight: 600;
+        }
+        button:hover {
+            background-color: #5a6fd6;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(102, 126, 234, 0.6);
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Class Activity Randomizer</h1>
+        <div id="result">Click 'Teach' to get started</div>
+        <button onclick="randomize()">Teach</button>
+    </div>
+
+    <script>
+        // Create an audio context
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        // Function to create and play a click sound
+        function playClickSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+
+            oscillator.start();
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // Function to create and play a result sound
+        function playResultSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+
+            oscillator.start();
+            oscillator.frequency.setValueAtTime(400, audioCtx.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(500, audioCtx.currentTime + 0.2);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function randomize() {
+            playClickSound();
+
+            const activities = [
+                "Start a lecture",
+                "Start the lecture",
+                "Start lecture",
+                "Start a lecture",
+                "Start the lecture",
+                "Start lecture",
+                "Start a lecture",
+                "Start the lecture",
+                "Start lecture",
+                "Keep teaching",
+                "Keep teaching",
+                "Give a quiz",
+                "Do a class activity",
+                "Tell a rambling pointless story",
+                "Have a group discussion",
+                "Show an educational video",
+                "Take a short break",
+                "Do a quick review of previous material",
+                "Have students teach a concept to each other"
+            ];
+            const result = activities[Math.floor(Math.random() * activities.length)];
+            const resultElement = document.getElementById("result");
+            resultElement.style.opacity = 0;
+            setTimeout(() => {
+                resultElement.textContent = result;
+                resultElement.style.opacity = 1;
+                playResultSound();
+            }, 300);
+        }
+    </script>
+</body>
+</html>
