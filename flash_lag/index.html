@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flash Lag Effect Demo</title>
+    <style>
+        /* CSS styles for the page layout and appearance */
+        body {
+            /* Center the content vertically and horizontally */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #222;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Styling for the container that holds the moving object and flash */
+        #container {
+            position: relative;
+            width: 800px;
+            height: 200px;
+            background-color: #000;
+            overflow: hidden;
+            border: 2px solid #fff;
+        }
+
+        /* Styling for the moving object */
+        #moving-object {
+            position: absolute;
+            top: 90px;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            background-color: #0f0;
+            border-radius: 50%;
+        }
+
+        /* Styling for the flash */
+        #flash {
+            position: absolute;
+            top: 120px;
+            left: 390px;
+            width: 20px;
+            height: 20px;
+            background-color: #ff0;
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        /* Styling for the controls section */
+        #controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        /* Styling for the start button */
+        #start-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #0f0;
+            border: none;
+            cursor: pointer;
+            color: #000;
+        }
+
+        /* Styling for the start button on hover */
+        #start-btn:hover {
+            background-color: #0c0;
+        }
+
+        /* Styling for the flash time input */
+        #flash-time-input {
+            width: 50px;
+            padding: 5px;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>press enter, watch the green dot</h1>
+    <!-- The container that holds the moving object and flash -->
+    <div id="container">
+        <div id="moving-object"></div>
+        <div id="flash"></div>
+    </div>
+    <!-- Controls section -->
+    <div id="controls">
+        <!-- Label and input for flash time percentage -->
+        <label for="flash-time-input">Flash Time (%):</label>
+        <input type="number" id="flash-time-input" value="50" min="0" max="100" step="0.5">
+        <!-- Start button -->
+        <button id="start-btn" type="button" autofocus>Start</button>
+    </div>
+    
+    <script>
+        // JavaScript code for the animation
+        const movingObject = document.getElementById('moving-object');
+        const flash = document.getElementById('flash');
+        const startBtn = document.getElementById('start-btn');
+        const flashTimeInput = document.getElementById('flash-time-input');
+        const container = document.getElementById('container');
+        let animationFrame;
+
+        // Event listener for the start button click
+        startBtn.addEventListener('click', () => {
+            startAnimation();
+        });
+
+        // Event listener for the Enter key press
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+            startAnimation();
+            }
+        });
+
+        // Function to start the animation
+        function startAnimation() {
+            let startTime = null;
+            const duration = 2000; // 2 seconds for a complete pass
+            const flashPercentage = parseFloat(flashTimeInput.value) / 100;
+            const flashTime = duration * flashPercentage;
+            flash.style.opacity = 0;
+
+            // Animation function
+            function animate(time) {
+                if (!startTime) startTime = time;
+                const elapsed = time - startTime;
+                const progress = elapsed / duration;
+                const position = progress * (container.clientWidth - movingObject.clientWidth);
+
+                movingObject.style.left = `${position}px`;
+
+                // Show the flash at the specified flash time
+                if (elapsed >= flashTime && elapsed < flashTime + 50) {
+                    flash.style.opacity = 1;
+                } else {
+                    flash.style.opacity = 0;
+                }
+
+                // Continue the animation until the duration is reached
+                if (elapsed < duration) {
+                    animationFrame = requestAnimationFrame(animate);
+                } else {
+                    cancelAnimationFrame(animationFrame);
+                }
+            }
+
+            // Cancel any previous animation frame and start the animation
+            cancelAnimationFrame(animationFrame);
+            animationFrame = requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
