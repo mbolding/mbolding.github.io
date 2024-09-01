@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Timer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+
+        body {
+            font-family: 'Special Elite', cursive;
+            background-color: #f0e6d2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #fff;
+            border: 2px solid #8b4513;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #8b4513;
+        }
+
+        #timer {
+            font-size: 48px;
+            margin: 20px 0;
+        }
+
+        input {
+            font-family: 'Special Elite', cursive;
+            font-size: 16px;
+            padding: 5px;
+            width: 50px;
+            margin-right: 5px;
+        }
+
+        button {
+            font-family: 'Special Elite', cursive;
+            font-size: 16px;
+            background-color: #8b4513;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #a0522d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Writing Timer</h1>
+        <div id="timer">25:00</div>
+        <div>
+            <input type="number" id="minutes" min="1" max="60" value="25">
+            <label for="minutes">minutes</label>
+        </div>
+        <br>
+        <button id="startStop">Start</button>
+    </div>
+
+    <script>
+        const timer = document.getElementById('timer');
+        const minutesInput = document.getElementById('minutes');
+        const startStopButton = document.getElementById('startStop');
+
+        let countdown;
+        let remainingTime;
+        let isRunning = false;
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, duration) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function updateDisplay(timeInSeconds) {
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = timeInSeconds % 60;
+            timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            const duration = parseInt(minutesInput.value, 10) * 60;
+            remainingTime = duration;
+            updateDisplay(remainingTime);
+
+            playSound(440, 0.1); // Play a short beep when starting
+
+            countdown = setInterval(() => {
+                remainingTime--;
+                updateDisplay(remainingTime);
+
+                if (remainingTime <= 0) {
+                    clearInterval(countdown);
+                    isRunning = false;
+                    startStopButton.textContent = 'Start';
+                    playSound(880, 0.5); // Play a longer beep when finished
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(countdown);
+            playSound(330, 0.1); // Play a short lower beep when stopping
+        }
+
+        startStopButton.addEventListener('click', () => {
+            if (!isRunning) {
+                startTimer();
+                isRunning = true;
+                startStopButton.textContent = 'Stop';
+            } else {
+                stopTimer();
+                isRunning = false;
+                startStopButton.textContent = 'Start';
+            }
+        });
+
+        minutesInput.addEventListener('change', () => {
+            if (!isRunning) {
+                const minutes = parseInt(minutesInput.value, 10);
+                updateDisplay(minutes * 60);
+            }
+        });
+    </script>
+</body>
+</html>
