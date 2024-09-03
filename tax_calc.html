@@ -5,16 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tip Calculator</title>
     <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --background-color: #ecf0f1;
+            --text-color: #34495e;
+            --card-background: #ffffff;
+        }
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 100%;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f0f0f0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            box-sizing: border-box;
+        }
+        .card {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
         }
         h1 {
             text-align: center;
-            color: #333;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            font-size: 24px;
         }
         .input-container {
             margin-bottom: 20px;
@@ -22,81 +42,121 @@
         label {
             display: block;
             margin-bottom: 5px;
+            font-weight: bold;
         }
         input {
             width: 100%;
             padding: 10px;
             font-size: 16px;
-            border: 1px solid #ccc;
+            border: 2px solid var(--primary-color);
             border-radius: 4px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
         }
         button {
             display: block;
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             font-size: 16px;
-            background-color: #4CAF50;
+            background-color: var(--primary-color);
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            transition: background-color 0.3s ease;
         }
         button:hover {
-            background-color: #45a049;
+            background-color: var(--secondary-color);
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            overflow: hidden;
+            border-radius: 8px;
         }
         th, td {
-            border: 1px solid #ddd;
             padding: 12px;
             text-align: left;
         }
         th {
-            background-color: #4CAF50;
+            background-color: var(--primary-color);
             color: white;
+            font-weight: bold;
         }
         tr:nth-child(even) {
-            background-color: #f2f2f2;
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        tr {
+            transition: background-color 0.3s ease;
+        }
+        tr:hover {
+            background-color: rgba(52, 152, 219, 0.2);
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .card {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            input, button {
+                font-size: 14px;
+            }
+            table {
+                font-size: 14px;
+            }
+            th, td {
+                padding: 8px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Tip Calculator</h1>
-    <div class="input-container">
-        <label for="charge">Enter the charge amount:</label>
-        <input type="number" id="charge" step="0.01" min="0" placeholder="Enter amount">
+    <div class="card">
+        <h1>Tip Calculator</h1>
+        <div class="input-container">
+            <label for="charge">Enter the charge amount:</label>
+            <input type="number" id="charge" step="0.01" min="0" placeholder="Enter amount">
+        </div>
+        <button onclick="calculateTip()">Calculate Tip</button>
     </div>
-    <button onclick="calculateTip()">Calculate Tip</button>
-    <table id="resultTable">
-        <tr>
-            <th>Tip Percentage</th>
-            <th>Tip Amount</th>
-            <th>Total</th>
-        </tr>
-        <tr>
-            <td>10%</td>
-            <td id="tip10"></td>
-            <td id="total10"></td>
-        </tr>
-        <tr>
-            <td>15%</td>
-            <td id="tip15"></td>
-            <td id="total15"></td>
-        </tr>
-        <tr>
-            <td>20%</td>
-            <td id="tip20"></td>
-            <td id="total20"></td>
-        </tr>
-        <tr>
-            <td>25%</td>
-            <td id="tip25"></td>
-            <td id="total25"></td>
-        </tr>
-    </table>
+    <div class="card">
+        <table id="resultTable">
+            <tr>
+                <th>Tip %</th>
+                <th>Tip</th>
+                <th>Total</th>
+            </tr>
+            <tr>
+                <td>10%</td>
+                <td id="tip10"></td>
+                <td id="total10"></td>
+            </tr>
+            <tr>
+                <td>15%</td>
+                <td id="tip15"></td>
+                <td id="total15"></td>
+            </tr>
+            <tr>
+                <td>20%</td>
+                <td id="tip20"></td>
+                <td id="total20"></td>
+            </tr>
+            <tr>
+                <td>25%</td>
+                <td id="tip25"></td>
+                <td id="total25"></td>
+            </tr>
+        </table>
+    </div>
 
     <script>
         function calculateTip() {
