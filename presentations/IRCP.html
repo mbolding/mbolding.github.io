@@ -1319,13 +1319,18 @@
             // Update current slide index
             currentSlide = index;
 
+            // Update URL without reloading the page
+            history.pushState(null, null, `#slide-${currentSlide + 1}`);
+
             // Update button states
             document.getElementById('prev-btn').disabled = currentSlide === 0;
             document.getElementById('next-btn').disabled = currentSlide === totalSlides - 1;
         }
 
         // Initialize
-        showSlide(0);
+        const hash = window.location.hash;
+        const initialSlide = hash.startsWith('#slide-') ? parseInt(hash.replace('#slide-', '')) - 1 : 0;
+        showSlide(initialSlide >= 0 && initialSlide < totalSlides ? initialSlide : 0);
 
         // Event listeners for navigation buttons
         document.getElementById('prev-btn').addEventListener('click', () => {
@@ -1354,8 +1359,7 @@
                 showSlide(0);
             } else if (e.key === 'ArrowDown') {
                 showSlide(totalSlides - 1);
-            }   
-
+            }
         });
     </script>
 </body>
