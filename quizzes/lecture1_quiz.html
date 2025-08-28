@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Foundations of Imaging Quiz</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        // Simple icon components using Unicode symbols
+        const CheckCircle = () => <span style={{color: '#10b981'}}>✓</span>;
+        const XCircle = () => <span style={{color: '#ef4444'}}>✗</span>;
+        const RotateCcw = () => <span>↻</span>;
+
+        function ImagingFoundationsQuiz() {
+            const questions = [
+                {
+                    question: "What is the main difference between a pixel and a voxel?",
+                    options: [
+                        "Pixels are larger than voxels",
+                        "Pixels represent 2D points while voxels represent 3D volumes",
+                        "Voxels are used only in medical imaging",
+                        "There is no difference"
+                    ],
+                    correct: 1
+                },
+                {
+                    question: "Which of the following correctly represents the dimensional progression from scalar to tensor?",
+                    options: [
+                        "Tensor → Matrix → Vector → Scalar",
+                        "Scalar → Matrix → Vector → Tensor",
+                        "Scalar → Vector → Matrix → Tensor",
+                        "Vector → Scalar → Tensor → Matrix"
+                    ],
+                    correct: 2
+                },
+                {
+                    question: "What does the Fourier transform do to a signal?",
+                    options: [
+                        "Amplifies the signal strength",
+                        "Decomposes it into its constituent frequencies",
+                        "Converts it from analog to digital",
+                        "Removes noise from the signal"
+                    ],
+                    correct: 1
+                },
+                {
+                    question: "In the context of linear algebra for neuroimaging, what are eigenvalues and eigenvectors used for?",
+                    options: [
+                        "Only for image compression",
+                        "Diagonalizing matrices and techniques like PCA",
+                        "Converting pixels to voxels",
+                        "Measuring brain volume"
+                    ],
+                    correct: 1
+                },
+                {
+                    question: "According to the lecture, which property states that the Fourier transform preserves the energy of a signal?",
+                    options: [
+                        "Linearity property",
+                        "Convolution property",
+                        "Parseval's theorem",
+                        "Time-shift property"
+                    ],
+                    correct: 2
+                },
+                {
+                    question: "In the student exam scores example, what would a tensor represent?",
+                    options: [
+                        "A single exam score",
+                        "Scores for one student across multiple exams",
+                        "Scores for multiple students on one exam",
+                        "Scores for multiple students across multiple exams"
+                    ],
+                    correct: 3
+                },
+                {
+                    question: "What format is mentioned as the standard for clinical image data?",
+                    options: [
+                        "JPEG",
+                        "NIFTI",
+                        "DICOM",
+                        "PNG"
+                    ],
+                    correct: 2
+                },
+                {
+                    question: "Which of the following is NOT mentioned as one of the standard neuroimaging analysis packages?",
+                    options: [
+                        "SPM",
+                        "FSL",
+                        "AFNI",
+                        "Photoshop"
+                    ],
+                    correct: 3
+                },
+                {
+                    question: "What mathematical concept allows matrices to represent linear transformations between vector spaces?",
+                    options: [
+                        "Matrix determinants",
+                        "Change of basis",
+                        "Matrix subtraction",
+                        "Matrix transposition"
+                    ],
+                    correct: 1
+                },
+                {
+                    question: "According to the lecture, what is UAB's supercomputer called?",
+                    options: [
+                        "Dragon",
+                        "Blazer",
+                        "Cheaha",
+                        "Vulcan"
+                    ],
+                    correct: 2
+                }
+            ];
+
+            const [currentQuestion, setCurrentQuestion] = useState(0);
+            const [selectedAnswer, setSelectedAnswer] = useState(null);
+            const [showResult, setShowResult] = useState(false);
+            const [score, setScore] = useState(0);
+            const [answered, setAnswered] = useState(new Array(questions.length).fill(false));
+            const [userAnswers, setUserAnswers] = useState(new Array(questions.length).fill(null));
+            const [quizComplete, setQuizComplete] = useState(false);
+
+            const handleAnswer = (optionIndex) => {
+                if (showResult) return;
+                
+                setSelectedAnswer(optionIndex);
+                const newUserAnswers = [...userAnswers];
+                newUserAnswers[currentQuestion] = optionIndex;
+                setUserAnswers(newUserAnswers);
+                
+                const newAnswered = [...answered];
+                newAnswered[currentQuestion] = true;
+                setAnswered(newAnswered);
+                
+                setShowResult(true);
+                
+                if (optionIndex === questions[currentQuestion].correct) {
+                    if (!answered[currentQuestion]) {
+                        setScore(score + 1);
+                    }
+                }
+            };
+
+            const nextQuestion = () => {
+                if (currentQuestion < questions.length - 1) {
+                    setCurrentQuestion(currentQuestion + 1);
+                    setSelectedAnswer(userAnswers[currentQuestion + 1]);
+                    setShowResult(answered[currentQuestion + 1]);
+                } else {
+                    setQuizComplete(true);
+                }
+            };
+
+            const prevQuestion = () => {
+                if (currentQuestion > 0) {
+                    setCurrentQuestion(currentQuestion - 1);
+                    setSelectedAnswer(userAnswers[currentQuestion - 1]);
+                    setShowResult(answered[currentQuestion - 1]);
+                }
+            };
+
+            const resetQuiz = () => {
+                setCurrentQuestion(0);
+                setSelectedAnswer(null);
+                setShowResult(false);
+                setScore(0);
+                setAnswered(new Array(questions.length).fill(false));
+                setUserAnswers(new Array(questions.length).fill(null));
+                setQuizComplete(false);
+            };
+
+            const getScoreMessage = () => {
+                const percentage = (score / questions.length) * 100;
+                if (percentage === 100) return "Perfect! Excellent understanding of the material! 🎉";
+                if (percentage >= 80) return "Great job! You have a strong grasp of the concepts! 👏";
+                if (percentage >= 60) return "Good effort! Review the topics you missed. 📚";
+                return "Keep studying! Review the lecture material and try again. 💪";
+            };
+
+            if (quizComplete) {
+                return (
+                    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+                        <h2 className="text-2xl font-bold text-center mb-6 text-blue-600">
+                            Quiz Complete!
+                        </h2>
+                        <div className="text-center mb-6">
+                            <div className="text-5xl font-bold text-blue-600 mb-2">
+                                {score}/{questions.length}
+                            </div>
+                            <div className="text-lg text-gray-600">
+                                {((score / questions.length) * 100).toFixed(0)}% Correct
+                            </div>
+                            <p className="mt-4 text-gray-700">{getScoreMessage()}</p>
+                        </div>
+                        
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold mb-3">Review Your Answers:</h3>
+                            <div className="space-y-2">
+                                {questions.map((q, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                        {userAnswers[idx] === q.correct ? (
+                                            <CheckCircle />
+                                        ) : (
+                                            <XCircle />
+                                        )}
+                                        <span className="text-sm">
+                                            Question {idx + 1}: {userAnswers[idx] === q.correct ? 'Correct' : 'Incorrect'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <button
+                            onClick={resetQuiz}
+                            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <RotateCcw />
+                            Retake Quiz
+                        </button>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold text-blue-600">
+                                Mathematical Foundations of Imaging Quiz
+                            </h2>
+                            <span className="text-sm text-gray-600">
+                                Score: {score}/{questions.length}
+                            </span>
+                        </div>
+                        
+                        <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                            <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+                            />
+                        </div>
+                        
+                        <p className="text-sm text-gray-600">
+                            Question {currentQuestion + 1} of {questions.length}
+                        </p>
+                    </div>
+
+                    <div className="mb-6">
+                        <h3 className="text-lg font-semibold mb-4">
+                            {questions[currentQuestion].question}
+                        </h3>
+                        
+                        <div className="space-y-3">
+                            {questions[currentQuestion].options.map((option, idx) => {
+                                const isCorrect = idx === questions[currentQuestion].correct;
+                                const isSelected = idx === selectedAnswer;
+                                
+                                let buttonClass = "w-full text-left p-4 rounded-lg border-2 transition-all ";
+                                
+                                if (!showResult) {
+                                    buttonClass += isSelected 
+                                        ? "border-blue-500 bg-blue-50" 
+                                        : "border-gray-300 hover:border-gray-400 hover:bg-gray-50";
+                                } else {
+                                    if (isCorrect) {
+                                        buttonClass += "border-green-500 bg-green-50";
+                                    } else if (isSelected && !isCorrect) {
+                                        buttonClass += "border-red-500 bg-red-50";
+                                    } else {
+                                        buttonClass += "border-gray-300 bg-gray-50";
+                                    }
+                                }
+                                
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleAnswer(idx)}
+                                        className={buttonClass}
+                                        disabled={showResult}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span>{option}</span>
+                                            {showResult && isCorrect && (
+                                                <CheckCircle />
+                                            )}
+                                            {showResult && isSelected && !isCorrect && (
+                                                <XCircle />
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        
+                        {showResult && (
+                            <div className={`mt-4 p-3 rounded-lg ${
+                                selectedAnswer === questions[currentQuestion].correct 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                            }`}>
+                                {selectedAnswer === questions[currentQuestion].correct 
+                                    ? '✓ Correct!' 
+                                    : `✗ Incorrect. The correct answer is: ${questions[currentQuestion].options[questions[currentQuestion].correct]}`}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={prevQuestion}
+                            disabled={currentQuestion === 0}
+                            className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
+                                currentQuestion === 0 
+                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                            }`}
+                        >
+                            Previous
+                        </button>
+                        
+                        {currentQuestion === questions.length - 1 ? (
+                            <button
+                                onClick={() => setQuizComplete(true)}
+                                disabled={!showResult}
+                                className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
+                                    !showResult
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
+                            >
+                                Finish Quiz
+                            </button>
+                        ) : (
+                            <button
+                                onClick={nextQuestion}
+                                disabled={!showResult}
+                                className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
+                                    !showResult
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                            >
+                                Next
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ImagingFoundationsQuiz />);
+    </script>
+</body>
+</html>
