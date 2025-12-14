@@ -1,82 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Calculator</title>
+    <title>Calculator</title>
     <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --calc-bg: #e0e0e0;
+            --display-bg: #222;
+            --display-text: #fff;
+            --btn-bg: #fff;
+            --btn-text: #000;
+            --btn-hover: #d4d4d4;
+            --btn-active: #ccc;
+            --accent-color: #ff3b30;
+            /* Swiss Red */
+            --accent-text: #fff;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #f0f0f0;
+            background-color: var(--bg-color);
+            color: #333;
         }
+
         .calculator {
-            background-color: #fff;
+            background-color: var(--calc-bg);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 320px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
         }
+
         .display {
             width: 100%;
-            height: 50px;
+            height: 80px;
             margin-bottom: 20px;
             text-align: right;
-            padding: 10px;
-            font-size: 24px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            padding: 15px;
+            font-size: 48px;
+            font-weight: 300;
+            background-color: var(--display-bg);
+            color: var(--display-text);
+            border: none;
             box-sizing: border-box;
+            letter-spacing: -1px;
         }
+
         .buttons {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+            gap: 1px;
+            /* Very thin gap for that sharp look */
         }
+
         .buttons button {
             width: 100%;
-            padding: 20px;
-            font-size: 18px;
+            height: 70px;
+            font-size: 24px;
+            font-weight: 400;
             border: none;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-            box-shadow: 0 2px #ccc;
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.1s ease;
+            outline: none;
         }
+
         .buttons button:hover {
-            background-color: #e0e0e0;
+            background-color: var(--btn-hover);
         }
+
         .buttons button:active {
-            box-shadow: none;
-            transform: translateY(2px);
+            background-color: var(--btn-active);
+        }
+
+        .buttons button.operator {
+            background-color: #f0f0f0;
+            font-weight: 500;
+        }
+
+        .buttons button.critical-action {
+            background-color: var(--accent-color);
+            color: var(--accent-text);
+        }
+
+        .buttons button.critical-action:hover {
+            opacity: 0.9;
+        }
+
+        .span-2-col {
+            grid-column: span 2;
+        }
+
+        .span-2-row {
+            grid-row: span 2;
         }
     </style>
 </head>
+
 <body>
     <div class="calculator">
         <input type="text" class="display" id="display" readonly>
         <div class="buttons">
-            <button onclick="clearDisplay()">C</button>
-            <button onclick="deleteLast()">DEL</button>
-            <button onclick="appendOperator('/')">/</button>
-            <button onclick="appendOperator('*')">*</button>
+            <button onclick="clearDisplay()" class="critical-action">C</button>
+            <button onclick="deleteLast()" class="operator">DEL</button>
+            <button onclick="appendOperator('/')" class="operator">/</button>
+            <button onclick="appendOperator('*')" class="operator">×</button>
+
             <button onclick="appendNumber(7)">7</button>
             <button onclick="appendNumber(8)">8</button>
             <button onclick="appendNumber(9)">9</button>
-            <button onclick="appendOperator('-')">-</button>
+            <button onclick="appendOperator('-')" class="operator">−</button>
+
             <button onclick="appendNumber(4)">4</button>
             <button onclick="appendNumber(5)">5</button>
             <button onclick="appendNumber(6)">6</button>
-            <button onclick="appendOperator('+')">+</button>
+            <button onclick="appendOperator('+')" class="operator">+</button>
+
             <button onclick="appendNumber(1)">1</button>
             <button onclick="appendNumber(2)">2</button>
             <button onclick="appendNumber(3)">3</button>
-            <button rowspan="2" onclick="calculateResult()">=</button>
-            <button colspan="2" onclick="appendNumber(0)">0</button>
+            <button onclick="calculateResult()" class="span-2-row critical-action">=</button>
+
+            <button onclick="appendNumber(0)" class="span-2-col">0</button>
             <button onclick="appendNumber('.')">.</button>
         </div>
     </div>
@@ -104,11 +157,32 @@
 
         function calculateResult() {
             try {
+                // Determine if we need to replace visual operators with JS ones
+                // Since we are appending exact chars, we might need to handle '×' and '−'
+                // However, the onclick handlers in my HTML passed '*' and '-' correctly.
+                // Let's ensure the display shows nice chars but evaluates correct ones?
+                // For simplicity in this v1, I used the JS chars in the onclicks,
+                // BUT I changed the button labels to be pretty (×, −).
+                // The onclicks still pass '*' and '-'.
+                // So the display will show '*' and '-'. 
+                // That's fine for now, or we can make it fancier later.
                 display.value = eval(display.value);
             } catch {
                 display.value = 'Error';
             }
         }
+
+        // Add keyboard support
+        document.addEventListener('keydown', (event) => {
+            const key = event.key;
+            if (/[0-9]/.test(key)) appendNumber(key);
+            if (['+', '-', '*', '/'].includes(key)) appendOperator(key);
+            if (key === 'Enter') calculateResult();
+            if (key === 'Backspace') deleteLast();
+            if (key === 'Escape') clearDisplay();
+            if (key === '.') appendNumber('.');
+        });
     </script>
 </body>
+
 </html>
