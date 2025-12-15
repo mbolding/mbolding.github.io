@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Design Process Guide</title>
+    <style>
+        :root {
+            --primary-color: #d50000;
+            --secondary-color: #212121;
+            --background-color: #f5f5f5;
+            --font-family: 'Helvetica Neue', Arial, sans-serif;
+            --font-size: 16px;
+            --success-color: #4CAF50;
+            --light-gray: #f0f0f0;
+            --medium-gray: #e0e0e0;
+            --dark-gray: #888;
+        }
+
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            background-color: var(--background-color);
+            color: var(--secondary-color);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1200px;
+            background-color: #fff;
+            box-shadow: 0 0 30px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: var(--secondary-color);
+            color: #fff;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 { font-size: 2rem; margin: 0; font-weight: 700; }
+        
+        #exportBtn {
+            background-color: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #exportBtn:hover { background-color: #f44336; }
+
+        .progress-bar-container { width: 100%; background-color: var(--medium-gray); height: 10px; }
+        .progress-bar { width: 0%; height: 100%; background-color: var(--success-color); transition: width 0.4s ease-in-out; }
+
+        .main-content { display: flex; flex: 1; }
+        .sidebar { width: 280px; background-color: var(--light-gray); padding-top: 1rem; }
+        .sidebar ul { list-style: none; padding: 0; margin: 0; }
+        .sidebar li {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            border-left: 5px solid transparent;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        .sidebar li:hover { background-color: var(--medium-gray); }
+        .sidebar li.active { border-left: 5px solid var(--primary-color); background-color: #fff; }
+        .sidebar li .icon { margin-right: 1rem; width: 24px; height: 24px; transition: transform 0.3s; }
+        .sidebar li.completed .icon { transform: scale(1.2); }
+
+        .step-content { padding: 2rem; width: calc(100% - 280px); position: relative; }
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .step h2 { font-size: 2rem; font-weight: 700; margin-top: 0; color: var(--primary-color); }
+        .step h3 { font-size: 1.5rem; font-weight: 600; margin-top: 2rem; border-bottom: 2px solid var(--light-gray); padding-bottom: 0.5rem; }
+        .step p { line-height: 1.6; }
+
+        /* Interactive elements styling */
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid var(--medium-gray);
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .dynamic-list { list-style: none; padding: 0; }
+        .dynamic-list li { display: flex; align-items: center; margin-bottom: 0.5rem; }
+        .dynamic-list li input { flex-grow: 1; margin-right: 0.5rem; }
+        .remove-btn, .add-btn {
+            background: var(--secondary-color); color: white; border: none; padding: 0.5rem; cursor: pointer;
+        }
+        .decision-matrix { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .decision-matrix th, .decision-matrix td { border: 1px solid var(--medium-gray); padding: 0.8rem; text-align: left; }
+        .decision-matrix th { background-color: var(--light-gray); }
+        .decision-matrix input { width: 60px; text-align: center; }
+
+        .step-footer { margin-top: 1.5rem; }
+        .step-footer label { display: flex; align-items: center; font-weight: 600; cursor: pointer; }
+        .step-footer input[type="checkbox"] { margin-right: 0.5rem; width: 18px; height: 18px; }
+        
+        .navigation { display: flex; justify-content: space-between; padding: 1.5rem 2rem; border-top: 2px solid var(--light-gray); }
+        .navigation button {
+            background-color: var(--secondary-color); color: #fff; border: none; padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer;
+        }
+        .navigation button:hover { background-color: var(--primary-color); }
+        .navigation button:disabled { background-color: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>Engineering Design Process</h1>
+            <button id="exportBtn">Export Project</button>
+        </header>
+        <div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div>
+        <main class="main-content">
+            <aside class="sidebar"><ul id="sidebar-list"></ul></aside>
+            <div class="step-content" id="step-content-container"></div>
+        </main>
+        <div class="navigation">
+            <button id="prevBtn">Previous</button>
+            <button id="nextBtn">Next</button>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const stepsData = [
+            { id: 1, title: "Define Problem", description: "State the problem, identify the user, and clarify the goal." },
+            { id: 2, title: "Research", description: "Gather information about the problem and existing solutions." },
+            { id: 3, title: "Requirements", description: "Define criteria and constraints for a successful solution." },
+            { id: 4, title: "Brainstorm", description: "Generate a wide variety of possible solutions." },
+            { id: 5, title: "Choose Solution", description: "Evaluate ideas and select the most promising one." },
+            { id: 6, title: "Develop", description: "Build a working model or prototype." },
+            { id: 7, title: "Test & Redesign", description: "Test your prototype and iterate on the design." },
+            { id: 8, title: "Communicate", description: "Present your final solution and design process." }
+        ];
+
+        const sidebarList = document.getElementById('sidebar-list');
+        const stepContentContainer = document.getElementById('step-content-container');
+        const progressBar = document.getElementById('progressBar');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const exportBtn = document.getElementById('exportBtn');
+
+        let currentStep = 1;
+        let projectData = {};
+
+        function initialize() {
+            loadState();
+            render();
+        }
+
+        function loadState() {
+            const savedStep = localStorage.getItem('currentStep');
+            currentStep = savedStep ? parseInt(savedStep, 10) : 1;
+            
+            const savedData = localStorage.getItem('projectData');
+            projectData = savedData ? JSON.parse(savedData) : {
+                completedSteps: [],
+                step1: { user: '', need: '', goal: '' },
+                step2: { links: [] },
+                step3: { requirements: [] },
+                step4: { ideas: [] },
+                step5: { criteria: [], solutions: [], matrix: {} },
+                step6: { bom: [], plan: [] },
+                step_7_test_plan: [],
+                step8: { notes: '' },
+            };
+        }
+        
+        function saveState() {
+            localStorage.setItem('currentStep', currentStep);
+            localStorage.setItem('projectData', JSON.stringify(projectData));
+        }
+
+        function render() {
+            renderSidebar();
+            renderStepContent();
+            updateUI();
+        }
+
+        function renderSidebar() {
+            sidebarList.innerHTML = '';
+            stepsData.forEach(step => {
+                const isCompleted = projectData.completedSteps.includes(step.id);
+                const li = document.createElement('li');
+                li.dataset.step = step.id;
+                li.classList.toggle('completed', isCompleted);
+                
+                const icon = isCompleted 
+                    ? `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--success-color)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`
+                    : `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#888"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>`;
+
+                li.innerHTML = `${icon} ${step.id}. ${step.title}`;
+                li.addEventListener('click', () => { currentStep = step.id; render(); });
+                sidebarList.appendChild(li);
+            });
+        }
+
+        function renderStepContent() {
+            const step = stepsData[currentStep - 1];
+            let contentHTML = `
+                <div class="step active">
+                    <h2>${step.id}. ${step.title}</h2>
+                    <p>${step.description}</p>
+                    ${getStepInteractiveContent(step.id)}
+                    <div class="step-footer">
+                        <label>
+                            <input type="checkbox" class="complete-checkbox" ${projectData.completedSteps.includes(step.id) ? 'checked' : ''} />
+                            Mark as Complete
+                        </label>
+                    </div>
+                </div>`;
+            stepContentContainer.innerHTML = contentHTML;
+            attachEventListeners(step.id);
+        }
+
+                function getStepInteractiveContent(stepId) {
+            switch (stepId) {
+                case 1:
+                    return `
+                        <h3>Problem Statement</h3>
+                        <div class="form-group">
+                            <label for="step1-user">Who is this for? (The User)</label>
+                            <input type="text" id="step1-user" value="${projectData.step1.user}">
+                        </div>
+                        <div class="form-group">
+                            <label for="step1-need">What do they need? (The Need)</label>
+                            <input type="text" id="step1-need" value="${projectData.step1.need}">
+                        </div>
+                        <div class="form-group">
+                            <label for="step1-goal">What is the desired outcome? (The Goal)</label>
+                            <input type="text" id="step1-goal" value="${projectData.step1.goal}">
+                        </div>
+                    `;
+                case 2:
+                    const linksHTML = projectData.step2.links.map((link, index) => `<li><input type="text" placeholder="URL" value="${link.url}" data-index="${index}" data-field="url"> <input type="text" placeholder="Description" value="${link.desc}" data-index="${index}" data-field="desc"> <button class="remove-btn" data-index="${index}">X</button></li>`).join('');
+                    return `
+                        <h3>Research Links</h3>
+                        <ul class="dynamic-list" id="step2-links">${linksHTML}</ul>
+                        <button class="add-btn" id="step2-add-link">Add Link</button>
+                    `;
+                case 3:
+                    const reqsHTML = projectData.step3.requirements.map((req, index) => `<li><input type="text" placeholder="Requirement" value="${req.text}" data-index="${index}" data-field="text">
+                            <select data-index="${index}" data-field="priority">
+                                <option value="must" ${req.priority === 'must' ? 'selected' : ''}>Must Have</option>
+                                <option value="should" ${req.priority === 'should' ? 'selected' : ''}>Should Have</option>
+                                <option value="could" ${req.priority === 'could' ? 'selected' : ''}>Could Have</option>
+                            </select>
+                            <button class="remove-btn" data-index="${index}">X</button></li>`).join('');
+                    return `
+                        <h3>Requirements List</h3>
+                        <ul class="dynamic-list" id="step3-reqs">${reqsHTML}</ul>
+                        <button class="add-btn" id="step3-add-req">Add Requirement</button>
+                    `;
+                case 4:
+                    const ideasHTML = projectData.step4.ideas.map((idea, index) => `<li><input type="text" placeholder="Idea" value="${idea}" data-index="${index}"> <button class="remove-btn" data-index="${index}">X</button></li>`).join('');
+                    return `
+                        <h3>Brainstormed Ideas</h3>
+                        <ul class="dynamic-list" id="step4-ideas">${ideasHTML}</ul>
+                        <button class="add-btn" id="step4-add-idea">Add Idea</button>
+                    `;
+                case 5:
+                    const criteria = projectData.step3.requirements.map(r => r.text).filter(Boolean);
+                    const solutions = projectData.step4.ideas.filter(Boolean);
+
+                    // Rebuild matrix structure but preserve old scores
+                    const newMatrix = {};
+                    solutions.forEach(sol => {
+                        newMatrix[sol] = {};
+                        criteria.forEach(crit => {
+                            const oldScore = projectData.step5.matrix?.[sol]?.[crit] || 0;
+                            newMatrix[sol][crit] = oldScore;
+                        });
+                    });
+                    projectData.step5.matrix = newMatrix;
+                    
+                    if (solutions.length === 0 || criteria.length === 0) {
+                        return '<p>Please add at least one requirement in Step 3 and one idea in Step 4 to use the decision matrix.</p>';
+                    }
+
+                    let matrixHTML = '<table class="decision-matrix" id="step5-matrix"><thead><tr><th>Solution</th>';
+                    criteria.forEach(c => matrixHTML += `<th>${c}</th>`);
+                    matrixHTML += '<th>Total</th></tr></thead><tbody>';
+
+                    let bestSolution = '';
+                    let maxScore = -1;
+
+                    solutions.forEach(sol => {
+                        let total = 0;
+                        matrixHTML += `<tr><td>${sol}</td>`;
+                        criteria.forEach(crit => {
+                            const score = projectData.step5.matrix[sol]?.[crit] || 0;
+                            total += parseInt(score);
+                            matrixHTML += `<td><input type="number" min="0" max="5" value="${score}" data-solution="${sol}" data-criterion="${crit}"></td>`;
+                        });
+
+                        if (total > maxScore) {
+                            maxScore = total;
+                            bestSolution = sol;
+                        }
+                        matrixHTML += `<td>${total}</td></tr>`;
+                    });
+                    matrixHTML += '</tbody></table>';
+                    
+                    // Highlight the best solution
+                    if (bestSolution) {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = matrixHTML;
+                        const rows = tempDiv.querySelectorAll('tbody tr');
+                        rows.forEach(row => {
+                            if (row.cells[0].innerText === bestSolution) {
+                                row.style.backgroundColor = '#dff0d8';
+                                row.style.fontWeight = 'bold';
+                            }
+                        });
+                        matrixHTML = tempDiv.innerHTML;
+                    }
+                    return matrixHTML;
+                case 6:
+                    const bomList = projectData.step6.bom.map((item, index) => `<li><input type="text" placeholder="Material" value="${item}" data-index="${index}" data-list="bom"> <button class="remove-btn" data-index="${index}" data-list="bom">X</button></li>`).join('');
+                    const planList = projectData.step6.plan.map((task, index) => `<li><input type="text" placeholder="Task" value="${task}" data-index="${index}" data-list="plan"> <button class="remove-btn" data-index="${index}" data-list="plan">X</button></li>`).join('');
+                    return `
+                        <div id="step6-container">
+                            <h3>Development Plan</h3>
+                            <h4>Bill of Materials</h4>
+                            <ul class="dynamic-list">${bomList}</ul>
+                            <button class="add-btn" data-list="bom">Add Material</button>
+                            <h4 style="margin-top: 2rem;">Task Checklist</h4>
+                            <ul class="dynamic-list">${planList}</ul>
+                            <button class="add-btn" data-list="plan">Add Task</button>
+                        </div>
+                    `;
+                case 7:
+                     let testPlanHTML = `<table class="decision-matrix" id="step7-test-plan"><thead><tr><th>Test</th><th>Expected Result</th><th>Actual Result</th><th></th></tr></thead><tbody>`;
+                     projectData.step_7_test_plan.forEach((test, index) => {
+                         testPlanHTML += `<tr>
+                            <td><input type="text" value="${test.test}" data-index="${index}" data-field="test"></td>
+                            <td><input type="text" value="${test.expected}" data-index="${index}" data-field="expected"></td>
+                            <td><input type="text" value="${test.actual}" data-index="${index}" data-field="actual"></td>
+                            <td><button class="remove-btn" data-index="${index}">X</button></td>
+                         </tr>`;
+                     });
+                     testPlanHTML += `</tbody></table>`;
+                     return testPlanHTML + `<button class="add-btn" id="step7-add-test">Add Test</button>`;
+                case 8:
+                    return `
+                        <h3>Final Notes & Summary</h3>
+                        <textarea id="step8-notes" style="min-height: 400px; width: 100%; box-sizing: border-box;">${projectData.step8.notes}</textarea>
+                    `;
+                default: return '';
+            }
+        }
+        
+        function attachEventListeners(stepId) {
+            const completeCheckbox = stepContentContainer.querySelector('.complete-checkbox');
+            if (completeCheckbox) {
+                completeCheckbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        if (!projectData.completedSteps.includes(stepId)) projectData.completedSteps.push(stepId);
+                    } else {
+                        projectData.completedSteps = projectData.completedSteps.filter(id => id !== stepId);
+                    }
+                    saveState();
+                    render();
+                });
+            }
+
+            switch (stepId) {
+                case 1:
+                    document.getElementById('step1-user')?.addEventListener('input', e => { projectData.step1.user = e.target.value; saveState(); });
+                    document.getElementById('step1-need')?.addEventListener('input', e => { projectData.step1.need = e.target.value; saveState(); });
+                    document.getElementById('step1-goal')?.addEventListener('input', e => { projectData.step1.goal = e.target.value; saveState(); });
+                    break;
+                case 2:
+                    const linksList = document.getElementById('step2-links');
+                    if(linksList) {
+                        linksList.addEventListener('input', e => {
+                            if(e.target.dataset.index) {
+                                const { index, field } = e.target.dataset;
+                                projectData.step2.links[index][field] = e.target.value;
+                                saveState();
+                            }
+                        });
+                        linksList.addEventListener('click', e => {
+                            if (e.target.classList.contains('remove-btn')) {
+                                projectData.step2.links.splice(e.target.dataset.index, 1);
+                                render();
+                            }
+                        });
+                    }
+                    document.getElementById('step2-add-link')?.addEventListener('click', () => {
+                        projectData.step2.links.push({ url: '', desc: '' });
+                        render();
+                    });
+                    break;
+                 case 3:
+                    const reqsList = document.getElementById('step3-reqs');
+                    if(reqsList){
+                        reqsList.addEventListener('input', e => {
+                             if(e.target.dataset.index) {
+                                const { index, field } = e.target.dataset;
+                                projectData.step3.requirements[index][field] = e.target.value;
+                                saveState();
+                            }
+                        });
+                         reqsList.addEventListener('change', e => {
+                             if(e.target.dataset.index) {
+                                const { index, field } = e.target.dataset;
+                                projectData.step3.requirements[index][field] = e.target.value;
+                                saveState();
+                            }
+                        });
+                        reqsList.addEventListener('click', e => {
+                            if (e.target.classList.contains('remove-btn')) {
+                                projectData.step3.requirements.splice(e.target.dataset.index, 1);
+                                render();
+                            }
+                        });
+                    }
+                    document.getElementById('step3-add-req')?.addEventListener('click', () => {
+                        projectData.step3.requirements.push({ text: '', priority: 'must' });
+                        render();
+                    });
+                    break;
+                case 4:
+                    const ideasList = document.getElementById('step4-ideas');
+                    if(ideasList) {
+                        ideasList.addEventListener('input', e => {
+                            if(e.target.dataset.index){
+                                projectData.step4.ideas[e.target.dataset.index] = e.target.value;
+                                saveState();
+                            }
+                        });
+                        ideasList.addEventListener('click', e => {
+                            if (e.target.classList.contains('remove-btn')) {
+                                projectData.step4.ideas.splice(e.target.dataset.index, 1);
+                                render();
+                            }
+                        });
+                    }
+                    document.getElementById('step4-add-idea')?.addEventListener('click', () => {
+                        projectData.step4.ideas.push('');
+                        render();
+                    });
+                    break;
+                case 5:
+                    const matrix = document.querySelector('#step5-matrix');
+                    if (matrix) {
+                        matrix.addEventListener('input', e => {
+                            const { solution, criterion } = e.target.dataset;
+                            if(projectData.step5.matrix[solution]){
+                                projectData.step5.matrix[solution][criterion] = e.target.value;
+                                saveState();
+                                render(); 
+                            }
+                        });
+                    }
+                    break;
+                case 6:
+                     const step6Container = document.getElementById('step6-container');
+                     if(step6Container) {
+                        step6Container.addEventListener('click', e => {
+                            if (e.target.classList.contains('add-btn')) {
+                                projectData.step6[e.target.dataset.list].push('');
+                                render();
+                            }
+                            if (e.target.classList.contains('remove-btn')) {
+                                const { list, index } = e.target.dataset;
+                                projectData.step6[list].splice(index, 1);
+                                render();
+                            }
+                        });
+                        step6Container.addEventListener('input', e => {
+                            if (e.target.dataset.list) {
+                                const { list, index } = e.target.dataset;
+                                projectData.step6[list][index] = e.target.value;
+                                saveState();
+                            }
+                        });
+                     }
+                    break;
+                case 7:
+                    const testPlanTable = document.querySelector('#step7-test-plan tbody');
+                    if(testPlanTable) {
+                        testPlanTable.addEventListener('input', e => {
+                            if(e.target.dataset.index){
+                                const {index, field} = e.target.dataset;
+                                projectData.step_7_test_plan[index][field] = e.target.value;
+                                saveState();
+                            }
+                        });
+                        testPlanTable.addEventListener('click', e => {
+                            if(e.target.classList.contains('remove-btn')){
+                                projectData.step_7_test_plan.splice(e.target.dataset.index, 1);
+                                render();
+                            }
+                        });
+                    }
+                    const addTestBtn = document.getElementById('step7-add-test');
+                    if(addTestBtn) {
+                        addTestBtn.addEventListener('click', () => {
+                            projectData.step_7_test_plan.push({test: '', expected: '', actual: ''});
+                            render();
+                        });
+                    }
+                    break;
+                case 8:
+                    document.getElementById('step8-notes')?.addEventListener('input', e => { projectData.step8.notes = e.target.value; saveState(); });
+                    break;
+            }
+        }
+        
+        function updateUI() {
+            const activeStepEl = sidebarList.querySelector(`li[data-step="${currentStep}"]`);
+            if (activeStepEl) activeStepEl.classList.add('active');
+
+            prevBtn.disabled = currentStep === 1;
+            nextBtn.disabled = currentStep === stepsData.length;
+
+            const progress = (projectData.completedSteps.length / stepsData.length) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        prevBtn.addEventListener('click', () => { if (currentStep > 1) { currentStep--; render(); saveState(); } });
+        nextBtn.addEventListener('click', () => { if (currentStep < stepsData.length) { currentStep++; render(); saveState(); } });
+        exportBtn.addEventListener('click', () => { 
+            let fullReport = "Engineering Design Process Report\n================================\n\n";
+            fullReport += `## 1. Define Problem\n- User: ${projectData.step1.user}\n- Need: ${projectData.step1.need}\n- Goal: ${projectData.step1.goal}\n\n`;
+            fullReport += `## 2. Research\n` + projectData.step2.links.map(l => `- [${l.desc}](${l.url})`).join('\n') + `\n\n`;
+            fullReport += `## 3. Requirements\n` + projectData.step3.requirements.map(r => `- ${r.text} [${r.priority}]`).join('\n') + `\n\n`;
+            fullReport += `## 4. Brainstormed Ideas\n` + projectData.step4.ideas.map(i => `- ${i}`).join('\n') + `\n\n`;
+            fullReport += `## 5. Decision Matrix\n ... \n\n`;
+            fullReport += `## 6. Development\n ### Bill of Materials\n` + projectData.step6.bom.map(i => `- ${i}`).join('\n') + `\n\n ### Plan\n` + projectData.step6.plan.map(i => `- ${i}`).join('\n') + `\n\n`;
+            fullReport += `## 7. Test Plan\n` + projectData.step_7_test_plan.map(t => `- Test: ${t.test}, Expected: ${t.expected}, Actual: ${t.actual}`).join('\n') + `\n\n`;
+            fullReport += `## 8. Final Notes\n${projectData.step8.notes}\n\n`;
+
+            const blob = new Blob([fullReport], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'design-project-report.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+
+        initialize();
+    });
+    </script>
+</body>
+</html>
