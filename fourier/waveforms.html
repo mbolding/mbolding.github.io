@@ -1,150 +1,403 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Waveform Demo</title>
+    <title>Fourier Transform Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-color: #ffffff;
+            --panel-bg: #f5f5f5;
+            --text-color: #111111;
+            --accent-color: #6600cc;
+            /* Purple */
+            --border-color: #e0e0e0;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            min-height: 100vh;
         }
-        #controlPanel {
+
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background-color: var(--panel-bg);
+            padding: 40px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+        }
+
+        .back-link {
+            display: inline-block;
             margin-bottom: 20px;
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
         }
-        canvas {
+
+        .back-link:hover {
+            color: var(--accent-color);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .control-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            color: #444;
+        }
+
+        select,
+        button {
+            width: 100%;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 14px;
             border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button {
+            background-color: var(--text-color);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background-color: var(--accent-color);
+        }
+
+        button.active {
+            background-color: var(--accent-color);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+            accent-color: var(--accent-color);
+        }
+
+        .value-display {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-color);
+            float: right;
+        }
+
+        .canvas-container {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            flex: 1;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #999;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
         }
     </style>
 </head>
+
 <body>
-    <h1>Fourier Transform Demo</h1>
-    <div id="controlPanel">
-        <label for="waveType">Wave Type:</label>
-        <select id="waveType">
-            <option value="sine">Sine</option>
-            <option value="square">Square</option>
-            <option value="sawtooth">Sawtooth</option>
-        </select>
-        <label for="frequency">Frequency:</label>
-        <input type="range" id="frequency" min="1" max="10" value="1" step="0.1">
-        <span id="frequencyValue">1 Hz</span>
+    <div class="container">
+        <aside class="sidebar">
+            <a href="index.html" class="back-link">← Back to Fourier</a>
+
+            <header>
+                <h1>Waveforms</h1>
+                <p>Interactive demonstration of basic waveforms and their frequency spectra.</p>
+            </header>
+
+            <div class="control-group">
+                <button id="startBtn">Start Audio Engine</button>
+            </div>
+
+            <div class="control-group">
+                <label for="waveType">Wave Type</label>
+                <select id="waveType">
+                    <option value="sine">Sine</option>
+                    <option value="square">Square</option>
+                    <option value="sawtooth">Sawtooth</option>
+                    <option value="triangle">Triangle</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="frequency">Frequency <span id="freqValue" class="value-display">440 Hz</span></label>
+                <input type="range" id="frequency" min="50" max="1000" value="440" step="1">
+            </div>
+
+            <div class="control-group">
+                <label for="volume">Volume <span id="volValue" class="value-display">0.1</span></label>
+                <input type="range" id="volume" min="0" max="0.5" value="0.1" step="0.01">
+            </div>
+
+            <div style="margin-top: auto; font-size: 12px; color: #999;">
+                <p><strong>Note:</strong> Turn volume down before starting.</p>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="canvas-container">
+                <div class="canvas-header">Time Domain (Osciloscope)</div>
+                <canvas id="timeCanvas"></canvas>
+            </div>
+            <div class="canvas-container">
+                <div class="canvas-header">Frequency Domain (Spectrum)</div>
+                <canvas id="freqCanvas"></canvas>
+            </div>
+        </main>
     </div>
-    <canvas id="canvas" width="800" height="400"></canvas>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
         const waveTypeSelect = document.getElementById('waveType');
-        const frequencyInput = document.getElementById('frequency');
-        const frequencyValue = document.getElementById('frequencyValue');
+        const freqSlider = document.getElementById('frequency');
+        const volSlider = document.getElementById('volume');
+        const freqValue = document.getElementById('freqValue');
+        const volValue = document.getElementById('volValue');
 
-        let time = 0;
-        let audioContext;
-        let analyser;
-        let dataArray;
+        const timeCanvas = document.getElementById('timeCanvas');
+        const freqCanvas = document.getElementById('freqCanvas');
+        const timeCtx = timeCanvas.getContext('2d');
+        const freqCtx = freqCanvas.getContext('2d');
+
+        let audioCtx;
         let oscillator;
+        let gainNode;
+        let analyser;
+        let isPlaying = false;
+        let animationId;
+
+        function resizeCanvas() {
+            // Make internal resolution match display size for crispness
+            timeCanvas.width = timeCanvas.offsetWidth * window.devicePixelRatio;
+            timeCanvas.height = timeCanvas.offsetHeight * window.devicePixelRatio;
+            freqCanvas.width = freqCanvas.offsetWidth * window.devicePixelRatio;
+            freqCanvas.height = freqCanvas.offsetHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
         function initAudio() {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 2048;
-            const bufferLength = analyser.frequencyBinCount;
-            dataArray = new Uint8Array(bufferLength);
+            if (audioCtx) return;
 
-            oscillator = audioContext.createOscillator();
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+
+            gainNode = audioCtx.createGain();
+            gainNode.gain.value = parseFloat(volSlider.value);
+
+            oscillator = audioCtx.createOscillator();
             oscillator.type = waveTypeSelect.value;
-            oscillator.frequency.setValueAtTime(parseFloat(frequencyInput.value), audioContext.currentTime);
-            
-            const gainNode = audioContext.createGain();
-            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Reduce volume
-            
+            oscillator.frequency.value = parseFloat(freqSlider.value);
+
             oscillator.connect(gainNode);
             gainNode.connect(analyser);
-            analyser.connect(audioContext.destination);
-            
+            analyser.connect(audioCtx.destination);
+
             oscillator.start();
+            isPlaying = true;
+            startBtn.textContent = 'Stop Audio';
+            startBtn.classList.add('active');
 
-            waveTypeSelect.addEventListener('change', () => {
-                oscillator.type = waveTypeSelect.value;
-            });
-
-            frequencyInput.addEventListener('input', () => {
-                oscillator.frequency.setValueAtTime(parseFloat(frequencyInput.value), audioContext.currentTime);
-                frequencyValue.textContent = `${frequencyInput.value} Hz`;
-            });
+            draw();
         }
 
-        function drawWaveform() {
-            const width = canvas.width;
-            const height = canvas.height;
-
-            ctx.strokeStyle = 'black';
-            ctx.beginPath();
-            for (let i = 0; i < width; i++) {
-                const x = i;
-                const t = i / width * 2 * Math.PI * parseFloat(frequencyInput.value) + time;
-                let y;
-                switch (waveTypeSelect.value) {
-                    case 'sine':
-                        y = Math.sin(t);
-                        break;
-                    case 'square':
-                        y = Math.sin(t) > 0 ? 1 : -1;
-                        break;
-                    case 'sawtooth':
-                        y = (t % (2 * Math.PI)) / Math.PI - 1;
-                        break;
-                }
-                y = (y * 0.5 + 0.5) * height / 2;
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+        function stopAudio() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
             }
-            ctx.stroke();
-        }
-
-        function drawSpectrum() {
-            analyser.getByteFrequencyData(dataArray);
-            const width = canvas.width;
-            const height = canvas.height;
-            const barWidth = width / analyser.frequencyBinCount;
-
-            ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
-            for (let i = 0; i < analyser.frequencyBinCount; i++) {
-                const barHeight = (dataArray[i] / 255) * height / 2;
-                ctx.fillRect(i * barWidth, height - barHeight, barWidth, barHeight);
+            if (gainNode) {
+                gainNode.disconnect();
             }
+            // Keep context for reuse? Usually easier to close or suspend, 
+            // but for simple demo we can just nullify osc.
+            isPlaying = false;
+            startBtn.textContent = 'Start Audio Engine';
+            startBtn.classList.remove('active');
+            cancelAnimationFrame(animationId);
+
+            // Clear canvases
+            timeCtx.clearRect(0, 0, timeCanvas.width, timeCanvas.height);
+            freqCtx.clearRect(0, 0, freqCanvas.width, freqCanvas.height);
         }
+
+        startBtn.addEventListener('click', () => {
+            if (!isPlaying) {
+                initAudio();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            } else {
+                stopAudio();
+            }
+        });
+
+        freqSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            freqValue.textContent = val + ' Hz';
+            if (oscillator) {
+                oscillator.frequency.value = val;
+            }
+        });
+
+        volSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            volValue.textContent = val;
+            if (gainNode) {
+                gainNode.gain.value = val;
+            }
+        });
+
+        waveTypeSelect.addEventListener('change', (e) => {
+            if (oscillator) {
+                oscillator.type = e.target.value;
+            }
+        });
 
         function draw() {
-            const width = canvas.width;
-            const height = canvas.height;
+            if (!isPlaying) return;
+            animationId = requestAnimationFrame(draw);
 
-            ctx.fillStyle = 'rgb(240, 240, 240)';
-            ctx.fillRect(0, 0, width, height);
+            const bufferLength = analyser.frequencyBinCount;
+            const timeData = new Uint8Array(bufferLength);
+            const freqData = new Uint8Array(bufferLength);
 
-            ctx.save();
-            ctx.translate(0, height / 4);
-            ctx.scale(1, 0.5);
-            drawWaveform();
-            ctx.restore();
+            analyser.getByteTimeDomainData(timeData);
+            analyser.getByteFrequencyData(freqData);
 
-            drawSpectrum();
+            // Draw Time Domain
+            timeCtx.fillStyle = 'white';
+            timeCtx.fillRect(0, 0, timeCanvas.width, timeCanvas.height);
+            timeCtx.lineWidth = 2 * window.devicePixelRatio;
+            timeCtx.strokeStyle = '#6600cc'; // Accent color
+            timeCtx.beginPath();
 
-            time += 0.05;
-            requestAnimationFrame(draw);
+            const slicedLength = bufferLength;
+            // We can check less data or full buffer. Full buffer is fine.
+
+            let sliceWidth = timeCanvas.width * 1.0 / slicedLength;
+            let x = 0;
+
+            for (let i = 0; i < slicedLength; i++) {
+                let v = timeData[i] / 128.0; // split around 128 (center)
+                let y = v * timeCanvas.height / 2;
+
+                if (i === 0) {
+                    timeCtx.moveTo(x, y);
+                } else {
+                    timeCtx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            timeCtx.lineTo(timeCanvas.width, timeCanvas.height / 2);
+            timeCtx.stroke();
+
+
+            // Draw Frequency Domain
+            freqCtx.fillStyle = 'white';
+            freqCtx.fillRect(0, 0, freqCanvas.width, freqCanvas.height);
+
+            const barWidth = (freqCanvas.width / bufferLength) * 2.5;
+            // Multiply by 2.5 to spread out lower frequencies which are more relevant
+            let barX = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                let barHeight = (freqData[i] / 255) * freqCanvas.height;
+
+                // Color based on height or just accent
+                freqCtx.fillStyle = `rgba(102, 0, 204, ${freqData[i] / 255})`;
+                freqCtx.fillRect(barX, freqCanvas.height - barHeight, barWidth, barHeight);
+
+                barX += barWidth + 1;
+                if (barX > freqCanvas.width) break;
+            }
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initAudio();
-            draw();
-        });
     </script>
 </body>
+
 </html>
