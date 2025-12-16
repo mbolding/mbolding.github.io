@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gyroscope — Precession Study</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #d0d0d0;
+            --bg-secondary: #e0e0e0;
+            --bg-tertiary: #c0c0c0;
+            --accent-red: #e30613;
+            --accent-red-dark: #b8050f;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-tertiary: #777777;
+            --border: #b0b0b0;
+            --canvas-bg: #c8c8c8;
+        }
+
+        .dark {
+            --bg-primary: #2a2a2a;
+            --bg-secondary: #333333;
+            --bg-tertiary: #3a3a3a;
+            --accent-red: #ff3b3b;
+            --accent-red-dark: #e30613;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-tertiary: #666666;
+            --border: #444444;
+            --canvas-bg: #252525;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            min-height: 100vh;
+            font-weight: 400;
+            letter-spacing: -0.01em;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: fixed;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .header {
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 32px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title-block {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-tertiary);
+            letter-spacing: 0.05em;
+        }
+
+        .swiss-cross {
+            width: 24px;
+            height: 24px;
+            background: var(--accent-red);
+            position: relative;
+        }
+
+        .swiss-cross::before,
+        .swiss-cross::after {
+            content: '';
+            position: absolute;
+            background: var(--bg-secondary);
+        }
+
+        .swiss-cross::before {
+            width: 6px;
+            height: 16px;
+            top: 4px;
+            left: 9px;
+        }
+
+        .swiss-cross::after {
+            width: 16px;
+            height: 6px;
+            top: 9px;
+            left: 4px;
+        }
+
+        .controls {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px 40px 32px;
+            background: linear-gradient(0deg, var(--bg-primary) 60%, transparent 100%);
+            pointer-events: auto;
+        }
+
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            max-width: 720px;
+        }
+
+        @media (max-width: 600px) {
+            .control-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .header {
+                padding: 24px;
+            }
+
+            .controls {
+                padding: 20px 24px 28px;
+            }
+
+            .stats-panel {
+                display: none;
+            }
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .control-label {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-secondary);
+        }
+
+        .control-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 2px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--border);
+            border-radius: 0;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-red);
+            border-radius: 0;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: var(--accent-red);
+            border-radius: 0;
+            cursor: pointer;
+            border: none;
+        }
+
+        .stats-panel {
+            top: 50%;
+            right: 40px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 24px 0;
+            border-left: 2px solid var(--accent-red);
+            padding-left: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-tertiary);
+        }
+
+        .stat-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 18px;
+            font-weight: 400;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 130px;
+            left: 40px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.05em;
+            z-index: 10;
+        }
+
+        @media (max-width: 600px) {
+            .hint {
+                left: 24px;
+                bottom: 160px;
+            }
+        }
+
+        .grid-lines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.4;
+        }
+
+        .grid-line {
+            position: absolute;
+            background: var(--border);
+        }
+
+        .grid-line.vertical {
+            width: 1px;
+            height: 100%;
+            top: 0;
+        }
+
+        .grid-line.horizontal {
+            width: 100%;
+            height: 1px;
+            left: 0;
+        }
+
+        .corner-mark {
+            position: fixed;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.1em;
+            z-index: 10;
+        }
+
+        .corner-mark.bottom-left {
+            bottom: 32px;
+            left: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="grid-lines">
+        <div class="grid-line vertical" style="left: 40px;"></div>
+        <div class="grid-line vertical" style="right: 40px;"></div>
+        <div class="grid-line horizontal" style="top: 80px;"></div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div class="overlay header">
+        <div class="title-block">
+            <h1 class="title">Gyroscope</h1>
+            <p class="subtitle">Precession dynamics / Study 01</p>
+        </div>
+        <div class="swiss-cross"></div>
+    </div>
+
+    <div class="overlay stats-panel">
+        <div class="stat-item">
+            <div class="stat-label">Rotation</div>
+            <div class="stat-value" id="spin-display">600</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Precession</div>
+            <div class="stat-value" id="precession-display">15°</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Angle</div>
+            <div class="stat-value" id="tilt-display">30°</div>
+        </div>
+    </div>
+
+    <p class="hint">Drag to rotate / Scroll to zoom</p>
+
+    <div class="overlay controls">
+        <div class="control-row">
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-label">Spin</span>
+                    <span class="control-value" id="spin-value">60</span>
+                </div>
+                <input type="range" id="spin-speed" min="0" max="120" value="60">
+            </div>
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-label">Precession</span>
+                    <span class="control-value" id="precession-value">15</span>
+                </div>
+                <input type="range" id="precession-rate" min="0" max="50" value="15">
+            </div>
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-label">Tilt</span>
+                    <span class="control-value" id="tilt-value">30°</span>
+                </div>
+                <input type="range" id="tilt-angle" min="5" max="60" value="30">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        const isDark = () => document.documentElement.classList.contains('dark');
+
+        // Scene setup
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(6, 4, 7);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(isDark() ? 0x252525 : 0xc8c8c8, 1);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Update renderer on theme change
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            renderer.setClearColor(isDark() ? 0x252525 : 0xc8c8c8, 1);
+            gridHelper.material.color.setHex(isDark() ? 0x222222 : 0xe0e0e0);
+        });
+
+        // Lighting - clean, even, Swiss precision
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        mainLight.position.set(8, 12, 8);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.camera.near = 0.5;
+        mainLight.shadow.camera.far = 50;
+        scene.add(mainLight);
+
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        fillLight.position.set(-5, 5, -5);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight(0xffffff, 0.2);
+        rimLight.position.set(0, -3, 5);
+        scene.add(rimLight);
+
+        // Materials - Swiss precision, clean metals
+        const chromeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xc0c0c0,
+            metalness: 0.95,
+            roughness: 0.08,
+            transparent: true,
+            opacity: 0.6
+        });
+
+        const darkChromeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            metalness: 0.9,
+            roughness: 0.15,
+            transparent: true,
+            opacity: 0.7
+        });
+
+        const redMaterial = new THREE.MeshStandardMaterial({
+            color: 0xe30613,
+            metalness: 0.3,
+            roughness: 0.4,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const whiteMaterial = new THREE.MeshStandardMaterial({
+            color: 0xfafafa,
+            metalness: 0.1,
+            roughness: 0.3,
+            transparent: true,
+            opacity: 0.4
+        });
+
+        const blackMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            metalness: 0.2,
+            roughness: 0.5,
+            transparent: true,
+            opacity: 0.6
+        });
+
+        // Base platform (fixed at origin)
+        const baseGeometry = new THREE.CylinderGeometry(0.6, 0.7, 0.1, 64);
+        const base = new THREE.Mesh(baseGeometry, darkChromeMaterial);
+        base.position.y = -0.5;
+        base.receiveShadow = true;
+        base.castShadow = true;
+        scene.add(base);
+
+        // Base accent ring
+        const baseRingGeometry = new THREE.TorusGeometry(0.65, 0.02, 16, 64);
+        const baseRing = new THREE.Mesh(baseRingGeometry, redMaterial);
+        baseRing.rotation.x = Math.PI / 2;
+        baseRing.position.y = -0.45;
+        scene.add(baseRing);
+
+        // Support stand
+        const standGeometry = new THREE.CylinderGeometry(0.06, 0.08, 0.45, 32);
+        const stand = new THREE.Mesh(standGeometry, chromeMaterial);
+        stand.position.y = -0.22;
+        stand.castShadow = true;
+        scene.add(stand);
+
+        // Pivot point (the fixed point at the bottom of the gyroscope)
+        const pivotGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+        const pivot = new THREE.Mesh(pivotGeometry, redMaterial);
+        pivot.position.y = 0;
+        pivot.castShadow = true;
+        scene.add(pivot);
+
+        // Create precession group (rotates around Y axis at the pivot point)
+        const precessionGroup = new THREE.Group();
+        precessionGroup.position.y = 0;
+        scene.add(precessionGroup);
+
+        // Create gyroscope axis group (for tilt)
+        const gyroscopeAxis = new THREE.Group();
+        precessionGroup.add(gyroscopeAxis);
+
+        // Create spinning rotor group
+        const rotorGroup = new THREE.Group();
+        rotorGroup.position.y = 2;
+        gyroscopeAxis.add(rotorGroup);
+
+        // Main rotor disc - clean white
+        const rotorGeometry = new THREE.CylinderGeometry(1.4, 1.4, 0.12, 64);
+        const rotor = new THREE.Mesh(rotorGeometry, whiteMaterial);
+        rotor.castShadow = true;
+        rotor.receiveShadow = true;
+        rotorGroup.add(rotor);
+
+        // Rotor outer rim - chrome
+        const rimGeometry = new THREE.TorusGeometry(1.4, 0.06, 24, 64);
+        const rim = new THREE.Mesh(rimGeometry, chromeMaterial);
+        rim.rotation.x = Math.PI / 2;
+        rim.castShadow = true;
+        rotorGroup.add(rim);
+
+        // Red accent ring on rotor
+        const accentRingGeometry = new THREE.TorusGeometry(1.0, 0.03, 16, 64);
+        const accentRing = new THREE.Mesh(accentRingGeometry, redMaterial);
+        accentRing.rotation.x = Math.PI / 2;
+        accentRing.position.y = 0.07;
+        rotorGroup.add(accentRing);
+
+        // Rotor hub - dark
+        const hubGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 32);
+        const hub = new THREE.Mesh(hubGeometry, darkChromeMaterial);
+        hub.castShadow = true;
+        rotorGroup.add(hub);
+
+        // Clean spokes - 4 for Swiss precision
+        for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2;
+            const spokeGeometry = new THREE.BoxGeometry(1.1, 0.04, 0.06);
+            const spoke = new THREE.Mesh(spokeGeometry, chromeMaterial);
+            spoke.position.x = Math.cos(angle) * 0.55;
+            spoke.position.z = Math.sin(angle) * 0.55;
+            spoke.rotation.y = -angle;
+            spoke.castShadow = true;
+            rotorGroup.add(spoke);
+        }
+
+        // Index markers on rotor
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const isMain = i % 3 === 0;
+            const markerGeometry = new THREE.BoxGeometry(isMain ? 0.15 : 0.08, 0.13, 0.02);
+            const marker = new THREE.Mesh(markerGeometry, isMain ? redMaterial : blackMaterial);
+            marker.position.x = Math.cos(angle) * 1.2;
+            marker.position.z = Math.sin(angle) * 1.2;
+            marker.rotation.y = -angle;
+            rotorGroup.add(marker);
+        }
+
+        // Axle
+        const axleGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2.8, 24);
+        const axle = new THREE.Mesh(axleGeometry, chromeMaterial);
+        axle.position.y = 1.4;
+        axle.castShadow = true;
+        gyroscopeAxis.add(axle);
+
+        // Axle top cap
+        const capGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.1, 24);
+        const topCap = new THREE.Mesh(capGeometry, redMaterial);
+        topCap.position.y = 2.85;
+        topCap.castShadow = true;
+        gyroscopeAxis.add(topCap);
+
+        // Gimbal ring - thin and precise
+        const gimbalGeometry = new THREE.TorusGeometry(1.8, 0.04, 24, 64);
+        const gimbal = new THREE.Mesh(gimbalGeometry, chromeMaterial);
+        gimbal.rotation.x = Math.PI / 2;
+        gimbal.position.y = 2;
+        gimbal.castShadow = true;
+        gyroscopeAxis.add(gimbal);
+
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(12, 24, isDark() ? 0x333333 : 0xb0b0b0, isDark() ? 0x2a2a2a : 0xbebebe);
+        gridHelper.position.y = -0.55;
+        scene.add(gridHelper);
+
+        // Vector arrows group (will be updated in animation loop)
+        const vectorsGroup = new THREE.Group();
+        scene.add(vectorsGroup);
+
+        // Helper function to create an arrow
+        function createArrow(color, length = 1) {
+            const group = new THREE.Group();
+
+            // Shaft
+            const shaftGeometry = new THREE.CylinderGeometry(0.03, 0.03, length, 12);
+            const shaftMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.3, roughness: 0.5 });
+            const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+            shaft.position.y = length / 2;
+            group.add(shaft);
+
+            // Head
+            const headGeometry = new THREE.ConeGeometry(0.08, 0.2, 12);
+            const headMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.3, roughness: 0.5 });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = length + 0.1;
+            group.add(head);
+
+            return group;
+        }
+
+        // Vertical component arrow (blue)
+        const verticalArrow = createArrow(0x2563eb, 1);
+        vectorsGroup.add(verticalArrow);
+
+        // Horizontal component arrow (green)
+        const horizontalArrow = createArrow(0x16a34a, 1);
+        horizontalArrow.rotation.z = -Math.PI / 2; // Point horizontally
+        vectorsGroup.add(horizontalArrow);
+
+        // Resultant/axis arrow (red - along the gyroscope axis)
+        const axisArrow = createArrow(0xe30613, 1.5);
+        vectorsGroup.add(axisArrow);
+
+        // Labels for vectors
+        function createLabel(text, color) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 128;
+            canvas.height = 64;
+
+            ctx.fillStyle = color;
+            ctx.font = 'bold 32px IBM Plex Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 64, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(0.8, 0.4, 1);
+
+            return sprite;
+        }
+
+        const verticalLabel = createLabel('V', '#2563eb');
+        vectorsGroup.add(verticalLabel);
+
+        const horizontalLabel = createLabel('H', '#16a34a');
+        vectorsGroup.add(horizontalLabel);
+
+        const axisLabel = createLabel('L', '#e30613');
+        vectorsGroup.add(axisLabel);
+
+        // Trail for the top cap
+        const trailMaxPoints = 200;
+        const trailPositions = new Float32Array(trailMaxPoints * 3);
+        const trailGeometry = new THREE.BufferGeometry();
+        trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+
+        const trailMaterial = new THREE.LineBasicMaterial({
+            color: 0xe30613,
+            transparent: true,
+            opacity: 0.8
+        });
+        const trail = new THREE.Line(trailGeometry, trailMaterial);
+        scene.add(trail);
+
+        let trailPoints = [];
+        let trailUpdateCounter = 0;
+
+        // Controls
+        let spinSpeed = 60;
+        let precessionRate = 15;
+        let tiltAngle = 30;
+
+        const spinSlider = document.getElementById('spin-speed');
+        const precessionSlider = document.getElementById('precession-rate');
+        const tiltSlider = document.getElementById('tilt-angle');
+
+        spinSlider.addEventListener('input', (e) => {
+            spinSpeed = parseFloat(e.target.value);
+            document.getElementById('spin-value').textContent = spinSpeed;
+        });
+
+        precessionSlider.addEventListener('input', (e) => {
+            precessionRate = parseFloat(e.target.value);
+            document.getElementById('precession-value').textContent = precessionRate;
+        });
+
+        tiltSlider.addEventListener('input', (e) => {
+            tiltAngle = parseFloat(e.target.value);
+            document.getElementById('tilt-value').textContent = tiltAngle + '°';
+            document.getElementById('tilt-display').textContent = tiltAngle + '°';
+        });
+
+        // Mouse controls for camera
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraAngle = { theta: Math.PI / 4, phi: Math.PI / 6 };
+        let cameraDistance = 9;
+
+        container.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - previousMousePosition.x;
+            const deltaY = e.clientY - previousMousePosition.y;
+
+            cameraAngle.theta -= deltaX * 0.008;
+            cameraAngle.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngle.phi + deltaY * 0.008));
+
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        container.addEventListener('mouseup', () => isDragging = false);
+        container.addEventListener('mouseleave', () => isDragging = false);
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            cameraDistance = Math.max(5, Math.min(18, cameraDistance + e.deltaY * 0.01));
+        }, { passive: false });
+
+        // Touch controls
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+
+            const deltaX = e.touches[0].clientX - previousMousePosition.x;
+            const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+            cameraAngle.theta -= deltaX * 0.008;
+            cameraAngle.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngle.phi + deltaY * 0.008));
+
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        });
+
+        container.addEventListener('touchend', () => isDragging = false);
+
+        // Animation
+        let precessionAngle = 0;
+        let spinAngle = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update camera position
+            camera.position.x = cameraDistance * Math.sin(cameraAngle.theta) * Math.cos(cameraAngle.phi);
+            camera.position.y = cameraDistance * Math.sin(cameraAngle.phi) + 1;
+            camera.position.z = cameraDistance * Math.cos(cameraAngle.theta) * Math.cos(cameraAngle.phi);
+            camera.lookAt(0, 1, 0);
+
+            // Rotor spin
+            const spinDelta = spinSpeed * 0.02;
+            spinAngle += spinDelta;
+            rotorGroup.rotation.y = spinAngle;
+
+            // Precession
+            const precessionDelta = precessionRate * 0.001;
+            precessionAngle += precessionDelta;
+            precessionGroup.rotation.y = precessionAngle;
+
+            // Apply tilt
+            const tiltRad = THREE.MathUtils.degToRad(tiltAngle);
+            gyroscopeAxis.rotation.z = tiltRad;
+
+            // Update vector arrows - position at the pivot point (bottom)
+            vectorsGroup.position.set(0, 0, 0);
+            vectorsGroup.rotation.y = precessionAngle;
+
+            // Calculate component lengths based on tilt
+            const axisLength = 1.5;
+            const verticalLength = Math.cos(tiltRad) * axisLength;
+            const horizontalLength = Math.sin(tiltRad) * axisLength;
+
+            // Update vertical arrow (always points up)
+            verticalArrow.scale.y = verticalLength;
+            verticalArrow.rotation.z = 0;
+            verticalArrow.position.set(0, 0, 0);
+
+            // Update horizontal arrow (points inward in the tilt direction)
+            horizontalArrow.scale.y = horizontalLength;
+            horizontalArrow.rotation.z = Math.PI / 2;
+            horizontalArrow.position.set(0, 0, 0);
+
+            // Update axis arrow (along the gyroscope axis)
+            axisArrow.rotation.z = tiltRad;
+            axisArrow.position.set(0, 0, 0);
+
+            // Update label positions
+            verticalLabel.position.set(0.3, verticalLength + 0.3, 0);
+            horizontalLabel.position.set(-horizontalLength - 0.3, -0.3, 0);
+            axisLabel.position.set(
+                Math.sin(tiltRad) * (axisLength + 0.5),
+                Math.cos(tiltRad) * (axisLength + 0.5),
+                0
+            );
+
+            // Update trail - get world position of top cap
+            topCap.updateMatrixWorld();
+            const topCapWorldPos = new THREE.Vector3();
+            topCap.getWorldPosition(topCapWorldPos);
+
+            // Add point to trail every few frames
+            trailUpdateCounter++;
+            if (trailUpdateCounter >= 2 && precessionRate > 0) {
+                trailUpdateCounter = 0;
+                trailPoints.push(topCapWorldPos.clone());
+
+                // Keep trail at max length
+                if (trailPoints.length > trailMaxPoints) {
+                    trailPoints.shift();
+                }
+
+                // Update trail geometry
+                const positions = trail.geometry.attributes.position.array;
+                for (let i = 0; i < trailMaxPoints; i++) {
+                    if (i < trailPoints.length) {
+                        positions[i * 3] = trailPoints[i].x;
+                        positions[i * 3 + 1] = trailPoints[i].y;
+                        positions[i * 3 + 2] = trailPoints[i].z;
+                    } else {
+                        positions[i * 3] = 0;
+                        positions[i * 3 + 1] = 0;
+                        positions[i * 3 + 2] = 0;
+                    }
+                }
+                trail.geometry.attributes.position.needsUpdate = true;
+                trail.geometry.setDrawRange(0, trailPoints.length);
+            }
+
+            // Update displays
+            const rpm = Math.round(spinSpeed * 10);
+            document.getElementById('spin-display').textContent = rpm;
+            document.getElementById('precession-display').textContent = precessionRate + '°';
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>
