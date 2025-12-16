@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System 7 Desktop</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'ChicagoFLF';
+            src: url('https://cdn.jsdelivr.net/gh/perkesh/chicago-font@master/ChicagoFLF.ttf') format('truetype');
+        }
+
+        :root {
+            --platinum: #E0E0E0;
+            --platinum-light: #F0F0F0;
+            --platinum-dark: #909090;
+            --platinum-darker: #606060;
+            --window-bg: #FFFFFF;
+            --text-color: #000000;
+            --border-color: #000000;
+            --highlight: #000080;
+            --highlight-text: #FFFFFF;
+            --desktop-pattern: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z' fill='%23999999' fill-opacity='0.2'/%3E%3C/svg%3E");
+        }
+
+        .dark {
+            --platinum: #505050;
+            --platinum-light: #606060;
+            --platinum-dark: #404040;
+            --platinum-darker: #303030;
+            --window-bg: #2c2c2e;
+            --text-color: #FFFFFF;
+            --border-color: #000000;
+            --highlight: #0a84ff;
+            --highlight-text: #FFFFFF;
+            --desktop-pattern: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z' fill='%23222222' fill-opacity='0.5'/%3E%3C/svg%3E");
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'ChicagoFLF', 'VT323', Geneva, sans-serif;
+            background: var(--platinum);
+            background-image: var(--desktop-pattern);
+            min-height: 100vh;
+            overflow: hidden;
+            font-size: 12px;
+            -webkit-font-smoothing: none;
+            -moz-osx-font-smoothing: none;
+        }
+
+        /* Menu Bar */
+        .menu-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: var(--platinum);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            z-index: 10000;
+            gap: 16px;
+        }
+
+        .apple-menu {
+            font-size: 14px;
+            cursor: default;
+        }
+
+        .menu-item {
+            cursor: default;
+            padding: 2px 8px;
+            color: var(--text-color);
+            font-size: 12px;
+        }
+
+        .menu-item:hover {
+            background: var(--highlight);
+            color: var(--highlight-text);
+        }
+
+        .menu-spacer {
+            flex: 1;
+        }
+
+        .menu-clock {
+            font-size: 12px;
+            color: var(--text-color);
+        }
+
+        /* Desktop */
+        .desktop {
+            position: fixed;
+            top: 20px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 20px;
+        }
+
+        /* Classic Mac Window */
+        .window {
+            position: absolute;
+            background: var(--window-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 1px 1px 0 var(--border-color);
+            min-width: 180px;
+        }
+
+        .window.active {
+            z-index: 100;
+        }
+
+        /* Title Bar with horizontal lines */
+        .window-header {
+            height: 20px;
+            background: var(--platinum);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 4px;
+            cursor: grab;
+            user-select: none;
+            position: relative;
+        }
+
+        .window-header:active {
+            cursor: grabbing;
+        }
+
+        /* Title bar lines pattern */
+        .title-lines {
+            position: absolute;
+            left: 24px;
+            right: 24px;
+            top: 3px;
+            bottom: 3px;
+            background: repeating-linear-gradient(to bottom,
+                    var(--border-color) 0px,
+                    var(--border-color) 1px,
+                    transparent 1px,
+                    transparent 2px);
+        }
+
+        .window.inactive .title-lines {
+            opacity: 0;
+        }
+
+        /* Close box */
+        .close-box {
+            width: 13px;
+            height: 11px;
+            border: 1px solid var(--border-color);
+            background: var(--platinum);
+            cursor: pointer;
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+        }
+
+        .close-box:active {
+            background: var(--border-color);
+        }
+
+        .window-title {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-color);
+            font-weight: normal;
+            position: relative;
+            z-index: 1;
+            background: var(--platinum);
+            padding: 0 8px;
+            white-space: nowrap;
+        }
+
+        /* Zoom box */
+        .zoom-box {
+            width: 13px;
+            height: 11px;
+            border: 1px solid var(--border-color);
+            background: var(--platinum);
+            cursor: pointer;
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+        }
+
+        .zoom-box::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 7px;
+            height: 5px;
+            border: 1px solid var(--border-color);
+        }
+
+        .window-content {
+            padding: 12px;
+            background: var(--window-bg);
+            color: var(--text-color);
+        }
+
+        /* Scrollbar styling */
+        .window-content::-webkit-scrollbar {
+            width: 16px;
+        }
+
+        .window-content::-webkit-scrollbar-track {
+            background: var(--platinum-light);
+            border-left: 1px solid var(--border-color);
+        }
+
+        .window-content::-webkit-scrollbar-thumb {
+            background: var(--platinum);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Classic Mac Buttons */
+        .mac-btn {
+            background: var(--platinum);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-color);
+            box-shadow:
+                inset 1px 1px 0 var(--platinum-light),
+                inset -1px -1px 0 var(--platinum-dark);
+        }
+
+        .mac-btn:active {
+            background: var(--platinum-dark);
+            box-shadow:
+                inset -1px -1px 0 var(--platinum-light),
+                inset 1px 1px 0 var(--platinum-darker);
+        }
+
+        .mac-btn.primary {
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        /* Clock Widget */
+        #clock-window {
+            top: 40px;
+            left: 30px;
+        }
+
+        .clock-display {
+            font-size: 32px;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            letter-spacing: 2px;
+            margin: 8px 0;
+        }
+
+        .clock-date {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-color);
+        }
+
+        .clock-icon {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        /* Pomodoro Widget */
+        #pomodoro-window {
+            top: 40px;
+            left: 260px;
+        }
+
+        .pomodoro-display {
+            font-size: 36px;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            margin: 8px 0;
+        }
+
+        .pomodoro-status {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 8px;
+            padding: 2px 8px;
+            background: var(--platinum);
+            border: 1px solid var(--border-color);
+            display: inline-block;
+            width: 100%;
+        }
+
+        .pomodoro-buttons {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin-top: 12px;
+        }
+
+        .tomato-progress {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        .tomato {
+            opacity: 0.3;
+        }
+
+        .tomato.completed {
+            opacity: 1;
+        }
+
+        /* Calendar Widget */
+        #calendar-window {
+            top: 220px;
+            left: 30px;
+            width: 240px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .calendar-nav {
+            background: var(--platinum);
+            border: 1px solid var(--border-color);
+            width: 20px;
+            height: 16px;
+            cursor: pointer;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .calendar-nav:active {
+            background: var(--platinum-dark);
+        }
+
+        .calendar-month {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .calendar-day-header {
+            font-size: 10px;
+            text-align: center;
+            padding: 2px;
+            font-weight: bold;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            cursor: default;
+        }
+
+        .calendar-day:not(.empty):hover {
+            background: var(--platinum);
+        }
+
+        .calendar-day.today {
+            background: var(--highlight);
+            color: var(--highlight-text);
+        }
+
+        .calendar-day.other-month {
+            color: var(--platinum-darker);
+        }
+
+        /* Scratch Pad Widget */
+        #scratchpad-window {
+            top: 220px;
+            left: 290px;
+            width: 260px;
+        }
+
+        .scratchpad {
+            width: 100%;
+            height: 140px;
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            font-family: 'Geneva', 'VT323', monospace;
+            font-size: 12px;
+            resize: none;
+            background: var(--window-bg);
+            color: var(--text-color);
+            box-shadow: inset 1px 1px 0 var(--platinum-dark);
+        }
+
+        .scratchpad:focus {
+            outline: none;
+        }
+
+        /* Timer Widget */
+        #timer-window {
+            top: 40px;
+            right: 30px;
+        }
+
+        .timer-display {
+            font-size: 28px;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            margin: 8px 0;
+            padding: 4px;
+            background: var(--window-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: inset 1px 1px 0 var(--platinum-dark);
+        }
+
+        .timer-inputs {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .timer-input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .timer-input-group label {
+            font-size: 9px;
+            margin-bottom: 2px;
+        }
+
+        .timer-input {
+            width: 40px;
+            padding: 4px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            font-family: 'VT323', monospace;
+            font-size: 14px;
+            background: var(--window-bg);
+            color: var(--text-color);
+            box-shadow: inset 1px 1px 0 var(--platinum-dark);
+        }
+
+        .timer-input:focus {
+            outline: none;
+        }
+
+        .timer-buttons {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        /* Stopwatch Widget */
+        #stopwatch-window {
+            top: 260px;
+            right: 30px;
+        }
+
+        .stopwatch-display {
+            font-size: 24px;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            margin: 8px 0;
+            padding: 4px;
+            background: var(--window-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: inset 1px 1px 0 var(--platinum-dark);
+        }
+
+        .stopwatch-buttons {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .lap-times {
+            max-height: 80px;
+            overflow-y: auto;
+            margin-top: 8px;
+            font-size: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--window-bg);
+        }
+
+        .lap-time {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 6px;
+            border-bottom: 1px solid var(--platinum);
+        }
+
+        .lap-time:last-child {
+            border-bottom: none;
+        }
+
+        /* Desktop Icons */
+        .desktop-icons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .desktop-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .desktop-icon:hover .icon-label {
+            background: var(--highlight);
+            color: var(--highlight-text);
+        }
+
+        .icon-image {
+            width: 32px;
+            height: 32px;
+            background: var(--platinum);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .icon-label {
+            font-size: 10px;
+            text-align: center;
+            padding: 1px 4px;
+        }
+
+        /* Trash at bottom right */
+        .trash-icon {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+        }
+
+        /* Hidden state */
+        .window.hidden {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .window {
+                position: relative !important;
+                margin-bottom: 12px;
+                left: auto !important;
+                right: auto !important;
+                top: auto !important;
+                width: 100% !important;
+            }
+
+            .desktop {
+                overflow-y: auto;
+                padding-bottom: 40px;
+            }
+
+            .desktop-icons {
+                display: none;
+            }
+        }
+
+        /* Resize handle */
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 16px;
+            height: 16px;
+            cursor: nwse-resize;
+            background:
+                linear-gradient(135deg, transparent 50%, var(--platinum-dark) 50%, var(--platinum-dark) 60%, transparent 60%),
+                linear-gradient(135deg, transparent 65%, var(--platinum-dark) 65%, var(--platinum-dark) 75%, transparent 75%),
+                linear-gradient(135deg, transparent 80%, var(--platinum-dark) 80%);
+        }
+
+        /* About box styling */
+        .about-content {
+            text-align: center;
+            padding: 16px;
+        }
+
+        .about-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .about-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .about-version {
+            font-size: 10px;
+            color: var(--platinum-darker);
+            margin-bottom: 12px;
+        }
+
+        .about-line {
+            border-top: 1px solid var(--border-color);
+            margin: 12px 0;
+        }
+
+        /* Radio Widget */
+        #radio-window {
+            top: 100px;
+            left: 100px;
+            width: 250px;
+        }
+
+        .radio-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .radio-info {
+            font-size: 14px;
+            text-align: center;
+            background: var(--window-bg);
+            border: 1px solid var(--border-color);
+            padding: 4px;
+            width: 100%;
+            margin-bottom: 5px;
+            box-shadow: inset 1px 1px 0 var(--platinum-dark);
+            font-family: 'Geneva', sans-serif;
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .radio-select {
+            width: 100%;
+            font-family: 'ChicagoFLF', sans-serif;
+            font-size: 12px;
+            padding: 2px;
+            border: 1px solid var(--border-color);
+        }
+
+        .radio-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
+        }
+
+        .volume-slider {
+            flex: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Menu Bar -->
+    <div class="menu-bar">
+        <span class="apple-menu">&#63743;</span>
+        <span class="menu-item">File</span>
+        <span class="menu-item">Edit</span>
+        <span class="menu-item">View</span>
+        <span class="menu-item">Special</span>
+        <span class="menu-spacer"></span>
+        <span class="menu-clock" id="menu-clock">12:00 PM</span>
+    </div>
+
+    <div class="desktop" id="desktop">
+        <!-- Clock Window -->
+        <div class="window hidden" id="clock-window" data-name="Clock">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('clock-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">Clock</span>
+                <div class="zoom-box" onclick="toggleWindow('clock-window')"></div>
+            </div>
+            <div class="window-content">
+                <div class="clock-icon">⏰</div>
+                <div class="clock-display" id="clock-time">00:00:00</div>
+                <div class="clock-date" id="clock-date">Monday, January 1, 2024</div>
+            </div>
+        </div>
+
+        <!-- Pomodoro Window -->
+        <div class="window hidden" id="pomodoro-window" data-name="Pomodoro">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('pomodoro-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">Pomodoro Timer</span>
+                <div class="zoom-box"></div>
+            </div>
+            <div class="window-content">
+                <div class="pomodoro-status" id="pomo-status">◆ Focus Time</div>
+                <div class="pomodoro-display" id="pomo-time">25:00</div>
+                <div class="pomodoro-buttons">
+                    <button class="mac-btn primary" id="pomo-start" onclick="togglePomodoro()">Start</button>
+                    <button class="mac-btn" onclick="skipPomodoro()">Skip</button>
+                    <button class="mac-btn" onclick="resetPomodoro()">Reset</button>
+                </div>
+                <div class="tomato-progress">
+                    <span class="tomato" id="tomato-1">●</span>
+                    <span class="tomato" id="tomato-2">●</span>
+                    <span class="tomato" id="tomato-3">●</span>
+                    <span class="tomato" id="tomato-4">●</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Window -->
+        <div class="window hidden" id="calendar-window" data-name="Calendar">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('calendar-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">Calendar</span>
+                <div class="zoom-box"></div>
+            </div>
+            <div class="window-content">
+                <div class="calendar-header">
+                    <button class="calendar-nav" onclick="changeMonth(-1)">◀</button>
+                    <span class="calendar-month" id="calendar-month">January 2024</span>
+                    <button class="calendar-nav" onclick="changeMonth(1)">▶</button>
+                </div>
+                <div class="calendar-grid" id="calendar-grid"></div>
+            </div>
+        </div>
+
+        <!-- Scratch Pad Window -->
+        <div class="window hidden" id="scratchpad-window" data-name="Note Pad">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('scratchpad-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">Note Pad</span>
+                <div class="zoom-box"></div>
+            </div>
+            <div class="window-content">
+                <textarea class="scratchpad" id="scratchpad" placeholder="Type your notes here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Timer Window -->
+        <div class="window hidden" id="timer-window" data-name="Timer">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('timer-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">Timer</span>
+                <div class="zoom-box"></div>
+            </div>
+            <div class="window-content">
+                <div class="timer-inputs">
+                    <div class="timer-input-group">
+                        <label>HRS</label>
+                        <input type="number" class="timer-input" id="timer-hours" value="0" min="0" max="99">
+                    </div>
+                    <div class="timer-input-group">
+                        <label>MIN</label>
+                        <input type="number" class="timer-input" id="timer-mins" value="5" min="0" max="59">
+                    </div>
+                    <div class="timer-input-group">
+                        <label>SEC</label>
+                        <input type="number" class="timer-input" id="timer-secs" value="0" min="0" max="59">
+                    </div>
+                </div>
+                <div class="timer-display" id="timer-display">00:05:00</div>
+                <div class="timer-buttons">
+                    <button class="mac-btn primary" id="timer-start" onclick="toggleTimer()">Start</button>
+                    <button class="mac-btn" onclick="resetTimer()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stopwatch Window -->
+        <div class="window hidden" id="stopwatch-window" data-name="Stopwatch">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('stopwatch-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">Stopwatch</span>
+                <div class="zoom-box"></div>
+            </div>
+            <div class="window-content">
+                <div class="stopwatch-display" id="stopwatch-display">00:00:00</div>
+                <div class="stopwatch-buttons">
+                    <button class="mac-btn primary" id="stopwatch-start" onclick="toggleStopwatch()">Start</button>
+                    <button class="mac-btn" onclick="lapStopwatch()">Lap</button>
+                    <button class="mac-btn" onclick="resetStopwatch()">Reset</button>
+                </div>
+                <div class="lap-times" id="lap-times"></div>
+            </div>
+        </div>
+
+        <!-- Radio Window -->
+        <div class="window hidden" id="radio-window" data-name="Radio">
+            <div class="window-header">
+                <div class="close-box" onclick="closeWindow('radio-window')"></div>
+                <div class="title-lines"></div>
+                <span class="window-title">SomaFM Radio</span>
+                <div class="zoom-box"></div>
+            </div>
+            <div class="window-content">
+                <div class="radio-controls">
+                    <div class="radio-info" id="radio-status">Ready</div>
+                    <select class="radio-select" id="radio-channel" onchange="changeRadioChannel()">
+                        <option value="groovesalad-128-mp3">Groove Salad</option>
+                        <option value="dronezone-128-mp3">Drone Zone</option>
+                        <option value="vaporwaves-128-mp3" selected>Vaporwaves</option>
+                        <option value="secretagent-128-mp3">Secret Agent</option>
+                        <option value="indiepop-128-mp3">Indie Pop Rocks!</option>
+                    </select>
+                    <div class="radio-buttons">
+                        <button class="mac-btn primary" id="radio-play" onclick="toggleRadio()">Play</button>
+                        <button class="mac-btn" onclick="stopRadio()">Stop</button>
+                    </div>
+                </div>
+                <audio id="radio-player" preload="none"></audio>
+            </div>
+        </div>
+
+        <!-- Desktop Icons -->
+        <div class="desktop-icons">
+            <div class="desktop-icon" onclick="showWindow('clock-window')">
+                <div class="icon-image">⏰</div>
+                <span class="icon-label">Clock</span>
+            </div>
+            <div class="desktop-icon" onclick="showWindow('pomodoro-window')">
+                <div class="icon-image">🍅</div>
+                <span class="icon-label">Pomodoro</span>
+            </div>
+            <div class="desktop-icon" onclick="showWindow('calendar-window')">
+                <div class="icon-image">📅</div>
+                <span class="icon-label">Calendar</span>
+            </div>
+            <div class="desktop-icon" onclick="showWindow('scratchpad-window')">
+                <div class="icon-image">📝</div>
+                <span class="icon-label">Note Pad</span>
+            </div>
+            <div class="desktop-icon" onclick="showWindow('timer-window')">
+                <div class="icon-image">⏲️</div>
+                <span class="icon-label">Timer</span>
+            </div>
+            <div class="desktop-icon" onclick="showWindow('stopwatch-window')">
+                <div class="icon-image">⏱️</div>
+                <span class="icon-label">Stopwatch</span>
+            </div>
+            <div class="desktop-icon" onclick="showWindow('radio-window')">
+                <div class="icon-image">📻</div>
+                <span class="icon-label">Radio</span>
+            </div>
+        </div>
+
+        <!-- Trash Icon -->
+        <div class="desktop-icon trash-icon">
+            <div class="icon-image">🗑️</div>
+            <span class="icon-label">Trash</span>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Draggable Windows
+        let activeWindow = null;
+        let offsetX, offsetY;
+        let highestZ = 10;
+
+        document.querySelectorAll('.window-header').forEach(header => {
+            header.addEventListener('mousedown', startDrag);
+            header.addEventListener('touchstart', startDrag, { passive: false });
+        });
+
+        // Click to bring window to front
+        document.querySelectorAll('.window').forEach(win => {
+            win.addEventListener('mousedown', () => {
+                document.querySelectorAll('.window').forEach(w => w.classList.remove('active'));
+                win.classList.add('active');
+                win.style.zIndex = ++highestZ;
+            });
+        });
+
+        function startDrag(e) {
+            if (e.target.classList.contains('close-box') || e.target.classList.contains('zoom-box')) return;
+
+            const win = e.target.closest('.window');
+            activeWindow = win;
+
+            document.querySelectorAll('.window').forEach(w => {
+                w.classList.remove('active');
+                w.querySelector('.title-lines').style.opacity = '0';
+            });
+            win.classList.add('active');
+            win.querySelector('.title-lines').style.opacity = '1';
+            win.style.zIndex = ++highestZ;
+
+            const rect = win.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', stopDrag);
+
+            e.preventDefault();
+        }
+
+        function drag(e) {
+            if (!activeWindow) return;
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const x = Math.max(0, Math.min(window.innerWidth - 50, clientX - offsetX));
+            const y = Math.max(20, Math.min(window.innerHeight - 50, clientY - offsetY));
+
+            activeWindow.style.left = x + 'px';
+            activeWindow.style.top = y + 'px';
+            activeWindow.style.right = 'auto';
+
+            e.preventDefault();
+        }
+
+        function stopDrag() {
+            activeWindow = null;
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', stopDrag);
+        }
+
+        // Window Management
+        function closeWindow(id) {
+            document.getElementById(id).classList.add('hidden');
+            if (id === 'radio-window') {
+                stopRadio();
+            }
+        }
+
+        function showWindow(id) {
+            const win = document.getElementById(id);
+            win.classList.remove('hidden');
+            document.querySelectorAll('.window').forEach(w => {
+                w.classList.remove('active');
+                const lines = w.querySelector('.title-lines');
+                if (lines) lines.style.opacity = '0';
+            });
+            win.classList.add('active');
+            win.querySelector('.title-lines').style.opacity = '1';
+            win.style.zIndex = ++highestZ;
+        }
+
+        function toggleWindow(id) {
+            const win = document.getElementById(id);
+            if (win.classList.contains('hidden')) {
+                showWindow(id);
+            } else {
+                closeWindow(id);
+            }
+        }
+
+        // Initialize title bars
+        document.querySelectorAll('.window').forEach((win, index) => {
+            win.querySelector('.title-lines').style.opacity = '0';
+        });
+
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+            const dateStr = now.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            });
+            const menuTimeStr = now.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            document.getElementById('clock-time').textContent = timeStr;
+            document.getElementById('clock-date').textContent = dateStr;
+            document.getElementById('menu-clock').textContent = menuTimeStr;
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Pomodoro Timer
+        let pomoState = {
+            running: false,
+            isWork: true,
+            timeLeft: 25 * 60,
+            completedPomos: 0,
+            interval: null
+        };
+
+        function updatePomoDisplay() {
+            const mins = Math.floor(pomoState.timeLeft / 60);
+            const secs = pomoState.timeLeft % 60;
+            document.getElementById('pomo-time').textContent =
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            document.getElementById('pomo-status').textContent =
+                pomoState.isWork ? '◆ Focus Time' : '◇ Break Time';
+
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`tomato-${i}`).classList.toggle('completed', i <= pomoState.completedPomos);
+            }
+        }
+
+        function togglePomodoro() {
+            pomoState.running = !pomoState.running;
+            const btn = document.getElementById('pomo-start');
+
+            if (pomoState.running) {
+                btn.textContent = 'Pause';
+                pomoState.interval = setInterval(() => {
+                    pomoState.timeLeft--;
+                    if (pomoState.timeLeft <= 0) {
+                        if (pomoState.isWork) {
+                            pomoState.completedPomos = Math.min(4, pomoState.completedPomos + 1);
+                            pomoState.isWork = false;
+                            pomoState.timeLeft = pomoState.completedPomos >= 4 ? 15 * 60 : 5 * 60;
+                        } else {
+                            pomoState.isWork = true;
+                            pomoState.timeLeft = 25 * 60;
+                            if (pomoState.completedPomos >= 4) pomoState.completedPomos = 0;
+                        }
+                    }
+                    updatePomoDisplay();
+                }, 1000);
+            } else {
+                btn.textContent = 'Start';
+                clearInterval(pomoState.interval);
+            }
+        }
+
+        function skipPomodoro() {
+            if (pomoState.isWork) {
+                pomoState.completedPomos = Math.min(4, pomoState.completedPomos + 1);
+                pomoState.isWork = false;
+                pomoState.timeLeft = pomoState.completedPomos >= 4 ? 15 * 60 : 5 * 60;
+            } else {
+                pomoState.isWork = true;
+                pomoState.timeLeft = 25 * 60;
+                if (pomoState.completedPomos >= 4) pomoState.completedPomos = 0;
+            }
+            updatePomoDisplay();
+        }
+
+        function resetPomodoro() {
+            clearInterval(pomoState.interval);
+            pomoState = {
+                running: false,
+                isWork: true,
+                timeLeft: 25 * 60,
+                completedPomos: 0,
+                interval: null
+            };
+            document.getElementById('pomo-start').textContent = 'Start';
+            updatePomoDisplay();
+        }
+
+        updatePomoDisplay();
+
+        // Calendar
+        let currentDate = new Date();
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            document.getElementById('calendar-month').textContent =
+                new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+            days.forEach(day => {
+                const el = document.createElement('div');
+                el.className = 'calendar-day-header';
+                el.textContent = day;
+                grid.appendChild(el);
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            for (let i = 0; i < firstDay; i++) {
+                const el = document.createElement('div');
+                el.className = 'calendar-day empty';
+                grid.appendChild(el);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const el = document.createElement('div');
+                el.className = 'calendar-day';
+                el.textContent = day;
+
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    el.classList.add('today');
+                }
+
+                grid.appendChild(el);
+            }
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        renderCalendar();
+
+        // Timer
+        let timerState = {
+            running: false,
+            timeLeft: 5 * 60,
+            interval: null
+        };
+
+        function updateTimerDisplay() {
+            const hrs = Math.floor(timerState.timeLeft / 3600);
+            const mins = Math.floor((timerState.timeLeft % 3600) / 60);
+            const secs = timerState.timeLeft % 60;
+            document.getElementById('timer-display').textContent =
+                `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function toggleTimer() {
+            timerState.running = !timerState.running;
+            const btn = document.getElementById('timer-start');
+
+            if (timerState.running) {
+                const hrs = parseInt(document.getElementById('timer-hours').value) || 0;
+                const mins = parseInt(document.getElementById('timer-mins').value) || 0;
+                const secs = parseInt(document.getElementById('timer-secs').value) || 0;
+                timerState.timeLeft = hrs * 3600 + mins * 60 + secs;
+
+                btn.textContent = 'Pause';
+                timerState.interval = setInterval(() => {
+                    timerState.timeLeft--;
+                    if (timerState.timeLeft <= 0) {
+                        clearInterval(timerState.interval);
+                        timerState.running = false;
+                        btn.textContent = 'Start';
+                        document.getElementById('timer-display').textContent = '★ TIME UP ★';
+                    } else {
+                        updateTimerDisplay();
+                    }
+                }, 1000);
+            } else {
+                btn.textContent = 'Start';
+                clearInterval(timerState.interval);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerState.interval);
+            timerState.running = false;
+            timerState.timeLeft = 5 * 60;
+            document.getElementById('timer-start').textContent = 'Start';
+            document.getElementById('timer-hours').value = 0;
+            document.getElementById('timer-mins').value = 5;
+            document.getElementById('timer-secs').value = 0;
+            updateTimerDisplay();
+        }
+
+        updateTimerDisplay();
+
+        // Stopwatch
+        let stopwatchState = {
+            running: false,
+            elapsed: 0,
+            interval: null,
+            laps: []
+        };
+
+        function updateStopwatchDisplay() {
+            const hrs = Math.floor(stopwatchState.elapsed / 3600);
+            const mins = Math.floor((stopwatchState.elapsed % 3600) / 60);
+            const secs = stopwatchState.elapsed % 60;
+            document.getElementById('stopwatch-display').textContent =
+                `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function toggleStopwatch() {
+            stopwatchState.running = !stopwatchState.running;
+            const btn = document.getElementById('stopwatch-start');
+
+            if (stopwatchState.running) {
+                btn.textContent = 'Pause';
+                stopwatchState.interval = setInterval(() => {
+                    stopwatchState.elapsed++;
+                    updateStopwatchDisplay();
+                }, 1000);
+            } else {
+                btn.textContent = 'Start';
+                clearInterval(stopwatchState.interval);
+            }
+        }
+
+        function lapStopwatch() {
+            if (stopwatchState.elapsed > 0) {
+                const hrs = Math.floor(stopwatchState.elapsed / 3600);
+                const mins = Math.floor((stopwatchState.elapsed % 3600) / 60);
+                const secs = stopwatchState.elapsed % 60;
+                const lapTime = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                stopwatchState.laps.unshift(lapTime);
+
+                const lapContainer = document.getElementById('lap-times');
+                lapContainer.innerHTML = stopwatchState.laps.map((lap, i) =>
+                    `<div class="lap-time"><span>Lap ${stopwatchState.laps.length - i}</span><span>${lap}</span></div>`
+                ).join('');
+            }
+        }
+
+        function resetStopwatch() {
+            clearInterval(stopwatchState.interval);
+            stopwatchState = { running: false, elapsed: 0, interval: null, laps: [] };
+            document.getElementById('stopwatch-start').textContent = 'Start';
+            document.getElementById('lap-times').innerHTML = '';
+            updateStopwatchDisplay();
+        }
+
+        // Radio
+        const radioPlayer = document.getElementById('radio-player');
+        const radioStatus = document.getElementById('radio-status');
+        const radioBtn = document.getElementById('radio-play');
+        const baseUrl = 'https://ice1.somafm.com/';
+
+        function getChannelUrl(channel) {
+            return `${baseUrl}${channel}`;
+        }
+
+        // Set initial source
+        radioPlayer.src = getChannelUrl(document.getElementById('radio-channel').value);
+
+        function toggleRadio() {
+            if (radioPlayer.paused) {
+                const playPromise = radioPlayer.play();
+
+                if (playPromise !== undefined) {
+                    radioStatus.textContent = 'Buffering...';
+                    playPromise.then(_ => {
+                        radioStatus.textContent = 'Playing: ' + getChannelName();
+                        radioBtn.textContent = 'Pause';
+                    })
+                        .catch(error => {
+                            radioStatus.textContent = 'Error: ' + error.message;
+                            radioBtn.textContent = 'Play';
+                        });
+                }
+            } else {
+                radioPlayer.pause();
+                radioStatus.textContent = 'Paused';
+                radioBtn.textContent = 'Play';
+            }
+        }
+
+        function stopRadio() {
+            radioPlayer.pause();
+            radioPlayer.currentTime = 0;
+            // Reload src to properly stop streaming buffering
+            radioPlayer.src = radioPlayer.src;
+            radioStatus.textContent = 'Stopped';
+            radioBtn.textContent = 'Play';
+        }
+
+        function changeRadioChannel() {
+            const channel = document.getElementById('radio-channel').value;
+            const wasPlaying = !radioPlayer.paused;
+
+            stopRadio(); // Stop current stream
+            radioPlayer.src = getChannelUrl(channel);
+
+            if (wasPlaying) {
+                toggleRadio();
+            } else {
+                radioStatus.textContent = 'Ready';
+            }
+        }
+
+        function getChannelName() {
+            const select = document.getElementById('radio-channel');
+            return select.options[select.selectedIndex].text;
+        }
+
+        // Handle errors
+        radioPlayer.addEventListener('error', (e) => {
+            radioStatus.textContent = 'Stream Error';
+            radioBtn.textContent = 'Play';
+        });
+
+        // Handle waiting/buffering
+        radioPlayer.addEventListener('waiting', () => {
+            if (!radioPlayer.paused) radioStatus.textContent = 'Buffering...';
+        });
+
+        radioPlayer.addEventListener('playing', () => {
+            radioStatus.textContent = 'Playing: ' + getChannelName();
+        });
+    </script>
+</body>
+
+</html>
