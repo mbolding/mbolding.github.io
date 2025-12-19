@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Neuroimaging Data Lakes via MCP</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Source+Sans+Pro:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-light: #fffff8;
+            --bg-dark: #1a1a18;
+            --text-light: #111;
+            --text-dark: #e8e8e0;
+            --text-muted-light: #555;
+            --text-muted-dark: #999;
+            --accent-light: #a00000;
+            --accent-dark: #e07050;
+            --border-light: #ccc;
+            --border-dark: #444;
+            --sidenote-light: #666;
+            --sidenote-dark: #888;
+
+            --bg: var(--bg-light);
+            --text: var(--text-light);
+            --text-muted: var(--text-muted-light);
+            --accent: var(--accent-light);
+            --border: var(--border-light);
+            --sidenote: var(--sidenote-light);
+        }
+
+        .dark {
+            --bg: var(--bg-dark);
+            --text: var(--text-dark);
+            --text-muted: var(--text-muted-dark);
+            --accent: var(--accent-dark);
+            --border: var(--border-dark);
+            --sidenote: var(--sidenote-dark);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 15px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Crimson Pro', Georgia, serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.8;
+            counter-reset: sidenote-counter;
+        }
+
+        /* Tufte-style layout */
+        article {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 1rem;
+        }
+
+        section {
+            width: 55%;
+            padding: 0;
+            margin-bottom: 4rem;
+        }
+
+        /* Typography */
+        h1 {
+            font-weight: 400;
+            font-size: 2.8rem;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            margin-top: 4rem;
+        }
+
+        h2 {
+            font-weight: 400;
+            font-size: 2rem;
+            font-style: italic;
+            margin-top: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        p {
+            margin-bottom: 1.4rem;
+        }
+
+        .subtitle {
+            font-style: italic;
+            font-size: 1.4rem;
+            color: var(--text-muted);
+            margin-top: -1rem;
+            margin-bottom: 2rem;
+        }
+
+        .epigraph {
+            margin: 3rem 0 4rem 0;
+            padding-left: 2rem;
+            border-left: 2px solid var(--border);
+        }
+
+        .epigraph p {
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .epigraph footer {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Links */
+        a {
+            color: var(--text);
+            text-decoration: underline;
+            text-decoration-color: var(--accent);
+            text-underline-offset: 2px;
+        }
+
+        a:hover {
+            color: var(--accent);
+        }
+
+        /* Sidenotes & Margin Notes */
+        .sidenote,
+        .marginnote {
+            float: right;
+            clear: right;
+            margin-right: -60%;
+            width: 50%;
+            margin-top: 0.3rem;
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--sidenote);
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        .sidenote-number {
+            counter-increment: sidenote-counter;
+        }
+
+        .sidenote-number:after,
+        .sidenote:before {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.75rem;
+            color: var(--accent);
+            position: relative;
+            vertical-align: baseline;
+        }
+
+        .sidenote-number:after {
+            content: counter(sidenote-counter);
+            top: -0.4rem;
+            left: 0.1rem;
+        }
+
+        .sidenote:before {
+            content: counter(sidenote-counter) " ";
+            top: -0.4rem;
+        }
+
+        /* Full-width elements */
+        .fullwidth {
+            max-width: 90%;
+            clear: both;
+        }
+
+        /* Figures */
+        figure {
+            margin: 2rem 0;
+        }
+
+        figure.fullwidth {
+            max-width: 100%;
+        }
+
+        figcaption {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            line-height: 1.5;
+        }
+
+        /* Code */
+        code {
+            font-family: 'IBM Plex Mono', Consolas, monospace;
+            font-size: 0.85rem;
+            background: transparent;
+            padding: 0.1rem 0.3rem;
+            border-radius: 2px;
+        }
+
+        pre {
+            font-family: 'IBM Plex Mono', Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            padding: 1.5rem;
+            background: transparent;
+            border-left: 2px solid var(--border);
+            margin: 1.5rem 0;
+        }
+
+        pre code {
+            padding: 0;
+        }
+
+        .code-comment {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .code-keyword {
+            color: var(--accent);
+        }
+
+        .code-string {
+            color: var(--text-muted);
+        }
+
+        /* Architecture diagram */
+        .diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            margin: 2rem 0;
+            gap: 1rem;
+        }
+
+        .diagram-layer {
+            flex: 1;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .diagram-layer h4 {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .diagram-layer p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .diagram-arrow {
+            display: flex;
+            align-items: center;
+            color: var(--border);
+            font-size: 1.5rem;
+        }
+
+        /* Data table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
+        }
+
+        thead {
+            border-bottom: 2px solid var(--text);
+        }
+
+        th {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-weight: 600;
+            text-align: left;
+            padding: 0.5rem 1rem 0.5rem 0;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 0.5rem 1rem 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        td code {
+            color: var(--accent);
+        }
+
+        /* Steps list */
+        .step {
+            margin: 2.5rem 0;
+            padding-left: 3rem;
+            position: relative;
+        }
+
+        .step-number {
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--border);
+            width: 2rem;
+            text-align: center;
+        }
+
+        .step h4 {
+            font-size: 1.2rem;
+            font-style: italic;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-detail {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+        }
+
+        /* Sparkline-style visualization */
+        .sparkline-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+
+        .sparkline-label {
+            width: 120px;
+            text-align: right;
+            color: var(--text-muted);
+        }
+
+        .sparkline-bar {
+            height: 8px;
+            background: var(--text);
+            opacity: 0.6;
+        }
+
+        .sparkline-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        /* Newthought */
+        .newthought {
+            font-variant: small-caps;
+            font-size: 1.1em;
+            letter-spacing: 0.05em;
+        }
+
+        /* Horizontal rule */
+        hr {
+            border: 0;
+            height: 1px;
+            background: var(--border);
+            margin: 3rem 0;
+        }
+
+        /* Header nav */
+        header {
+            width: 55%;
+            margin-bottom: 2rem;
+            padding-top: 2rem;
+        }
+
+        nav {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.85rem;
+        }
+
+        nav a {
+            margin-right: 1.5rem;
+            text-decoration: none;
+            color: var(--text-muted);
+        }
+
+        nav a:hover {
+            color: var(--accent);
+        }
+
+        /* Demo transcript */
+        .transcript {
+            margin: 2rem 0;
+            font-size: 0.95rem;
+        }
+
+        .transcript-line {
+            display: flex;
+            margin-bottom: 0.75rem;
+        }
+
+        .transcript-speaker {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            width: 60px;
+            flex-shrink: 0;
+            padding-top: 0.2rem;
+        }
+
+        .transcript-speaker.user {
+            color: var(--text-muted);
+        }
+
+        .transcript-speaker.agent {
+            color: var(--accent);
+        }
+
+        .transcript-speaker.tool {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .transcript-content {
+            flex: 1;
+        }
+
+        .transcript-content code {
+            display: block;
+            margin: 0.25rem 0;
+            padding: 0.5rem;
+            background: transparent;
+            border-left: 2px solid var(--border);
+        }
+
+        /* Flow diagram */
+        .flow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .flow-node {
+            padding: 1rem 1.5rem;
+            border: 1px solid var(--text);
+        }
+
+        .flow-node span {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            display: block;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .flow-arrow {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+            position: relative;
+            margin: 0 0.5rem;
+        }
+
+        .flow-arrow::after {
+            content: '→';
+            position: absolute;
+            right: -0.5rem;
+            top: -0.65rem;
+            color: var(--border);
+        }
+
+        /* Footer */
+        footer.page-footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            width: 55%;
+        }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+
+            section,
+            header,
+            footer.page-footer {
+                width: 90%;
+            }
+
+            .sidenote,
+            .marginnote {
+                display: block;
+                float: none;
+                margin: 1rem 0 1rem 2rem;
+                width: auto;
+                padding-left: 1rem;
+                border-left: 1px solid var(--border);
+            }
+
+            .diagram {
+                flex-direction: column;
+            }
+
+            .diagram-arrow {
+                transform: rotate(90deg);
+                justify-content: center;
+                margin: 0.5rem 0;
+            }
+        }
+
+        @media (max-width: 600px) {
+            html {
+                font-size: 14px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .step {
+                padding-left: 2.5rem;
+            }
+
+            .flow {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .flow-arrow {
+                width: 1px;
+                height: 30px;
+                margin: 0;
+            }
+
+            .flow-arrow::after {
+                content: '↓';
+                right: -0.35rem;
+                top: auto;
+                bottom: -0.5rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                font-size: 12pt;
+            }
+
+            section {
+                width: 100%;
+            }
+
+            .sidenote,
+            .marginnote {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <article>
+        <header>
+            <nav>
+                <a href="#architecture">Architecture</a>
+                <a href="#tools">Tools</a>
+                <a href="#implementation">Implementation</a>
+                <a href="#example">Example</a>
+            </nav>
+        </header>
+
+        <section>
+            <h1>Agentic Neuroimaging Data Lakes via MCP</h1>
+            <p class="subtitle">A framework for intelligent navigation of petabyte-scale brain imaging data</p>
+
+            <div class="epigraph">
+                <p>"The purpose of computing is insight, not numbers."</p>
+                <footer>— Richard Hamming</footer>
+            </div>
+
+            <p>
+                <span class="newthought">Modern neuroimaging research</span> generates data at unprecedented scale.
+                The Human Connectome Project alone comprises over 20 terabytes of MRI data.<span
+                    class="sidenote-number"></span>
+                <span class="sidenote">Van Essen, D.C., et al. (2013). The WU-Minn Human Connectome Project: An
+                    overview. <em>NeuroImage</em>, 80, 62-79.</span>
+                Institutional data lakes now routinely hold tens of thousands of brain scans—far exceeding what any
+                researcher can manually navigate.
+            </p>
+
+            <p>
+                The challenge is not storage, but access. How does one find the 47 subjects with treatment-resistant
+                depression
+                who also have high-resolution diffusion imaging? How does one orchestrate preprocessing pipelines across
+                heterogeneous data, then synthesize results into publishable findings?
+            </p>
+
+            <p>
+                The answer lies in <em>agentic systems</em>: AI agents equipped with tools for data exploration,
+                processing, and analysis. The Model Context Protocol (MCP) provides the connective tissue—a standardized
+                interface through which language models invoke domain-specific capabilities.
+            </p>
+        </section>
+
+        <section id="architecture">
+            <h2>System Architecture</h2>
+
+            <p>
+                The architecture comprises three layers, each with distinct responsibilities.<span
+                    class="sidenote-number"></span>
+                <span class="sidenote">This separation follows the principle of loose coupling: the data layer knows
+                    nothing of agents, the MCP layer is agnostic to specific LLMs, and agents are model-agnostic.</span>
+                Data flows upward from storage through protocol servers to reasoning agents; commands flow downward.
+            </p>
+
+            <figure class="fullwidth">
+                <div class="flow">
+                    <div class="flow-node">
+                        Data Lake
+                        <span>Storage</span>
+                    </div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-node">
+                        MCP Server
+                        <span>Protocol</span>
+                    </div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-node">
+                        AI Agent
+                        <span>Reasoning</span>
+                    </div>
+                </div>
+                <figcaption>Figure 1. Three-layer architecture for agentic neuroimaging. Arrows indicate bidirectional
+                    communication; data and metadata flow up, tool invocations flow down.</figcaption>
+            </figure>
+
+            <h3>The Data Lake</h3>
+
+            <p>
+                Raw neuroimaging data resides in cloud object storage—S3, GCS, or Azure Blob—organized according
+                to the Brain Imaging Data Structure (BIDS).<span class="sidenote-number"></span>
+                <span class="sidenote">Gorgolewski, K.J., et al. (2016). The brain imaging data structure, a format for
+                    organizing and describing outputs of neuroimaging experiments. <em>Scientific Data</em>, 3,
+                    160044.</span>
+                BIDS provides a predictable directory hierarchy and JSON metadata sidecars that enable automated
+                discovery.
+            </p>
+
+            <p>
+                Volumetric data is stored in NIfTI format for interoperability, though the system also supports
+                chunked Zarr arrays for efficient partial reads of large datasets. A metadata index—typically
+                PostgreSQL with full-text search—enables sub-second queries across millions of records.
+            </p>
+
+            <h3>The MCP Server</h3>
+
+            <p>
+                The Model Context Protocol server exposes neuroimaging capabilities as discrete tools.<span
+                    class="sidenote-number"></span>
+                <span class="sidenote">MCP is an open protocol developed by Anthropic for connecting AI systems to
+                    external data sources and tools. See: <a
+                        href="https://modelcontextprotocol.io">modelcontextprotocol.io</a></span>
+                Each tool has a typed schema defining its inputs and outputs, enabling the agent to understand
+                what operations are available and how to invoke them correctly.
+            </p>
+
+            <p>
+                Tools are <em>composable</em>. An agent might first query for subjects, then load their scans,
+                then extract regional time series, then compute connectivity matrices—chaining tool calls
+                in service of a higher-level research question.
+            </p>
+
+            <h3>The Agent Layer</h3>
+
+            <p>
+                A large language model serves as the reasoning engine. Given a natural language query
+                ("Find subjects with schizophrenia and compare their default mode network connectivity to controls"),
+                the agent decomposes the task, selects appropriate tools, interprets intermediate results,
+                and iterates until the goal is achieved.
+            </p>
+
+            <p>
+                The agent's system prompt encodes domain knowledge: anatomical nomenclature, standard atlases,
+                preprocessing best practices, and statistical conventions. This transforms a general-purpose
+                LLM into a specialized neuroimaging assistant.
+            </p>
+        </section>
+
+        <section id="tools">
+            <h2>The Tool Suite</h2>
+
+            <p>
+                <span class="newthought">Tools are the vocabulary</span> through which agents interact with data.
+                A well-designed tool suite balances expressiveness with safety—powerful enough to support
+                complex analyses, constrained enough to prevent catastrophic errors.
+            </p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tool</th>
+                        <th>Purpose</th>
+                        <th>Key Parameters</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>query_subjects</code></td>
+                        <td>Search subjects by demographic and clinical criteria</td>
+                        <td>diagnosis, age_range, sex, modality, site</td>
+                    </tr>
+                    <tr>
+                        <td><code>load_scan</code></td>
+                        <td>Retrieve imaging data with lazy loading</td>
+                        <td>subject_id, session, modality, space</td>
+                    </tr>
+                    <tr>
+                        <td><code>run_fmriprep</code></td>
+                        <td>Execute standardized preprocessing pipeline</td>
+                        <td>subject_id, output_space, ignore</td>
+                    </tr>
+                    <tr>
+                        <td><code>extract_roi</code></td>
+                        <td>Compute regional time series or volumes</td>
+                        <td>atlas, regions, summary_method</td>
+                    </tr>
+                    <tr>
+                        <td><code>compute_connectivity</code></td>
+                        <td>Generate functional connectivity matrices</td>
+                        <td>method, fisher_z, threshold</td>
+                    </tr>
+                    <tr>
+                        <td><code>statistical_test</code></td>
+                        <td>Run group comparisons with multiple testing correction</td>
+                        <td>test_type, correction, covariates</td>
+                    </tr>
+                    <tr>
+                        <td><code>render_brain</code></td>
+                        <td>Generate publication-quality brain visualizations</td>
+                        <td>view, colormap, threshold, surface</td>
+                    </tr>
+                    <tr>
+                        <td><code>export_results</code></td>
+                        <td>Package outputs with provenance metadata</td>
+                        <td>format, include_qc, include_code</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>
+                Each tool call is logged with full provenance: timestamp, parameters, software versions,
+                and data checksums. This audit trail supports reproducibility requirements increasingly
+                mandated by funding agencies and journals.<span class="sidenote-number"></span>
+                <span class="sidenote">See NIH's 2023 Data Management and Sharing Policy, which requires
+                    machine-readable provenance for federally-funded research data.</span>
+            </p>
+        </section>
+
+        <section id="implementation">
+            <h2>Implementation Guide</h2>
+
+            <p>
+                <span class="newthought">Building this system</span> proceeds in six phases.
+                Each phase produces working components that can be tested independently
+                before integration.
+            </p>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h4>Design the Data Lake Schema</h4>
+                <p>
+                    Establish your storage hierarchy following BIDS conventions. Create a metadata catalog
+                    mapping subjects to their available scans, sessions, and derived products. Index this
+                    catalog in a database supporting complex queries.
+                </p>
+                <div class="step-detail">
+                    <strong>Key decisions:</strong> Object storage provider, metadata database (PostgreSQL vs.
+                    Elasticsearch),
+                    data formats (NIfTI, Zarr, or both), backup and versioning strategy.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h4>Implement the MCP Server</h4>
+                <p>
+                    Using the MCP Python SDK, create a server exposing your tool suite. Each tool
+                    function accepts typed parameters and returns structured results. Implement
+                    proper error handling—agents must receive informative messages when operations fail.
+                </p>
+                <pre>
+<span class="code-keyword">from</span> mcp.server <span class="code-keyword">import</span> Server
+
+server = Server(<span class="code-string">"neuro-mcp"</span>)
+
+<span class="code-keyword">@server.tool()</span>
+<span class="code-keyword">async def</span> query_subjects(
+    diagnosis: str | None = None,
+    age_range: tuple[int, int] | None = None,
+    modality: str = <span class="code-string">"bold"</span>
+) -> list[dict]:
+    <span class="code-comment">"""Query subjects matching specified criteria."""</span>
+    <span class="code-keyword">return await</span> catalog.search(
+        diagnosis=diagnosis,
+        age_range=age_range,
+        modality=modality
+    )
+</pre>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h4>Wrap Processing Pipelines</h4>
+                <p>
+                    Containerize standard pipelines (fMRIPrep, FreeSurfer, MRIQC) using Singularity
+                    for HPC compatibility. Create a job queue system—Celery with Redis, or SLURM
+                    for cluster environments—that accepts processing requests and reports progress.
+                </p>
+                <div class="step-detail">
+                    <strong>Considerations:</strong> Resource allocation (CPU, memory, GPU), job priority,
+                    failure recovery, and output validation.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h4>Configure the Agent</h4>
+                <p>
+                    Craft a system prompt embedding neuroimaging domain knowledge. Include anatomical
+                    terminology, standard atlas references (AAL, Schaefer, Harvard-Oxford), and
+                    guidelines for statistical analysis. Connect the agent to your MCP server.
+                </p>
+                <pre>
+<span class="code-comment"># System prompt excerpt</span>
+<span class="code-string">"""
+You are a neuroimaging research assistant with access
+to a data lake containing 50,000 brain scans.
+
+When analyzing functional connectivity:
+- Use the Schaefer 400-parcel atlas by default
+- Apply Fisher z-transformation before group comparisons
+- Report effect sizes alongside p-values
+- Always verify data quality before analysis
+"""</span>
+</pre>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h4>Implement Governance</h4>
+                <p>
+                    Add role-based access control restricting which users can access which datasets
+                    and tools. Implement audit logging for all data access. For datasets containing
+                    protected health information, ensure HIPAA-compliant de-identification and access controls.
+                </p>
+                <div class="step-detail">
+                    <strong>Requirements:</strong> Authentication (OAuth/SAML), authorization rules,
+                    PHI detection and scrubbing, comprehensive audit logs.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <h4>Deploy and Scale</h4>
+                <p>
+                    Deploy MCP servers as containerized services with horizontal autoscaling.
+                    Configure caching layers—Redis for metadata, local NVMe for hot data.
+                    Establish monitoring and alerting for system health and cost management.
+                </p>
+                <div class="step-detail">
+                    <strong>Infrastructure:</strong> Kubernetes for orchestration, Prometheus for metrics,
+                    cloud spot instances for burst compute capacity.
+                </div>
+            </div>
+        </section>
+
+        <section id="example">
+            <h2>Example Interaction</h2>
+
+            <p>
+                <span class="newthought">To illustrate the system in action,</span> consider a researcher
+                investigating altered brain connectivity in schizophrenia. The following transcript
+                shows how an agent navigates the data lake to answer their query.
+            </p>
+
+            <div class="transcript">
+                <div class="transcript-line">
+                    <span class="transcript-speaker user">User</span>
+                    <span class="transcript-content">
+                        Find subjects with schizophrenia who have resting-state fMRI data,
+                        and compare their default mode network connectivity to healthy controls.
+                    </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker agent">Agent</span>
+                    <span class="transcript-content">
+                        I'll query the data lake for subjects matching these criteria, then perform
+                        the connectivity analysis. Let me start by identifying available subjects.
+                        <code>query_subjects(diagnosis="schizophrenia", modality="rest")</code>
+                    </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker tool">Result</span>
+                    <span class="transcript-content">
+                        Found 847 subjects with schizophrenia diagnosis and resting-state fMRI.
+                        Age range: 18–65 years. Sites: 12. Mean scan duration: 8.2 minutes.
+                    </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker agent">Agent</span>
+                    <span class="transcript-content">
+                        Now I'll query for matched healthy controls.
+                        <code>query_subjects(diagnosis="healthy_control", modality="rest", match_to="schizophrenia_cohort")</code>
+                    </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker tool">Result</span>
+                    <span class="transcript-content">
+                        Found 1,203 age- and sex-matched healthy controls from the same sites.
+                    </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker agent">Agent</span>
+                    <span class="transcript-content">
+                        I'll extract default mode network time series using the Schaefer atlas,
+                        compute within-network connectivity for each subject, then run a group comparison.
+                        <code>extract_roi(subjects=[...], atlas="Schaefer400", networks=["DMN"])</code>
+                        <code>compute_connectivity(method="correlation", fisher_z=True)</code>
+                        <code>statistical_test(test="t_test", correction="fdr", covariates=["age", "sex", "site"])</code>
+                    </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker tool">Result</span>
+                    <span class="transcript-content">
+                        Analysis complete. Schizophrenia group shows significantly reduced within-DMN
+                        connectivity (t = −4.32, p < 0.001, FDR-corrected). Effect size: Cohen's d=−0.38. </span>
+                </div>
+
+                <div class="transcript-line">
+                    <span class="transcript-speaker agent">Agent</span>
+                    <span class="transcript-content">
+                        The analysis confirms reduced default mode network connectivity in schizophrenia,
+                        consistent with prior literature on functional dysconnectivity in this population.
+                        The effect size (d = −0.38) indicates a small-to-medium effect. Shall I generate
+                        a visualization or export the full results?
+                    </span>
+                </div>
+            </div>
+
+            <p>
+                The entire interaction—from natural language query to statistical result—required
+                no manual data wrangling, no custom scripts, no navigation of directory structures.
+                The agent composed tool calls, interpreted intermediate results, and synthesized
+                a coherent answer.
+            </p>
+        </section>
+
+        <section>
+            <h2>Considerations</h2>
+
+            <h3>Data Volume</h3>
+
+            <p>
+                The scale of neuroimaging data lakes varies considerably across institutions.
+                The following represents typical ranges:
+            </p>
+
+            <div class="sparkline-row">
+                <span class="sparkline-label">Small lab</span>
+                <div class="sparkline-bar" style="width: 30px;"></div>
+                <span class="sparkline-value">1–5 TB</span>
+            </div>
+            <div class="sparkline-row">
+                <span class="sparkline-label">Department</span>
+                <div class="sparkline-bar" style="width: 80px;"></div>
+                <span class="sparkline-value">10–50 TB</span>
+            </div>
+            <div class="sparkline-row">
+                <span class="sparkline-label">Medical center</span>
+                <div class="sparkline-bar" style="width: 160px;"></div>
+                <span class="sparkline-value">100–500 TB</span>
+            </div>
+            <div class="sparkline-row">
+                <span class="sparkline-label">Consortium</span>
+                <div class="sparkline-bar" style="width: 280px;"></div>
+                <span class="sparkline-value">1–10 PB</span>
+            </div>
+
+            <h3>Latency and Caching</h3>
+
+            <p>
+                Agent interactions should feel conversational, with responses in seconds rather than minutes.
+                This requires aggressive caching: metadata queries must hit the index, not scan storage;
+                frequently-accessed derived products should reside on fast local storage; and long-running
+                pipelines should provide progress updates rather than blocking.
+            </p>
+
+            <h3>Reproducibility</h3>
+
+            <p>
+                Every tool invocation should be logged with sufficient detail to reproduce the result.
+                This includes not only parameters but also software versions, random seeds, and data checksums.
+                The PROV-O ontology provides a standard vocabulary for such provenance graphs.<span
+                    class="sidenote-number"></span>
+                <span class="sidenote">Lebo, T., et al. (2013). PROV-O: The PROV Ontology. W3C Recommendation.</span>
+            </p>
+
+            <hr>
+
+            <p>
+                The convergence of large language models, standardized protocols, and cloud infrastructure
+                creates new possibilities for scientific data access. The framework described here
+                represents one instantiation—tailored to neuroimaging, but adaptable to genomics,
+                astronomy, climate science, or any domain with large, structured data repositories.
+            </p>
+
+            <p>
+                The goal is not to replace human expertise, but to amplify it: freeing researchers
+                from mechanical data wrangling so they can focus on the questions that matter.
+            </p>
+        </section>
+
+        <footer class="page-footer">
+            <p>
+                This document describes an architectural pattern for agentic data access.
+                Implementation details will vary based on institutional requirements,
+                existing infrastructure, and specific research needs.
+            </p>
+        </footer>
+    </article>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
