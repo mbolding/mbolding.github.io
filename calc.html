@@ -4,27 +4,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scientific Calculator</title>
+    <title>Scientific Calculator — Tufte Edition</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
     <style>
         :root {
-            --bg-color: #f5f5f7;
-            --calc-bg: #ffffff;
-            --tape-bg: #fffbf0;
-            /* Slight yellow tint for paper feel */
-            --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
-            --accent-color: #ff3b30;
-            --btn-bg: #f5f5f7;
-            --btn-hover: #e8e8ed;
-            --btn-active: #d2d2d7;
-            --border-color: #d2d2d7;
-            --font-main: 'Inter', sans-serif;
+            --bg-color: #fffff8;
+            /* Tufte parchment foreground */
+            --paper-color: #fffff8;
+            --text-primary: #111111;
+            --text-secondary: #555555;
+            --accent-color: #990000;
+            /* Subtle scholarly red */
+            --border-color: #dddddd;
+            --btn-bg: transparent;
+            --btn-hover: #f0f0e8;
+            --btn-active: #e8e8df;
+            --font-main: 'Crimson Pro', serif;
             --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        .dark {
+            --bg-color: #151515;
+            --paper-color: #151515;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #cc3333;
+            --border-color: #333333;
+            --btn-hover: #1a1a1a;
+            --btn-active: #222222;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         body {
@@ -37,185 +54,221 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            transition: background-color 0.4s ease;
         }
 
         .workspace {
             display: grid;
             grid-template-columns: 1fr 340px;
-            width: 900px;
-            height: 600px;
-            background: var(--calc-bg);
-            border-radius: 18px;
-            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.15);
+            width: 1050px;
+            height: 950px;
+            max-height: 98vh;
+            background: var(--paper-color);
+            border: 0.5px solid var(--border-color);
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.05);
             overflow: hidden;
         }
 
         /* Calculator Section */
         .calculator {
-            padding: 30px;
+            padding: 24px 32px;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid var(--border-color);
+            border-right: 0.5px solid var(--border-color);
+        }
+
+        .display-container {
+            margin-bottom: 24px;
+            border-bottom: 0.5px solid var(--border-color);
+            padding-bottom: 12px;
         }
 
         .display {
             width: 100%;
-            margin-bottom: 20px;
             text-align: right;
             border: none;
             outline: none;
-            font-family: var(--font-mono);
+            font-family: var(--font-main);
             background: transparent;
+            cursor: default;
         }
 
         .display-main {
-            font-size: 48px;
+            font-size: 64px;
             color: var(--text-primary);
-            height: 60px;
+            height: 80px;
+            font-weight: 400;
+            font-variant-numeric: lining-nums;
         }
 
         .display-sub {
-            font-size: 16px;
+            font-size: 20px;
+            font-style: italic;
             color: var(--text-secondary);
-            height: 24px;
-            margin-bottom: 10px;
+            height: 30px;
+            margin-bottom: 5px;
+        }
+
+        .controls-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .mode-toggles {
+            display: flex;
+            gap: 20px;
+        }
+
+        .toggle-btn {
+            font-size: 14px;
+            font-variant: small-caps;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s;
+            position: relative;
+        }
+
+        .toggle-btn.active {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .toggle-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 0.5px;
+            background: var(--accent-color);
         }
 
         .keypad {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
-            flex: 1;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(7, 56px);
+            gap: 4px;
         }
 
         button {
-            border: none;
-            border-radius: 12px;
+            border: 0.5px solid transparent;
             background-color: var(--btn-bg);
             color: var(--text-primary);
-            font-size: 16px;
-            font-weight: 500;
+            font-size: 17px;
+            font-weight: 400;
             cursor: pointer;
-            transition: all 0.1s ease;
+            transition: all 0.2s;
             font-family: var(--font-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
         }
 
         button:hover {
             background-color: var(--btn-hover);
+            border-color: var(--border-color);
         }
 
         button:active {
             background-color: var(--btn-active);
-            transform: scale(0.98);
         }
 
         button.btn-op {
-            background-color: #ffebd4;
-            color: #ff9500;
-        }
-
-        button.btn-op:hover {
-            background-color: #ffe0b2;
+            color: var(--accent-color);
+            font-size: 22px;
         }
 
         button.btn-action {
-            background-color: #ffebee;
-            color: var(--accent-color);
+            font-variant: small-caps;
+            color: var(--text-secondary);
         }
 
-        button.btn-action:hover {
-            background-color: #ffcdd2;
+        button.btn-sci {
+            font-style: italic;
+            font-size: 16px;
+            color: var(--text-secondary);
         }
 
         button.btn-primary {
-            background-color: var(--accent-color);
-            color: white;
-        }
-
-        button.btn-primary:hover {
-            background-color: #d63228;
+            font-size: 28px;
+            color: var(--accent-color);
         }
 
         /* Paper Tape Section */
         .tape-container {
-            background-color: var(--tape-bg);
+            background-color: var(--paper-color);
             display: flex;
             flex-direction: column;
-            border-left: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .tape-header {
-            padding: 20px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border-bottom: 0.5px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .tape-title {
-            font-weight: 600;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: 500;
+            font-size: 16px;
+            font-variant: small-caps;
+            letter-spacing: 1px;
             color: var(--text-secondary);
         }
 
         .tape-actions button {
-            background: transparent;
             font-size: 12px;
-            padding: 4px 8px;
-            height: auto;
+            padding: 5px 12px;
             color: var(--text-secondary);
-        }
-
-        .tape-actions button:hover {
-            color: var(--accent-color);
-            background: rgba(0, 0, 0, 0.05);
+            border: 0.5px solid var(--border-color);
+            font-variant: small-caps;
         }
 
         .tape-content {
             flex: 1;
-            padding: 20px;
+            padding: 30px;
             overflow-y: auto;
             font-family: var(--font-mono);
-            font-size: 14px;
+            font-size: 13px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 25px;
         }
 
         .tape-entry {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
-            padding-bottom: 10px;
+            padding-bottom: 15px;
             cursor: pointer;
-            opacity: 0.8;
-            transition: opacity 0.2s;
+            transition: transform 0.2s;
+            border-bottom: 0.2px solid var(--border-color);
         }
 
         .tape-entry:hover {
-            opacity: 1;
-            background-color: rgba(0, 0, 0, 0.02);
-            margin: 0 -10px;
-            padding: 0 10px 10px 10px;
+            transform: translateX(-5px);
         }
 
         .tape-expression {
             color: var(--text-secondary);
-            font-size: 12px;
-            margin-bottom: 4px;
+            font-style: italic;
+            margin-bottom: 8px;
         }
 
         .tape-result {
-            font-weight: 600;
+            font-weight: 500;
+            font-size: 15px;
             color: var(--text-primary);
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
+            width: 4px;
         }
 
         ::-webkit-scrollbar-track {
@@ -223,12 +276,20 @@
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #d2d2d7;
-            border-radius: 4px;
+            background: var(--border-color);
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #86868b;
+        @media (max-width: 900px) {
+            .workspace {
+                width: 100vw;
+                height: 100vh;
+                grid-template-columns: 1fr;
+                border: none;
+            }
+
+            .tape-container {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -236,72 +297,82 @@
 <body>
     <div class="workspace">
         <div class="calculator">
-            <input type="text" class="display display-sub" id="historyDisplay" readonly>
-            <input type="text" class="display display-main" id="mainDisplay" value="0" readonly>
+            <div class="display-container">
+                <input type="text" class="display display-sub" id="historyDisplay" readonly>
+                <input type="text" class="display display-main" id="mainDisplay" value="0" readonly>
+            </div>
+
+            <div class="controls-top">
+                <div class="mode-toggles">
+                    <div id="degToggle" class="toggle-btn active" onclick="setDegRad('DEG')">degrees</div>
+                    <div id="radToggle" class="toggle-btn" onclick="setDegRad('RAD')">radians</div>
+                </div>
+                <div id="memIndicator"
+                    style="display: none; color: var(--accent-color); font-size: 13px; font-variant: small-caps;">Memory
+                    Active</div>
+            </div>
 
             <div class="keypad">
                 <!-- Row 1 -->
-                <button onclick="clearAll()" class="btn-action">AC</button>
-                <button onclick="deleteLast()" class="btn-action">DEL</button>
-                <button onclick="memoryClear()">MC</button>
-                <button onclick="memoryRecall()">MR</button>
-                <button onclick="memoryAdd()">M+</button>
-
-                <!-- Row 2 -->
-                <button onclick="appendFunction('sin(')">sin</button>
-                <button onclick="appendFunction('cos(')">cos</button>
-                <button onclick="appendFunction('tan(')">tan</button>
-                <button onclick="appendConstant('PI')">π</button>
+                <button onclick="appendFunction('asin(')" class="btn-sci">asin</button>
+                <button onclick="appendFunction('acos(')" class="btn-sci">acos</button>
+                <button onclick="appendFunction('atan(')" class="btn-sci">atan</button>
+                <button onclick="clearAll()" class="btn-action">clear</button>
+                <button onclick="deleteLast()" class="btn-action">del</button>
                 <button onclick="appendOperator('/')" class="btn-op">÷</button>
 
-                <!-- Row 3 -->
-                <button onclick="appendFunction('log(')">log</button>
+                <!-- Row 2 -->
+                <button onclick="appendFunction('sin(')" class="btn-sci">sin</button>
+                <button onclick="appendFunction('cos(')" class="btn-sci">cos</button>
+                <button onclick="appendFunction('tan(')" class="btn-sci">tan</button>
                 <button onclick="appendNumber(7)">7</button>
                 <button onclick="appendNumber(8)">8</button>
                 <button onclick="appendNumber(9)">9</button>
-                <button onclick="appendOperator('*')" class="btn-op">×</button>
 
-                <!-- Row 4 -->
-                <button onclick="appendFunction('ln(')">ln</button>
+                <!-- Row 3 -->
+                <button onclick="appendFunction('log(')" class="btn-sci">log</button>
+                <button onclick="appendFunction('ln(')" class="btn-sci">ln</button>
+                <button onclick="appendFunction('sqrt(')" class="btn-sci">√</button>
                 <button onclick="appendNumber(4)">4</button>
                 <button onclick="appendNumber(5)">5</button>
                 <button onclick="appendNumber(6)">6</button>
-                <button onclick="appendOperator('-')" class="btn-op">−</button>
 
-                <!-- Row 5 -->
-                <button onclick="appendFunction('sqrt(')">√</button>
+                <!-- Row 4 -->
+                <button onclick="appendFunction('abs(')" class="btn-sci">abs</button>
+                <button onclick="appendFunction('exp(')" class="btn-sci">exp</button>
+                <button onclick="appendOperator('^')" class="btn-sci">x<sup>y</sup></button>
                 <button onclick="appendNumber(1)">1</button>
                 <button onclick="appendNumber(2)">2</button>
                 <button onclick="appendNumber(3)">3</button>
-                <button onclick="appendOperator('+')" class="btn-op">+</button>
 
-                <!-- Row 6 -->
-                <button onclick="appendOperator('^')">^</button>
+                <!-- Row 5 -->
+                <button onclick="appendOperator('!')" class="btn-sci">x!</button>
+                <button onclick="appendConstant('PI')" class="btn-sci">π</button>
+                <button onclick="appendConstant('E')" class="btn-sci">e</button>
                 <button onclick="appendNumber(0)">0</button>
                 <button onclick="appendNumber('.')">.</button>
-                <button onclick="appendFunction('(')">(</button>
-                <button onclick="appendFunction(')')">)</button>
+                <button onclick="appendOperator('*')" class="btn-op">×</button>
 
-                <!-- Row 7 (Equals spans all) -->
-                <button onclick="calculate()" class="btn-primary"
-                    style="grid-column: 1 / -1; margin-top: 6px;">=</button>
+                <!-- Row 6 -->
+                <button onclick="appendFunction('(')" class="btn-sci">(</button>
+                <button onclick="appendFunction(')')" class="btn-sci">)</button>
+                <button onclick="useAns()" class="btn-sci">ans</button>
+                <button onclick="memoryRecall()" class="btn-sci">mr</button>
+                <button onclick="memoryAdd()" class="btn-sci">m+</button>
+                <button onclick="appendOperator('+')" class="btn-op">+</button>
+
+                <!-- Row 7 -->
+                <button onclick="memoryClear()" class="btn-sci">mc</button>
+                <button onclick="appendOperator('-')" class="btn-op">−</button>
+                <button onclick="calculate()" class="btn-primary" style="grid-column: 3 / -1;">=</button>
             </div>
-            <!-- Hack: Make keypad 5x6. wait 5 cols. 
-                 Row 1: AC, ML, MC, MR, M+ (5)
-                 Row 2: sin, cos, tan, pi, / (5)
-                 Row 3: log, 7, 8, 9, * (5)
-                 Row 4: ln, 4, 5, 6, - (5)
-                 Row 5: sqrt, 1, 2, 3, + (5)
-                 Row 6: ^, 0, ., (, ) (5)
-                 Looks good.
-            -->
         </div>
 
         <div class="tape-container">
             <div class="tape-header">
-                <span class="tape-title">Paper Tape</span>
+                <span class="tape-title">Session Log</span>
                 <div class="tape-actions">
-                    <button onclick="clearTape()">Clear</button>
+                    <button onclick="clearTape()">Reset Log</button>
                 </div>
             </div>
             <div class="tape-content" id="tapeContent">
@@ -314,17 +385,34 @@
         const mainDisplay = document.getElementById('mainDisplay');
         const historyDisplay = document.getElementById('historyDisplay');
         const tapeContent = document.getElementById('tapeContent');
+        const memIndicator = document.getElementById('memIndicator');
 
         let currentInput = '0';
         let memory = 0;
-        let lastResult = null;
+        let lastAns = '0';
         let isNewCalculation = true;
+        let angleMode = 'DEG';
 
-        // Load tape on init
         loadTape();
+
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
+            if (e.matches) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        });
 
         function updateDisplay() {
             mainDisplay.value = currentInput;
+            const size = currentInput.length > 12 ? (currentInput.length > 20 ? '28px' : '48px') : '64px';
+            mainDisplay.style.fontSize = size;
+        }
+
+        function setDegRad(mode) {
+            angleMode = mode;
+            document.getElementById('degToggle').classList.toggle('active', mode === 'DEG');
+            document.getElementById('radToggle').classList.toggle('active', mode === 'RAD');
         }
 
         function clearAll() {
@@ -351,6 +439,11 @@
             } else {
                 if (currentInput === '0' && num !== '.') {
                     currentInput = num.toString();
+                } else if (num === '.' && currentInput.includes('.')) {
+                    const parts = currentInput.split(/[\+\-\*\/\^\(\)]/);
+                    if (!parts[parts.length - 1].includes('.')) {
+                        currentInput += '.';
+                    }
                 } else {
                     currentInput += num.toString();
                 }
@@ -360,7 +453,7 @@
 
         function appendOperator(op) {
             isNewCalculation = false;
-            // Prevent double ops if desired, or let user type loosely
+            if (currentInput === 'Error') currentInput = '0';
             currentInput += op;
             updateDisplay();
         }
@@ -370,71 +463,89 @@
                 currentInput = '';
                 isNewCalculation = false;
             }
-            if (constName === 'PI') {
-                currentInput += Math.PI.toFixed(8);
-            }
+            if (constName === 'PI') currentInput += 'PI';
+            if (constName === 'E') currentInput += 'E';
             updateDisplay();
         }
 
         function appendFunction(func) {
             if (isNewCalculation) {
-                // If it's a closing paren, we might want to continue from previous result?
-                // But usually functions start new. 
-                // However, valid expression like (1+2) starts with (.
-                // If func is ')' and we have a number, it's fine.
-                if (func !== ')') {
-                    currentInput = '';
-                }
+                currentInput = '';
                 isNewCalculation = false;
             }
             currentInput += func;
             updateDisplay();
         }
 
+        function useAns() {
+            if (isNewCalculation) {
+                currentInput = lastAns;
+                isNewCalculation = false;
+            } else {
+                currentInput += lastAns;
+            }
+            updateDisplay();
+        }
+
+        function factorial(n) {
+            if (n < 0) return NaN;
+            if (n === 0) return 1;
+            let res = 1;
+            for (let i = 2; i <= n; i++) res *= i;
+            return res;
+        }
+
         function calculate() {
             try {
                 let expression = currentInput;
-
-                // Auto-close parentheses
+                expression = expression.replace(/(\d+\.?\d*)!/g, 'factorial($1)');
                 const openCount = (expression.match(/\(/g) || []).length;
                 const closeCount = (expression.match(/\)/g) || []).length;
                 if (openCount > closeCount) {
-                    const missing = openCount - closeCount;
-                    expression += ')'.repeat(missing);
-                    // Update display to show the auto-closed parens? 
-                    // Or keep it implicit? Users prefer implicit usually, 
-                    // but for Tape it's nice to show what was calculated.
-                    // Let's update currentInput to match for the tape.
-                    currentInput = expression;
+                    expression += ')'.repeat(openCount - closeCount);
                 }
 
-                // Replace visual operators with JS
                 let evalString = expression
                     .replace(/×/g, '*')
-                    .replace(/−/g, '-') // replace fancy minus
+                    .replace(/−/g, '-')
                     .replace(/÷/g, '/')
-                    .replace(/\^/g, '**') // Power operator
-                    .replace(/sin\(/g, 'Math.sin(')
-                    .replace(/cos\(/g, 'Math.cos(')
-                    .replace(/tan\(/g, 'Math.tan(')
-                    .replace(/log\(/g, 'Math.log10(')
-                    .replace(/ln\(/g, 'Math.log(')
+                    .replace(/\^/g, '**')
+                    .replace(/PI/g, 'Math.PI')
+                    .replace(/E/g, 'Math.E')
+                    .replace(/abs\(/g, 'Math.abs(')
+                    .replace(/exp\(/g, 'Math.exp(')
                     .replace(/sqrt\(/g, 'Math.sqrt(')
-                    .replace(/PI/g, 'Math.PI');
+                    .replace(/ln\(/g, 'Math.log(')
+                    .replace(/log\(/g, 'Math.log10(');
+
+                const trigFuncs = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan'];
+                trigFuncs.forEach(fn => {
+                    const regex = new RegExp(`${fn}\\(`, 'g');
+                    if (fn.startsWith('a')) {
+                        if (angleMode === 'DEG') {
+                            evalString = evalString.replace(regex, `(180/Math.PI)*Math.${fn}(`);
+                        } else {
+                            evalString = evalString.replace(regex, `Math.${fn}(`);
+                        }
+                    } else {
+                        if (angleMode === 'DEG') {
+                            evalString = evalString.replace(regex, `Math.${fn}((Math.PI/180)*`);
+                        } else {
+                            evalString = evalString.replace(regex, `Math.${fn}(`);
+                        }
+                    }
+                });
 
                 const result = eval(evalString);
+                if (!isFinite(result)) throw new Error('Overflow');
+                if (isNaN(result)) throw new Error('Invalid');
 
-                if (!isFinite(result) || isNaN(result)) {
-                    throw new Error('Invalid Result');
-                }
-
-                const formattedResult = parseFloat(result.toFixed(10)).toString();
+                const formattedResult = Number(result.toFixed(12)).toString();
 
                 addToTape(currentInput, formattedResult);
-
                 historyDisplay.value = currentInput + ' =';
                 currentInput = formattedResult;
-                lastResult = result;
+                lastAns = formattedResult;
                 isNewCalculation = true;
                 updateDisplay();
 
@@ -445,24 +556,24 @@
             }
         }
 
-        // Memory Functions
         function memoryAdd() {
-            memory += parseFloat(currentInput) || 0;
-            // Maybe show a toast or indicator?
-            historyDisplay.value = `M+ [${memory}]`;
+            const val = parseFloat(currentInput);
+            if (!isNaN(val)) {
+                memory += val;
+                memIndicator.style.display = 'block';
+                isNewCalculation = true;
+            }
         }
         function memoryClear() {
             memory = 0;
-            historyDisplay.value = `M Clear`;
+            memIndicator.style.display = 'none';
         }
         function memoryRecall() {
             currentInput = memory.toString();
-            isNewCalculation = true; // treat recall as start of new or part of exp?
-            // Usually MR replaces current number
+            isNewCalculation = false;
             updateDisplay();
         }
 
-        // Tape Functions
         function addToTape(expression, result) {
             const entry = { expression, result, timestamp: Date.now() };
             saveTapeEntry(entry);
@@ -473,6 +584,7 @@
         function saveTapeEntry(entry) {
             let tape = JSON.parse(localStorage.getItem('calcTape') || '[]');
             tape.push(entry);
+            if (tape.length > 50) tape.shift();
             localStorage.setItem('calcTape', JSON.stringify(tape));
         }
 
@@ -486,7 +598,6 @@
         function renderTapeEntry(entry) {
             const div = document.createElement('div');
             div.className = 'tape-entry';
-            div.title = 'Click to copy result';
             div.innerHTML = `
                 <span class="tape-expression">${entry.expression}</span>
                 <span class="tape-result">${entry.result}</span>
@@ -508,16 +619,16 @@
             tapeContent.scrollTop = tapeContent.scrollHeight;
         }
 
-        // Keyboard Support
-        document.addEventListener('keydown', (event) => {
-            const key = event.key;
-            if (/[0-9]/.test(key)) appendNumber(key);
-            if (['+', '-', '*', '/'].includes(key)) appendOperator(key);
-            if (key === 'Enter') calculate();
-            if (key === 'Backspace') deleteLast();
-            if (key === 'Escape') clearAll();
-            if (key === '.') appendNumber('.');
-            if (key === '(' || key === ')') appendFunction(key);
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') appendNumber(e.key);
+            if (e.key === '.') appendNumber('.');
+            if (['+', '-', '*', '/'].includes(e.key)) appendOperator(e.key === '*' ? '×' : e.key === '/' ? '÷' : e.key);
+            if (e.key === '^') appendOperator('^');
+            if (e.key === '!') appendOperator('!');
+            if (e.key === '(' || e.key === ')') appendFunction(e.key);
+            if (e.key === 'Enter') { e.preventDefault(); calculate(); }
+            if (e.key === 'Backspace') deleteLast();
+            if (e.key === 'Escape') clearAll();
         });
     </script>
 </body>
