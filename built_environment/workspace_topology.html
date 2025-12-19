@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lateral Information Flow Simulator</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Source+Sans+Pro:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fffff8;
+            --text: #111111;
+            --text-muted: #555555;
+            --accent: #aa0000;
+            --grid: #e0e0d8;
+            --wall: #333333;
+            --agent: #1a1a2e;
+            --info-hot: 170, 0, 0;
+            --info-warm: 212, 165, 116;
+            --info-cold: 139, 157, 195;
+            --spark-line: #666666;
+        }
+
+        .dark {
+            --bg: #1a1a1a;
+            --text: #e8e8e0;
+            --text-muted: #999999;
+            --accent: #e07060;
+            --grid: #2a2a2a;
+            --wall: #666666;
+            --agent: #e8e8e0;
+            --info-hot: 224, 112, 96;
+            --info-warm: 212, 165, 116;
+            --info-cold: 107, 125, 156;
+            --spark-line: #888888;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Crimson Pro', Georgia, serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        header {
+            max-width: 1400px;
+            margin: 0 auto 1.5rem;
+            border-bottom: 1px solid var(--text);
+            padding-bottom: 0.75rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 300;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: var(--bg);
+            border: 1px solid var(--grid);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: crosshair;
+        }
+
+        .canvas-label {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric {
+            padding: 0.75rem 0;
+            border-top: 1px solid var(--grid);
+        }
+
+        .metric-label {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .metric-unit {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+
+        .sparkline {
+            height: 24px;
+            margin-top: 0.35rem;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel {
+            border-top: 2px solid var(--text);
+            padding-top: 0.75rem;
+        }
+
+        .panel-title {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .tool-btn {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--grid);
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+        }
+
+        .tool-btn:hover {
+            border-color: var(--text-muted);
+        }
+
+        .tool-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .tool-btn .icon {
+            display: inline-block;
+            width: 1rem;
+            margin-right: 0.35rem;
+            text-align: center;
+        }
+
+        .slider-group {
+            margin-bottom: 1rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.75rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .slider-label span:first-child {
+            color: var(--text-muted);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 2px;
+            -webkit-appearance: none;
+            background: var(--grid);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--text);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: var(--text);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .action-btn {
+            width: 100%;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.75rem;
+            padding: 0.65rem 1rem;
+            border: 1px solid var(--text);
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.15s;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-btn:hover {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .action-btn.primary {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.hot {
+            background: rgba(var(--info-hot), 1);
+        }
+
+        .legend-dot.warm {
+            background: rgba(var(--info-warm), 1);
+        }
+
+        .legend-dot.cold {
+            background: rgba(var(--info-cold), 1);
+        }
+
+        .legend-dot.wall {
+            background: var(--wall);
+        }
+
+        .notes {
+            font-size: 0.85rem;
+            font-style: italic;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .about-link {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .about-link:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .modal-content {
+            background: var(--bg);
+            max-width: 640px;
+            width: 100%;
+            padding: 2rem 2.5rem;
+            position: relative;
+            border: 1px solid var(--text);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1.25rem;
+            background: none;
+            border: none;
+            font-size: 1.75rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-content h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--grid);
+        }
+
+        .feature-section {
+            margin-bottom: 1.75rem;
+        }
+
+        .feature-section h3 {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-section p {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-section dl {
+            font-size: 0.9rem;
+        }
+
+        .feature-section dt {
+            font-weight: 600;
+            margin-top: 0.75rem;
+            color: var(--text);
+        }
+
+        .feature-section dd {
+            margin-left: 0;
+            margin-top: 0.25rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .modal-footer {
+            font-size: 0.8rem;
+            font-style: italic;
+            color: var(--text-muted);
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--grid);
+        }
+
+        .presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .preset-btn {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.7rem;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid var(--grid);
+            background: var(--bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--text);
+            color: var(--text);
+        }
+
+        .status-bar {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--grid);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Lateral Information Flow in Built Environments</h1>
+        <p class="subtitle">An interactive simulation of workspace topology and knowledge diffusion · <a href="#"
+                id="about-link" class="about-link">About this simulation</a></p>
+    </header>
+
+    <div id="about-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" id="modal-close">×</button>
+            <h2>About This Simulation</h2>
+
+            <div class="feature-section">
+                <h3>Concept</h3>
+                <p>This tool models how physical workspace design influences the informal exchange of knowledge between
+                    colleagues—what organizational theorists call <em>lateral information flow</em>. Unlike formal
+                    communication channels, lateral flow emerges organically from proximity, chance encounters, and
+                    spatial configuration.</p>
+            </div>
+
+            <div class="feature-section">
+                <h3>Drawing Tools</h3>
+                <dl>
+                    <dt>▬ Wall</dt>
+                    <dd>Physical barriers that impede both movement and information transfer. Information can still
+                        "leak" through walls at a rate controlled by the permeability parameter.</dd>
+
+                    <dt>⊡ Door</dt>
+                    <dd>Openings in walls that restore full connectivity. Agents can pass through doors, and information
+                        flows unimpeded.</dd>
+
+                    <dt>◻ Desk</dt>
+                    <dd>Workstations that exert a mild gravitational pull on nearby agents, simulating how people tend
+                        to remain near their assigned seats while still allowing occasional movement.</dd>
+
+                    <dt>● Agent</dt>
+                    <dd>Knowledge carriers. Each agent holds an "information level" (0–1) that diffuses to nearby agents
+                        over time.</dd>
+
+                    <dt>◎ Hub</dt>
+                    <dd>Collaboration zones (kitchens, lounges, meeting areas). Amplifies information transfer between
+                        agents within the zone by 50%.</dd>
+
+                    <dt>✕ Erase</dt>
+                    <dd>Remove any element by clicking near it.</dd>
+                </dl>
+            </div>
+
+            <div class="feature-section">
+                <h3>Parameters</h3>
+                <dl>
+                    <dt>Diffusion Constant</dt>
+                    <dd>Base rate of information transfer between adjacent agents. Higher values mean faster knowledge
+                        spread.</dd>
+
+                    <dt>Interaction Radius</dt>
+                    <dd>Maximum distance at which agents can exchange information. Simulates the range of casual
+                        conversation.</dd>
+
+                    <dt>Wall Permeability</dt>
+                    <dd>How much information "leaks" through solid walls (0 = fully opaque, 0.5 = half transfer rate).
+                        Models overhearing, shared ventilation, or visual contact through glass.</dd>
+
+                    <dt>Agent Mobility</dt>
+                    <dd>How much agents wander. Higher mobility increases chance encounters but may fragment stable
+                        clusters.</dd>
+                </dl>
+            </div>
+
+            <div class="feature-section">
+                <h3>Metrics</h3>
+                <dl>
+                    <dt>Network Connectivity</dt>
+                    <dd>Proportion of possible agent pairs that can interact (accounting for distance and walls). Higher
+                        values indicate more integrated workspaces.</dd>
+
+                    <dt>Diffusion Rate</dt>
+                    <dd>Current rate of total information change across the network. Spikes after injection, then
+                        decays.</dd>
+
+                    <dt>Information Entropy</dt>
+                    <dd>Measures how evenly distributed knowledge is. Low entropy means information is concentrated;
+                        high entropy means uniform distribution.</dd>
+
+                    <dt>Clustering Coefficient</dt>
+                    <dd>Degree to which agents form tightly-knit groups. High clustering can accelerate local diffusion
+                        but impede organization-wide flow.</dd>
+                </dl>
+            </div>
+
+            <div class="feature-section">
+                <h3>Interpretation</h3>
+                <p>Watch how different layouts affect information spread: open plans show rapid, uniform diffusion;
+                    private offices create isolated pockets; hybrid layouts balance privacy with serendipitous exchange.
+                    The simulation illustrates why spatial design is a strategic choice with measurable consequences for
+                    organizational learning.</p>
+            </div>
+
+            <p class="modal-footer">Based on research in environmental psychology and organizational behavior.
+                Visualization follows principles from Edward Tufte's <em>The Visual Display of Quantitative
+                    Information</em>.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="main-panel">
+            <div class="canvas-container">
+                <span class="canvas-label">Workspace Plan View</span>
+                <canvas id="workspace" width="800" height="500"></canvas>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><span class="legend-dot hot"></span> High information density</div>
+                <div class="legend-item"><span class="legend-dot warm"></span> Moderate diffusion</div>
+                <div class="legend-item"><span class="legend-dot cold"></span> Low connectivity</div>
+                <div class="legend-item"><span class="legend-dot wall"></span> Physical barrier</div>
+            </div>
+
+            <div class="metrics-row">
+                <div class="metric">
+                    <div class="metric-label">Network Connectivity</div>
+                    <div class="metric-value"><span id="connectivity">0.00</span><span class="metric-unit">index</span>
+                    </div>
+                    <canvas class="sparkline" id="spark-connectivity" width="140" height="24"></canvas>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Diffusion Rate</div>
+                    <div class="metric-value"><span id="diffusion">0.00</span><span
+                            class="metric-unit">units/tick</span></div>
+                    <canvas class="sparkline" id="spark-diffusion" width="140" height="24"></canvas>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Information Entropy</div>
+                    <div class="metric-value"><span id="entropy">0.00</span><span class="metric-unit">bits</span></div>
+                    <canvas class="sparkline" id="spark-entropy" width="140" height="24"></canvas>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Clustering Coefficient</div>
+                    <div class="metric-value"><span id="clustering">0.00</span></div>
+                    <canvas class="sparkline" id="spark-clustering" width="140" height="24"></canvas>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <span id="status">Ready — Click to place elements</span>
+                <span id="tick-count">Tick: 0</span>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <div class="panel-title">Drawing Tools</div>
+                <div class="tool-grid">
+                    <button class="tool-btn active" data-tool="wall"><span class="icon">▬</span>Wall</button>
+                    <button class="tool-btn" data-tool="door"><span class="icon">⊡</span>Door</button>
+                    <button class="tool-btn" data-tool="desk"><span class="icon">◻</span>Desk</button>
+                    <button class="tool-btn" data-tool="agent"><span class="icon">●</span>Agent</button>
+                    <button class="tool-btn" data-tool="hub"><span class="icon">◎</span>Hub</button>
+                    <button class="tool-btn" data-tool="erase"><span class="icon">✕</span>Erase</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Environment Presets</div>
+                <div class="presets">
+                    <button class="preset-btn" data-preset="open">Open Plan</button>
+                    <button class="preset-btn" data-preset="cubicle">Cubicles</button>
+                    <button class="preset-btn" data-preset="offices">Private Offices</button>
+                    <button class="preset-btn" data-preset="hybrid">Hybrid</button>
+                    <button class="preset-btn" data-preset="clear">Clear All</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Simulation Parameters</div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Diffusion Constant</span>
+                        <span id="diffusion-val">0.15</span>
+                    </div>
+                    <input type="range" id="diffusion-rate" min="0.05" max="0.4" step="0.01" value="0.15">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Interaction Radius</span>
+                        <span id="radius-val">60</span>
+                    </div>
+                    <input type="range" id="interaction-radius" min="20" max="120" step="5" value="60">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Wall Permeability</span>
+                        <span id="permeability-val">0.1</span>
+                    </div>
+                    <input type="range" id="wall-permeability" min="0" max="0.5" step="0.05" value="0.1">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Agent Mobility</span>
+                        <span id="mobility-val">0.5</span>
+                    </div>
+                    <input type="range" id="agent-mobility" min="0" max="2" step="0.1" value="0.5">
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Simulation Control</div>
+                <button class="action-btn primary" id="run-btn">▶ Run Simulation</button>
+                <button class="action-btn" id="step-btn">Step Forward</button>
+                <button class="action-btn" id="inject-btn">Inject Information</button>
+                <button class="action-btn" id="reset-btn">Reset Information</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Interpretation</div>
+                <p class="notes">
+                    Information flows between agents inversely proportional to physical distance.
+                    Walls impede but do not eliminate transfer. Hub spaces amplify local diffusion.
+                    Observe how spatial configuration shapes emergent communication patterns.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.classList.toggle('dark', event.matches);
+        });
+
+        // Simulation State
+        const state = {
+            tool: 'wall',
+            running: false,
+            tick: 0,
+            walls: [],
+            doors: [],
+            desks: [],
+            agents: [],
+            hubs: [],
+            history: {
+                connectivity: [],
+                diffusion: [],
+                entropy: [],
+                clustering: []
+            },
+            params: {
+                diffusionRate: 0.15,
+                interactionRadius: 60,
+                wallPermeability: 0.1,
+                agentMobility: 0.5
+            }
+        };
+
+        // Canvas setup
+        const canvas = document.getElementById('workspace');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let drawStart = null;
+
+        // Get computed colors
+        function getColor(varName) {
+            return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+        }
+
+        // Drawing functions
+        function draw() {
+            const bg = getColor('--bg');
+            const grid = getColor('--grid');
+            const wall = getColor('--wall');
+            const text = getColor('--text');
+
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = grid;
+            ctx.lineWidth = 0.5;
+            for (let x = 0; x <= canvas.width; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= canvas.height; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw hubs (interaction zones)
+            state.hubs.forEach(hub => {
+                const gradient = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, 50);
+                gradient.addColorStop(0, 'rgba(160, 0, 0, 0.08)');
+                gradient.addColorStop(1, 'rgba(160, 0, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(hub.x, hub.y, 50, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = getColor('--accent');
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+
+            // Draw desks
+            ctx.fillStyle = grid;
+            ctx.strokeStyle = text;
+            ctx.lineWidth = 1;
+            state.desks.forEach(desk => {
+                ctx.fillRect(desk.x - 15, desk.y - 10, 30, 20);
+                ctx.strokeRect(desk.x - 15, desk.y - 10, 30, 20);
+            });
+
+            // Draw walls
+            ctx.strokeStyle = wall;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            state.walls.forEach(w => {
+                ctx.beginPath();
+                ctx.moveTo(w.x1, w.y1);
+                ctx.lineTo(w.x2, w.y2);
+                ctx.stroke();
+            });
+
+            // Draw doors
+            ctx.strokeStyle = getColor('--accent');
+            ctx.lineWidth = 3;
+            ctx.setLineDash([4, 4]);
+            state.doors.forEach(d => {
+                ctx.beginPath();
+                ctx.moveTo(d.x1, d.y1);
+                ctx.lineTo(d.x2, d.y2);
+                ctx.stroke();
+            });
+            ctx.setLineDash([]);
+
+            // Draw agents with information visualization
+            state.agents.forEach(agent => {
+                // Information aura
+                if (agent.info > 0.1) {
+                    const auraRadius = 15 + agent.info * 20;
+                    const gradient = ctx.createRadialGradient(agent.x, agent.y, 0, agent.x, agent.y, auraRadius);
+                    const infoColorRGB = agent.info > 0.6 ? getColor('--info-hot') :
+                        agent.info > 0.3 ? getColor('--info-warm') : getColor('--info-cold');
+                    gradient.addColorStop(0, `rgba(${infoColorRGB}, 0.25)`);
+                    gradient.addColorStop(1, `rgba(${infoColorRGB}, 0)`);
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(agent.x, agent.y, auraRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Agent body
+                ctx.fillStyle = getColor('--agent');
+                ctx.beginPath();
+                ctx.arc(agent.x, agent.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Information indicator
+                if (agent.info > 0) {
+                    const indicatorRGB = agent.info > 0.6 ? getColor('--info-hot') :
+                        agent.info > 0.3 ? getColor('--info-warm') : getColor('--info-cold');
+                    ctx.fillStyle = `rgba(${indicatorRGB}, 1)`;
+                    ctx.beginPath();
+                    ctx.arc(agent.x, agent.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // Draw connection lines (subtle)
+            if (state.running || state.agents.length > 0) {
+                ctx.strokeStyle = grid;
+                ctx.lineWidth = 0.5;
+                state.agents.forEach((a1, i) => {
+                    state.agents.slice(i + 1).forEach(a2 => {
+                        const dist = distance(a1, a2);
+                        if (dist < state.params.interactionRadius) {
+                            const blocked = isPathBlocked(a1, a2);
+                            const strength = blocked ? 0.1 : (1 - dist / state.params.interactionRadius);
+                            ctx.globalAlpha = strength * 0.3;
+                            ctx.beginPath();
+                            ctx.moveTo(a1.x, a1.y);
+                            ctx.lineTo(a2.x, a2.y);
+                            ctx.stroke();
+                        }
+                    });
+                });
+                ctx.globalAlpha = 1;
+            }
+
+            // Preview during drawing
+            if (isDrawing && drawStart) {
+                ctx.strokeStyle = getColor('--accent');
+                ctx.lineWidth = state.tool === 'wall' ? 4 : 3;
+                ctx.setLineDash(state.tool === 'door' ? [4, 4] : []);
+                ctx.beginPath();
+                ctx.moveTo(drawStart.x, drawStart.y);
+                ctx.lineTo(drawStart.endX || drawStart.x, drawStart.endY || drawStart.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function distance(a, b) {
+            return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+        }
+
+        function isPathBlocked(a, b) {
+            // Check if any wall intersects the path
+            for (const wall of state.walls) {
+                if (lineIntersects(a.x, a.y, b.x, b.y, wall.x1, wall.y1, wall.x2, wall.y2)) {
+                    // Check if a door exists on this wall segment
+                    const hasDoor = state.doors.some(door =>
+                        lineIntersects(a.x, a.y, b.x, b.y, door.x1, door.y1, door.x2, door.y2)
+                    );
+                    if (!hasDoor) return true;
+                }
+            }
+            return false;
+        }
+
+        function lineIntersects(x1, y1, x2, y2, x3, y3, x4, y4) {
+            const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+            if (Math.abs(denom) < 0.0001) return false;
+
+            const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+            const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+
+            return ua > 0 && ua < 1 && ub > 0 && ub < 1;
+        }
+
+        function snap(val) {
+            return Math.round(val / 10) * 10;
+        }
+
+        // Event handlers
+        canvas.addEventListener('mousedown', e => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            if (state.tool === 'wall' || state.tool === 'door') {
+                isDrawing = true;
+                drawStart = { x: snap(x), y: snap(y) };
+            } else if (state.tool === 'desk') {
+                state.desks.push({ x: snap(x), y: snap(y) });
+            } else if (state.tool === 'agent') {
+                state.agents.push({ x, y, info: 0, vx: 0, vy: 0 });
+            } else if (state.tool === 'hub') {
+                state.hubs.push({ x, y });
+            } else if (state.tool === 'erase') {
+                eraseAt(x, y);
+            }
+            draw();
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            drawStart.endX = snap((e.clientX - rect.left) * scaleX);
+            drawStart.endY = snap((e.clientY - rect.top) * scaleY);
+            draw();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (isDrawing && drawStart && drawStart.endX !== undefined) {
+                const line = {
+                    x1: drawStart.x, y1: drawStart.y,
+                    x2: drawStart.endX, y2: drawStart.endY
+                };
+                if (state.tool === 'wall') {
+                    state.walls.push(line);
+                } else if (state.tool === 'door') {
+                    state.doors.push(line);
+                }
+            }
+            isDrawing = false;
+            drawStart = null;
+            draw();
+        });
+
+        // Touch support
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        });
+
+        canvas.addEventListener('touchend', () => {
+            canvas.dispatchEvent(new MouseEvent('mouseup'));
+        });
+
+        function eraseAt(x, y) {
+            const threshold = 15;
+            state.agents = state.agents.filter(a => distance(a, { x, y }) > threshold);
+            state.desks = state.desks.filter(d => distance(d, { x, y }) > threshold);
+            state.hubs = state.hubs.filter(h => distance(h, { x, y }) > 50);
+            state.walls = state.walls.filter(w => {
+                const mid = { x: (w.x1 + w.x2) / 2, y: (w.y1 + w.y2) / 2 };
+                return distance(mid, { x, y }) > threshold;
+            });
+            state.doors = state.doors.filter(d => {
+                const mid = { x: (d.x1 + d.x2) / 2, y: (d.y1 + d.y2) / 2 };
+                return distance(mid, { x, y }) > threshold;
+            });
+        }
+
+        // Tool selection
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.tool = btn.dataset.tool;
+                updateStatus();
+            });
+        });
+
+        // Preset environments
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => loadPreset(btn.dataset.preset));
+        });
+
+        function loadPreset(preset) {
+            state.walls = [];
+            state.doors = [];
+            state.desks = [];
+            state.agents = [];
+            state.hubs = [];
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            if (preset === 'open') {
+                // Open plan with scattered desks and central hub
+                for (let i = 0; i < 20; i++) {
+                    state.agents.push({
+                        x: 100 + Math.random() * (w - 200),
+                        y: 100 + Math.random() * (h - 200),
+                        info: 0, vx: 0, vy: 0
+                    });
+                }
+                state.hubs.push({ x: w / 2, y: h / 2 });
+            } else if (preset === 'cubicle') {
+                // Cubicle layout
+                for (let row = 0; row < 3; row++) {
+                    for (let col = 0; col < 4; col++) {
+                        const cx = 120 + col * 160;
+                        const cy = 100 + row * 130;
+                        // Cubicle walls
+                        state.walls.push({ x1: cx - 50, y1: cy - 40, x2: cx - 50, y2: cy + 40 });
+                        state.walls.push({ x1: cx - 50, y1: cy + 40, x2: cx + 50, y2: cy + 40 });
+                        state.walls.push({ x1: cx + 50, y1: cy + 40, x2: cx + 50, y2: cy - 40 });
+                        state.desks.push({ x: cx, y: cy });
+                        state.agents.push({ x: cx, y: cy - 15, info: 0, vx: 0, vy: 0 });
+                    }
+                }
+            } else if (preset === 'offices') {
+                // Private offices
+                for (let row = 0; row < 2; row++) {
+                    for (let col = 0; col < 4; col++) {
+                        const cx = 100 + col * 175;
+                        const cy = 130 + row * 200;
+                        // Office walls (closed rooms)
+                        state.walls.push({ x1: cx - 60, y1: cy - 60, x2: cx + 60, y2: cy - 60 });
+                        state.walls.push({ x1: cx + 60, y1: cy - 60, x2: cx + 60, y2: cy + 60 });
+                        state.walls.push({ x1: cx + 60, y1: cy + 60, x2: cx - 60, y2: cy + 60 });
+                        state.walls.push({ x1: cx - 60, y1: cy + 60, x2: cx - 60, y2: cy - 60 });
+                        // Door
+                        state.doors.push({ x1: cx - 20, y1: cy - 60, x2: cx + 20, y2: cy - 60 });
+                        state.desks.push({ x: cx, y: cy + 20 });
+                        state.agents.push({ x: cx, y: cy, info: 0, vx: 0, vy: 0 });
+                    }
+                }
+            } else if (preset === 'hybrid') {
+                // Hybrid: open area + meeting rooms
+                // Central open area
+                for (let i = 0; i < 10; i++) {
+                    state.agents.push({
+                        x: 250 + Math.random() * 300,
+                        y: 150 + Math.random() * 200,
+                        info: 0, vx: 0, vy: 0
+                    });
+                }
+                state.hubs.push({ x: 400, y: 250 });
+
+                // Meeting room left
+                state.walls.push({ x1: 40, y1: 40, x2: 160, y2: 40 });
+                state.walls.push({ x1: 160, y1: 40, x2: 160, y2: 160 });
+                state.walls.push({ x1: 160, y1: 160, x2: 40, y2: 160 });
+                state.walls.push({ x1: 40, y1: 160, x2: 40, y2: 40 });
+                state.doors.push({ x1: 160, y1: 80, x2: 160, y2: 120 });
+                state.agents.push({ x: 100, y: 100, info: 0, vx: 0, vy: 0 });
+                state.agents.push({ x: 80, y: 80, info: 0, vx: 0, vy: 0 });
+
+                // Meeting room right
+                state.walls.push({ x1: 640, y1: 340, x2: 760, y2: 340 });
+                state.walls.push({ x1: 760, y1: 340, x2: 760, y2: 460 });
+                state.walls.push({ x1: 760, y1: 460, x2: 640, y2: 460 });
+                state.walls.push({ x1: 640, y1: 460, x2: 640, y2: 340 });
+                state.doors.push({ x1: 640, y1: 380, x2: 640, y2: 420 });
+                state.agents.push({ x: 700, y: 400, info: 0, vx: 0, vy: 0 });
+            }
+
+            draw();
+            updateStatus();
+        }
+
+        // Parameter sliders
+        document.getElementById('diffusion-rate').addEventListener('input', e => {
+            state.params.diffusionRate = parseFloat(e.target.value);
+            document.getElementById('diffusion-val').textContent = e.target.value;
+        });
+
+        document.getElementById('interaction-radius').addEventListener('input', e => {
+            state.params.interactionRadius = parseInt(e.target.value);
+            document.getElementById('radius-val').textContent = e.target.value;
+        });
+
+        document.getElementById('wall-permeability').addEventListener('input', e => {
+            state.params.wallPermeability = parseFloat(e.target.value);
+            document.getElementById('permeability-val').textContent = e.target.value;
+        });
+
+        document.getElementById('agent-mobility').addEventListener('input', e => {
+            state.params.agentMobility = parseFloat(e.target.value);
+            document.getElementById('mobility-val').textContent = e.target.value;
+        });
+
+        // Simulation controls
+        document.getElementById('run-btn').addEventListener('click', toggleSimulation);
+        document.getElementById('step-btn').addEventListener('click', simulationStep);
+        document.getElementById('inject-btn').addEventListener('click', injectInformation);
+        document.getElementById('reset-btn').addEventListener('click', resetInformation);
+
+        function toggleSimulation() {
+            state.running = !state.running;
+            document.getElementById('run-btn').textContent = state.running ? '■ Stop' : '▶ Run Simulation';
+            if (state.running) runLoop();
+        }
+
+        function runLoop() {
+            if (!state.running) return;
+            simulationStep();
+            setTimeout(runLoop, 50);
+        }
+
+        function simulationStep() {
+            state.tick++;
+
+            // Move agents slightly
+            state.agents.forEach(agent => {
+                // Random wandering
+                agent.vx += (Math.random() - 0.5) * state.params.agentMobility;
+                agent.vy += (Math.random() - 0.5) * state.params.agentMobility;
+
+                // Mild attraction to nearest desk
+                if (state.desks.length > 0) {
+                    let nearestDesk = null;
+                    let nearestDist = Infinity;
+                    state.desks.forEach(desk => {
+                        const dist = distance(agent, desk);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearestDesk = desk;
+                        }
+                    });
+
+                    if (nearestDesk && nearestDist > 15) {
+                        // Attraction strength decreases with distance, capped at interaction radius
+                        const attractionRadius = 120;
+                        if (nearestDist < attractionRadius) {
+                            const strength = 0.02 * (1 - nearestDist / attractionRadius);
+                            agent.vx += (nearestDesk.x - agent.x) / nearestDist * strength;
+                            agent.vy += (nearestDesk.y - agent.y) / nearestDist * strength;
+                        }
+                    }
+                }
+
+                agent.vx *= 0.9;
+                agent.vy *= 0.9;
+
+                const newX = agent.x + agent.vx;
+                const newY = agent.y + agent.vy;
+
+                // Check wall collision
+                let canMoveX = true;
+                let canMoveY = true;
+
+                for (const wall of state.walls) {
+                    // Check if moving in X direction crosses wall
+                    if (lineIntersects(agent.x, agent.y, newX, agent.y, wall.x1, wall.y1, wall.x2, wall.y2)) {
+                        // Check if there's a door at intersection
+                        const hasDoor = state.doors.some(door =>
+                            lineIntersects(agent.x, agent.y, newX, agent.y, door.x1, door.y1, door.x2, door.y2)
+                        );
+                        if (!hasDoor) {
+                            canMoveX = false;
+                            agent.vx *= -0.5; // Bounce back
+                        }
+                    }
+                    // Check if moving in Y direction crosses wall
+                    if (lineIntersects(agent.x, agent.y, agent.x, newY, wall.x1, wall.y1, wall.x2, wall.y2)) {
+                        const hasDoor = state.doors.some(door =>
+                            lineIntersects(agent.x, agent.y, agent.x, newY, door.x1, door.y1, door.x2, door.y2)
+                        );
+                        if (!hasDoor) {
+                            canMoveY = false;
+                            agent.vy *= -0.5; // Bounce back
+                        }
+                    }
+                }
+
+                // Boundary check + wall collision
+                if (canMoveX && newX > 20 && newX < canvas.width - 20) agent.x = newX;
+                if (canMoveY && newY > 20 && newY < canvas.height - 20) agent.y = newY;
+            });
+
+            // Information diffusion
+            const newInfo = state.agents.map(a => a.info);
+
+            state.agents.forEach((agent, i) => {
+                state.agents.forEach((other, j) => {
+                    if (i === j) return;
+                    const dist = distance(agent, other);
+                    if (dist < state.params.interactionRadius) {
+                        const blocked = isPathBlocked(agent, other);
+                        const transmission = blocked ? state.params.wallPermeability : 1;
+
+                        // Check if in hub (amplifies transfer)
+                        const inHub = state.hubs.some(h => distance(agent, h) < 50 && distance(other, h) < 50);
+                        const hubBonus = inHub ? 1.5 : 1;
+
+                        const transfer = (other.info - agent.info) * state.params.diffusionRate *
+                            (1 - dist / state.params.interactionRadius) * transmission * hubBonus;
+                        newInfo[i] += transfer;
+                    }
+                });
+                // Information decay
+                newInfo[i] *= 0.995;
+                newInfo[i] = Math.max(0, Math.min(1, newInfo[i]));
+            });
+
+            state.agents.forEach((a, i) => a.info = newInfo[i]);
+
+            updateMetrics();
+            draw();
+        }
+
+        function injectInformation() {
+            if (state.agents.length === 0) return;
+            const randomAgent = state.agents[Math.floor(Math.random() * state.agents.length)];
+            randomAgent.info = 1;
+            draw();
+            updateStatus('Information injected into random agent');
+        }
+
+        function resetInformation() {
+            state.agents.forEach(a => a.info = 0);
+            state.tick = 0;
+            state.history = { connectivity: [], diffusion: [], entropy: [], clustering: [] };
+            draw();
+            updateMetrics();
+        }
+
+        function updateMetrics() {
+            // Calculate connectivity (average connections per agent)
+            let totalConnections = 0;
+            state.agents.forEach((a, i) => {
+                state.agents.slice(i + 1).forEach(b => {
+                    const dist = distance(a, b);
+                    if (dist < state.params.interactionRadius) {
+                        const blocked = isPathBlocked(a, b);
+                        totalConnections += blocked ? state.params.wallPermeability : 1;
+                    }
+                });
+            });
+            const connectivity = state.agents.length > 1 ?
+                (totalConnections / (state.agents.length * (state.agents.length - 1) / 2)) : 0;
+
+            // Calculate diffusion rate (change in total information)
+            const totalInfo = state.agents.reduce((sum, a) => sum + a.info, 0);
+            const prevDiffusion = state.history.diffusion.length > 0 ?
+                state.history.diffusion[state.history.diffusion.length - 1] : totalInfo;
+            const diffusionRate = Math.abs(totalInfo - prevDiffusion);
+
+            // Calculate entropy
+            const entropy = state.agents.length > 0 ?
+                -state.agents.reduce((sum, a) => {
+                    if (a.info > 0.01) {
+                        const p = a.info;
+                        return sum + p * Math.log2(p);
+                    }
+                    return sum;
+                }, 0) / state.agents.length : 0;
+
+            // Calculate clustering coefficient
+            let clusterSum = 0;
+            state.agents.forEach(agent => {
+                const neighbors = state.agents.filter(other =>
+                    other !== agent && distance(agent, other) < state.params.interactionRadius
+                );
+                if (neighbors.length >= 2) {
+                    let triangles = 0;
+                    neighbors.forEach((n1, i) => {
+                        neighbors.slice(i + 1).forEach(n2 => {
+                            if (distance(n1, n2) < state.params.interactionRadius) triangles++;
+                        });
+                    });
+                    const possible = neighbors.length * (neighbors.length - 1) / 2;
+                    clusterSum += triangles / possible;
+                }
+            });
+            const clustering = state.agents.length > 0 ? clusterSum / state.agents.length : 0;
+
+            // Update displays
+            document.getElementById('connectivity').textContent = connectivity.toFixed(2);
+            document.getElementById('diffusion').textContent = diffusionRate.toFixed(3);
+            document.getElementById('entropy').textContent = entropy.toFixed(2);
+            document.getElementById('clustering').textContent = clustering.toFixed(2);
+            document.getElementById('tick-count').textContent = `Tick: ${state.tick}`;
+
+            // Update history
+            state.history.connectivity.push(connectivity);
+            state.history.diffusion.push(totalInfo);
+            state.history.entropy.push(entropy);
+            state.history.clustering.push(clustering);
+
+            // Keep history limited
+            const maxHistory = 50;
+            Object.keys(state.history).forEach(key => {
+                if (state.history[key].length > maxHistory) {
+                    state.history[key] = state.history[key].slice(-maxHistory);
+                }
+            });
+
+            // Draw sparklines
+            drawSparkline('spark-connectivity', state.history.connectivity);
+            drawSparkline('spark-diffusion', state.history.diffusion);
+            drawSparkline('spark-entropy', state.history.entropy);
+            drawSparkline('spark-clustering', state.history.clustering);
+        }
+
+        function drawSparkline(id, data) {
+            const canvas = document.getElementById(id);
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (data.length < 2) return;
+
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const range = max - min || 1;
+
+            ctx.strokeStyle = getColor('--spark-line');
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+
+            data.forEach((val, i) => {
+                const x = (i / (data.length - 1)) * w;
+                const y = h - ((val - min) / range) * (h - 4) - 2;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+
+            ctx.stroke();
+
+            // End dot
+            const lastX = w;
+            const lastY = h - ((data[data.length - 1] - min) / range) * (h - 4) - 2;
+            ctx.fillStyle = getColor('--accent');
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function updateStatus(msg) {
+            const toolNames = {
+                wall: 'Draw walls to create barriers',
+                door: 'Add doors to allow passage through walls',
+                desk: 'Place workstations',
+                agent: 'Add agents (information carriers)',
+                hub: 'Create collaboration zones',
+                erase: 'Remove elements'
+            };
+            document.getElementById('status').textContent = msg || toolNames[state.tool] || 'Ready';
+        }
+
+        // Modal handling
+        const aboutLink = document.getElementById('about-link');
+        const aboutModal = document.getElementById('about-modal');
+        const modalClose = document.getElementById('modal-close');
+
+        aboutLink.addEventListener('click', e => {
+            e.preventDefault();
+            aboutModal.classList.add('active');
+        });
+
+        modalClose.addEventListener('click', () => {
+            aboutModal.classList.remove('active');
+        });
+
+        aboutModal.addEventListener('click', e => {
+            if (e.target === aboutModal) {
+                aboutModal.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && aboutModal.classList.contains('active')) {
+                aboutModal.classList.remove('active');
+            }
+        });
+
+        // Initial draw
+        draw();
+        updateStatus();
+    </script>
+</body>
+
+</html>
