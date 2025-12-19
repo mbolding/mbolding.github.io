@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid Diagram Exporter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+        window.mermaid = mermaid;
+    </script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --card-bg: #f5f5f5;
+            --card-hover: #e0e0e0;
+            --border-color: #dddddd;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 40px;
+        }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-weight: 400;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel h2 {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 16px 0;
+            color: var(--secondary-text);
+        }
+
+        textarea {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            padding: 16px;
+            border: 2px solid var(--border-color);
+            background-color: white;
+            color: var(--text-color);
+            resize: vertical;
+            min-height: 400px;
+            flex-grow: 1;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-color);
+        }
+
+        .preview-area {
+            background-color: white;
+            border: 2px solid var(--border-color);
+            padding: 24px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            flex-grow: 1;
+        }
+
+        #diagram-output {
+            max-width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: var(--text-color);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        button:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            margin-top: 12px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .info-section {
+            background-color: var(--card-bg);
+            padding: 24px;
+            margin-top: 24px;
+        }
+
+        .info-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 16px 0;
+            color: var(--secondary-text);
+        }
+
+        .info-section p {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-section code {
+            background-color: white;
+            padding: 2px 6px;
+            font-size: 13px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Mermaid<br>Diagram Exporter</h1>
+            <div class="subtitle">Create and export diagrams to PNG or SVG</div>
+        </header>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>Diagram Code</h2>
+                <textarea id="diagram-input" placeholder="Enter your Mermaid diagram code here...">graph TD
+    A[Start] --> B{Is it?}
+    B -->|Yes| C[OK]
+    B -->|No| D[End]
+    C --> D</textarea>
+            </div>
+
+            <div class="panel">
+                <h2>Preview</h2>
+                <div class="preview-area">
+                    <div id="diagram-output"></div>
+                </div>
+                <div id="error-message" class="error-message"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="render-btn">Render Diagram</button>
+            <button id="export-svg">Export as SVG</button>
+            <button id="export-png">Export as PNG</button>
+        </div>
+
+        <div class="info-section">
+            <h3>How to Use</h3>
+            <p>1. Enter your Mermaid diagram code in the left panel</p>
+            <p>2. Click "Render Diagram" to preview your diagram</p>
+            <p>3. Use "Export as SVG" or "Export as PNG" to download your diagram</p>
+            <p>Learn more about Mermaid syntax at <code>mermaid.js.org</code></p>
+        </div>
+    </div>
+
+    <script>
+        const diagramInput = document.getElementById('diagram-input');
+        const diagramOutput = document.getElementById('diagram-output');
+        const errorMessage = document.getElementById('error-message');
+        const renderBtn = document.getElementById('render-btn');
+        const exportSvgBtn = document.getElementById('export-svg');
+        const exportPngBtn = document.getElementById('export-png');
+
+        let currentSvg = null;
+
+        // Render diagram
+        async function renderDiagram() {
+            const code = diagramInput.value.trim();
+
+            if (!code) {
+                showError('Please enter some diagram code');
+                return;
+            }
+
+            try {
+                errorMessage.classList.remove('show');
+                diagramOutput.innerHTML = '';
+
+                // Generate unique ID for this diagram
+                const id = 'mermaid-' + Date.now();
+
+                // Render the diagram
+                const { svg } = await window.mermaid.render(id, code);
+                diagramOutput.innerHTML = svg;
+                currentSvg = svg;
+
+                // Enable export buttons
+                exportSvgBtn.disabled = false;
+                exportPngBtn.disabled = false;
+
+            } catch (error) {
+                showError('Error rendering diagram: ' + error.message);
+                currentSvg = null;
+                exportSvgBtn.disabled = true;
+                exportPngBtn.disabled = true;
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            diagramOutput.innerHTML = '';
+        }
+
+        // Export as SVG
+        function exportAsSvg() {
+            if (!currentSvg) {
+                showError('Please render a diagram first');
+                return;
+            }
+
+            const blob = new Blob([currentSvg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'mermaid-diagram.svg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Export as PNG
+        async function exportAsPng() {
+            if (!currentSvg) {
+                showError('Please render a diagram first');
+                return;
+            }
+
+            try {
+                // Get the SVG element
+                const svgElement = diagramOutput.querySelector('svg');
+                if (!svgElement) {
+                    showError('No SVG found to export');
+                    return;
+                }
+
+                // Get SVG dimensions
+                const bbox = svgElement.getBBox();
+                const width = bbox.width || svgElement.width.baseVal.value || 800;
+                const height = bbox.height || svgElement.height.baseVal.value || 600;
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const scale = 2; // For better quality
+                canvas.width = width * scale;
+                canvas.height = height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(scale, scale);
+
+                // Create image from SVG
+                const img = new Image();
+                const svgBlob = new Blob([currentSvg], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = function() {
+                    // Draw white background
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, width, height);
+
+                    // Draw image
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Convert to PNG and download
+                    canvas.toBlob(function(blob) {
+                        const pngUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = pngUrl;
+                        link.download = 'mermaid-diagram.png';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(pngUrl);
+                        URL.revokeObjectURL(url);
+                    }, 'image/png');
+                };
+
+                img.onerror = function() {
+                    showError('Error converting SVG to PNG');
+                    URL.revokeObjectURL(url);
+                };
+
+                img.src = url;
+
+            } catch (error) {
+                showError('Error exporting PNG: ' + error.message);
+            }
+        }
+
+        // Event listeners
+        renderBtn.addEventListener('click', renderDiagram);
+        exportSvgBtn.addEventListener('click', exportAsSvg);
+        exportPngBtn.addEventListener('click', exportAsPng);
+
+        // Auto-render on load
+        window.addEventListener('load', renderDiagram);
+
+        // Optional: Render on Ctrl+Enter or Cmd+Enter
+        diagramInput.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                renderDiagram();
+            }
+        });
+
+        // Disable export buttons initially
+        exportSvgBtn.disabled = true;
+        exportPngBtn.disabled = true;
+    </script>
+</body>
+
+</html>
