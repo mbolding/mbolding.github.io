@@ -4,25 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scientific Calculator — Tufte Edition</title>
+    <title>Python Mathematical Console — Tufte Edition</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <style>
         :root {
             --bg-color: #fffff8;
-            /* Tufte parchment foreground */
             --paper-color: #fffff8;
             --text-primary: #111111;
             --text-secondary: #555555;
             --accent-color: #990000;
-            /* Subtle scholarly red */
             --border-color: #dddddd;
-            --btn-bg: transparent;
-            --btn-hover: #f0f0e8;
-            --btn-active: #e8e8df;
+            --code-bg: #f8f8f0;
+            --output-color: #2d5016;
+            --error-color: #990000;
             --font-main: 'Crimson Pro', serif;
             --font-mono: 'JetBrains Mono', monospace;
         }
@@ -34,8 +33,9 @@
             --text-secondary: #a0a0a0;
             --accent-color: #cc3333;
             --border-color: #333333;
-            --btn-hover: #1a1a1a;
-            --btn-active: #222222;
+            --code-bg: #1a1a1a;
+            --output-color: #88cc88;
+            --error-color: #ff6666;
         }
 
         * {
@@ -59,211 +59,254 @@
 
         .workspace {
             display: grid;
-            grid-template-columns: 1fr 340px;
-            width: 1050px;
-            height: 950px;
-            max-height: 98vh;
+            grid-template-columns: 1fr 380px;
+            width: 1200px;
+            height: 95vh;
+            max-height: 900px;
             background: var(--paper-color);
             border: 0.5px solid var(--border-color);
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.05);
             overflow: hidden;
         }
 
-        /* Calculator Section */
-        .calculator {
-            padding: 24px 32px;
+        /* Console Section */
+        .console-container {
             display: flex;
             flex-direction: column;
             border-right: 0.5px solid var(--border-color);
         }
 
-        .display-container {
-            margin-bottom: 24px;
+        .console-header {
+            padding: 30px 32px 20px;
             border-bottom: 0.5px solid var(--border-color);
-            padding-bottom: 12px;
         }
 
-        .display {
-            width: 100%;
-            text-align: right;
+        .console-title {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .console-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .status-bar {
+            padding: 8px 32px;
+            background-color: var(--code-bg);
+            border-bottom: 0.5px solid var(--border-color);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--text-secondary);
+        }
+
+        .status-dot.ready {
+            background-color: #2d5016;
+        }
+
+        .status-dot.loading {
+            background-color: #cc8800;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .console-output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .output-line {
+            margin-bottom: 16px;
+        }
+
+        .prompt-line {
+            display: flex;
+            gap: 12px;
+            color: var(--text-primary);
+        }
+
+        .prompt-symbol {
+            color: var(--accent-color);
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .prompt-text {
+            flex: 1;
+            color: var(--text-primary);
+        }
+
+        .output-result {
+            padding-left: 32px;
+            color: var(--output-color);
+            margin-top: 4px;
+        }
+
+        .output-error {
+            padding-left: 32px;
+            color: var(--error-color);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .output-plot {
+            margin-top: 12px;
+            margin-left: 32px;
+            border: 0.5px solid var(--border-color);
+            max-width: 100%;
+        }
+
+        .console-input-container {
+            border-top: 0.5px solid var(--border-color);
+            background-color: var(--code-bg);
+            padding: 16px 32px;
+        }
+
+        .console-input-line {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-prompt {
+            color: var(--accent-color);
+            font-family: var(--font-mono);
+            font-weight: 500;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        #consoleInput {
+            flex: 1;
+            background: transparent;
             border: none;
             outline: none;
-            font-family: var(--font-main);
-            background: transparent;
-            cursor: default;
-        }
-
-        .display-main {
-            font-size: 64px;
-            color: var(--text-primary);
-            height: 80px;
-            font-weight: 400;
-            font-variant-numeric: lining-nums;
-        }
-
-        .display-sub {
-            font-size: 20px;
-            font-style: italic;
-            color: var(--text-secondary);
-            height: 30px;
-            margin-bottom: 5px;
-        }
-
-        .controls-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .mode-toggles {
-            display: flex;
-            gap: 20px;
-        }
-
-        .toggle-btn {
+            font-family: var(--font-mono);
             font-size: 14px;
-            font-variant: small-caps;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: color 0.2s;
-            position: relative;
-        }
-
-        .toggle-btn.active {
-            color: var(--accent-color);
-            font-weight: 600;
-        }
-
-        .toggle-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 100%;
-            height: 0.5px;
-            background: var(--accent-color);
-        }
-
-        .keypad {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            grid-template-rows: repeat(7, 56px);
-            gap: 4px;
-        }
-
-        button {
-            border: 0.5px solid transparent;
-            background-color: var(--btn-bg);
             color: var(--text-primary);
-            font-size: 17px;
-            font-weight: 400;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: var(--font-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
+            padding: 4px 0;
         }
 
-        button:hover {
-            background-color: var(--btn-hover);
-            border-color: var(--border-color);
-        }
-
-        button:active {
-            background-color: var(--btn-active);
-        }
-
-        button.btn-op {
-            color: var(--accent-color);
-            font-size: 22px;
-        }
-
-        button.btn-action {
-            font-variant: small-caps;
+        #consoleInput::placeholder {
             color: var(--text-secondary);
+            opacity: 0.5;
         }
 
-        button.btn-sci {
-            font-style: italic;
-            font-size: 16px;
-            color: var(--text-secondary);
-        }
-
-        button.btn-primary {
-            font-size: 28px;
-            color: var(--accent-color);
-        }
-
-        /* Paper Tape Section */
-        .tape-container {
-            background-color: var(--paper-color);
+        /* Session Log Section */
+        .log-container {
             display: flex;
             flex-direction: column;
+            background-color: var(--paper-color);
         }
 
-        .tape-header {
+        .log-header {
             padding: 30px;
             border-bottom: 0.5px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
 
-        .tape-title {
+        .log-title {
             font-weight: 500;
             font-size: 16px;
             font-variant: small-caps;
             letter-spacing: 1px;
             color: var(--text-secondary);
+            margin-bottom: 12px;
         }
 
-        .tape-actions button {
+        .log-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-actions button {
             font-size: 12px;
-            padding: 5px 12px;
+            padding: 6px 12px;
             color: var(--text-secondary);
             border: 0.5px solid var(--border-color);
+            background: transparent;
             font-variant: small-caps;
+            cursor: pointer;
+            font-family: var(--font-main);
+            transition: all 0.2s;
         }
 
-        .tape-content {
+        .log-actions button:hover {
+            background-color: var(--code-bg);
+            color: var(--text-primary);
+        }
+
+        .log-content {
             flex: 1;
-            padding: 30px;
+            padding: 24px 30px;
             overflow-y: auto;
             font-family: var(--font-mono);
-            font-size: 13px;
+            font-size: 12px;
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            gap: 20px;
         }
 
-        .tape-entry {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            padding-bottom: 15px;
+        .log-entry {
+            padding-bottom: 16px;
+            border-bottom: 0.2px solid var(--border-color);
             cursor: pointer;
             transition: transform 0.2s;
-            border-bottom: 0.2px solid var(--border-color);
         }
 
-        .tape-entry:hover {
+        .log-entry:hover {
             transform: translateX(-5px);
         }
 
-        .tape-expression {
+        .log-command {
             color: var(--text-secondary);
-            font-style: italic;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            word-break: break-all;
         }
 
-        .tape-result {
+        .log-result {
+            color: var(--output-color);
             font-weight: 500;
-            font-size: 15px;
-            color: var(--text-primary);
+        }
+
+        .log-timestamp {
+            font-size: 10px;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            margin-top: 6px;
+        }
+
+        .welcome-message {
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-bottom: 24px;
+            line-height: 1.8;
         }
 
         /* Scrollbar */
@@ -279,7 +322,7 @@
             background: var(--border-color);
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1000px) {
             .workspace {
                 width: 100vw;
                 height: 100vh;
@@ -287,7 +330,7 @@
                 border: none;
             }
 
-            .tape-container {
+            .log-container {
                 display: none;
             }
         }
@@ -296,340 +339,317 @@
 
 <body>
     <div class="workspace">
-        <div class="calculator">
-            <div class="display-container">
-                <input type="text" class="display display-sub" id="historyDisplay" readonly>
-                <input type="text" class="display display-main" id="mainDisplay" value="0" readonly>
+        <div class="console-container">
+            <div class="console-header">
+                <div class="console-title">Python Mathematical Console</div>
+                <div class="console-subtitle">NumPy · SymPy · Matplotlib · SciPy</div>
             </div>
 
-            <div class="controls-top">
-                <div class="mode-toggles">
-                    <div id="degToggle" class="toggle-btn active" onclick="setDegRad('DEG')">degrees</div>
-                    <div id="radToggle" class="toggle-btn" onclick="setDegRad('RAD')">radians</div>
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot loading" id="statusDot"></div>
+                    <span id="statusText">Loading Python environment...</span>
                 </div>
-                <div id="memIndicator"
-                    style="display: none; color: var(--accent-color); font-size: 13px; font-variant: small-caps;">Memory
-                    Active</div>
+                <span id="versionInfo"></span>
             </div>
 
-            <div class="keypad">
-                <!-- Row 1 -->
-                <button onclick="appendFunction('asin(')" class="btn-sci">asin</button>
-                <button onclick="appendFunction('acos(')" class="btn-sci">acos</button>
-                <button onclick="appendFunction('atan(')" class="btn-sci">atan</button>
-                <button onclick="clearAll()" class="btn-action">clear</button>
-                <button onclick="deleteLast()" class="btn-action">del</button>
-                <button onclick="appendOperator('/')" class="btn-op">÷</button>
+            <div class="console-output" id="consoleOutput">
+                <div class="welcome-message" id="welcomeMessage">
+                    Initializing Python runtime and mathematical libraries...<br>
+                    This may take a moment on first load.
+                </div>
+            </div>
 
-                <!-- Row 2 -->
-                <button onclick="appendFunction('sin(')" class="btn-sci">sin</button>
-                <button onclick="appendFunction('cos(')" class="btn-sci">cos</button>
-                <button onclick="appendFunction('tan(')" class="btn-sci">tan</button>
-                <button onclick="appendNumber(7)">7</button>
-                <button onclick="appendNumber(8)">8</button>
-                <button onclick="appendNumber(9)">9</button>
-
-                <!-- Row 3 -->
-                <button onclick="appendFunction('log(')" class="btn-sci">log</button>
-                <button onclick="appendFunction('ln(')" class="btn-sci">ln</button>
-                <button onclick="appendFunction('sqrt(')" class="btn-sci">√</button>
-                <button onclick="appendNumber(4)">4</button>
-                <button onclick="appendNumber(5)">5</button>
-                <button onclick="appendNumber(6)">6</button>
-
-                <!-- Row 4 -->
-                <button onclick="appendFunction('abs(')" class="btn-sci">abs</button>
-                <button onclick="appendFunction('exp(')" class="btn-sci">exp</button>
-                <button onclick="appendOperator('^')" class="btn-sci">x<sup>y</sup></button>
-                <button onclick="appendNumber(1)">1</button>
-                <button onclick="appendNumber(2)">2</button>
-                <button onclick="appendNumber(3)">3</button>
-
-                <!-- Row 5 -->
-                <button onclick="appendOperator('!')" class="btn-sci">x!</button>
-                <button onclick="appendConstant('PI')" class="btn-sci">π</button>
-                <button onclick="appendConstant('E')" class="btn-sci">e</button>
-                <button onclick="appendNumber(0)">0</button>
-                <button onclick="appendNumber('.')">.</button>
-                <button onclick="appendOperator('*')" class="btn-op">×</button>
-
-                <!-- Row 6 -->
-                <button onclick="appendFunction('(')" class="btn-sci">(</button>
-                <button onclick="appendFunction(')')" class="btn-sci">)</button>
-                <button onclick="useAns()" class="btn-sci">ans</button>
-                <button onclick="memoryRecall()" class="btn-sci">mr</button>
-                <button onclick="memoryAdd()" class="btn-sci">m+</button>
-                <button onclick="appendOperator('+')" class="btn-op">+</button>
-
-                <!-- Row 7 -->
-                <button onclick="memoryClear()" class="btn-sci">mc</button>
-                <button onclick="appendOperator('-')" class="btn-op">−</button>
-                <button onclick="calculate()" class="btn-primary" style="grid-column: 3 / -1;">=</button>
+            <div class="console-input-container">
+                <div class="console-input-line">
+                    <span class="input-prompt">»</span>
+                    <input type="text" id="consoleInput" placeholder="Enter Python expression..." autocomplete="off" disabled>
+                </div>
             </div>
         </div>
 
-        <div class="tape-container">
-            <div class="tape-header">
-                <span class="tape-title">Session Log</span>
-                <div class="tape-actions">
-                    <button onclick="clearTape()">Reset Log</button>
+        <div class="log-container">
+            <div class="log-header">
+                <div class="log-title">Session History</div>
+                <div class="log-actions">
+                    <button onclick="exportSession()">Export</button>
+                    <button onclick="clearLog()">Clear</button>
                 </div>
             </div>
-            <div class="tape-content" id="tapeContent">
-                <!-- Tape items go here -->
+            <div class="log-content" id="logContent">
+                <!-- Log entries go here -->
             </div>
         </div>
     </div>
 
     <script>
-        const mainDisplay = document.getElementById('mainDisplay');
-        const historyDisplay = document.getElementById('historyDisplay');
-        const tapeContent = document.getElementById('tapeContent');
-        const memIndicator = document.getElementById('memIndicator');
+        let pyodide;
+        let commandHistory = [];
+        let historyIndex = -1;
+        let sessionLog = [];
+        let plotCounter = 0;
 
-        let currentInput = '0';
-        let memory = 0;
-        let lastAns = '0';
-        let isNewCalculation = true;
-        let angleMode = 'DEG';
+        const consoleInput = document.getElementById('consoleInput');
+        const consoleOutput = document.getElementById('consoleOutput');
+        const logContent = document.getElementById('logContent');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const versionInfo = document.getElementById('versionInfo');
+        const welcomeMessage = document.getElementById('welcomeMessage');
 
-        loadTape();
-
+        // Dark mode support
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
         }
-        window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
             if (e.matches) document.documentElement.classList.add('dark');
             else document.documentElement.classList.remove('dark');
         });
 
-        function updateDisplay() {
-            mainDisplay.value = currentInput;
-            const size = currentInput.length > 12 ? (currentInput.length > 20 ? '28px' : '48px') : '64px';
-            mainDisplay.style.fontSize = size;
-        }
-
-        function setDegRad(mode) {
-            angleMode = mode;
-            document.getElementById('degToggle').classList.toggle('active', mode === 'DEG');
-            document.getElementById('radToggle').classList.toggle('active', mode === 'RAD');
-        }
-
-        function clearAll() {
-            currentInput = '0';
-            historyDisplay.value = '';
-            isNewCalculation = true;
-            updateDisplay();
-        }
-
-        function deleteLast() {
-            if (isNewCalculation) return;
-            if (currentInput.length > 1) {
-                currentInput = currentInput.slice(0, -1);
-            } else {
-                currentInput = '0';
-            }
-            updateDisplay();
-        }
-
-        function appendNumber(num) {
-            if (isNewCalculation) {
-                currentInput = num.toString();
-                isNewCalculation = false;
-            } else {
-                if (currentInput === '0' && num !== '.') {
-                    currentInput = num.toString();
-                } else if (num === '.' && currentInput.includes('.')) {
-                    const parts = currentInput.split(/[\+\-\*\/\^\(\)]/);
-                    if (!parts[parts.length - 1].includes('.')) {
-                        currentInput += '.';
-                    }
-                } else {
-                    currentInput += num.toString();
-                }
-            }
-            updateDisplay();
-        }
-
-        function appendOperator(op) {
-            isNewCalculation = false;
-            if (currentInput === 'Error') currentInput = '0';
-            currentInput += op;
-            updateDisplay();
-        }
-
-        function appendConstant(constName) {
-            if (isNewCalculation) {
-                currentInput = '';
-                isNewCalculation = false;
-            }
-            if (constName === 'PI') currentInput += 'PI';
-            if (constName === 'E') currentInput += 'E';
-            updateDisplay();
-        }
-
-        function appendFunction(func) {
-            if (isNewCalculation) {
-                currentInput = '';
-                isNewCalculation = false;
-            }
-            currentInput += func;
-            updateDisplay();
-        }
-
-        function useAns() {
-            if (isNewCalculation) {
-                currentInput = lastAns;
-                isNewCalculation = false;
-            } else {
-                currentInput += lastAns;
-            }
-            updateDisplay();
-        }
-
-        function factorial(n) {
-            if (n < 0) return NaN;
-            if (n === 0) return 1;
-            let res = 1;
-            for (let i = 2; i <= n; i++) res *= i;
-            return res;
-        }
-
-        function calculate() {
+        async function initPyodide() {
             try {
-                let expression = currentInput;
-                expression = expression.replace(/(\d+\.?\d*)!/g, 'factorial($1)');
-                const openCount = (expression.match(/\(/g) || []).length;
-                const closeCount = (expression.match(/\)/g) || []).length;
-                if (openCount > closeCount) {
-                    expression += ')'.repeat(openCount - closeCount);
-                }
-
-                let evalString = expression
-                    .replace(/×/g, '*')
-                    .replace(/−/g, '-')
-                    .replace(/÷/g, '/')
-                    .replace(/\^/g, '**')
-                    .replace(/PI/g, 'Math.PI')
-                    .replace(/E/g, 'Math.E')
-                    .replace(/abs\(/g, 'Math.abs(')
-                    .replace(/exp\(/g, 'Math.exp(')
-                    .replace(/sqrt\(/g, 'Math.sqrt(')
-                    .replace(/ln\(/g, 'Math.log(')
-                    .replace(/log\(/g, 'Math.log10(');
-
-                const trigFuncs = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan'];
-                trigFuncs.forEach(fn => {
-                    const regex = new RegExp(`${fn}\\(`, 'g');
-                    if (fn.startsWith('a')) {
-                        if (angleMode === 'DEG') {
-                            evalString = evalString.replace(regex, `(180/Math.PI)*Math.${fn}(`);
-                        } else {
-                            evalString = evalString.replace(regex, `Math.${fn}(`);
-                        }
-                    } else {
-                        if (angleMode === 'DEG') {
-                            evalString = evalString.replace(regex, `Math.${fn}((Math.PI/180)*`);
-                        } else {
-                            evalString = evalString.replace(regex, `Math.${fn}(`);
-                        }
-                    }
+                statusText.textContent = 'Loading Python runtime...';
+                pyodide = await loadPyodide({
+                    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/"
                 });
 
-                const result = eval(evalString);
-                if (!isFinite(result)) throw new Error('Overflow');
-                if (isNaN(result)) throw new Error('Invalid');
+                versionInfo.textContent = `Python ${pyodide.runPython('import sys; sys.version.split()[0]')}`;
 
-                const formattedResult = Number(result.toFixed(12)).toString();
+                statusText.textContent = 'Loading NumPy...';
+                await pyodide.loadPackage('numpy');
 
-                addToTape(currentInput, formattedResult);
-                historyDisplay.value = currentInput + ' =';
-                currentInput = formattedResult;
-                lastAns = formattedResult;
-                isNewCalculation = true;
-                updateDisplay();
+                statusText.textContent = 'Loading Matplotlib...';
+                await pyodide.loadPackage('matplotlib');
 
-            } catch (e) {
-                currentInput = 'Error';
-                isNewCalculation = true;
-                updateDisplay();
+                statusText.textContent = 'Loading SymPy...';
+                await pyodide.loadPackage('sympy');
+
+                // Initialize environment
+                await pyodide.runPythonAsync(`
+import numpy as np
+import matplotlib
+matplotlib.use('module://matplotlib_pyodide.html5_canvas_backend')
+import matplotlib.pyplot as plt
+import sympy as sp
+from sympy import symbols, solve, diff, integrate, expand, simplify, factor, latex
+from math import *
+
+# Configure matplotlib for inline display
+plt.rcParams['figure.figsize'] = (8, 5)
+plt.rcParams['figure.dpi'] = 100
+
+# Welcome message
+print("Libraries loaded: numpy, matplotlib, sympy")
+print("\\nQuick reference:")
+print("  np.array([1,2,3])     - NumPy arrays")
+print("  plt.plot(x, y)        - Create plots")
+print("  sp.symbols('x y')     - Symbolic variables")
+print("  solve(x**2 - 4, x)    - Solve equations")
+print("  diff(x**2, x)         - Derivatives")
+print("  integrate(x**2, x)    - Integrals")
+print("\\nType any Python expression to evaluate.")
+                `);
+
+                welcomeMessage.remove();
+                statusDot.classList.remove('loading');
+                statusDot.classList.add('ready');
+                statusText.textContent = 'Ready';
+                consoleInput.disabled = false;
+                consoleInput.focus();
+
+            } catch (err) {
+                statusText.textContent = 'Error loading Python';
+                statusDot.style.backgroundColor = 'var(--error-color)';
+                addOutput(`Error: ${err.message}`, 'error');
             }
         }
 
-        function memoryAdd() {
-            const val = parseFloat(currentInput);
-            if (!isNaN(val)) {
-                memory += val;
-                memIndicator.style.display = 'block';
-                isNewCalculation = true;
-            }
-        }
-        function memoryClear() {
-            memory = 0;
-            memIndicator.style.display = 'none';
-        }
-        function memoryRecall() {
-            currentInput = memory.toString();
-            isNewCalculation = false;
-            updateDisplay();
-        }
+        async function executeCode(code) {
+            if (!code.trim()) return;
 
-        function addToTape(expression, result) {
-            const entry = { expression, result, timestamp: Date.now() };
-            saveTapeEntry(entry);
-            renderTapeEntry(entry);
-            scrollToBottom();
-        }
+            commandHistory.push(code);
+            historyIndex = commandHistory.length;
 
-        function saveTapeEntry(entry) {
-            let tape = JSON.parse(localStorage.getItem('calcTape') || '[]');
-            tape.push(entry);
-            if (tape.length > 50) tape.shift();
-            localStorage.setItem('calcTape', JSON.stringify(tape));
-        }
-
-        function loadTape() {
-            let tape = JSON.parse(localStorage.getItem('calcTape') || '[]');
-            tapeContent.innerHTML = '';
-            tape.forEach(renderTapeEntry);
-            scrollToBottom();
-        }
-
-        function renderTapeEntry(entry) {
-            const div = document.createElement('div');
-            div.className = 'tape-entry';
-            div.innerHTML = `
-                <span class="tape-expression">${entry.expression}</span>
-                <span class="tape-result">${entry.result}</span>
+            // Display input
+            const inputDiv = document.createElement('div');
+            inputDiv.className = 'output-line';
+            inputDiv.innerHTML = `
+                <div class="prompt-line">
+                    <span class="prompt-symbol">»</span>
+                    <span class="prompt-text">${escapeHtml(code)}</span>
+                </div>
             `;
-            div.onclick = () => {
-                currentInput = entry.result;
-                isNewCalculation = false;
-                updateDisplay();
-            };
-            tapeContent.appendChild(div);
+            consoleOutput.appendChild(inputDiv);
+
+            try {
+                // Check if this is a plot command
+                const isPlotCommand = code.includes('plt.plot') ||
+                                     code.includes('plt.scatter') ||
+                                     code.includes('plt.bar') ||
+                                     code.includes('plt.hist');
+
+                let result;
+                if (isPlotCommand || code.includes('plt.show()')) {
+                    // Execute the plot command
+                    await pyodide.runPythonAsync(code);
+
+                    // Get the current figure and convert to base64
+                    const plotData = await pyodide.runPythonAsync(`
+import io
+import base64
+buf = io.BytesIO()
+plt.savefig(buf, format='png', bbox_inches='tight', facecolor='white')
+buf.seek(0)
+img_str = base64.b64encode(buf.read()).decode()
+plt.close()
+img_str
+                    `);
+
+                    const plotDiv = document.createElement('div');
+                    plotDiv.className = 'output-plot';
+                    const img = document.createElement('img');
+                    img.src = `data:image/png;base64,${plotData}`;
+                    img.style.maxWidth = '100%';
+                    plotDiv.appendChild(img);
+                    consoleOutput.appendChild(plotDiv);
+
+                    addToLog(code, '[Plot generated]', 'plot');
+                } else {
+                    // Regular expression evaluation
+                    result = await pyodide.runPythonAsync(`
+import sys
+from io import StringIO
+
+# Capture stdout
+old_stdout = sys.stdout
+sys.stdout = StringIO()
+
+result = None
+try:
+    result = eval(${JSON.stringify(code)})
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    if output:
+        print(output, end='')
+    if result is not None:
+        repr(result)
+    else:
+        output if output else None
+except SyntaxError:
+    sys.stdout = old_stdout
+    exec(${JSON.stringify(code)})
+    output = sys.stdout.getvalue()
+    output if output else "Executed successfully"
+                    `);
+
+                    if (result) {
+                        const outputDiv = document.createElement('div');
+                        outputDiv.className = 'output-result';
+                        outputDiv.textContent = result;
+                        consoleOutput.appendChild(outputDiv);
+
+                        addToLog(code, result, 'result');
+                    }
+                }
+
+            } catch (err) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'output-error';
+                errorDiv.textContent = err.message;
+                consoleOutput.appendChild(errorDiv);
+
+                addToLog(code, err.message, 'error');
+            }
+
+            scrollToBottom();
+            consoleInput.value = '';
         }
 
-        function clearTape() {
-            localStorage.removeItem('calcTape');
-            tapeContent.innerHTML = '';
+        function addToLog(command, result, type) {
+            const entry = {
+                command,
+                result,
+                type,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            sessionLog.push(entry);
+
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <div class="log-command">» ${escapeHtml(command)}</div>
+                <div class="log-result">${escapeHtml(result)}</div>
+                <div class="log-timestamp">${entry.timestamp}</div>
+            `;
+            logEntry.onclick = () => {
+                consoleInput.value = command;
+                consoleInput.focus();
+            };
+            logContent.appendChild(logEntry);
+
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        function clearLog() {
+            if (confirm('Clear session history?')) {
+                sessionLog = [];
+                logContent.innerHTML = '';
+            }
+        }
+
+        function exportSession() {
+            const text = sessionLog.map(e =>
+                `[${e.timestamp}]\n» ${e.command}\n${e.result}\n`
+            ).join('\n');
+
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `python-session-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         function scrollToBottom() {
-            tapeContent.scrollTop = tapeContent.scrollHeight;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
         }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key >= '0' && e.key <= '9') appendNumber(e.key);
-            if (e.key === '.') appendNumber('.');
-            if (['+', '-', '*', '/'].includes(e.key)) appendOperator(e.key === '*' ? '×' : e.key === '/' ? '÷' : e.key);
-            if (e.key === '^') appendOperator('^');
-            if (e.key === '!') appendOperator('!');
-            if (e.key === '(' || e.key === ')') appendFunction(e.key);
-            if (e.key === 'Enter') { e.preventDefault(); calculate(); }
-            if (e.key === 'Backspace') deleteLast();
-            if (e.key === 'Escape') clearAll();
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        consoleInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const code = consoleInput.value;
+                await executeCode(code);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    consoleInput.value = commandHistory[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    consoleInput.value = commandHistory[historyIndex];
+                } else {
+                    historyIndex = commandHistory.length;
+                    consoleInput.value = '';
+                }
+            } else if (e.key === 'l' && e.ctrlKey) {
+                e.preventDefault();
+                consoleOutput.innerHTML = '';
+            }
         });
+
+        // Initialize on load
+        initPyodide();
     </script>
 </body>
 
