@@ -79,6 +79,13 @@
         .console-header {
             padding: 30px 32px 20px;
             border-bottom: 0.5px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .console-title-area {
+            flex: 1;
         }
 
         .console-title {
@@ -92,6 +99,25 @@
             font-size: 14px;
             color: var(--text-secondary);
             font-style: italic;
+        }
+
+        .help-button {
+            padding: 8px 16px;
+            background: transparent;
+            border: 0.5px solid var(--border-color);
+            color: var(--text-secondary);
+            font-family: var(--font-main);
+            font-size: 13px;
+            font-variant: small-caps;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 2px;
+        }
+
+        .help-button:hover {
+            background-color: var(--code-bg);
+            color: var(--accent-color);
+            border-color: var(--accent-color);
         }
 
         .status-bar {
@@ -341,8 +367,11 @@
     <div class="workspace">
         <div class="console-container">
             <div class="console-header">
-                <div class="console-title">Python Mathematical Console</div>
-                <div class="console-subtitle">NumPy · SymPy · Matplotlib · SciPy</div>
+                <div class="console-title-area">
+                    <div class="console-title">Python Mathematical Console</div>
+                    <div class="console-subtitle">NumPy · SymPy · Matplotlib · SciPy</div>
+                </div>
+                <button class="help-button" onclick="showHelp()">Help</button>
             </div>
 
             <div class="status-bar">
@@ -424,8 +453,8 @@
                 statusText.textContent = 'Loading SymPy...';
                 await pyodide.loadPackage('sympy');
 
-                // Initialize environment
-                await pyodide.runPythonAsync(`
+                // Initialize environment and capture welcome message
+                const welcomeText = await pyodide.runPythonAsync(`
 import numpy as np
 import matplotlib
 matplotlib.use('module://matplotlib_pyodide.html5_canvas_backend')
@@ -433,13 +462,36 @@ import matplotlib.pyplot as plt
 import sympy as sp
 from sympy import symbols, solve, diff, integrate, expand, simplify, factor, latex
 from math import *
+import sys
+from io import StringIO
 
 # Configure matplotlib for inline display
 plt.rcParams['figure.figsize'] = (8, 5)
 plt.rcParams['figure.dpi'] = 100
 
-# Welcome message
-print("Libraries loaded: numpy, matplotlib, sympy")
+# Define help function
+def help():
+    """Display help information"""
+    print("Libraries loaded: numpy, matplotlib, sympy")
+    print("\\nQuick reference:")
+    print("  np.array([1,2,3])     - NumPy arrays")
+    print("  plt.plot(x, y)        - Create plots")
+    print("  sp.symbols('x y')     - Symbolic variables")
+    print("  solve(x**2 - 4, x)    - Solve equations")
+    print("  diff(x**2, x)         - Derivatives")
+    print("  integrate(x**2, x)    - Integrals")
+    print("\\nExamples:")
+    print("  2 + 2                 - Basic math")
+    print("  np.sqrt(16)           - NumPy functions")
+    print("  x = sp.Symbol('x')    - Create symbolic variable")
+    print("  solve(x**2 - 9)       - Solve x² - 9 = 0")
+    print("  diff(x**3, x)         - Derivative of x³")
+
+# Capture welcome message
+old_stdout = sys.stdout
+sys.stdout = StringIO()
+
+print("✓ Libraries loaded: numpy, matplotlib, sympy")
 print("\\nQuick reference:")
 print("  np.array([1,2,3])     - NumPy arrays")
 print("  plt.plot(x, y)        - Create plots")
@@ -447,10 +499,22 @@ print("  sp.symbols('x y')     - Symbolic variables")
 print("  solve(x**2 - 4, x)    - Solve equations")
 print("  diff(x**2, x)         - Derivatives")
 print("  integrate(x**2, x)    - Integrals")
-print("\\nType any Python expression to evaluate.")
+print("\\nExamples:")
+print("  2 + 2                 - Basic arithmetic")
+print("  np.sqrt(16)           - NumPy functions")
+print("  x = sp.Symbol('x')    - Symbolic variables")
+print("\\n» Type help() anytime to see this reference again.")
+
+welcome = sys.stdout.getvalue()
+sys.stdout = old_stdout
+welcome
                 `);
 
-                welcomeMessage.remove();
+                // Display welcome message
+                welcomeMessage.innerHTML = welcomeText.replace(/\n/g, '<br>');
+                welcomeMessage.style.fontFamily = 'var(--font-mono)';
+                welcomeMessage.style.fontSize = '13px';
+                welcomeMessage.style.whiteSpace = 'pre-wrap';
                 statusDot.classList.remove('loading');
                 statusDot.classList.add('ready');
                 statusText.textContent = 'Ready';
@@ -516,7 +580,7 @@ img_str
                     addToLog(code, '[Plot generated]', 'plot');
                 } else {
                     // Regular expression evaluation
-                    result = await pyodide.runPythonAsync(`
+                    const output = await pyodide.runPythonAsync(`
 import sys
 from io import StringIO
 
@@ -525,30 +589,48 @@ old_stdout = sys.stdout
 sys.stdout = StringIO()
 
 result = None
+output_text = ""
+
 try:
+    # Try to evaluate as expression first
     result = eval(${JSON.stringify(code)})
-    output = sys.stdout.getvalue()
-    sys.stdout = old_stdout
-    if output:
-        print(output, end='')
-    if result is not None:
-        repr(result)
-    else:
-        output if output else None
+    output_text = sys.stdout.getvalue()
 except SyntaxError:
-    sys.stdout = old_stdout
+    # If it's not an expression, execute as statement
     exec(${JSON.stringify(code)})
-    output = sys.stdout.getvalue()
-    output if output else "Executed successfully"
+    output_text = sys.stdout.getvalue()
+    result = None
+finally:
+    sys.stdout = old_stdout
+
+# Return both stdout and result
+import json
+json.dumps({
+    'output': output_text,
+    'result': repr(result) if result is not None else None
+})
                     `);
 
-                    if (result) {
+                    const data = JSON.parse(output);
+
+                    // Display stdout output if any
+                    if (data.output) {
                         const outputDiv = document.createElement('div');
                         outputDiv.className = 'output-result';
-                        outputDiv.textContent = result;
+                        outputDiv.textContent = data.output;
                         consoleOutput.appendChild(outputDiv);
+                    }
 
-                        addToLog(code, result, 'result');
+                    // Display result if any
+                    if (data.result) {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.className = 'output-result';
+                        resultDiv.textContent = data.result;
+                        consoleOutput.appendChild(resultDiv);
+
+                        addToLog(code, data.result, 'result');
+                    } else if (data.output) {
+                        addToLog(code, data.output, 'result');
                     }
                 }
 
@@ -619,6 +701,13 @@ except SyntaxError:
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        async function showHelp() {
+            if (pyodide) {
+                await executeCode('help()');
+                consoleInput.focus();
+            }
         }
 
         // Event listeners
