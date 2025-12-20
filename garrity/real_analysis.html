@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Analysis - The Epsilon-Delta Game</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --grid: #e0e0e0;
+            --func-line: #111;
+            --epsilon-zone: rgba(177, 62, 62, 0.1);
+            --delta-zone: rgba(62, 62, 177, 0.1);
+            --success: #6a9955;
+            --fail: #b13e3e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .definition-box {
+            background: #fdfdfd;
+            border-left: 3px solid var(--accent);
+            padding: 1rem 2rem;
+            margin: 2rem 0;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            font-size: 1.1rem;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 700px;
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            width: 100%;
+            max-width: 700px;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 4px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="range"] {
+            width: 150px;
+        }
+
+        select {
+            padding: 5px 10px;
+            font-family: inherit;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            background: transparent;
+        }
+
+        .status-msg {
+            margin-top: 1rem;
+            font-weight: bold;
+            min-height: 1.5em;
+        }
+
+        .status-msg.pass {
+            color: var(--success);
+        }
+
+        .status-msg.fail {
+            color: var(--fail);
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>The Epsilon-Delta Game</h1>
+        <span class="subtitle">Chapter 2: Real Analysis</span>
+    </header>
+
+    <main>
+        <p>
+            The rigorous foundation of calculus rests on the precise definition of a limit.
+            <span class="sidenote">This is often the first major hurdle in analysis: quantifying "closeness".</span>
+            We say $\lim_{x \to c} f(x) = L$ if:
+        </p>
+
+        <div class="definition-box">
+            For every $\epsilon > 0$, there exists a $\delta > 0$ such that for all $x$: <br><br>
+            if $0 < |x - c| < \delta$, then $|f(x) - L| < \epsilon$. </div>
+
+                <p>
+                    Think of this as a game: <strong>Player A</strong> (the Skeptic) picks a narrow target band around
+                    the limit ($\epsilon$).
+                    <strong>Player B</strong> (the Prover) must find a width ($\delta$) around $c$ such that the
+                    function graph stays completely inside the $\epsilon$-band.
+                </p>
+
+                <div class="game-container">
+                    <canvas id="gameCanvas" width="700" height="500"></canvas>
+
+                    <div id="status-display" class="status-msg">Adjust delta to win...</div>
+
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>Function</label>
+                            <select id="func-select">
+                                <option value="linear">f(x) = 0.5x + 1</option>
+                                <option value="square">f(x) = x²/4</option>
+                                <option value="sine">f(x) = sin(x) + 2</option>
+                                <option value="cubic">f(x) = (x-2)³ + 2</option>
+                                <option value="step">f(x) = Step (No Limit)</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label>Epsilon ($\epsilon$)</label>
+                            <input type="range" id="epsilon-slider" min="0.1" max="1.5" step="0.05" value="0.8">
+                            <span id="epsilon-val" style="font-family: monospace;">0.80</span>
+                        </div>
+
+                        <div class="control-group">
+                            <label>Delta ($\delta$)</label>
+                            <input type="range" id="delta-slider" min="0.05" max="2.0" step="0.05" value="0.5">
+                            <span id="delta-val" style="font-family: monospace;">0.50</span>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    If you can <em>always</em> find a working $\delta$ no matter how small $\epsilon$ gets, the limit
+                    exists!
+                    Notice how for steeper functions, your $\delta$ must be smaller to keep the graph "tamed" within the
+                    box.
+                </p>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Controls
+        const funcSelect = document.getElementById('func-select');
+        const epsSlider = document.getElementById('epsilon-slider');
+        const delSlider = document.getElementById('delta-slider');
+        const epsVal = document.getElementById('epsilon-val');
+        const delVal = document.getElementById('delta-val');
+        const statusDisplay = document.getElementById('status-display');
+
+        // Config
+        const SCALE = 60; // pixels per unit
+        const OFFSET_X = 100; // Origin coords on canvas
+        const OFFSET_Y = 400; // Origin coords on canvas
+
+        // State
+        let state = {
+            c: 2, // The x-value where we check limit
+            L: 2, // The limit value
+            epsilon: 0.8,
+            delta: 0.5,
+            funcType: 'linear'
+        };
+
+        const functions = {
+            'linear': (x) => 0.5 * x + 1,
+            'square': (x) => (x * x) / 4,
+            'sine': (x) => Math.sin(x) + 2,
+            'cubic': (x) => Math.pow(x - 2, 3) + 2,
+            'step': (x) => x < 2 ? 1 : 3
+        };
+
+        // Derived limit L calculation (simple evaluation for continuous)
+        function getLimit(x) {
+            if (state.funcType === 'step') return 2; // Fake "gap" center
+            return functions[state.funcType](x);
+        }
+
+        // Coordinate Transforms
+        function toCanvas(x, y) {
+            return {
+                x: OFFSET_X + x * SCALE,
+                y: OFFSET_Y - y * SCALE
+            };
+        }
+
+        function fromCanvas(cx, cy) {
+            return {
+                x: (cx - OFFSET_X) / SCALE,
+                y: (OFFSET_Y - cy) / SCALE
+            };
+        }
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear
+
+            // Draw Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 1;
+            // X-axis
+            ctx.moveTo(0, OFFSET_Y); ctx.lineTo(canvas.width, OFFSET_Y);
+            // Y-axis
+            ctx.moveTo(OFFSET_X, 0); ctx.lineTo(OFFSET_X, canvas.height);
+            ctx.stroke();
+
+            // Draw "The Box" (Epsilon-Delta Region)
+            // Center is (c, L)
+            const cPos = toCanvas(state.c, state.L);
+            const w = state.delta * SCALE;
+            const h = state.epsilon * SCALE;
+
+            // Delta Zone (Vertical Stripe)
+            ctx.fillStyle = 'rgba(62, 62, 177, 0.05)';
+            ctx.fillRect(cPos.x - w, 0, w * 2, canvas.height);
+
+            // Epsilon Zone (Horizontal Target Band)
+            ctx.fillStyle = 'rgba(177, 62, 62, 0.1)';
+            ctx.fillRect(0, cPos.y - h, canvas.width, h * 2);
+
+            // The Intersection Box (Focus Area)
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(cPos.x - w, cPos.y - h, w * 2, h * 2);
+            ctx.setLineDash([]);
+
+            // Plot Function
+            const f = functions[state.funcType];
+            ctx.beginPath();
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 2;
+
+            let start = true;
+            let checkPassed = true; // Does graph stay within epsilon box relative to delta?
+
+            // Scan graph quality
+            // Algorithm: Sample points within [c - delta, c + delta]
+            // If any point has |f(x) - L| >= epsilon, fail.
+            const sampleStep = 0.05;
+            for (let px = 0; px < canvas.width; px++) {
+                const x = (px - OFFSET_X) / SCALE;
+
+                // Discontinuity handling for step function drawing
+                if (Math.abs(x - state.c) < 0.02 && state.funcType === 'step') {
+                    start = true;
+                    continue;
+                }
+
+                const y = f(x);
+                const pos = toCanvas(x, y);
+
+                if (start) {
+                    ctx.moveTo(pos.x, pos.y);
+                    start = false;
+                } else {
+                    ctx.lineTo(pos.x, pos.y);
+                }
+            }
+            ctx.stroke();
+
+            // Point (c, L) - "Hole" if needed, but usually just the target
+            ctx.beginPath();
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 2;
+            ctx.arc(cPos.x, cPos.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Validation Check
+            checkPassed = validate(f);
+
+            // Update UI
+            if (state.funcType === 'step') {
+                statusDisplay.textContent = "Limit does not exist! Gap is too large.";
+                statusDisplay.className = "status-msg fail";
+            } else if (checkPassed) {
+                statusDisplay.textContent = "SUCCESS: The graph stays inside the box! (Delta is small enough)";
+                statusDisplay.className = "status-msg pass";
+            } else {
+                statusDisplay.textContent = "FAIL: Graph escapes the top/bottom of the box! (Delta too big)";
+                statusDisplay.className = "status-msg fail";
+            }
+        }
+
+        function validate(f) {
+            // Check domain [c - delta, c + delta]
+            // Exclude exactly c
+            // We verify by sampling somewhat densely.
+            const step = 0.01;
+            for (let x = state.c - state.delta; x <= state.c + state.delta; x += step) {
+                if (Math.abs(x - state.c) < 0.001) continue; // Skip hole
+
+                const y = f(x);
+                if (Math.abs(y - state.L) >= state.epsilon) {
+                    return false;
+                }
+            }
+            // Check boundary points explicitly
+            if (Math.abs(f(state.c - state.delta) - state.L) >= state.epsilon) return false;
+
+            return true;
+        }
+
+        function update() {
+            state.epsilon = parseFloat(epsSlider.value);
+            state.delta = parseFloat(delSlider.value);
+
+            epsVal.textContent = state.epsilon.toFixed(2);
+            delVal.textContent = state.delta.toFixed(2);
+
+            if (state.funcType === 'step') {
+                state.c = 2;
+                state.L = 2; // Visual center of jump
+            } else {
+                state.c = 2;
+                state.L = functions[state.funcType](state.c);
+            }
+
+            drawGraph();
+        }
+
+        // Listeners
+        epsSlider.addEventListener('input', update);
+        delSlider.addEventListener('input', update);
+        funcSelect.addEventListener('change', (e) => {
+            state.funcType = e.target.value;
+            // Reset sliders slightly for better UX? Nah, keep them.
+            update();
+        });
+
+        // Init
+        update();
+
+    </script>
+</body>
+
+</html>

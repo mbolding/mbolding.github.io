@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Algebra - Linear Transformations</title>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --grid-major: #ccc;
+            --grid-minor: #eee;
+            --vector-i: #b13e3e;
+            /* Red */
+            --vector-j: #3e3eb1;
+            /* Blue */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            /* Readable measure */
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .visualization-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .controls {
+            margin-top: 2rem;
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+        }
+
+        .matrix-input {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            position: relative;
+            padding: 10px;
+        }
+
+        .matrix-input::before,
+        .matrix-input::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            top: 0;
+            bottom: 0;
+            border: 2px solid #333;
+        }
+
+        .matrix-input::before {
+            left: 0;
+            border-right: none;
+        }
+
+        .matrix-input::after {
+            right: 0;
+            border-left: none;
+        }
+
+        input[type="number"] {
+            width: 50px;
+            padding: 5px;
+            text-align: center;
+            border: 1px solid #ccc;
+            background: transparent;
+            font-family: inherit;
+            font-size: 1.1rem;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: var(--fg);
+            color: var(--bg);
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .explanation {
+            margin-top: 3rem;
+            max-width: 65ch;
+            /* Optimal reading width */
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -30%;
+            width: 25%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            vertical-align: baseline;
+            position: relative;
+            color: #555;
+        }
+
+        @media (max-width: 1100px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Linear Transformations</h1>
+        <span class="subtitle">Chapter 1: Linear Algebra</span>
+    </header>
+
+    <main>
+        <p>
+            A key insight in linear algebra is viewing a matrix not just as a table of numbers, but as a function that
+            transforms space.
+            <span class="sidenote">Garrity emphasizes vector spaces early on. Here, we visualize $\mathbb{R}^2$.</span>
+            Consider a $2 \times 2$ matrix $M$:
+        </p>
+
+        <div style="text-align: center; font-family: 'Gill Sans', sans-serif; font-size: 1.2rem; margin: 2rem 0;">
+            $M = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$
+        </div>
+
+        <p>
+            This matrix transforms every vector $(x, y)$ in the plane to a new vector $(ax + by, cx + dy)$.
+            We can visualize this by tracking where the standard basis vectors
+            $\color{#b13e3e}{\mathbf{i} = (1, 0)}$ and
+            $\color{#3e3eb1}{\mathbf{j} = (0, 1)}$ land.
+        </p>
+
+        <div class="visualization-container">
+            <canvas id="canvas" width="600" height="400"></canvas>
+
+            <div class="controls">
+                <div class="matrix-input">
+                    <input type="number" id="val-a" value="1" step="0.1">
+                    <input type="number" id="val-b" value="0.5" step="0.1">
+                    <input type="number" id="val-c" value="0" step="0.1">
+                    <input type="number" id="val-d" value="1" step="0.1">
+                </div>
+                <button id="apply-btn">Apply Transformation</button>
+                <button id="reset-btn"
+                    style="background: transparent; color: #555; border: 1px solid #ccc;">Reset</button>
+            </div>
+        </div>
+
+        <div class="explanation">
+            <h3>Things to notice</h3>
+            <ul>
+                <li><strong>Linearity:</strong> Grid lines remain parallel and evenly spaced.</li>
+                <li><strong>Determinant:</strong> The area of the unit square (formed by $\mathbf{i}$ and $\mathbf{j}$)
+                    scales by the determinant $(ad - bc)$.</li>
+                <li><strong>Scaling:</strong> Try $\begin{pmatrix} 2 & 0 \\ 0 & 2 \end{pmatrix}$ to double the size of
+                    the grid.</li>
+                <li><strong>Shear vs Rotation:</strong> Try $\begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix}$ for a
+                    horizontal shear (x changes based on y).</li>
+                <li><strong>Rotation:</strong> Try $\begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$ for a 90°
+                    counter-clockwise rotation.</li>
+                <li><strong>Reflection:</strong> Try $\begin{pmatrix} -1 & 0 \\ 0 & 1 \end{pmatrix}$ to reflect across
+                    the y-axis.</li>
+                <li><strong>Singular:</strong> Try $\begin{pmatrix} 1 & 1 \\ 2 & 2 \end{pmatrix}$. The determinant is 0,
+                    squashing the plane into a line.</li>
+            </ul>
+        </div>
+    </main>
+
+    <!-- Configure MathJax to allow single dollar signs -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+
+    <!-- Simple MathJax for Matrix Notation -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const inputs = {
+            a: document.getElementById('val-a'),
+            b: document.getElementById('val-b'),
+            c: document.getElementById('val-c'),
+            d: document.getElementById('val-d')
+        };
+        const applyBtn = document.getElementById('apply-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // State
+        let currentMatrix = { a: 1, b: 0, c: 0, d: 1 };
+        let targetMatrix = { a: 1, b: 0.5, c: 0, d: 1 };
+        let animationProgress = 1; // 0 to 1
+        let isAnimating = false;
+
+        // Constants
+        const SCALE = 40; // Pixels per unit
+        const ORIGIN_X = canvas.width / 2;
+        const ORIGIN_Y = canvas.height / 2;
+
+        function drawGrid(matrix) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(ORIGIN_X, ORIGIN_Y);
+            ctx.scale(1, -1); // Flip Y so up is positive
+
+            // Helper to transform point
+            function transform(x, y) {
+                return {
+                    x: matrix.a * x + matrix.b * y,
+                    y: matrix.c * x + matrix.d * y
+                };
+            }
+
+            // Draw Grid
+            ctx.lineWidth = 1;
+
+            // Minor grid
+            ctx.strokeStyle = '#f0f0f0';
+            for (let i = -20; i <= 20; i++) {
+                // Vertical lines
+                let p1 = transform(i, -20);
+                let p2 = transform(i, 20);
+                ctx.beginPath();
+                ctx.moveTo(p1.x * SCALE, p1.y * SCALE);
+                ctx.lineTo(p2.x * SCALE, p2.y * SCALE);
+                ctx.stroke();
+
+                // Horizontal lines
+                p1 = transform(-20, i);
+                p2 = transform(20, i);
+                ctx.beginPath();
+                ctx.moveTo(p1.x * SCALE, p1.y * SCALE);
+                ctx.lineTo(p2.x * SCALE, p2.y * SCALE);
+                ctx.stroke();
+            }
+
+            // Axes
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ccc';
+
+            // X-Axis
+            let x1 = transform(-20, 0);
+            let x2 = transform(20, 0);
+            ctx.beginPath(); ctx.moveTo(x1.x * SCALE, x1.y * SCALE); ctx.lineTo(x2.x * SCALE, x2.y * SCALE); ctx.stroke();
+
+            // Y-Axis
+            let y1 = transform(0, -20);
+            let y2 = transform(0, 20);
+            ctx.beginPath(); ctx.moveTo(y1.x * SCALE, y1.y * SCALE); ctx.lineTo(y2.x * SCALE, y2.y * SCALE); ctx.stroke();
+
+            // Basis Vectors
+            ctx.lineWidth = 3;
+
+            // i-hat (1, 0)
+            let iVec = transform(1, 0);
+            drawVector(iVec, '#b13e3e');
+
+            // j-hat (0, 1)
+            let jVec = transform(0, 1);
+            drawVector(jVec, '#3e3eb1');
+
+            ctx.restore();
+        }
+
+        function drawVector(vec, color) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(vec.x * SCALE, vec.y * SCALE);
+            ctx.stroke();
+
+            // Arrowhead
+            const headLen = 8;
+            const angle = Math.atan2(vec.y, vec.x);
+            ctx.beginPath();
+            ctx.moveTo(vec.x * SCALE, vec.y * SCALE);
+            ctx.lineTo(vec.x * SCALE - headLen * Math.cos(angle - Math.PI / 6), vec.y * SCALE - headLen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(vec.x * SCALE - headLen * Math.cos(angle + Math.PI / 6), vec.y * SCALE - headLen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+        }
+
+        function animate() {
+            if (!isAnimating) return;
+
+            animationProgress += 0.02;
+            if (animationProgress >= 1) {
+                animationProgress = 1;
+                isAnimating = false;
+                currentMatrix = { ...targetMatrix };
+            }
+
+            // Interpolate
+            const lerp = (start, end, t) => start + (end - start) * t;
+            // Smoothstep
+            const t = animationProgress * animationProgress * (3 - 2 * animationProgress);
+
+            const renderMatrix = {
+                a: lerp(currentMatrix.a, targetMatrix.a, t),
+                b: lerp(currentMatrix.b, targetMatrix.b, t),
+                c: lerp(currentMatrix.c, targetMatrix.c, t),
+                d: lerp(currentMatrix.d, targetMatrix.d, t),
+            };
+
+            drawGrid(renderMatrix);
+
+            if (isAnimating) {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        function startTransformation() {
+            // Update target from inputs
+            targetMatrix = {
+                a: parseFloat(inputs.a.value) || 0,
+                b: parseFloat(inputs.b.value) || 0,
+                c: parseFloat(inputs.c.value) || 0,
+                d: parseFloat(inputs.d.value) || 0
+            };
+
+            // If not currently identity (or previous state), reset 'current' to act as start point? 
+            // Actually, we want to animate FROM current TO target.
+            // currentMatrix is already set to the end of the last animation.
+
+            animationProgress = 0;
+            isAnimating = true;
+            animate();
+        }
+
+        applyBtn.addEventListener('click', startTransformation);
+
+        resetBtn.addEventListener('click', () => {
+            inputs.a.value = 1; inputs.b.value = 0;
+            inputs.c.value = 0; inputs.d.value = 1;
+            startTransformation();
+        });
+
+        // Initial draw
+        drawGrid(currentMatrix);
+
+    </script>
+</body>
+
+</html>
