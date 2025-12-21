@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point Set Topology - Open & Closed Sets</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --set-fill: rgba(62, 62, 177, 0.1);
+            --set-border: #3e3eb1;
+            --ball-fill: rgba(177, 62, 62, 0.2);
+            --ball-border: #b13e3e;
+            --interior: #6a9955;
+            --boundary: #b16e3e;
+            /* Orange-ish */
+            --exterior: #999;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 2rem;
+            width: 100%;
+            max-width: 600px;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            background: rgba(0, 0, 0, 0.02);
+            padding: 1.5rem;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .status-panel {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #fff;
+            border: 1px solid #eee;
+            width: 100%;
+            text-align: center;
+            font-family: 'Gill Sans', sans-serif;
+            min-height: 3em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: white;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Open & Closed Sets</h1>
+        <span class="subtitle">Chapter 4: Point Set Topology</span>
+    </header>
+
+    <main>
+        <p>
+            Topology abstracts geometry by focusing on openness and closeness.
+            <span class="sidenote">
+                <strong>Open Set:</strong> Every point in the set has a neighborhood completely contained within the
+                set. <br>
+                <strong>Closed Set:</strong> Contains all its boundary points.
+            </span>
+            Interact with the sets below to test their topological properties by probing with an "open ball"
+            ($B_\epsilon$).
+        </p>
+
+        <div class="viz-container">
+            <canvas id="canvas" width="600" height="400"></canvas>
+
+            <div class="status-panel" id="status-text">
+                Hover over the canvas to probe the set.
+            </div>
+
+            <div class="controls">
+                <span>Select a Set Topology:</span>
+                <div class="button-group">
+                    <button onclick="setMode('open-disk')" id="btn-open-disk" class="active">Open Disk $U$</button>
+                    <button onclick="setMode('closed-disk')" id="btn-closed-disk">Closed Disk $C$</button>
+                    <button onclick="setMode('open-rect')" id="btn-open-rect">Open Rectangle</button>
+                    <button onclick="setMode('closed-rect')" id="btn-closed-rect">Closed Rectangle</button>
+                    <button onclick="setMode('punctured')" id="btn-punctured">Punctured Disk</button>
+                </div>
+            </div>
+        </div>
+
+        <p>
+            An <strong>Interior Point</strong> is a point where you can find <em>some</em> radius string $\epsilon > 0$
+            such that the entire ball stays inside the set. <br>
+            A <strong>Boundary Point</strong> is a point where <em>any</em> ball you draw contains points both inside
+            and outside the set.
+        </p>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('status-text');
+
+        // Coords
+        const ORIGIN_X = canvas.width / 2;
+        const ORIGIN_Y = canvas.height / 2;
+        const SCALE = 120; // px per unit
+
+        let mode = 'open-disk'; // open-disk, closed-disk, open-rect, closed-rect, punctured
+        let mousePos = { x: -1000, y: -1000 };
+
+        // Shapes Logic (SDF style)
+        // Returns { dist: number (<0 inside, >0 outside), boundaryIncluded: boolean }
+        function getShapeInfo(p) {
+            const x = (p.x - ORIGIN_X) / SCALE;
+            const y = (p.y - ORIGIN_Y) / SCALE; // Y down in canvas, but symmetric shapes so ok
+
+            if (mode.includes('disk') || mode === 'punctured') {
+                const r = Math.sqrt(x * x + y * y);
+                const d = r - 1.0; // Dist to unit circle
+                const isClosed = mode.includes('closed');
+
+                if (mode === 'punctured') {
+                    // Union of distance to outer circle and distance to origin (hole)
+                    // Hole at 0. Dist to 0 is r. we want r > 0.
+                    // Actually, simpler: Set is 0 < r < 1.
+                    // Dist to boundary is min(|r-1|, |r-0|) = min(dist to 1, dist to 0)
+                    // If r >= 1: dist is r - 1.
+                    // If r == 0: dist is 0 (boundary).
+                    // Inside: dist is -min(1-r, r). 
+
+                    if (r >= 1) return { dist: r - 1, boundaryIncluded: false };
+                    if (r === 0) return { dist: 0, boundaryIncluded: false }; // Hole is boundary, not in set
+
+                    // Inside
+                    return { dist: -Math.min(1 - r, r), boundaryIncluded: false };
+                }
+
+                return { dist: d, boundaryIncluded: isClosed };
+            } else if (mode.includes('rect')) {
+                // Box [-1, 1] x [-0.6, 0.6]
+                // SDF for box of size b: length(max(abs(p)-b,0.0)) + min(max(abs(p).x-b.x, abs(p).y-b.y),0.0)
+                const bx = 1.0;
+                const by = 0.6;
+                const dx = Math.abs(x) - bx;
+                const dy = Math.abs(y) - by;
+
+                // Outer distance
+                const outDist = Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2);
+                // Inner distance (negative)
+                const inDist = Math.min(Math.max(dx, dy), 0);
+
+                const d = outDist + inDist;
+                const isClosed = mode.includes('closed');
+                return { dist: d, boundaryIncluded: isClosed };
+            }
+            return { dist: 100, boundaryIncluded: false };
+        }
+
+        function setMode(newMode) {
+            mode = newMode;
+            // Update buttons
+            document.querySelectorAll('.button-group button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + newMode).classList.add('active');
+            draw();
+        }
+
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left;
+            mousePos.y = e.clientY - rect.top;
+            draw();
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            mousePos.x = -1000;
+            draw();
+        });
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear
+
+            // Draw Coordinate System / Background
+            // Maybe just draw the set prominently
+
+            const shapeInfo = getShapeInfo({ x: 0, y: 0 }); // just to get closed/open property or general
+
+            drawSet();
+            drawProbe();
+        }
+
+        function drawSet() {
+            ctx.save();
+            ctx.translate(ORIGIN_X, ORIGIN_Y);
+
+            // We'll draw shapes manually for simplicity rather than raymarching the SDF
+            const isClosed = mode.includes('closed');
+
+            ctx.fillStyle = 'rgba(62, 62, 177, 0.1)';
+            ctx.strokeStyle = '#3e3eb1';
+            ctx.lineWidth = 2;
+            if (!isClosed) ctx.setLineDash([5, 5]);
+
+            if (mode.includes('disk')) {
+                ctx.beginPath();
+                ctx.arc(0, 0, SCALE, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            } else if (mode === 'punctured') {
+                // Outer
+                ctx.beginPath();
+                ctx.arc(0, 0, SCALE, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Hole
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(0, 0, 4, 0, Math.PI * 2); // Small hole visualization
+                ctx.fill();
+
+                ctx.globalCompositeOperation = 'source-over';
+                // Hole boundary (dashed)
+                ctx.beginPath();
+                ctx.arc(0, 0, 2, 0, Math.PI * 2); // Tiny circle for hole
+                ctx.stroke();
+
+            } else if (mode.includes('rect')) {
+                const w = 2 * SCALE;
+                const h = 1.2 * SCALE; // 0.6 * 2
+                ctx.beginPath();
+                ctx.rect(-w / 2, -h / 2, w, h);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawProbe() {
+            if (mousePos.x < 0) return;
+
+            const info = getShapeInfo(mousePos);
+            const dist = info.dist; // Signed dist. < 0 is inside.
+
+            // Classification
+            let type = '';
+            let color = '';
+            let radius = 0;
+
+            // Epsilon tolerance for "on boundary" due to mouse precision
+            const EPS = 2 / SCALE; // 2 pixels
+
+            if (dist < -EPS) {
+                // Definitely Inside
+                type = 'Interior Point';
+                color = 'var(--interior)';
+                radius = Math.abs(dist) * SCALE;
+                statusText.innerHTML = `Point is <span class="badge" style="background:var(--interior)">Interior</span>. Max ball radius $\\epsilon = ${(Math.abs(dist)).toFixed(2)}$`;
+            } else if (Math.abs(dist) <= EPS) {
+                // On Boundary
+                if (info.boundaryIncluded) {
+                    type = 'Boundary Point (In Set)';
+                    color = 'var(--boundary)';
+                    radius = 0; // No ball fits
+                    statusText.innerHTML = `Point is on <span class="badge" style="background:var(--boundary)">Boundary</span>. It IS in the set, but contains no $\\epsilon$-ball.`;
+                } else {
+                    type = 'Boundary Point (Not In Set)';
+                    color = '#999';
+                    radius = 0;
+                    statusText.innerHTML = `Point is on <span class="badge" style="background:#888">Boundary</span>. It is NOT in the set.`;
+                }
+            } else {
+                // Outside
+                type = 'Exterior Point';
+                color = 'var(--exterior)';
+                radius = 0;
+                statusText.innerHTML = `Point is <span class="badge" style="background:var(--exterior)">Exterior</span>.`;
+            }
+
+            // Draw Point
+            ctx.beginPath();
+            ctx.arc(mousePos.x, mousePos.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = (type.includes('Not') || type.includes('Exterior')) ? '#fff' : color;
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 1;
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw Ball if Interior
+            if (radius > 0) {
+                ctx.beginPath();
+                ctx.arc(mousePos.x, mousePos.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(106, 153, 85, 0.2)'; // Green tint
+                ctx.strokeStyle = 'var(--interior)';
+                ctx.setLineDash([2, 2]);
+                ctx.fill();
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Radius Line
+                ctx.beginPath();
+                ctx.moveTo(mousePos.x, mousePos.y);
+                ctx.lineTo(mousePos.x + radius, mousePos.y);
+                ctx.strokeStyle = '#111';
+                ctx.stroke();
+
+                ctx.fillStyle = '#111';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('ε', mousePos.x + radius / 2, mousePos.y - 2);
+            }
+
+            // Typeset math updates
+            if (window.MathJax) {
+                MathJax.typesetPromise([statusText]).catch((err) => console.log(err));
+            }
+        }
+
+        // Init
+        draw();
+    </script>
+</body>
+
+</html>

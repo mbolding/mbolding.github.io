@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stokes' Theorem - Green's Theorem Visualizer</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --grid: #e0e0e0;
+            --pos-curl: rgba(177, 62, 62, 0.4);
+            --neg-curl: rgba(62, 62, 177, 0.4);
+            --path-col: #111;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .theorem-box {
+            background: #fdfdfd;
+            border-left: 3px solid var(--accent);
+            padding: 1rem 2rem;
+            margin: 2rem 0;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            font-size: 1.1rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .results {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.03);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 4px;
+            font-family: 'Gill Sans', sans-serif;
+        }
+
+        .result-box {
+            text-align: center;
+        }
+
+        .result-val {
+            font-size: 1.5rem;
+            font-weight: bold;
+            font-family: 'Consolas', monospace;
+        }
+
+        .match {
+            color: #6a9955;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Green's Theorem</h1>
+        <span class="subtitle">Chapter 5: Classical Stokes' Theorems</span>
+    </header>
+
+    <main>
+        <p>
+            Stokes' Theorem relates the macroscopic circulation around a boundary to the microscopic rotation (curl)
+            summed up inside the interior. A classic 2D instance is <strong>Green's Theorem</strong>:
+        </p>
+
+        <div class="theorem-box">
+            $$ \oint_{\partial D} \mathbf{F} \cdot d\mathbf{r} = \iint_D (\nabla \times \mathbf{F}) \cdot \mathbf{k} \,
+            dA $$
+        </div>
+
+        <p>
+            <span class="sidenote">
+                <strong>Left Side:</strong> Walking along the edge, summing the wind at your back. <br>
+                <strong>Right Side:</strong> Adding up all the tiny "spin" values inside the shape.
+            </span>
+            <strong>Instructions:</strong> Select a vector field, then <strong>click and drag</strong> to draw a closed
+            loop on the canvas. The loop will automatically close when you release the mouse.
+        </p>
+
+        <div class="viz-container">
+            <div class="controls">
+                <button onclick="setField('rotation')" id="btn-rotation" class="active">Rotation Field</button>
+                <button onclick="setField('shear')" id="btn-shear">Shear Field</button>
+                <button onclick="setField('sink')" id="btn-sink">Sink (Div)</button>
+                <button onclick="setField('saddle')" id="btn-saddle">Saddle</button>
+            </div>
+
+            <canvas id="canvas" width="600" height="400"></canvas>
+
+            <div class="results">
+                <div class="result-box">
+                    <div>Circulation (Line Integral)</div>
+                    <div id="val-circ" class="result-val">0.00</div>
+                </div>
+                <div class="result-box">
+                    <div>Flux of Curl (Double Integral)</div>
+                    <div id="val-curl" class="result-val">0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <p>
+            Notice that the red areas indicate positive (counter-clockwise) curl, while blue areas indicate negative
+            (clockwise) curl. When your loop encompasses both, they cancel out!
+        </p>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const valCirc = document.getElementById('val-circ');
+        const valCurl = document.getElementById('val-curl');
+
+        // Config
+        const SCALE = 60; // pixels per unit
+        const ORIGIN_X = 300;
+        const ORIGIN_Y = 200;
+
+        // State
+        let currentField = 'rotation';
+        let isDrawing = false;
+        let path = []; // Array of points {x, y} in CANVAS coords
+        let lastPos = null;
+
+        const fields = {
+            'rotation': {
+                P: (x, y) => -y,
+                Q: (x, y) => x,
+                curl: (x, y) => 2 // dQ/dx - dP/dy = 1 - (-1) = 2
+            },
+            'shear': {
+                P: (x, y) => y,
+                Q: (x, y) => 0,
+                curl: (x, y) => -1 // 0 - 1 = -1
+            },
+            'sink': {
+                P: (x, y) => -x,
+                Q: (x, y) => -y,
+                curl: (x, y) => 0 // 0 - 0 = 0 (Pure divergence)
+            },
+            'saddle': {
+                P: (x, y) => y,
+                Q: (x, y) => x,
+                curl: (x, y) => 0
+            }
+        };
+
+        function setField(name) {
+            currentField = name;
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + name).classList.add('active');
+
+            // Clear path
+            path = [];
+            resetVals();
+            draw();
+        }
+
+        function toMath(cx, cy) {
+            return {
+                x: (cx - ORIGIN_X) / SCALE,
+                y: -(cy - ORIGIN_Y) / SCALE // Y is up
+            };
+        }
+
+        function toCanvas(x, y) {
+            return {
+                x: ORIGIN_X + x * SCALE,
+                y: ORIGIN_Y - y * SCALE
+            };
+        }
+
+        // Draw Logic
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear
+
+            // 1. Draw Curl Heatmap
+            drawHeatmap();
+
+            // 2. Draw Vector Field
+            drawVectors();
+
+            // 3. Draw Path
+            if (path.length > 0) {
+                drawPath();
+            }
+        }
+
+        function drawHeatmap() {
+            // Low res grid for performance
+            const CELL = 10;
+            const field = fields[currentField];
+
+            for (let cy = 0; cy < canvas.height; cy += CELL) {
+                for (let cx = 0; cx < canvas.width; cx += CELL) {
+                    const mp = toMath(cx + CELL / 2, cy + CELL / 2);
+                    const c = field.curl(mp.x, mp.y);
+
+                    if (Math.abs(c) < 0.01) continue;
+
+                    ctx.fillStyle = c > 0 ? `rgba(177, 62, 62, ${Math.min(c * 0.2, 0.5)})`
+                        : `rgba(62, 62, 177, ${Math.min(Math.abs(c) * 0.2, 0.5)})`;
+                    ctx.fillRect(cx, cy, CELL + 1, CELL + 1); // +1 to fix gaps
+                }
+            }
+        }
+
+        function drawVectors() {
+            const GRID = 30;
+            const field = fields[currentField];
+
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 1;
+
+            for (let cy = 0; cy <= canvas.height; cy += GRID) {
+                for (let cx = 0; cx <= canvas.width; cx += GRID) {
+                    const mp = toMath(cx, cy);
+                    const vx = field.P(mp.x, mp.y);
+                    const vy = field.Q(mp.x, mp.y);
+
+                    // Normalize for display consistency or keep raw?
+                    // Let's cap magnitude
+                    const mag = Math.sqrt(vx * vx + vy * vy);
+                    if (mag < 0.01) continue;
+
+                    const drawMag = Math.min(mag, 0.8) * 20; // 20px max arrow
+                    const angle = Math.atan2(vy, vx); // Math angle (y up)
+
+                    // Canvas angle (y down) = -angle? 
+                    // Let's compute end point in math coords then transform
+                    // Or easier: 
+                    // Canvas y is flipped. vy > 0 means UP. 
+
+                    const endX = cx + Math.cos(angle) * drawMag; // cos(theta) is x
+                    // sin(theta) is y. But visually on canvas, up is -y. 
+                    // so if vy is positive, we want endY < cy.
+                    const endY = cy - Math.sin(angle) * drawMag;
+
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+
+                    // Arrowhead
+                    // ... simplify for performance/noise reduction
+                    ctx.beginPath();
+                    ctx.arc(endX, endY, 1, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawPath() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 3;
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            if (!isDrawing) ctx.closePath(); // Visualize closed loop even if logical close handling is separate
+            ctx.stroke();
+
+            // Shade inside
+            if (!isDrawing) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        }
+
+        // Interaction
+        canvas.addEventListener('mousedown', e => {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            path = [{ x: e.clientX - rect.left, y: e.clientY - rect.top }];
+            resetVals();
+            draw();
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            path.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+            draw();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (isDrawing) {
+                isDrawing = false;
+                // Close the loop
+                if (path.length > 2) {
+                    path.push(path[0]);
+                    calculateExtract();
+                } else {
+                    path = []; // too short
+                }
+                draw();
+            }
+        });
+
+        // Calculation
+        function resetVals() {
+            valCirc.textContent = "0.00";
+            valCurl.textContent = "0.00";
+            valCirc.classList.remove('match');
+            valCurl.classList.remove('match');
+        }
+
+        function calculateExtract() {
+            const field = fields[currentField];
+            let circulation = 0;
+            let curlFlux = 0;
+
+            // 1. Line Integral: F dot dr
+            // \sum P dx + Q dy
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = toMath(path[i].x, path[i].y);
+                const p2 = toMath(path[i + 1].x, path[i + 1].y);
+
+                // Midpoint for field sample
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+
+                const Fx = field.P(midX, midY);
+                const Fy = field.Q(midX, midY);
+
+                circulation += (Fx * dx + Fy * dy);
+            }
+
+            // 2. Double Integral: Curl dA
+            // Grid summation approach
+            // Find bounding box
+            let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
+            path.forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            });
+
+            // Iterate pixels (or rough grid)
+            const STEP = 2; // Integration step size (px)
+            const areaElem = (STEP / SCALE) * (STEP / SCALE); // dA in math units
+
+            for (let py = minY; py <= maxY; py += STEP) {
+                for (let px = minX; px <= maxX; px += STEP) {
+                    if (pointInPolygon({ x: px, y: py }, path)) {
+                        const mp = toMath(px, py);
+                        curlFlux += field.curl(mp.x, mp.y) * areaElem;
+                    }
+                }
+            }
+
+            // Display
+            // Orientation fix: Canvas Y is flipped.
+            // If we draw counter-clockwise on screen, dy is confusing.
+            // toMath flips Y.
+            // Standard Green's: Integral P dx + Q dy.
+            // My toMath/toCanvas transform preserves handedness?
+            // Canvas (0,0) top-left. X right, Y down.
+            // Math (0,0) center. X right, Y up.
+            // A visual CCW loop on canvas is a CCW loop in math coords.
+            // So sign should match.
+
+            valCirc.textContent = circulation.toFixed(2);
+            valCurl.textContent = curlFlux.toFixed(2);
+
+            // Check match (allow small error)
+            if (Math.abs(circulation - curlFlux) < 0.2) {
+                valCirc.classList.add('match');
+                valCurl.classList.add('match');
+            }
+        }
+
+        // Ray casting algorithm
+        function pointInPolygon(p, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x, yi = polygon[i].y;
+                const xj = polygon[j].x, yj = polygon[j].y;
+
+                const intersect = ((yi > p.y) !== (yj > p.y))
+                    && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Init
+        setField('rotation');
+
+    </script>
+</body>
+
+</html>
