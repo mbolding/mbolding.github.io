@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Calculus - Parametric Particle Playground</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --grid: #f0f0f0;
+            --pos-col: #111;
+            --vel-col: #3e3eb1;
+            /* Blue */
+            --acc-col: #b13e3e;
+            /* Red */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .controls {
+            margin-top: 2rem;
+            width: 100%;
+            max-width: 600px;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            background: rgba(0, 0, 0, 0.02);
+            padding: 1.5rem;
+            border-radius: 4px;
+        }
+
+        .input-group {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            padding: 8px;
+            font-family: 'Consolas', monospace;
+            border: 1px solid #ccc;
+            background: transparent;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        .presets {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 6px 12px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .legend {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 1rem;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Parametric Particle Playground</h1>
+        <span class="subtitle">Chapter 3: Calculus of Vector Valued Functions</span>
+    </header>
+
+    <main>
+        <p>
+            A vector-valued function $\mathbf{r}(t) = \langle x(t), y(t) \rangle$ describes the path of a particle in
+            the plane.
+            <span class="sidenote">
+                <strong>Velocity</strong> $\mathbf{v}(t) = \mathbf{r}'(t)$ is tangent to the path. <br>
+                <strong>Acceleration</strong> $\mathbf{a}(t) = \mathbf{r}''(t)$ points toward the "turn".
+            </span>
+            By observing the velocity and acceleration vectors in motion, we gain intuition about how forces shape
+            trajectories.
+        </p>
+
+        <div class="viz-container">
+            <canvas id="canvas" width="600" height="600"></canvas>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="dot" style="background: var(--pos-col)"></div> Position $\mathbf{r}$
+                </div>
+                <div class="legend-item">
+                    <div class="dot" style="background: var(--vel-col)"></div> Velocity $\mathbf{v}$
+                </div>
+                <div class="legend-item">
+                    <div class="dot" style="background: var(--acc-col)"></div> Acceleration $\mathbf{a}$
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="presets">
+                    <strong>Presets:</strong>
+                    <button onclick="setPreset('circle')">Circle</button>
+                    <button onclick="setPreset('ellipse')">Ellipse</button>
+                    <button onclick="setPreset('spiral')">Spiral</button>
+                    <button onclick="setPreset('lissajous')">Lissajous</button>
+                    <button onclick="setPreset('butterfly')">Butterfly</button>
+                </div>
+
+                <div class="input-group">
+                    <label>x(t) =</label>
+                    <input type="text" id="x-func" value="Math.cos(t)">
+                </div>
+                <div class="input-group">
+                    <label>y(t) =</label>
+                    <input type="text" id="y-func" value="Math.sin(t)">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                    <div>
+                        <label style="font-size: 0.8rem; display: block; margin-bottom: 4px;">t_min</label>
+                        <input type="number" id="t-min" value="0">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; display: block; margin-bottom: 4px;">t_max</label>
+                        <input type="number" id="t-max" value="6.28">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; display: block; margin-bottom: 4px;">Speed</label>
+                        <input type="range" id="speed" min="0.1" max="2" step="0.1" value="0.5" style="width: 100%;">
+                    </div>
+                </div>
+
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button id="update-btn"
+                        style="background: var(--fg); color: var(--bg); padding: 10px 24px; font-weight: bold;">Update
+                        Graph</button>
+                </div>
+                <div id="error-msg"
+                    style="color: var(--acc-col); font-size: 0.9rem; margin-top: 0.5rem; text-align: center; height: 1.2em;">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const xInput = document.getElementById('x-func');
+        const yInput = document.getElementById('y-func');
+        const tMinInput = document.getElementById('t-min');
+        const tMaxInput = document.getElementById('t-max');
+        const speedInput = document.getElementById('speed');
+        const updateBtn = document.getElementById('update-btn');
+        const errorMsg = document.getElementById('error-msg');
+
+        // Config
+        const ORIGIN_X = 300;
+        const ORIGIN_Y = 300;
+        let SCALE = 100; // Pixels per unit (will auto-adjust)
+
+        // State
+        let funcs = { x: null, y: null };
+        let t = 0;
+        let pathPoints = [];
+        let tMin = 0;
+        let tMax = Math.PI * 2;
+        let animationId;
+        let lastTime = 0;
+
+        const presets = {
+            'circle': { x: 'Math.cos(t)', y: 'Math.sin(t)', tMin: 0, tMax: 6.28 },
+            'ellipse': { x: '2 * Math.cos(t)', y: 'Math.sin(t)', tMin: 0, tMax: 6.28 },
+            'spiral': { x: '0.5 * t * Math.cos(t)', y: '0.5 * t * Math.sin(t)', tMin: 0, tMax: 20 },
+            'lissajous': { x: 'Math.cos(3*t)', y: 'Math.sin(2*t)', tMin: 0, tMax: 6.28 },
+            'butterfly': {
+                x: 'Math.sin(t) * (Math.exp(Math.cos(t)) - 2*Math.cos(4*t) - Math.pow(Math.sin(t/12), 5))',
+                y: 'Math.cos(t) * (Math.exp(Math.cos(t)) - 2*Math.cos(4*t) - Math.pow(Math.sin(t/12), 5))',
+                tMin: 0, tMax: 30
+            }
+        };
+
+        function setPreset(name) {
+            const p = presets[name];
+            xInput.value = p.x;
+            yInput.value = p.y;
+            tMinInput.value = p.tMin;
+            tMaxInput.value = p.tMax;
+            updateSystem();
+        }
+
+        function createFunction(str) {
+            // "safe" parsing: we inject Math context
+            try {
+                // Allow user to omit "Math." by wrapping in a with(Math) block
+                return new Function('t', `with (Math) { return ${str}; }`);
+            } catch (e) {
+                throw new Error("Invalid function syntax");
+            }
+        }
+
+        function updateSystem() {
+            try {
+                errorMsg.textContent = '';
+                const newX = createFunction(xInput.value);
+                const newY = createFunction(yInput.value);
+
+                // Test them
+                newX(0); newY(0);
+
+                funcs.x = newX;
+                funcs.y = newY;
+                tMin = parseFloat(tMinInput.value);
+                tMax = parseFloat(tMaxInput.value);
+                t = tMin;
+
+                precalculatePath();
+
+            } catch (e) {
+                errorMsg.textContent = e.message;
+            }
+        }
+
+        function precalculatePath() {
+            pathPoints = [];
+            let steps = 1000;
+            // Adaptive sampling could be better but fixed is fine for demo
+            if (tMax - tMin > 20) steps = 2000;
+
+            let maxVal = 0;
+
+            const dt = (tMax - tMin) / steps;
+            for (let i = 0; i <= steps; i++) {
+                const ti = tMin + i * dt;
+                const px = funcs.x(ti);
+                const py = funcs.y(ti);
+                pathPoints.push({ x: px, y: py });
+
+                maxVal = Math.max(maxVal, Math.abs(px), Math.abs(py));
+            }
+
+            // Auto-scale with padding
+            if (maxVal > 0) {
+                SCALE = (250 / maxVal); // 250px radius max
+            }
+        }
+
+        function toCanvas(x, y) {
+            return {
+                x: ORIGIN_X + x * SCALE,
+                y: ORIGIN_Y - y * SCALE // Flip Y
+            };
+        }
+
+        function drawVector(origin, vec, color, label) {
+            const headLen = 10;
+            const start = toCanvas(origin.x, origin.y);
+            // Vectors usually scaled less than position for visibility? 
+            // Or usually physics vectors are distinct units. Let's strictly map them to space for now.
+            // Actually acceleration can be huge. Let's scale vectors visually if needed, but correct math is mostly 1:1.
+            // Let's keep 1:1 for intuition.
+
+            const end = toCanvas(origin.x + vec.x, origin.y + vec.y);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+
+            // Arrowhead
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.beginPath();
+            ctx.moveTo(end.x, end.y);
+            ctx.lineTo(end.x - headLen * Math.cos(angle - Math.PI / 6), end.y - headLen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(end.x - headLen * Math.cos(angle + Math.PI / 6), end.y - headLen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+        }
+
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dtReal = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            // Update Time
+            const speed = parseFloat(speedInput.value);
+            t += speed * dtReal;
+            if (t > tMax) t = tMin;
+
+            // Render
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grid / Axes
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            // Axes
+            ctx.beginPath();
+            ctx.moveTo(0, ORIGIN_Y); ctx.lineTo(canvas.width, ORIGIN_Y);
+            ctx.moveTo(ORIGIN_X, 0); ctx.lineTo(ORIGIN_X, canvas.height);
+            ctx.stroke();
+
+            // Draw Curve
+            if (pathPoints.length > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 2;
+                const p0 = toCanvas(pathPoints[0].x, pathPoints[0].y);
+                ctx.moveTo(p0.x, p0.y);
+                for (let i = 1; i < pathPoints.length; i++) {
+                    const pi = toCanvas(pathPoints[i].x, pathPoints[i].y);
+                    ctx.lineTo(pi.x, pi.y);
+                }
+                ctx.stroke();
+            }
+
+            // Calculate Vectors at t
+            if (funcs.x && funcs.y) {
+                const rx = funcs.x(t);
+                const ry = funcs.y(t);
+
+                // Numerical derivatives
+                const h = 0.001;
+                const vx = (funcs.x(t + h) - funcs.x(t - h)) / (2 * h);
+                const vy = (funcs.y(t + h) - funcs.y(t - h)) / (2 * h);
+
+                const ax = (funcs.x(t + h) - 2 * rx + funcs.x(t - h)) / (h * h);
+                const ay = (funcs.y(t + h) - 2 * ry + funcs.y(t - h)) / (h * h);
+
+                // Draw Position Vector
+                // drawVector({x:0, y:0}, {x:rx, y:ry}, '#111');
+
+                // Draw Particle
+                const pos = toCanvas(rx, ry);
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw Velocity (Blue)
+                drawVector({ x: rx, y: ry }, { x: vx, y: vy }, '#3e3eb1');
+
+                // Draw Acceleration (Red)
+                drawVector({ x: rx, y: ry }, { x: ax, y: ay }, '#b13e3e');
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        updateBtn.addEventListener('click', updateSystem);
+
+        // Init
+        updateSystem();
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+
+</html>
