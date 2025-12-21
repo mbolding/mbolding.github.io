@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RelationshipLab - Spousal Interaction Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Source+Sans+3:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #FDF8F3;
+            --bg-secondary: #F5EDE4;
+            --text-primary: #2D2926;
+            --text-secondary: #5C534B;
+            --accent-warm: #C4704B;
+            --accent-cool: #4B7C8C;
+            --positive: #5B8C6B;
+            --negative: #B85C5C;
+            --gold: #C4A04B;
+        }
+
+        .dark {
+            --bg-primary: #1A1918;
+            --bg-secondary: #252321;
+            --text-primary: #F5EDE4;
+            --text-secondary: #A89F96;
+            --accent-warm: #D4805B;
+            --accent-cool: #5B9CAC;
+            --positive: #6BA07B;
+            --negative: #C86C6C;
+            --gold: #D4B05B;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        h1,
+        h2,
+        h3,
+        .heading {
+            font-family: 'Fraunces', serif;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+        }
+
+        .btn-primary {
+            background: var(--accent-warm);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--accent-cool);
+            color: var(--accent-cool);
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-cool);
+            color: white;
+        }
+
+        .choice-btn {
+            background: var(--bg-primary);
+            border: 2px solid transparent;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .choice-btn:hover {
+            border-color: var(--accent-cool);
+        }
+
+        .choice-btn.selected-positive {
+            border-color: var(--positive);
+            background: rgba(91, 140, 107, 0.15);
+        }
+
+        .choice-btn.selected-negative {
+            border-color: var(--negative);
+            background: rgba(184, 92, 92, 0.15);
+        }
+
+        .meter-fill {
+            transition: width 0.5s ease-out;
+        }
+
+        .horseman-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .animate-fade {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .animate-pulse-once {
+            animation: pulse 0.3s ease-out;
+        }
+
+        .tab-active {
+            background: var(--accent-warm);
+            color: white;
+        }
+
+        .streak-badge {
+            background: linear-gradient(135deg, var(--gold), #E8C86B);
+            color: #2D2926;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .level-badge {
+            background: linear-gradient(135deg, var(--accent-cool), #6BACBC);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .achievement {
+            background: linear-gradient(135deg, rgba(196, 160, 75, 0.2), rgba(196, 160, 75, 0.1));
+            border: 1px solid var(--gold);
+        }
+
+        .scenario-context {
+            background: linear-gradient(135deg, rgba(75, 124, 140, 0.1), rgba(75, 124, 140, 0.05));
+            border-left: 4px solid var(--accent-cool);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-secondary);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="min-h-screen">
+        <!-- Header -->
+        <header class="p-4 md:p-6 flex justify-between items-center max-w-6xl mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="text-3xl">💑</div>
+                <h1 class="heading text-xl md:text-2xl font-bold">RelationshipLab</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="streakBadge" class="streak-badge hidden">🔥 0</div>
+                <div id="levelBadge" class="level-badge">Level 1</div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-6xl mx-auto px-4 pb-8">
+            <!-- Intro Screen -->
+            <div id="introScreen" class="text-center py-12 animate-fade">
+                <h2 class="heading text-3xl md:text-5xl font-bold mb-6">Learn the Art of<br><span
+                        style="color: var(--accent-warm)">Healthy Relationships</span></h2>
+                <p class="text-lg md:text-xl max-w-2xl mx-auto mb-8" style="color: var(--text-secondary)">
+                    Based on Dr. John Gottman's 40+ years of research, explore how everyday interactions shape
+                    relationship health. Make choices, see consequences, and learn what separates thriving couples from
+                    struggling ones.
+                </p>
+                <div class="card p-6 max-w-xl mx-auto mb-8">
+                    <h3 class="heading text-lg font-semibold mb-4">The Science Behind This Simulator</h3>
+                    <div class="grid grid-cols-2 gap-4 text-left text-sm">
+                        <div class="flex gap-2">
+                            <span>🏠</span>
+                            <span>Sound Relationship House Theory</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <span>🐴</span>
+                            <span>Four Horsemen of the Apocalypse</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <span>💰</span>
+                            <span>Emotional Bank Account (5:1 Ratio)</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <span>🔗</span>
+                            <span>Attachment Theory Integration</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="startSimulation()" class="btn btn-primary text-lg px-8 py-4">
+                    Begin Your Journey →
+                </button>
+            </div>
+
+            <!-- Game Screen -->
+            <div id="gameScreen" class="hidden">
+                <!-- Tabs -->
+                <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    <button onclick="switchTab('scenario')" id="tabScenario" class="btn tab-active whitespace-nowrap">📖
+                        Scenario</button>
+                    <button onclick="switchTab('metrics')" id="tabMetrics"
+                        class="btn btn-secondary whitespace-nowrap">📊 Metrics</button>
+                    <button onclick="switchTab('history')" id="tabHistory"
+                        class="btn btn-secondary whitespace-nowrap">📈 History</button>
+                    <button onclick="switchTab('learn')" id="tabLearn" class="btn btn-secondary whitespace-nowrap">📚
+                        Learn</button>
+                </div>
+
+                <!-- Scenario Tab -->
+                <div id="scenarioTab" class="animate-fade">
+                    <div class="grid lg:grid-cols-3 gap-6">
+                        <!-- Scenario Card -->
+                        <div class="lg:col-span-2">
+                            <div class="card p-6">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="text-sm font-medium px-3 py-1 rounded-full"
+                                        style="background: var(--accent-cool); color: white;"
+                                        id="scenarioCategory">Daily Life</span>
+                                    <span class="text-sm" style="color: var(--text-secondary)">Scenario <span
+                                            id="scenarioNum">1</span>/∞</span>
+                                </div>
+                                <div id="scenarioContext" class="scenario-context p-4 rounded-lg mb-4">
+                                    <p class="text-sm" style="color: var(--text-secondary)">Context will appear here...
+                                    </p>
+                                </div>
+                                <h3 id="scenarioTitle" class="heading text-xl font-semibold mb-3">Loading scenario...
+                                </h3>
+                                <p id="scenarioDescription" class="mb-6" style="color: var(--text-secondary)">
+                                    Description loading...</p>
+
+                                <div id="choicesContainer" class="space-y-3">
+                                    <!-- Choices will be inserted here -->
+                                </div>
+
+                                <div id="feedbackContainer" class="hidden mt-6 p-4 rounded-lg animate-fade">
+                                    <h4 id="feedbackTitle" class="font-semibold mb-2"></h4>
+                                    <p id="feedbackText" class="text-sm mb-4"></p>
+                                    <div id="impactDisplay" class="flex flex-wrap gap-2 mb-4"></div>
+                                    <button onclick="nextScenario()" class="btn btn-primary">Next Scenario →</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Stats Sidebar -->
+                        <div class="space-y-4">
+                            <!-- Emotional Bank Account -->
+                            <div class="card p-4">
+                                <h4 class="heading font-semibold mb-3 flex items-center gap-2">
+                                    💰 Emotional Bank Account
+                                </h4>
+                                <div class="text-3xl font-bold mb-2" id="bankBalance" style="color: var(--positive)">+0
+                                </div>
+                                <div class="text-sm" style="color: var(--text-secondary)">
+                                    Ratio: <span id="ratioDisplay">0:0</span>
+                                    <span class="ml-2" id="ratioStatus">🎯 Goal: 5:1</span>
+                                </div>
+                            </div>
+
+                            <!-- Relationship Health -->
+                            <div class="card p-4">
+                                <h4 class="heading font-semibold mb-3">❤️ Relationship Health</h4>
+                                <div class="h-4 rounded-full overflow-hidden" style="background: var(--bg-primary)">
+                                    <div id="healthBar" class="h-full meter-fill rounded-full"
+                                        style="width: 50%; background: linear-gradient(90deg, var(--negative), var(--gold), var(--positive))">
+                                    </div>
+                                </div>
+                                <div class="flex justify-between text-xs mt-1" style="color: var(--text-secondary)">
+                                    <span>Struggling</span>
+                                    <span id="healthPercent">50%</span>
+                                    <span>Thriving</span>
+                                </div>
+                            </div>
+
+                            <!-- Four Horsemen Tracker -->
+                            <div class="card p-4">
+                                <h4 class="heading font-semibold mb-3">🐴 Four Horsemen Watch</h4>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="horseman-icon text-sm"
+                                                style="background: rgba(184,92,92,0.2)">⚔️</span>
+                                            <span class="text-sm">Criticism</span>
+                                        </div>
+                                        <span id="criticismCount" class="font-mono">0</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="horseman-icon text-sm"
+                                                style="background: rgba(184,92,92,0.2)">😤</span>
+                                            <span class="text-sm">Contempt</span>
+                                        </div>
+                                        <span id="contemptCount" class="font-mono">0</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="horseman-icon text-sm"
+                                                style="background: rgba(184,92,92,0.2)">🛡️</span>
+                                            <span class="text-sm">Defensiveness</span>
+                                        </div>
+                                        <span id="defensivenessCount" class="font-mono">0</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="horseman-icon text-sm"
+                                                style="background: rgba(184,92,92,0.2)">🧱</span>
+                                            <span class="text-sm">Stonewalling</span>
+                                        </div>
+                                        <span id="stonewallingCount" class="font-mono">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics Tab -->
+                <div id="metricsTab" class="hidden animate-fade">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Positive Behaviors -->
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4" style="color: var(--positive)">✨ Positive
+                                Behaviors</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Love Maps (Knowing Partner)</span>
+                                        <span id="loveMapsScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="loveMapsBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--positive)"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Fondness & Admiration</span>
+                                        <span id="fondnessScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="fondnessBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--positive)"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Turning Toward</span>
+                                        <span id="turningTowardScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="turningTowardBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--positive)"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Repair Attempts</span>
+                                        <span id="repairScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="repairBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--positive)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Negative Patterns -->
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4" style="color: var(--negative)">⚠️ Negative
+                                Patterns</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Harsh Startup</span>
+                                        <span id="harshStartupScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="harshStartupBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--negative)"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Flooding (Overwhelm)</span>
+                                        <span id="floodingScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="floodingBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--negative)"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Negative Sentiment Override</span>
+                                        <span id="negativeOverrideScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="negativeOverrideBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--negative)"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Failed Repair Attempts</span>
+                                        <span id="failedRepairScore">0</span>
+                                    </div>
+                                    <div class="h-2 rounded-full" style="background: var(--bg-primary)">
+                                        <div id="failedRepairBar" class="h-full rounded-full meter-fill"
+                                            style="width: 0%; background: var(--negative)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Achievements -->
+                        <div class="card p-6 md:col-span-2">
+                            <h3 class="heading text-xl font-semibold mb-4">🏆 Achievements</h3>
+                            <div id="achievementsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <!-- Achievements inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="historyTab" class="hidden animate-fade">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4">📈 Relationship Health Over Time</h3>
+                            <canvas id="healthChart"></canvas>
+                        </div>
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4">💰 Emotional Bank Account</h3>
+                            <canvas id="bankChart"></canvas>
+                        </div>
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4">🐴 Four Horsemen Frequency</h3>
+                            <canvas id="horsemenChart"></canvas>
+                        </div>
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4">📋 Recent Interactions</h3>
+                            <div id="interactionLog" class="space-y-2 max-h-64 overflow-y-auto">
+                                <p class="text-sm" style="color: var(--text-secondary)">Your interaction history will
+                                    appear here...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Learn Tab -->
+                <div id="learnTab" class="hidden animate-fade">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4">🐴 The Four Horsemen</h3>
+                            <p class="text-sm mb-4" style="color: var(--text-secondary)">Dr. Gottman identified four
+                                communication patterns that predict relationship failure with over 90% accuracy:</p>
+                            <div class="space-y-4">
+                                <div class="p-3 rounded-lg" style="background: var(--bg-primary)">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span>⚔️</span>
+                                        <strong>Criticism</strong>
+                                    </div>
+                                    <p class="text-sm" style="color: var(--text-secondary)">Attacking your partner's
+                                        character rather than addressing specific behavior. "You never..." or "You
+                                        always..."</p>
+                                    <p class="text-sm mt-2" style="color: var(--positive)"><strong>Antidote:</strong>
+                                        Use "I" statements and express your needs.</p>
+                                </div>
+                                <div class="p-3 rounded-lg" style="background: var(--bg-primary)">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span>😤</span>
+                                        <strong>Contempt</strong>
+                                    </div>
+                                    <p class="text-sm" style="color: var(--text-secondary)">Treating your partner with
+                                        disrespect: mockery, eye-rolling, name-calling. The most destructive horseman.
+                                    </p>
+                                    <p class="text-sm mt-2" style="color: var(--positive)"><strong>Antidote:</strong>
+                                        Build a culture of appreciation and respect.</p>
+                                </div>
+                                <div class="p-3 rounded-lg" style="background: var(--bg-primary)">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span>🛡️</span>
+                                        <strong>Defensiveness</strong>
+                                    </div>
+                                    <p class="text-sm" style="color: var(--text-secondary)">Victimizing yourself to ward
+                                        off perceived attack. Making excuses or counter-attacking.</p>
+                                    <p class="text-sm mt-2" style="color: var(--positive)"><strong>Antidote:</strong>
+                                        Take responsibility, even for part of the problem.</p>
+                                </div>
+                                <div class="p-3 rounded-lg" style="background: var(--bg-primary)">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span>🧱</span>
+                                        <strong>Stonewalling</strong>
+                                    </div>
+                                    <p class="text-sm" style="color: var(--text-secondary)">Withdrawing from
+                                        interaction, shutting down, or disengaging entirely.</p>
+                                    <p class="text-sm mt-2" style="color: var(--positive)"><strong>Antidote:</strong>
+                                        Practice physiological self-soothing, then re-engage.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card p-6">
+                            <h3 class="heading text-xl font-semibold mb-4">💰 The 5:1 Ratio</h3>
+                            <p class="text-sm mb-4" style="color: var(--text-secondary)">Research shows stable
+                                relationships have at least 5 positive interactions for every negative one. This creates
+                                a "positive sentiment override" where partners give each other the benefit of the doubt.
+                            </p>
+                            <div class="p-4 rounded-lg mb-4" style="background: var(--bg-primary)">
+                                <div class="flex items-center justify-center gap-4 text-2xl mb-2">
+                                    <span style="color: var(--positive)">😊😊😊😊😊</span>
+                                    <span>:</span>
+                                    <span style="color: var(--negative)">😟</span>
+                                </div>
+                                <p class="text-center text-sm" style="color: var(--text-secondary)">The Magic Ratio for
+                                    Relationship Success</p>
+                            </div>
+                            <h4 class="font-semibold mb-2">Positive Interactions Include:</h4>
+                            <ul class="text-sm space-y-1" style="color: var(--text-secondary)">
+                                <li>• Showing interest and curiosity</li>
+                                <li>• Expressing affection</li>
+                                <li>• Demonstrating they matter</li>
+                                <li>• Intentional appreciation</li>
+                                <li>• Finding opportunities for agreement</li>
+                                <li>• Empathizing and apologizing</li>
+                                <li>• Accepting partner's perspective</li>
+                                <li>• Making jokes together</li>
+                            </ul>
+                        </div>
+                        <div class="card p-6 md:col-span-2">
+                            <h3 class="heading text-xl font-semibold mb-4">🏠 The Sound Relationship House</h3>
+                            <div class="flex flex-col items-center">
+                                <svg viewBox="0 0 300 350" class="w-full max-w-md">
+                                    <!-- Roof -->
+                                    <polygon points="150,10 280,80 20,80" fill="var(--accent-warm)" opacity="0.9" />
+                                    <text x="150" y="55" text-anchor="middle" fill="white" font-size="11"
+                                        font-weight="600">Create Shared Meaning</text>
+
+                                    <!-- Top floor -->
+                                    <rect x="30" y="80" width="240" height="40" fill="var(--positive)" opacity="0.8" />
+                                    <text x="150" y="105" text-anchor="middle" fill="white" font-size="11">Make Life
+                                        Dreams Come True</text>
+
+                                    <!-- Upper middle -->
+                                    <rect x="30" y="120" width="240" height="40" fill="var(--positive)" opacity="0.7" />
+                                    <text x="150" y="145" text-anchor="middle" fill="white" font-size="11">Manage
+                                        Conflict</text>
+
+                                    <!-- Middle -->
+                                    <rect x="30" y="160" width="240" height="40" fill="var(--accent-cool)"
+                                        opacity="0.8" />
+                                    <text x="150" y="185" text-anchor="middle" fill="white" font-size="11">The Positive
+                                        Perspective</text>
+
+                                    <!-- Lower middle -->
+                                    <rect x="30" y="200" width="240" height="40" fill="var(--accent-cool)"
+                                        opacity="0.7" />
+                                    <text x="150" y="225" text-anchor="middle" fill="white" font-size="11">Turn Towards
+                                        Instead of Away</text>
+
+                                    <!-- Lower -->
+                                    <rect x="30" y="240" width="240" height="40" fill="var(--gold)" opacity="0.8" />
+                                    <text x="150" y="265" text-anchor="middle" fill="var(--text-primary)"
+                                        font-size="11">Share Fondness and Admiration</text>
+
+                                    <!-- Foundation -->
+                                    <rect x="30" y="280" width="240" height="40" fill="var(--gold)" opacity="0.9" />
+                                    <text x="150" y="305" text-anchor="middle" fill="var(--text-primary)"
+                                        font-size="11">Build Love Maps</text>
+
+                                    <!-- Base -->
+                                    <rect x="20" y="320" width="260" height="20" fill="var(--text-secondary)" />
+                                    <text x="150" y="335" text-anchor="middle" fill="white" font-size="10">Trust &
+                                        Commitment</text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.classList.toggle('dark', event.matches);
+        });
+
+        // Game State
+        const state = {
+            scenarioIndex: 0,
+            health: 50,
+            bankBalance: 0,
+            positiveCount: 0,
+            negativeCount: 0,
+            streak: 0,
+            level: 1,
+            xp: 0,
+            horsemen: { criticism: 0, contempt: 0, defensiveness: 0, stonewalling: 0 },
+            positiveMetrics: { loveMaps: 0, fondness: 0, turningToward: 0, repair: 0 },
+            negativeMetrics: { harshStartup: 0, flooding: 0, negativeOverride: 0, failedRepair: 0 },
+            history: { health: [50], bank: [0], horsemen: [] },
+            interactions: [],
+            achievements: {
+                firstStep: false,
+                streakMaster: false,
+                bankPositive: false,
+                horsemenFree: false,
+                level5: false,
+                perfectRatio: false,
+                repairMaster: false,
+                consistentCare: false
+            }
+        };
+
+        // Scenarios Database
+        const scenarios = [
+            {
+                category: "Daily Life",
+                context: "Your partner comes home after a long day at work, looking exhausted. They drop their bag and slump onto the couch without saying much.",
+                title: "The Silent Arrival",
+                description: "How do you respond to your partner's apparent exhaustion?",
+                choices: [
+                    {
+                        text: "\"Rough day? I'm here if you want to talk, or we can just be quiet together. Want me to make you some tea?\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, turningToward: 2, loveMaps: 1 },
+                        feedback: "Excellent! You acknowledged their state, offered support without pressure, and provided a caring gesture. This is 'turning toward' your partner's emotional bid."
+                    },
+                    {
+                        text: "\"Finally you're home. The kitchen is a mess and you said you'd clean it this morning.\"",
+                        type: "negative",
+                        horseman: "criticism",
+                        impact: { health: -8, bank: -3, harshStartup: 2 },
+                        feedback: "This is a harsh startup with criticism. Starting with complaints when your partner is already stressed damages connection and makes productive conversation unlikely."
+                    },
+                    {
+                        text: "Continue scrolling on your phone, waiting for them to initiate conversation.",
+                        type: "negative",
+                        horseman: "stonewalling",
+                        impact: { health: -4, bank: -1, negativeOverride: 1 },
+                        feedback: "This is a missed bid for connection. Even though your partner didn't verbally reach out, their presence is an opportunity to connect. Ignoring this builds emotional distance."
+                    },
+                    {
+                        text: "\"You look exhausted! Tell me about your day while I start dinner.\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 2, turningToward: 1, fondness: 1 },
+                        feedback: "Great response! You showed interest in their inner world (love maps), offered support, and demonstrated care through action."
+                    }
+                ]
+            },
+            {
+                category: "Conflict",
+                context: "You discover your partner forgot to pay an important bill, resulting in a late fee. This isn't the first time financial oversights have happened.",
+                title: "The Forgotten Bill",
+                description: "You're frustrated about the late fee and pattern of forgetfulness. How do you bring it up?",
+                choices: [
+                    {
+                        text: "\"I noticed we got a late fee on the electric bill. I'm feeling stressed about our finances. Can we talk about setting up a system so we both stay on top of bills?\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 1, repair: 2 },
+                        feedback: "Perfect soft startup! You stated the problem, expressed your feeling, and proposed a collaborative solution without blame. This approach keeps your partner receptive."
+                    },
+                    {
+                        text: "\"Seriously? Another late fee? You ALWAYS forget things. I can't count on you for anything.\"",
+                        type: "negative",
+                        horseman: "criticism",
+                        impact: { health: -10, bank: -4, harshStartup: 3 },
+                        feedback: "This uses absolute language ('always', 'anything') and attacks character rather than behavior. It's criticism that will likely trigger defensiveness."
+                    },
+                    {
+                        text: "Roll your eyes and sigh heavily, muttering \"Why am I not surprised...\"",
+                        type: "negative",
+                        horseman: "contempt",
+                        impact: { health: -12, bank: -5, negativeOverride: 2 },
+                        feedback: "Eye-rolling and sarcasm are signs of contempt—the most destructive horseman. This communicates disgust and superiority, deeply damaging to your partner's sense of worth in the relationship."
+                    },
+                    {
+                        text: "Say nothing now, but bring it up calmly later: \"Hey, I wanted to talk about the late fee. Not to blame you, but to figure out how we can prevent it together.\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, repair: 1, turningToward: 1 },
+                        feedback: "Smart approach! You chose the right moment and framed it as a team problem. Timing matters, and your explicit 'not to blame' shows awareness of your partner's feelings."
+                    }
+                ]
+            },
+            {
+                category: "Repair",
+                context: "You had an argument yesterday about household responsibilities. Things were said in anger, and there's tension this morning.",
+                title: "The Morning After",
+                description: "The air is thick with unresolved tension. How do you handle the morning?",
+                choices: [
+                    {
+                        text: "\"I'm sorry about yesterday. I was frustrated, but I didn't express it well. Can we start fresh and figure this out together?\"",
+                        type: "positive",
+                        impact: { health: 8, bank: 3, repair: 3, fondness: 1 },
+                        feedback: "Excellent repair attempt! You took responsibility for your part, acknowledged the impact, and opened the door for reconnection. Successful repair attempts are crucial for relationship longevity."
+                    },
+                    {
+                        text: "Act like nothing happened and go about your normal morning routine.",
+                        type: "negative",
+                        horseman: "stonewalling",
+                        impact: { health: -5, bank: -2, failedRepair: 2 },
+                        feedback: "Avoidance isn't resolution. Pretending conflicts didn't happen creates emotional debt that compounds over time. It also signals to your partner that their feelings don't warrant acknowledgment."
+                    },
+                    {
+                        text: "\"I hope you've thought about what you said yesterday. That was really hurtful.\"",
+                        type: "negative",
+                        horseman: "criticism",
+                        impact: { health: -6, bank: -2, harshStartup: 1, flooding: 1 },
+                        feedback: "This puts all responsibility on your partner and reopens the wound without offering healing. It's a harsh startup that will likely escalate rather than resolve the conflict."
+                    },
+                    {
+                        text: "Make their favorite coffee and leave a small note: \"Yesterday was rough. I love you. Let's talk when you're ready.\"",
+                        type: "positive",
+                        impact: { health: 6, bank: 3, repair: 2, fondness: 2, turningToward: 1 },
+                        feedback: "Beautiful repair through action and words. You showed care, acknowledged the difficulty, reaffirmed love, and respected their timing. This builds the emotional bank account while opening space for resolution."
+                    }
+                ]
+            },
+            {
+                category: "Connection",
+                context: "Your partner excitedly tells you about a new hobby they want to try—something you personally find boring or pointless.",
+                title: "The New Hobby",
+                description: "They're clearly enthusiastic about this new interest. How do you respond?",
+                choices: [
+                    {
+                        text: "\"That sounds interesting! What got you excited about it? Tell me more about how it works.\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, loveMaps: 3, turningToward: 1 },
+                        feedback: "Perfect! You turned toward their enthusiasm even though it's not your thing. Showing genuine curiosity about your partner's inner world builds love maps and strengthens connection."
+                    },
+                    {
+                        text: "\"That sounds like a waste of time and money. Why would you want to do that?\"",
+                        type: "negative",
+                        horseman: "contempt",
+                        impact: { health: -10, bank: -4, negativeOverride: 2 },
+                        feedback: "Dismissing your partner's interests as worthless is contemptuous. It communicates that their judgment is poor and their enthusiasm isn't valid. This crushes bids for connection."
+                    },
+                    {
+                        text: "\"Hmm, that's nice.\" Then change the subject to something you're interested in.",
+                        type: "negative",
+                        impact: { health: -3, bank: -1, failedRepair: 1 },
+                        feedback: "This is 'turning away' from an emotional bid. While not overtly negative, consistently failing to engage with your partner's excitement erodes connection over time."
+                    },
+                    {
+                        text: "\"Not really my thing, but I love seeing you excited about something new. Would you want to show me sometime?\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 2, fondness: 2, turningToward: 1 },
+                        feedback: "Honest and supportive! You were authentic about your own preferences while still validating their excitement and offering to share in their world. This builds trust and connection."
+                    }
+                ]
+            },
+            {
+                category: "Stress",
+                context: "You're both under a lot of pressure—work deadlines, family obligations, and financial stress. Tempers are short.",
+                title: "The Pressure Cooker",
+                description: "Your partner snaps at you over something trivial. You can feel your own irritation rising.",
+                choices: [
+                    {
+                        text: "Snap back: \"Don't take your stress out on me! I'm dealing with stuff too, you know.\"",
+                        type: "negative",
+                        horseman: "defensiveness",
+                        impact: { health: -7, bank: -3, flooding: 2 },
+                        feedback: "Counter-attacking escalates rather than de-escalates. Defensiveness blocks resolution and creates a negative cycle where both partners feel unheard and attacked."
+                    },
+                    {
+                        text: "Take a breath and say: \"Hey, I know we're both stressed. That stung a little. Can we take a pause and be kind to each other?\"",
+                        type: "positive",
+                        impact: { health: 6, bank: 2, repair: 3, turningToward: 1 },
+                        feedback: "Excellent self-regulation and repair! You acknowledged both perspectives, expressed your feeling without attack, and proposed a constructive reset. This is emotional intelligence in action."
+                    },
+                    {
+                        text: "Go silent, walk to another room, and stay there.",
+                        type: "negative",
+                        horseman: "stonewalling",
+                        impact: { health: -5, bank: -2, flooding: 1 },
+                        feedback: "While taking space can be healthy, abrupt withdrawal without communication is stonewalling. It leaves your partner feeling abandoned. Better: 'I need 20 minutes to calm down, then let's talk.'"
+                    },
+                    {
+                        text: "\"Okay, I can tell we're both on edge. What if we order takeout, skip the chores tonight, and just decompress together?\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, turningToward: 2, fondness: 1 },
+                        feedback: "Great problem-solving! You acknowledged the stress, didn't take the bait, and proposed a way to reduce pressure and reconnect. This is turning toward during difficulty."
+                    }
+                ]
+            },
+            {
+                category: "Appreciation",
+                context: "Your partner did something thoughtful—maybe a small gesture or helping with something without being asked.",
+                title: "The Small Kindness",
+                description: "You notice they went out of their way to do something nice. How do you acknowledge it?",
+                choices: [
+                    {
+                        text: "\"Thank you so much for doing that. I really noticed, and it made my day better. You're so thoughtful.\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 3, fondness: 3 },
+                        feedback: "Beautiful! Specific appreciation that acknowledges both the action and the character trait. This kind of expressed fondness and admiration is fuel for the relationship."
+                    },
+                    {
+                        text: "Give a quick \"thanks\" without looking up from what you're doing.",
+                        type: "negative",
+                        impact: { health: -2, bank: -1 },
+                        feedback: "Distracted acknowledgment diminishes the gesture. Your partner's kindness was intentional; your response should match that intentionality to reinforce positive behavior."
+                    },
+                    {
+                        text: "\"Oh, you finally did it. I've only been asking for weeks.\"",
+                        type: "negative",
+                        horseman: "contempt",
+                        impact: { health: -8, bank: -4, negativeOverride: 2 },
+                        feedback: "Responding to kindness with criticism and sarcasm is deeply damaging. It teaches your partner that positive actions will be met with negativity—the opposite of what builds healthy relationships."
+                    },
+                    {
+                        text: "Give them a warm hug and say \"I appreciate you.\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 2, fondness: 2, turningToward: 1 },
+                        feedback: "Physical affection combined with verbal appreciation creates a powerful moment of connection. Simple, genuine expressions of gratitude strengthen the bond."
+                    }
+                ]
+            },
+            {
+                category: "Boundaries",
+                context: "Your partner's family member makes a critical comment about you at a gathering. Your partner doesn't say anything in the moment.",
+                title: "The In-Law Incident",
+                description: "You're hurt that your partner didn't defend you. How do you bring it up later?",
+                choices: [
+                    {
+                        text: "\"When your mom said that about me, I felt really hurt. I know it's awkward, but I need to feel like you have my back. Can we talk about how to handle situations like that?\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 1, repair: 2, loveMaps: 1 },
+                        feedback: "Excellent! You expressed your feeling, stated your need, and invited collaboration. This is a soft startup that addresses a real issue while keeping your partner receptive."
+                    },
+                    {
+                        text: "\"You never stand up for me. Your family walks all over me and you just sit there.\"",
+                        type: "negative",
+                        horseman: "criticism",
+                        impact: { health: -8, bank: -3, harshStartup: 2 },
+                        feedback: "Using 'never' and 'always' turns a specific incident into a character attack. This will likely trigger defensiveness rather than the support you're seeking."
+                    },
+                    {
+                        text: "Give them the cold shoulder for the rest of the evening without explaining why.",
+                        type: "negative",
+                        horseman: "stonewalling",
+                        impact: { health: -5, bank: -2, failedRepair: 1 },
+                        feedback: "Passive-aggressive withdrawal punishes without allowing resolution. Your partner may not even realize what went wrong, leading to confusion and mounting tension."
+                    },
+                    {
+                        text: "\"That was uncomfortable with your mom. I'm not asking you to fight with her, but it would mean a lot if you could gently redirect comments like that. What do you think would work?\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, repair: 2, turningToward: 1 },
+                        feedback: "You acknowledged the complexity, made a reasonable request, and invited their input. This collaborative approach respects their family relationship while advocating for yourself."
+                    }
+                ]
+            },
+            {
+                category: "Vulnerability",
+                context: "Your partner shares something they're insecure about—maybe a fear, a failure, or something from their past.",
+                title: "The Vulnerable Moment",
+                description: "They've just shared something difficult and personal. How do you respond?",
+                choices: [
+                    {
+                        text: "Move closer, listen fully, and say: \"Thank you for trusting me with that. I'm here for you, and this doesn't change how I see you at all.\"",
+                        type: "positive",
+                        impact: { health: 7, bank: 4, loveMaps: 3, fondness: 2, turningToward: 2 },
+                        feedback: "Perfect response to vulnerability. You honored their courage in sharing, provided reassurance, and deepened intimacy. These moments are opportunities to strengthen trust profoundly."
+                    },
+                    {
+                        text: "\"That's not that big a deal. Lots of people have been through worse.\"",
+                        type: "negative",
+                        horseman: "contempt",
+                        impact: { health: -10, bank: -4, negativeOverride: 3 },
+                        feedback: "Minimizing someone's vulnerability is deeply harmful. It communicates that their feelings aren't valid and that they were foolish to share. This can permanently damage their willingness to be open."
+                    },
+                    {
+                        text: "Immediately share a similar story about yourself.",
+                        type: "negative",
+                        impact: { health: -2, bank: -1 },
+                        feedback: "While relating can sometimes help, immediately redirecting to yourself minimizes their moment. Stay with them first. There's time to share your experiences later."
+                    },
+                    {
+                        text: "\"That took courage to share. I want you to know I'm with you, and we can talk about this as much or as little as you need.\"",
+                        type: "positive",
+                        impact: { health: 6, bank: 3, loveMaps: 2, fondness: 2, turningToward: 1 },
+                        feedback: "You acknowledged their bravery, offered presence, and respected their autonomy in how to proceed. This creates safety for future vulnerability."
+                    }
+                ]
+            },
+            {
+                category: "Decisions",
+                context: "You and your partner have different opinions about a significant decision—maybe a financial choice, a parenting approach, or a life change.",
+                title: "The Disagreement",
+                description: "You've each stated your position, and they're incompatible. How do you move forward?",
+                choices: [
+                    {
+                        text: "\"I hear what you're saying, and I understand why you feel that way. Let's both share our underlying concerns and see if there's a solution that addresses both.\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, repair: 2, turningToward: 2 },
+                        feedback: "Excellent conflict management! You validated their perspective, showed understanding, and proposed collaborative problem-solving. This is how masters of relationships handle gridlock."
+                    },
+                    {
+                        text: "\"Fine, do whatever you want. You always do anyway.\"",
+                        type: "negative",
+                        horseman: "contempt",
+                        impact: { health: -9, bank: -4, negativeOverride: 2, failedRepair: 1 },
+                        feedback: "Sarcastic concession with contempt is relationship poison. It creates resentment without resolution and communicates that you don't respect your partner's decision-making."
+                    },
+                    {
+                        text: "Keep arguing your point more forcefully until they give in.",
+                        type: "negative",
+                        horseman: "criticism",
+                        impact: { health: -7, bank: -3, flooding: 2, harshStartup: 1 },
+                        feedback: "Steamrolling isn't winning—it's damaging. Even if your partner concedes, they'll feel unheard and resentful. Influence in relationships comes from respect, not force."
+                    },
+                    {
+                        text: "\"This is important to both of us. What if we take a day to think, then each come back with three possible compromises?\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 2, repair: 1, turningToward: 1 },
+                        feedback: "Smart de-escalation. Taking time prevents flooding, and asking both parties to generate solutions ensures collaborative engagement. This is mature conflict navigation."
+                    }
+                ]
+            },
+            {
+                category: "Daily Life",
+                context: "You've been doing more than your share of household tasks lately, and resentment is building.",
+                title: "The Chore Imbalance",
+                description: "You want to address the unequal division of labor without starting a fight.",
+                choices: [
+                    {
+                        text: "\"I've been feeling overwhelmed with household stuff lately. Can we sit down and redistribute tasks so it feels more balanced? I want us to be a team.\"",
+                        type: "positive",
+                        impact: { health: 4, bank: 1, repair: 2, turningToward: 1 },
+                        feedback: "Great soft startup! You expressed your feeling, made a specific request, and framed it as teamwork. This invites collaboration rather than defensiveness."
+                    },
+                    {
+                        text: "\"I do everything around here! You never lift a finger. It's like living with a teenager.\"",
+                        type: "negative",
+                        horseman: "criticism",
+                        impact: { health: -10, bank: -4, harshStartup: 3, negativeOverride: 1 },
+                        feedback: "This combines criticism (character attack) with contempt (the teenager comparison). Using 'everything' and 'never' invalidates any contribution they do make and guarantees defensiveness."
+                    },
+                    {
+                        text: "Start doing tasks loudly and pointedly when they're relaxing.",
+                        type: "negative",
+                        horseman: "contempt",
+                        impact: { health: -5, bank: -2, negativeOverride: 1 },
+                        feedback: "Passive-aggressive behavior communicates contempt without allowing honest dialogue. It creates a hostile atmosphere and doesn't actually solve the problem."
+                    },
+                    {
+                        text: "\"Hey, I made a list of all our weekly tasks. Could we go through it together and split it up? I want to make sure we both feel it's fair.\"",
+                        type: "positive",
+                        impact: { health: 5, bank: 2, repair: 2, loveMaps: 1 },
+                        feedback: "Practical and collaborative! Using a concrete tool (the list) depersonalizes the conversation and makes it about problem-solving rather than blame."
+                    }
+                ]
+            }
+        ];
+
+        // Achievement definitions
+        const achievementDefs = {
+            firstStep: { name: "First Step", icon: "👣", desc: "Complete your first scenario", locked: true },
+            streakMaster: { name: "Streak Master", icon: "🔥", desc: "Get 5 positive responses in a row", locked: true },
+            bankPositive: { name: "In the Green", icon: "💰", desc: "Reach +10 in emotional bank", locked: true },
+            horsemenFree: { name: "Horsemen Slayer", icon: "🛡️", desc: "Complete 5 scenarios without triggering a horseman", locked: true },
+            level5: { name: "Relationship Pro", icon: "⭐", desc: "Reach Level 5", locked: true },
+            perfectRatio: { name: "Magic Ratio", icon: "✨", desc: "Achieve 5:1 positive ratio", locked: true },
+            repairMaster: { name: "Repair Master", icon: "🔧", desc: "Accumulate 10 repair points", locked: true },
+            consistentCare: { name: "Consistent Care", icon: "💕", desc: "Complete 10 scenarios", locked: true }
+        };
+
+        let charts = {};
+        let horsemenFreeSince = 0;
+
+        function startSimulation() {
+            document.getElementById('introScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            loadScenario();
+            renderAchievements();
+            initCharts();
+        }
+
+        function shuffleScenarios() {
+            for (let i = scenarios.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [scenarios[i], scenarios[j]] = [scenarios[j], scenarios[i]];
+            }
+        }
+
+        function loadScenario() {
+            if (state.scenarioIndex === 0) shuffleScenarios();
+
+            const scenario = scenarios[state.scenarioIndex % scenarios.length];
+
+            document.getElementById('scenarioCategory').textContent = scenario.category;
+            document.getElementById('scenarioNum').textContent = state.scenarioIndex + 1;
+            document.getElementById('scenarioContext').innerHTML = `<p class="text-sm" style="color: var(--text-secondary)">${scenario.context}</p>`;
+            document.getElementById('scenarioTitle').textContent = scenario.title;
+            document.getElementById('scenarioDescription').textContent = scenario.description;
+
+            const choicesContainer = document.getElementById('choicesContainer');
+            choicesContainer.innerHTML = '';
+
+            // Shuffle choices for variety
+            const shuffledChoices = [...scenario.choices].sort(() => Math.random() - 0.5);
+
+            shuffledChoices.forEach((choice, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.innerHTML = `<span class="text-sm font-medium" style="color: var(--text-secondary)">Option ${index + 1}</span><p class="mt-1">${choice.text}</p>`;
+                btn.onclick = () => selectChoice(choice, btn);
+                choicesContainer.appendChild(btn);
+            });
+
+            document.getElementById('feedbackContainer').classList.add('hidden');
+        }
+
+        function selectChoice(choice, btn) {
+            // Disable all buttons
+            document.querySelectorAll('.choice-btn').forEach(b => {
+                b.disabled = true;
+                b.style.opacity = '0.7';
+            });
+
+            // Highlight selected
+            btn.classList.add(choice.type === 'positive' ? 'selected-positive' : 'selected-negative');
+            btn.style.opacity = '1';
+
+            // Apply impacts
+            applyImpacts(choice);
+
+            // Show feedback
+            showFeedback(choice);
+
+            // Log interaction
+            logInteraction(choice);
+
+            // Check achievements
+            checkAchievements();
+
+            // Update UI
+            updateUI();
+        }
+
+        function applyImpacts(choice) {
+            const impact = choice.impact;
+
+            // Health
+            state.health = Math.max(0, Math.min(100, state.health + (impact.health || 0)));
+
+            // Bank
+            state.bankBalance += impact.bank || 0;
+
+            // Positive/negative counts
+            if (choice.type === 'positive') {
+                state.positiveCount++;
+                state.streak++;
+                state.xp += 10;
+            } else {
+                state.negativeCount++;
+                state.streak = 0;
+            }
+
+            // Horsemen
+            if (choice.horseman) {
+                state.horsemen[choice.horseman]++;
+                horsemenFreeSince = 0;
+            } else {
+                horsemenFreeSince++;
+            }
+
+            // Positive metrics
+            if (impact.loveMaps) state.positiveMetrics.loveMaps += impact.loveMaps;
+            if (impact.fondness) state.positiveMetrics.fondness += impact.fondness;
+            if (impact.turningToward) state.positiveMetrics.turningToward += impact.turningToward;
+            if (impact.repair) state.positiveMetrics.repair += impact.repair;
+
+            // Negative metrics
+            if (impact.harshStartup) state.negativeMetrics.harshStartup += impact.harshStartup;
+            if (impact.flooding) state.negativeMetrics.flooding += impact.flooding;
+            if (impact.negativeOverride) state.negativeMetrics.negativeOverride += impact.negativeOverride;
+            if (impact.failedRepair) state.negativeMetrics.failedRepair += impact.failedRepair;
+
+            // History
+            state.history.health.push(state.health);
+            state.history.bank.push(state.bankBalance);
+            state.history.horsemen.push({ ...state.horsemen });
+
+            // Level up check
+            const newLevel = Math.floor(state.xp / 50) + 1;
+            if (newLevel > state.level) {
+                state.level = newLevel;
+                document.getElementById('levelBadge').classList.add('animate-pulse-once');
+            }
+        }
+
+        function showFeedback(choice) {
+            const container = document.getElementById('feedbackContainer');
+            const isPositive = choice.type === 'positive';
+
+            container.style.background = isPositive ? 'rgba(91, 140, 107, 0.15)' : 'rgba(184, 92, 92, 0.15)';
+
+            document.getElementById('feedbackTitle').textContent = isPositive ? '✨ Great Choice!' : '⚠️ Learning Moment';
+            document.getElementById('feedbackTitle').style.color = isPositive ? 'var(--positive)' : 'var(--negative)';
+
+            document.getElementById('feedbackText').textContent = choice.feedback;
+
+            // Impact display
+            const impactDiv = document.getElementById('impactDisplay');
+            impactDiv.innerHTML = '';
+
+            const impact = choice.impact;
+            if (impact.health) {
+                const badge = document.createElement('span');
+                badge.className = 'text-xs px-2 py-1 rounded-full';
+                badge.style.background = impact.health > 0 ? 'var(--positive)' : 'var(--negative)';
+                badge.style.color = 'white';
+                badge.textContent = `Health ${impact.health > 0 ? '+' : ''}${impact.health}`;
+                impactDiv.appendChild(badge);
+            }
+            if (impact.bank) {
+                const badge = document.createElement('span');
+                badge.className = 'text-xs px-2 py-1 rounded-full';
+                badge.style.background = impact.bank > 0 ? 'var(--positive)' : 'var(--negative)';
+                badge.style.color = 'white';
+                badge.textContent = `Bank ${impact.bank > 0 ? '+' : ''}${impact.bank}`;
+                impactDiv.appendChild(badge);
+            }
+            if (choice.horseman) {
+                const badge = document.createElement('span');
+                badge.className = 'text-xs px-2 py-1 rounded-full';
+                badge.style.background = 'var(--negative)';
+                badge.style.color = 'white';
+                badge.textContent = `⚠️ ${choice.horseman.charAt(0).toUpperCase() + choice.horseman.slice(1)}`;
+                impactDiv.appendChild(badge);
+            }
+
+            container.classList.remove('hidden');
+        }
+
+        function logInteraction(choice) {
+            const scenario = scenarios[state.scenarioIndex % scenarios.length];
+            state.interactions.unshift({
+                title: scenario.title,
+                choice: choice.text.substring(0, 50) + '...',
+                type: choice.type,
+                horseman: choice.horseman || null
+            });
+
+            // Keep only last 20
+            if (state.interactions.length > 20) state.interactions.pop();
+        }
+
+        function nextScenario() {
+            state.scenarioIndex++;
+            loadScenario();
+        }
+
+        function updateUI() {
+            // Bank balance
+            const bankEl = document.getElementById('bankBalance');
+            bankEl.textContent = (state.bankBalance >= 0 ? '+' : '') + state.bankBalance;
+            bankEl.style.color = state.bankBalance >= 0 ? 'var(--positive)' : 'var(--negative)';
+
+            // Ratio
+            const ratio = state.negativeCount > 0 ? (state.positiveCount / state.negativeCount).toFixed(1) : state.positiveCount;
+            document.getElementById('ratioDisplay').textContent = `${state.positiveCount}:${state.negativeCount}`;
+            const ratioNum = state.negativeCount > 0 ? state.positiveCount / state.negativeCount : state.positiveCount;
+            document.getElementById('ratioStatus').textContent = ratioNum >= 5 ? '✅ Magic ratio achieved!' : '🎯 Goal: 5:1';
+
+            // Health bar
+            document.getElementById('healthBar').style.width = `${state.health}%`;
+            document.getElementById('healthPercent').textContent = `${Math.round(state.health)}%`;
+
+            // Horsemen counts
+            document.getElementById('criticismCount').textContent = state.horsemen.criticism;
+            document.getElementById('contemptCount').textContent = state.horsemen.contempt;
+            document.getElementById('defensivenessCount').textContent = state.horsemen.defensiveness;
+            document.getElementById('stonewallingCount').textContent = state.horsemen.stonewalling;
+
+            // Streak badge
+            const streakBadge = document.getElementById('streakBadge');
+            if (state.streak >= 2) {
+                streakBadge.classList.remove('hidden');
+                streakBadge.textContent = `🔥 ${state.streak}`;
+            } else {
+                streakBadge.classList.add('hidden');
+            }
+
+            // Level badge
+            document.getElementById('levelBadge').textContent = `Level ${state.level}`;
+
+            // Metrics bars
+            updateMetricBar('loveMaps', state.positiveMetrics.loveMaps, 20);
+            updateMetricBar('fondness', state.positiveMetrics.fondness, 20);
+            updateMetricBar('turningToward', state.positiveMetrics.turningToward, 20);
+            updateMetricBar('repair', state.positiveMetrics.repair, 15);
+
+            updateMetricBar('harshStartup', state.negativeMetrics.harshStartup, 10);
+            updateMetricBar('flooding', state.negativeMetrics.flooding, 10);
+            updateMetricBar('negativeOverride', state.negativeMetrics.negativeOverride, 10);
+            updateMetricBar('failedRepair', state.negativeMetrics.failedRepair, 10);
+
+            // Interaction log
+            updateInteractionLog();
+
+            // Update charts
+            updateCharts();
+        }
+
+        function updateMetricBar(name, value, max) {
+            const score = document.getElementById(`${name}Score`);
+            const bar = document.getElementById(`${name}Bar`);
+            if (score) score.textContent = value;
+            if (bar) bar.style.width = `${Math.min(100, (value / max) * 100)}%`;
+        }
+
+        function updateInteractionLog() {
+            const log = document.getElementById('interactionLog');
+            if (state.interactions.length === 0) return;
+
+            log.innerHTML = state.interactions.map(i => `
+                <div class="flex items-start gap-2 p-2 rounded" style="background: var(--bg-primary)">
+                    <span>${i.type === 'positive' ? '✅' : '❌'}</span>
+                    <div>
+                        <div class="text-sm font-medium">${i.title}</div>
+                        <div class="text-xs" style="color: var(--text-secondary)">${i.choice}</div>
+                        ${i.horseman ? `<span class="text-xs px-2 py-0.5 rounded" style="background: var(--negative); color: white;">${i.horseman}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function checkAchievements() {
+            if (!state.achievements.firstStep && state.scenarioIndex >= 0) {
+                state.achievements.firstStep = true;
+            }
+            if (!state.achievements.streakMaster && state.streak >= 5) {
+                state.achievements.streakMaster = true;
+            }
+            if (!state.achievements.bankPositive && state.bankBalance >= 10) {
+                state.achievements.bankPositive = true;
+            }
+            if (!state.achievements.horsemenFree && horsemenFreeSince >= 5) {
+                state.achievements.horsemenFree = true;
+            }
+            if (!state.achievements.level5 && state.level >= 5) {
+                state.achievements.level5 = true;
+            }
+            if (!state.achievements.perfectRatio && state.negativeCount > 0 && (state.positiveCount / state.negativeCount) >= 5) {
+                state.achievements.perfectRatio = true;
+            }
+            if (!state.achievements.repairMaster && state.positiveMetrics.repair >= 10) {
+                state.achievements.repairMaster = true;
+            }
+            if (!state.achievements.consistentCare && state.scenarioIndex >= 9) {
+                state.achievements.consistentCare = true;
+            }
+
+            renderAchievements();
+        }
+
+        function renderAchievements() {
+            const grid = document.getElementById('achievementsGrid');
+            grid.innerHTML = Object.entries(achievementDefs).map(([key, ach]) => {
+                const unlocked = state.achievements[key];
+                return `
+                    <div class="p-3 rounded-lg ${unlocked ? 'achievement' : ''}" style="background: ${unlocked ? '' : 'var(--bg-primary)'}; opacity: ${unlocked ? 1 : 0.5}">
+                        <div class="text-2xl mb-1">${unlocked ? ach.icon : '🔒'}</div>
+                        <div class="text-sm font-medium">${ach.name}</div>
+                        <div class="text-xs" style="color: var(--text-secondary)">${ach.desc}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function switchTab(tab) {
+            ['scenario', 'metrics', 'history', 'learn'].forEach(t => {
+                document.getElementById(`${t}Tab`).classList.toggle('hidden', t !== tab);
+                const tabBtn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+                if (t === tab) {
+                    tabBtn.classList.add('tab-active');
+                    tabBtn.classList.remove('btn-secondary');
+                } else {
+                    tabBtn.classList.remove('tab-active');
+                    tabBtn.classList.add('btn-secondary');
+                }
+            });
+
+            if (tab === 'history') updateCharts();
+        }
+
+        function initCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#A89F96' : '#5C534B';
+            const gridColor = isDark ? 'rgba(168, 159, 150, 0.1)' : 'rgba(92, 83, 75, 0.1)';
+
+            Chart.defaults.color = textColor;
+            Chart.defaults.borderColor = gridColor;
+
+            // Health chart
+            const healthCtx = document.getElementById('healthChart').getContext('2d');
+            charts.health = new Chart(healthCtx, {
+                type: 'line',
+                data: {
+                    labels: state.history.health.map((_, i) => i),
+                    datasets: [{
+                        label: 'Relationship Health',
+                        data: state.history.health,
+                        borderColor: '#5B8C6B',
+                        backgroundColor: 'rgba(91, 140, 107, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { min: 0, max: 100 }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Bank chart
+            const bankCtx = document.getElementById('bankChart').getContext('2d');
+            charts.bank = new Chart(bankCtx, {
+                type: 'line',
+                data: {
+                    labels: state.history.bank.map((_, i) => i),
+                    datasets: [{
+                        label: 'Emotional Bank Balance',
+                        data: state.history.bank,
+                        borderColor: '#C4A04B',
+                        backgroundColor: 'rgba(196, 160, 75, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Horsemen chart
+            const horsemenCtx = document.getElementById('horsemenChart').getContext('2d');
+            charts.horsemen = new Chart(horsemenCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Criticism', 'Contempt', 'Defensiveness', 'Stonewalling'],
+                    datasets: [{
+                        label: 'Occurrences',
+                        data: [state.horsemen.criticism, state.horsemen.contempt, state.horsemen.defensiveness, state.horsemen.stonewalling],
+                        backgroundColor: ['#B85C5C', '#C86C6C', '#D47C7C', '#E08C8C']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!charts.health) return;
+
+            charts.health.data.labels = state.history.health.map((_, i) => i);
+            charts.health.data.datasets[0].data = state.history.health;
+            charts.health.update();
+
+            charts.bank.data.labels = state.history.bank.map((_, i) => i);
+            charts.bank.data.datasets[0].data = state.history.bank;
+            charts.bank.update();
+
+            charts.horsemen.data.datasets[0].data = [
+                state.horsemen.criticism,
+                state.horsemen.contempt,
+                state.horsemen.defensiveness,
+                state.horsemen.stonewalling
+            ];
+            charts.horsemen.update();
+        }
+    </script>
+</body>
+
+</html>

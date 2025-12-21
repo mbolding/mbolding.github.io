@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Field Explorer</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #131920;
+            --bg-card: #1a2028;
+            --text-primary: #e8eef5;
+            --text-secondary: #6e7a8a;
+            --accent: #00e5c7;
+            --accent-2: #7b5cff;
+            --positive: #22c55e;
+            --negative: #ef4444;
+            --border: #2a3444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 16px;
+            background-image:
+                radial-gradient(ellipse at top left, rgba(0, 229, 199, 0.07) 0%, transparent 40%),
+                radial-gradient(ellipse at bottom right, rgba(123, 92, 255, 0.07) 0%, transparent 40%);
+        }
+
+        .app {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        header {
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 5vw, 2.2rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .field-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+        }
+
+        .field-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 8px;
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .field-btn:hover {
+            border-color: var(--accent);
+            background: rgba(0, 229, 199, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .field-btn.active {
+            border-color: var(--accent);
+            background: rgba(0, 229, 199, 0.15);
+            box-shadow: 0 0 20px rgba(0, 229, 199, 0.2);
+        }
+
+        .field-btn .icon {
+            font-size: 1.4rem;
+        }
+
+        .field-btn .name {
+            font-size: 0.85rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media (min-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr 280px;
+            }
+        }
+
+        .canvas-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .info-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .formula-badge {
+            background: rgba(10, 14, 20, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+        }
+
+        .curl-badge {
+            background: rgba(10, 14, 20, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .control-group {
+            margin-bottom: 14px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .control-label span {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(0, 229, 199, 0.5);
+        }
+
+        .description {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+
+        .description strong {
+            color: var(--text-primary);
+        }
+
+        .legend {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .curl-gradient-bar {
+            width: 100px;
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #ef4444, #1a2028, #22c55e);
+        }
+
+        .properties {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .property {
+            background: var(--bg-secondary);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .property-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .property-value {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .property-value.zero {
+            color: var(--text-secondary);
+        }
+
+        .property-value.nonzero {
+            color: var(--accent);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-primary: #f0f4f8;
+                --bg-secondary: #ffffff;
+                --bg-card: #ffffff;
+                --text-primary: #1a2332;
+                --text-secondary: #5a6a7a;
+                --border: #dde4ed;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <header>
+            <h1>Vector Field Explorer</h1>
+            <p class="subtitle">Visualize fields and their curl</p>
+        </header>
+
+        <div class="field-selector" id="fieldSelector">
+            <button class="field-btn active" data-field="saddle">
+                <span class="icon">⋈</span>
+                <span class="name">Saddle</span>
+            </button>
+            <button class="field-btn" data-field="vortex">
+                <span class="icon">🌀</span>
+                <span class="name">Vortex</span>
+            </button>
+            <button class="field-btn" data-field="source">
+                <span class="icon">☀️</span>
+                <span class="name">Source</span>
+            </button>
+            <button class="field-btn" data-field="sink">
+                <span class="icon">🕳️</span>
+                <span class="name">Sink</span>
+            </button>
+            <button class="field-btn" data-field="shear">
+                <span class="icon">↗️</span>
+                <span class="name">Shear</span>
+            </button>
+            <button class="field-btn" data-field="dipole">
+                <span class="icon">🧲</span>
+                <span class="name">Dipole</span>
+            </button>
+            <button class="field-btn" data-field="spiral">
+                <span class="icon">🐚</span>
+                <span class="name">Spiral</span>
+            </button>
+            <button class="field-btn" data-field="wave">
+                <span class="icon">🌊</span>
+                <span class="name">Wave</span>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <div class="canvas-container">
+                <canvas id="canvas"></canvas>
+                <div class="info-overlay">
+                    <div class="formula-badge" id="formulaBadge">F = (x, −y)</div>
+                    <div class="curl-badge" id="curlBadge">curl = 0</div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-title">Display Options</div>
+                    <div class="control-group">
+                        <div class="control-label">Density <span id="densityVal">16</span></div>
+                        <input type="range" id="density" min="8" max="24" value="16">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">Scale <span id="scaleVal">1.0</span></div>
+                        <input type="range" id="scale" min="0.3" max="2" step="0.1" value="1">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">Intensity <span id="intensityVal">1.0</span></div>
+                        <input type="range" id="intensity" min="0.2" max="2" step="0.1" value="1">
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">Field Properties</div>
+                    <div class="properties">
+                        <div class="property">
+                            <div class="property-label">Divergence</div>
+                            <div class="property-value" id="divValue">0</div>
+                        </div>
+                        <div class="property">
+                            <div class="property-label">Curl</div>
+                            <div class="property-value" id="curlValue">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">About This Field</div>
+                    <p class="description" id="description">
+                        <strong>Saddle Field:</strong> Classic hyperbolic flow with expansion along one axis and
+                        compression along another. Zero curl indicates no rotation.
+                    </p>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">Legend</div>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background: #00e5c7;"></div>
+                            <span>Vectors</span>
+                        </div>
+                        <div class="legend-item">
+                            <span style="color: #ef4444;">−</span>
+                            <div class="curl-gradient-bar"></div>
+                            <span style="color: #22c55e;">+</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.classList.toggle('dark', event.matches);
+        });
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const fields = {
+            saddle: {
+                name: 'Saddle',
+                formula: 'F = (x, −y)',
+                field: (x, y) => ({ u: x, v: -y }),
+                curl: (x, y) => 0,
+                div: (x, y) => 0,
+                divText: '0',
+                curlText: '0',
+                description: '<strong>Saddle Field:</strong> Classic hyperbolic flow with expansion along one axis and compression along another. Zero curl and divergence - a pure deformation.'
+            },
+            vortex: {
+                name: 'Vortex',
+                formula: 'F = (−y, x)',
+                field: (x, y) => ({ u: -y, v: x }),
+                curl: (x, y) => 2,
+                div: (x, y) => 0,
+                divText: '0',
+                curlText: '2',
+                description: '<strong>Vortex Field:</strong> Pure rotation around the origin. Constant positive curl indicates counterclockwise rotation. Zero divergence means incompressible flow.'
+            },
+            source: {
+                name: 'Source',
+                formula: 'F = (x, y)',
+                field: (x, y) => ({ u: x, v: y }),
+                curl: (x, y) => 0,
+                div: (x, y) => 2,
+                divText: '2',
+                curlText: '0',
+                description: '<strong>Source Field:</strong> Radial outward flow from origin. Positive divergence indicates fluid expansion. Zero curl means irrotational flow.'
+            },
+            sink: {
+                name: 'Sink',
+                formula: 'F = (−x, −y)',
+                field: (x, y) => ({ u: -x, v: -y }),
+                curl: (x, y) => 0,
+                div: (x, y) => -2,
+                divText: '−2',
+                curlText: '0',
+                description: '<strong>Sink Field:</strong> Radial inward flow toward origin. Negative divergence indicates fluid compression. Zero curl means irrotational flow.'
+            },
+            shear: {
+                name: 'Shear',
+                formula: 'F = (y, 0)',
+                field: (x, y) => ({ u: y, v: 0 }),
+                curl: (x, y) => -1,
+                div: (x, y) => 0,
+                divText: '0',
+                curlText: '−1',
+                description: '<strong>Shear Field:</strong> Horizontal flow that varies with height. Negative curl indicates clockwise rotation tendency. Models viscous fluid layers.'
+            },
+            dipole: {
+                name: 'Dipole',
+                formula: 'F = (x²−y², 2xy) / r⁴',
+                field: (x, y) => {
+                    const r2 = x * x + y * y + 0.5;
+                    const r4 = r2 * r2;
+                    return {
+                        u: (x * x - y * y) / r4 * 2,
+                        v: (2 * x * y) / r4 * 2
+                    };
+                },
+                curl: (x, y) => {
+                    const r2 = x * x + y * y + 0.5;
+                    return 0;
+                },
+                div: (x, y) => 0,
+                divText: '0*',
+                curlText: '0*',
+                description: '<strong>Dipole Field:</strong> Two opposite poles create a characteristic figure-8 pattern. Similar to magnetic field lines around a bar magnet. *Except at singularities.'
+            },
+            spiral: {
+                name: 'Spiral',
+                formula: 'F = (x−y, x+y)',
+                field: (x, y) => ({ u: x - y, v: x + y }),
+                curl: (x, y) => 2,
+                div: (x, y) => 2,
+                divText: '2',
+                curlText: '2',
+                description: '<strong>Spiral Source:</strong> Combination of rotation and expansion creates outward spiraling flow. Both curl and divergence are non-zero - an unstable spiral point.'
+            },
+            wave: {
+                name: 'Wave',
+                formula: 'F = (sin(y), cos(x))',
+                field: (x, y) => ({ u: Math.sin(y), v: Math.cos(x) }),
+                curl: (x, y) => Math.sin(x) - Math.cos(y),
+                div: (x, y) => 0,
+                divText: '0',
+                curlText: 'sin(x)−cos(y)',
+                description: '<strong>Wave Field:</strong> Periodic oscillating flow with spatially varying curl. Creates a patchwork of rotating cells. Common in atmospheric modeling.'
+            }
+        };
+
+        let currentField = 'saddle';
+        let density = 16;
+        let scale = 1.0;
+        let intensity = 1.0;
+
+        const densitySlider = document.getElementById('density');
+        const scaleSlider = document.getElementById('scale');
+        const intensitySlider = document.getElementById('intensity');
+        const densityVal = document.getElementById('densityVal');
+        const scaleVal = document.getElementById('scaleVal');
+        const intensityVal = document.getElementById('intensityVal');
+        const formulaBadge = document.getElementById('formulaBadge');
+        const curlBadge = document.getElementById('curlBadge');
+        const divValue = document.getElementById('divValue');
+        const curlValue = document.getElementById('curlValue');
+        const description = document.getElementById('description');
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const size = Math.min(container.clientWidth, container.clientHeight);
+            canvas.width = size * window.devicePixelRatio;
+            canvas.height = size * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            draw();
+        }
+
+        function updateUI() {
+            const f = fields[currentField];
+            formulaBadge.textContent = f.formula;
+            curlBadge.textContent = `curl = ${f.curlText}`;
+            divValue.textContent = f.divText;
+            divValue.className = 'property-value ' + (f.divText === '0' ? 'zero' : 'nonzero');
+            curlValue.textContent = f.curlText;
+            curlValue.className = 'property-value ' + (f.curlText === '0' ? 'zero' : 'nonzero');
+            description.innerHTML = f.description;
+
+            document.querySelectorAll('.field-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.field === currentField);
+            });
+        }
+
+        function draw() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            const range = 3.5;
+            const f = fields[currentField];
+
+            // Clear with dark background
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || '#131920';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw curl background
+            const resolution = 80;
+            const cellW = width / resolution;
+            const cellH = height / resolution;
+
+            for (let i = 0; i < resolution; i++) {
+                for (let j = 0; j < resolution; j++) {
+                    const x = ((i + 0.5) / resolution - 0.5) * 2 * range;
+                    const y = -((j + 0.5) / resolution - 0.5) * 2 * range;
+                    const curl = f.curl(x, y) * intensity;
+
+                    const maxCurl = 4;
+                    const normalizedCurl = Math.max(-1, Math.min(1, curl / maxCurl));
+
+                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const bgBase = isDark ? [19, 25, 32] : [240, 244, 248];
+
+                    let r, g, b;
+                    if (Math.abs(normalizedCurl) < 0.02) {
+                        [r, g, b] = bgBase;
+                    } else if (normalizedCurl > 0) {
+                        const t = normalizedCurl;
+                        r = Math.floor(bgBase[0] + (34 - bgBase[0]) * t);
+                        g = Math.floor(bgBase[1] + (197 - bgBase[1]) * t * 0.7);
+                        b = Math.floor(bgBase[2] + (94 - bgBase[2]) * t);
+                    } else {
+                        const t = -normalizedCurl;
+                        r = Math.floor(bgBase[0] + (239 - bgBase[0]) * t * 0.7);
+                        g = Math.floor(bgBase[1] + (68 - bgBase[1]) * t);
+                        b = Math.floor(bgBase[2] + (68 - bgBase[2]) * t);
+                    }
+
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(i * cellW, j * cellH, cellW + 1, cellH + 1);
+                }
+            }
+
+            // Draw subtle grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            const gridStep = width / 8;
+            for (let i = 0; i <= 8; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * gridStep, 0);
+                ctx.lineTo(i * gridStep, height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * gridStep);
+                ctx.lineTo(width, i * gridStep);
+                ctx.stroke();
+            }
+
+            // Draw axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+
+            // Draw vectors
+            const step = width / density;
+            const arrowLen = step * 0.35 * scale;
+
+            for (let px = step / 2; px < width; px += step) {
+                for (let py = step / 2; py < height; py += step) {
+                    const x = (px / width - 0.5) * 2 * range;
+                    const y = -((py / height - 0.5) * 2 * range);
+
+                    let { u, v } = f.field(x, y);
+                    u *= intensity;
+                    v *= intensity;
+
+                    const mag = Math.sqrt(u * u + v * v);
+                    if (mag < 0.001) continue;
+
+                    const nx = u / mag;
+                    const ny = -v / mag;
+
+                    const displayMag = Math.min(mag, 4) / 4;
+                    const len = arrowLen * (0.25 + 0.75 * displayMag);
+
+                    const endX = px + nx * len;
+                    const endY = py + ny * len;
+
+                    const alpha = 0.4 + 0.6 * displayMag;
+                    ctx.strokeStyle = `rgba(0, 229, 199, ${alpha})`;
+                    ctx.fillStyle = `rgba(0, 229, 199, ${alpha})`;
+                    ctx.lineWidth = 1.5;
+
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+
+                    // Arrowhead
+                    const headLen = 5 * scale;
+                    const angle = Math.atan2(ny, nx);
+                    ctx.beginPath();
+                    ctx.moveTo(endX, endY);
+                    ctx.lineTo(
+                        endX - headLen * Math.cos(angle - Math.PI / 6),
+                        endY - headLen * Math.sin(angle - Math.PI / 6)
+                    );
+                    ctx.lineTo(
+                        endX - headLen * Math.cos(angle + Math.PI / 6),
+                        endY - headLen * Math.sin(angle + Math.PI / 6)
+                    );
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // Origin marker
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.fill();
+        }
+
+        // Event listeners
+        document.getElementById('fieldSelector').addEventListener('click', (e) => {
+            const btn = e.target.closest('.field-btn');
+            if (btn) {
+                currentField = btn.dataset.field;
+                updateUI();
+                draw();
+            }
+        });
+
+        densitySlider.addEventListener('input', (e) => {
+            density = parseInt(e.target.value);
+            densityVal.textContent = density;
+            draw();
+        });
+
+        scaleSlider.addEventListener('input', (e) => {
+            scale = parseFloat(e.target.value);
+            scaleVal.textContent = scale.toFixed(1);
+            draw();
+        });
+
+        intensitySlider.addEventListener('input', (e) => {
+            intensity = parseFloat(e.target.value);
+            intensityVal.textContent = intensity.toFixed(1);
+            draw();
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+        updateUI();
+        resizeCanvas();
+    </script>
+</body>
+
+</html>
