@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fourier Analysis - Epicycles</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --circle-stroke: rgba(0, 0, 0, 0.2);
+            --vector: #333;
+            --wave: #b13e3e;
+            --trace: #2c5282;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .slider-container {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1rem;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        .formula-box {
+            font-family: 'Gill Sans', sans-serif;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #666;
+            min-height: 1.5em;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Fourier Analysis</h1>
+        <span class="subtitle">Chapter 13: Fourier Series & Epicycles</span>
+    </header>
+
+    <main>
+        <p>
+            Every periodic function can be decomposed into a sum of sine and cosine waves (harmonics).
+            Geometrically, this is like adding rotating vectors ("epicycles").
+        </p>
+
+        <p>
+            <span class="sidenote">
+                <strong>Complex Exponentials:</strong> $f(t) = \sum c_n e^{in\omega t}$. Each term represents a circle
+                of radius $|c_n|$ rotating at speed $n$.
+            </span>
+            <strong>Instructions:</strong> Choose a waveform. Adjust the number of terms ($N$) to see how adding more
+            circles refines the shape.
+        </p>
+
+        <div class="viz-container">
+            <div class="controls">
+                <button onclick="setWave('square')" id="btn-square" class="active">Square</button>
+                <button onclick="setWave('sawtooth')" id="btn-sawtooth">Sawtooth</button>
+                <button onclick="setWave('triangle')" id="btn-triangle">Triangle</button>
+            </div>
+
+            <div class="slider-container">
+                <span>Terms ($N$):</span>
+                <input type="range" id="param-n" min="1" max="50" value="5" oninput="updateN(this.value)">
+                <span id="val-n">5</span>
+            </div>
+
+            <div class="formula-box" id="formula">
+                Formula display...
+            </div>
+
+            <canvas id="canvas" width="800" height="400"></canvas>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const formulaEl = document.getElementById('formula');
+
+        // Config
+        const CX = 200; // Center of circles
+        const CY = 200;
+        const CIRCLE_SCALE = 100; // Base radius scale
+        const WAVE_START_X = 400;
+
+        let waveType = 'square';
+        let N = 5;
+        let time = 0;
+        const wavePath = [];
+        const MAX_PATH = 500;
+
+        function setWave(type) {
+            waveType = type;
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + type).classList.add('active');
+            wavePath.length = 0; // Clear history
+            updateFormula();
+        }
+
+        function updateN(val) {
+            N = parseInt(val);
+            document.getElementById('val-n').textContent = N;
+            wavePath.length = 0;
+        }
+
+        function updateFormula() {
+            let txt = "";
+            if (waveType === 'square') {
+                txt = "Square Wave: Only odd harmonics (1, 3, 5...). Amplitude $\\propto 1/n$.";
+            } else if (waveType === 'sawtooth') {
+                txt = "Sawtooth Wave: All integer harmonics (1, 2, 3...). Amplitude $\\propto 1/n$.";
+            } else if (waveType === 'triangle') {
+                txt = "Triangle Wave: Only odd harmonics (1, 3, 5...). Amplitude $\\propto 1/n^2$.";
+            }
+            formulaEl.innerHTML = txt;
+            if (window.MathJax && window.MathJax.typeset) window.MathJax.typeset([formulaEl]);
+        }
+
+        function getCoefficients(n) {
+            // Returns { radius, freq, phase }
+            // Fundamental freq = 1
+            if (waveType === 'square') {
+                // Square: 4/pi * (sin(x) + 1/3 sin(3x) + 1/5 sin(5x)...)
+                // Terms are odd n.
+                // We map slider N to first N non-zero terms.
+                // i=0 -> n=1. i=1 -> n=3.
+                const harm = 2 * n + 1;
+                return { r: (4 / (Math.PI * harm)), freq: harm, phase: 0 };
+            } else if (waveType === 'sawtooth') {
+                // Sawtooth: 2/pi * (sin(x) - 1/2 sin(2x) + 1/3 sin(3x)...)
+                // Terms are 1, 2, 3...
+                // Coeff is 2/(pi*n) * (-1)^(n+1)
+                const harm = n + 1;
+                const sign = (harm % 2 === 0) ? -1 : 1;
+                return { r: sign * (2 / (Math.PI * harm)), freq: harm, phase: 0 };
+            } else if (waveType === 'triangle') {
+                // Triangle: 8/pi^2 * (sin(x) - 1/9 sin(3x) + 1/25 sin(5x)...)
+                // Odd harmonics. 1/n^2. Signs alternate + - + -
+                // i=0 -> n=1 (+). i=1 -> n=3 (-). i=2 -> n=5 (+).
+                const harm = 2 * n + 1;
+                const sign = (n % 2 === 0) ? 1 : -1;
+                return { r: sign * (8 / (Math.PI * Math.PI * harm * harm)), freq: harm, phase: 0 };
+            }
+            return { r: 0, freq: 0 };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate Epicycles
+            let x = CX;
+            let y = CY;
+
+            // Draw axis for circles
+            ctx.strokeStyle = '#eee';
+            ctx.beginPath();
+            ctx.moveTo(CX - 150, CY); ctx.lineTo(CX + 150, CY);
+            ctx.moveTo(CX, CY - 150); ctx.lineTo(CX, CY + 150);
+            ctx.stroke();
+
+            for (let i = 0; i < N; i++) {
+                const prevX = x;
+                const prevY = y;
+
+                const c = getCoefficients(i);
+                const r = c.r * CIRCLE_SCALE;
+                const angle = c.freq * time + c.phase; // -pi/2 to start sin at zero? No, standard sin starts at 0.
+
+                x += r * Math.cos(angle);
+                y += r * Math.sin(angle); // Canvas Y is down. Math Y is up.
+                // To match sin plot: sin goes UP first.
+                // Canvas: +y is down. So sin(t) moves element DOWN.
+                // We want UP. So -sin(t).
+                // Let's adjust coordinate logic.
+                // y = CY - (sum).
+
+                // Let's redo:
+                // We accumulate offset from (CX, CY).
+                // x offset: we interpret circle rotation as pure phasor?
+                // Actually plotting y vs t. The circles visualize the Y-value generation along imaginary axis?
+                // Standard viz: Circles rotate. Proj onto Y axis gives value.
+                // So radius is c.r. Angle is theta.
+                // x_new = x_old + r * cos(theta); 
+                // y_new = y_old + r * sin(theta);
+
+                // Wait, if we want to trace y(t), the circle centers should track?
+                // Standard 3b1b style:
+                // Circles chain. The tip's Y coordinate is the function value.
+
+                // Correction for Canvas Y:
+                // We want positive signal to go UP (lower Y).
+                // So Y += -r * Math.sin(angle);
+                // X += r * Math.cos(angle);
+                // But wait, the rotation direction matters. Standard phasor is e^(it) = cos+isin.
+                // In canvas, y is inverted. So e^(it) -> (cos(t), -sin(t)).
+
+                const dX = r * Math.cos(angle);
+                const dY = -r * Math.sin(angle); // Flip Y for canvas
+
+                // Draw Circle
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                ctx.lineWidth = 1;
+                ctx.arc(prevX, prevY, Math.abs(r), 0, 2 * Math.PI);
+                ctx.stroke();
+
+                // Draw Radius Vector
+                ctx.beginPath();
+                ctx.strokeStyle = '#333';
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(prevX + dX, prevY + dY);
+                ctx.stroke();
+
+                x = prevX + dX;
+                y = prevY + dY;
+            }
+
+            // The point (x, y) is the current phasor tip.
+            // We draw a line from this tip to the waveform start.
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(44, 82, 130, 0.3)'; // Trace line color
+            ctx.moveTo(x, y);
+            ctx.lineTo(WAVE_START_X, y);
+            ctx.stroke();
+
+            // Update Path
+            wavePath.unshift(y);
+            if (wavePath.length > MAX_PATH) wavePath.pop();
+
+            // Draw Waveform
+            ctx.beginPath();
+            ctx.strokeStyle = '#b13e3e';
+            ctx.lineWidth = 2;
+            ctx.moveTo(WAVE_START_X, wavePath[0]);
+            for (let i = 1; i < wavePath.length; i++) {
+                ctx.lineTo(WAVE_START_X + i, wavePath[i]);
+            }
+            ctx.stroke();
+
+            // Advance time
+            time += 0.02;
+            requestAnimationFrame(draw);
+        }
+
+        // Init
+        updateFormula();
+        draw();
+
+    </script>
+</body>
+
+</html>
