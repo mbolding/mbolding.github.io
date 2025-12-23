@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curvature and the Osculating Circle</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --tangent: #7b5cff;
+            --normal: #ff9100;
+            --circle: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .theorem-box {
+            background: #fdfdfd;
+            border-left: 3px solid var(--accent);
+            padding: 1rem 2rem;
+            margin: 2rem 0;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            font-size: 1.1rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.03);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 4px;
+            font-family: 'Gill Sans', sans-serif;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: 'Consolas', monospace;
+        }
+
+        .color-legend {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            font-family: 'Gill Sans', sans-serif;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Curvature</h1>
+        <span class="subtitle">Chapter 7: The Osculating Circle</span>
+    </header>
+
+    <main>
+        <p>
+            Curvature ($\kappa$) measures how fast a curve turns. At any point $P$, fitting the curve with a "best fit"
+            circle creates the <strong>Osculating Circle</strong>.
+        </p>
+
+        <div class="theorem-box">
+            $\kappa = \frac{|x'y'' - y'x''|}{(x'^2 + y'^2)^{3/2}}$ &nbsp;&nbsp;&nbsp; Radius $R = \frac{1}{\kappa}$
+        </div>
+
+        <p>
+            <span class="sidenote">
+                The circle's center is at $P + R \mathbf{N}$. High curvature means a small circle (sharp turn). Low
+                curvature means a large circle (shallow turn).
+            </span>
+            <strong>Instructions:</strong> Drag horizontally on the canvas to move the point $t$ along the curve.
+            Observe how the radius changes.
+        </p>
+
+        <div class="viz-container">
+            <div class="controls">
+                <button onclick="setCurve('parabola')" id="btn-parabola" class="active">Parabola</button>
+                <button onclick="setCurve('sine')" id="btn-sine">Sine Wave</button>
+                <button onclick="setCurve('ellipse')" id="btn-ellipse">Ellipse</button>
+                <button onclick="setCurve('cubic')" id="btn-cubic">Cubic</button>
+            </div>
+
+            <canvas id="canvas" width="600" height="400"></canvas>
+
+            <div class="color-legend">
+                <span style="color: var(--tangent)"><span class="dot"
+                        style="background: var(--tangent)"></span>Tangent</span>
+                <span style="color: var(--normal)"><span class="dot"
+                        style="background: var(--normal)"></span>Normal</span>
+                <span style="color: var(--circle)"><span class="dot" style="background: var(--circle)"></span>Osculating
+                    Circle</span>
+            </div>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div>Curvature ($\kappa$)</div>
+                    <div id="val-k" class="stat-val">0.00</div>
+                </div>
+                <div class="stat-box">
+                    <div>Radius ($R$)</div>
+                    <div id="val-r" class="stat-val">0.00</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const valK = document.getElementById('val-k');
+        const valR = document.getElementById('val-r');
+
+        // Config
+        const SCALE = 80;
+        const ORIGIN_X = 300;
+        const ORIGIN_Y = 200;
+
+        // State
+        let currentCurve = 'parabola';
+        let t = 0; // parameter
+
+        // Curves: Return x, y, dx, dy, ddx, ddy for a given t
+        // Parametric range is usually roughly -2 to 2 or -PI to PI
+        const curves = {
+            'parabola': {
+                // y = x^2. Param: x=t, y=t^2.
+                // dx=1, dy=2t. ddx=0, ddy=2.
+                calc: (t) => ({
+                    x: t, y: 0.5 * t * t - 1,
+                    dx: 1, dy: t,
+                    ddx: 0, ddy: 1
+                }),
+                tMin: -2.5, tMax: 2.5
+            },
+            'sine': {
+                // y = sin(x). Param: x=t, y=sin(t).
+                // dx=1, dy=cos t. ddx=0, ddy=-sin t.
+                calc: (t) => ({
+                    x: t, y: Math.sin(t * 1.5),
+                    dx: 1, dy: 1.5 * Math.cos(t * 1.5),
+                    ddx: 0, ddy: -2.25 * Math.sin(t * 1.5)
+                }),
+                tMin: -3, tMax: 3
+            },
+            'ellipse': {
+                // x = a cos t, y = b sin t
+                // a=2, b=1.
+                calc: (t) => {
+                    const a = 2, b = 1.2;
+                    return {
+                        x: a * Math.cos(t), y: b * Math.sin(t),
+                        dx: -a * Math.sin(t), dy: b * Math.cos(t),
+                        ddx: -a * Math.cos(t), ddy: -b * Math.sin(t)
+                    };
+                },
+                tMin: 0, tMax: 2 * Math.PI
+            },
+            'cubic': {
+                // y = x^3 - x. x=t, y=t^3 - t.
+                calc: (t) => {
+                    const s = 0.5;
+                    return {
+                        x: t * 1.2, y: s * (Math.pow(t * 1.2, 3) - 3 * (t * 1.2)),
+                        dx: 1.2, dy: s * (3 * Math.pow(t * 1.2, 2) * 1.2 - 3 * 1.2),
+                        ddx: 0, ddy: s * (6 * (t * 1.2) * 1.2 * 1.2) // chain rule headache, simpler to numeric diff? No, exact is better.
+                    };
+                },
+                // Let's refine cubic. x=t, y=t^3-t.
+                // dx=1, dy=3t^2-1. ddx=0, ddy=6t.
+                // Scale later.
+                altCalc: (t) => {
+                    const val = t;
+                    const x = val;
+                    const y = 0.5 * (x * x * x - 3 * x);
+                    const dx = 1;
+                    const dy = 0.5 * (3 * x * x - 3);
+                    const ddx = 0;
+                    const ddy = 0.5 * (6 * x);
+                    return { x, y, dx, dy, ddx, ddy };
+                },
+                tMin: -2.2, tMax: 2.2
+            }
+        };
+
+        function setCurve(name) {
+            currentCurve = name;
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + name).classList.add('active');
+            t = (name === 'ellipse') ? 0 : 0; // reset
+            draw();
+        }
+
+        function toCanvas(x, y) {
+            return {
+                x: ORIGIN_X + x * SCALE,
+                y: ORIGIN_Y - y * SCALE
+            };
+        }
+
+        function drawShape() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 2;
+
+            const def = curves[currentCurve];
+            const func = def.altCalc || def.calc;
+            const step = 0.05;
+
+            let first = true;
+            for (let ti = def.tMin; ti <= def.tMax; ti += step) {
+                const info = func(ti);
+                const p = toCanvas(info.x, info.y);
+                if (first) { ctx.moveTo(p.x, p.y); first = false; }
+                else ctx.lineTo(p.x, p.y);
+            }
+            // For ellipse, close it explicitly?
+            if (currentCurve === 'ellipse') ctx.closePath();
+
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw axis (light)
+            ctx.beginPath(); ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+            ctx.moveTo(0, ORIGIN_Y); ctx.lineTo(canvas.width, ORIGIN_Y);
+            ctx.moveTo(ORIGIN_X, 0); ctx.lineTo(ORIGIN_X, canvas.height);
+            ctx.stroke();
+
+            drawShape();
+
+            // Calculate point
+            const def = curves[currentCurve];
+            const func = def.altCalc || def.calc;
+            const d = func(t);
+            const p = toCanvas(d.x, d.y);
+
+            // Calculate Vectors
+            // v = (dx, dy)
+            const vMag = Math.sqrt(d.dx * d.dx + d.dy * d.dy);
+            const Tx = d.dx / vMag;
+            const Ty = d.dy / vMag;
+
+            // Normal N is T rotated 90 deg. 
+            // In standard coords, if T=(tx, ty), N=(-ty, tx) points "left" of curve (CCW).
+            // Curvature formula k signed is (x'y'' - y'x'') / |v|^3.
+            // If k > 0, curve turns left. Center is P + R*N.
+            // If k < 0, turns right. 
+            // Let's use signed curvature.
+
+            const kNum = d.dx * d.ddy - d.dy * d.ddx;
+            const kDenom = Math.pow(vMag, 3);
+            const k = kNum / (kDenom + 0.00001); // avoid zero div
+
+            const R = (Math.abs(k) < 0.001) ? 999 : 1 / k; // Signed Radius
+
+            // Stats
+            valK.textContent = Math.abs(k).toFixed(2);
+            valR.textContent = (Math.abs(R) > 100) ? "∞" : Math.abs(R).toFixed(2);
+
+            // Vectors (Canvas Coords)
+            // Note: Canvas Y is flip of Math Y. 
+            // Math vector (vx, vy) becomes Canvas vector (vx, -vy).
+            const scaleVec = 40;
+
+            // Tangent
+            // Math: (Tx, Ty) -> Canvas: (Tx, -Ty)
+            ctx.beginPath(); ctx.strokeStyle = 'var(--tangent)'; ctx.lineWidth = 2;
+            const drawTx = Tx * scaleVec;
+            const drawTy = -Ty * scaleVec;
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + drawTx, p.y + drawTy);
+            ctx.stroke();
+
+            // Normal
+            const Nx = -Ty;
+            const Ny = Tx;
+            const drawNx = Nx * scaleVec;
+            const drawNy = -Ny * scaleVec;
+            ctx.beginPath(); ctx.strokeStyle = 'var(--normal)';
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + drawNx, p.y + drawNy);
+            ctx.stroke();
+
+            // Osculating Circle
+            // Center in Math Coords: P + R * N
+            // C = (d.x, d.y) + R * (Nx, Ny)
+            // Note R is signed. If k>0, R>0, moves in N direction (Left). Correct.
+            // If k<0, R<0, moves opposite N (Right). Correct.
+
+            const cxMath = d.x + R * Nx;
+            const cyMath = d.y + R * Ny;
+            const cCanvas = toCanvas(cxMath, cyMath);
+            const rCanvas = Math.abs(R) * SCALE;
+
+            if (rCanvas < 2000) { // Don't draw if huge (basically straight line)
+                ctx.beginPath();
+                ctx.strokeStyle = 'var(--circle)';
+                ctx.lineWidth = 2;
+                ctx.arc(cCanvas.x, cCanvas.y, rCanvas, 0, 2 * Math.PI);
+                ctx.stroke();
+
+                // Draw center
+                ctx.beginPath(); ctx.fillStyle = 'var(--circle)';
+                ctx.arc(cCanvas.x, cCanvas.y, 3, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Radius line
+                ctx.beginPath(); ctx.strokeStyle = 'var(--circle)'; ctx.setLineDash([2, 4]);
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(cCanvas.x, cCanvas.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw P
+            ctx.beginPath(); ctx.fillStyle = '#111';
+            ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+
+        }
+
+        // Interaction
+        // Simple 1D slider interaction via dragging on canvas
+        let isDragging = false;
+
+        canvas.addEventListener('mousedown', e => { isDragging = true; updateT(e); });
+        window.addEventListener('mouseup', () => isDragging = false);
+        canvas.addEventListener('mousemove', e => { if (isDragging) updateT(e); });
+
+        function updateT(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            // Map x from 0..width to tMin..tMax
+            const w = canvas.width;
+            const def = curves[currentCurve];
+            const pct = Math.max(0, Math.min(1, x / w));
+            t = def.tMin + pct * (def.tMax - def.tMin);
+            draw();
+        }
+
+        // Init
+        draw();
+
+    </script>
+</body>
+
+</html>
