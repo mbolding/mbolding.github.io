@@ -15,24 +15,13 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-:root {
-            
-            
-            
-            --grid: #f0f0f0;
-            --pos-col: #111;
-            --vel-col: #3e3eb1;
-            /* Blue */
-            --acc-col: #b13e3e;
-            /* Red */
-        }
-        header,
         .viz-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             margin: 2rem 0;
         }
+
         canvas {
             background-color: #fff;
             border: 1px solid #ccc;
@@ -40,58 +29,8 @@
             max-width: 600px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
-        .controls {
-            margin-top: 2rem;
-            width: 100%;
-            max-width: 600px;
-            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
-            background: rgba(0, 0, 0, 0.02);
-            padding: 1.5rem;
-            border-radius: 4px;
-        }
-        .input-group {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        label {
-            font-weight: bold;
-            color: #555;
-        }
-        input[type="text"],
-        input[type="number"] {
-            padding: 8px;
-            font-family: 'Consolas', monospace;
-            border: 1px solid #ccc;
-            background: transparent;
-            font-size: 1rem;
-            width: 100%;
-        }
-        .presets {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-        }
-        button {
-            padding: 6px 12px;
-            background: #eee;
-            border: 1px solid #ccc;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        button:hover {
-            background: #ddd;
-        }
-        button.active {
-            background: var(--fg);
-            color: var(--bg);
-            border-color: var(--fg);
-        }
+
+        /* Specific legend styles for this viz */
         .legend {
             display: flex;
             gap: 2rem;
@@ -100,17 +39,17 @@
             font-family: 'Gill Sans', sans-serif;
             font-size: 0.9rem;
         }
+
         .legend-item {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
+
         .dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
-        }
-        @media (max-width: 1200px) {
         }
     </style>
 </head>
@@ -118,11 +57,9 @@
 <body>
 
     <header>
-        <a href="index.html"
-            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
-            Back to Index</a>
+        <a href="index.html" class="back-link">&larr; Back to Index</a>
         <h1>Parametric Particle Playground</h1>
-        <span class="subtitle">Chapter 3: Calculus of Vector Valued Functions</span>
+        <span class="subtitle">Chapter 3: Vector Calculus</span>
     </header>
 
     <main>
@@ -142,17 +79,17 @@
 
             <div class="legend">
                 <div class="legend-item">
-                    <div class="dot" style="background: var(--pos-col)"></div> Position $\mathbf{r}$
+                    <div class="dot" style="background: var(--fg)"></div> Position $\mathbf{r}$
                 </div>
                 <div class="legend-item">
-                    <div class="dot" style="background: var(--vel-col)"></div> Velocity $\mathbf{v}$
+                    <div class="dot" style="background: var(--vector-j)"></div> Velocity $\mathbf{v}$
                 </div>
                 <div class="legend-item">
-                    <div class="dot" style="background: var(--acc-col)"></div> Acceleration $\mathbf{a}$
+                    <div class="dot" style="background: var(--vector-i)"></div> Acceleration $\mathbf{a}$
                 </div>
             </div>
 
-            <div class="controls">
+            <div class="controls" style="flex-direction: column; align-items: stretch;">
                 <div class="presets">
                     <strong>Presets:</strong>
                     <button onclick="setPreset('circle')">Circle</button>
@@ -196,23 +133,23 @@
                 </div>
             </div>
         </div>
-    
-            <div class="chapter-nav">
+
+        <div class="chapter-nav">
             <a href="real_analysis.html" class="nav-link">
-            <span style="font-size:1.2rem;">&larr;</span>
-            <div>
-            <span>Previous</span>
-            <strong>Chapter 2: Real Analysis</strong>
-            </div>
+                <span style="font-size:1.2rem;">&larr;</span>
+                <div>
+                    <span>Previous</span>
+                    <strong>Chapter 2: Real Analysis</strong>
+                </div>
             </a>
             <a href="point_set_topology.html" class="nav-link" style="text-align: right; flex-direction: row-reverse;">
-            <span style="font-size:1.2rem;">&rarr;</span>
-            <div>
-            <span>Next</span>
-            <strong>Chapter 4: Point Set Topology</strong>
-            </div>
+                <span style="font-size:1.2rem;">&rarr;</span>
+                <div>
+                    <span>Next</span>
+                    <strong>Chapter 4: Point Set Topology</strong>
+                </div>
             </a>
-            </div>
+        </div>
     </main>
 
     <script>
@@ -360,6 +297,13 @@
             const dtReal = (timestamp - lastTime) / 1000;
             lastTime = timestamp;
 
+            // Colors
+            const style = getComputedStyle(document.documentElement);
+            const colPos = style.getPropertyValue('--fg').trim() || '#111';
+            const colVel = style.getPropertyValue('--vector-j').trim() || '#3e3eb1';
+            const colAcc = style.getPropertyValue('--vector-i').trim() || '#b13e3e';
+            const colGrid = style.getPropertyValue('--grid-major').trim() || '#ccc';
+
             // Update Time
             const speed = parseFloat(speedInput.value);
             t += speed * dtReal;
@@ -369,7 +313,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Grid / Axes
-            ctx.strokeStyle = '#e0e0e0';
+            ctx.strokeStyle = colGrid;
             ctx.lineWidth = 1;
             // Axes
             ctx.beginPath();
@@ -404,21 +348,18 @@
                 const ax = (funcs.x(t + h) - 2 * rx + funcs.x(t - h)) / (h * h);
                 const ay = (funcs.y(t + h) - 2 * ry + funcs.y(t - h)) / (h * h);
 
-                // Draw Position Vector
-                // drawVector({x:0, y:0}, {x:rx, y:ry}, '#111');
-
                 // Draw Particle
                 const pos = toCanvas(rx, ry);
-                ctx.fillStyle = '#111';
+                ctx.fillStyle = colPos;
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Draw Velocity (Blue)
-                drawVector({ x: rx, y: ry }, { x: vx, y: vy }, '#3e3eb1');
+                drawVector({ x: rx, y: ry }, { x: vx, y: vy }, colVel);
 
                 // Draw Acceleration (Red)
-                drawVector({ x: rx, y: ry }, { x: ax, y: ay }, '#b13e3e');
+                drawVector({ x: rx, y: ry }, { x: ax, y: ay }, colAcc);
             }
 
             requestAnimationFrame(loop);
