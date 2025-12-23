@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combinatorics & Probability</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --peg: #888;
+            --ball: #d69e2e;
+            --bin: #2c5282;
+            --hist: rgba(44, 82, 130, 0.4);
+            --curve: #b13e3e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 700px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 700px;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .slider-container {
+            width: 200px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                padding-bottom: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Combinatorics</h1>
+        <span class="subtitle">Chapter 15: The Galton Board & Central Limit Theorem</span>
+    </header>
+
+    <main>
+        <p>
+            A <strong>Galton Board</strong> (or Bean Machine) consists of a vertical board with a triangular array of
+            pegs.
+            Balls dropped from the top bounce hitting pegs, moving left or right with equal probability.
+        </p>
+        <p>
+            <span class="sidenote">
+                <strong>Combinatorics:</strong> The number of paths to the $k$-th bin in row $n$ is the binomial
+                coefficient $\binom{n}{k}$.<br>
+                <strong>Probability:</strong> For large $n$, this approximates the Normal Distribution.
+            </span>
+        </p>
+        <p>
+            <strong>Instructions:</strong> Drop balls to see the distribution form. Speed up the simulation with the
+            slider.
+        </p>
+
+        <div class="viz-container">
+            <div class="controls">
+                <button onclick="toggleDrop()" id="btn-drop">Start Dropping</button>
+                <div class="slider-container">
+                    <span>Speed:</span>
+                    <input type="range" id="param-speed" min="1" max="10" value="1" oninput="updateSpeed(this.value)">
+                </div>
+                <button onclick="resetSim()" style="margin-left:auto;">Reset</button>
+            </div>
+
+            <canvas id="canvas" width="700" height="600"></canvas>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Config
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        const PEG_R = 3;
+        const BALL_R = 4;
+        const ROWS = 12;
+        const PADDING = 4; // Extra pegs on sides
+        const START_X = WIDTH / 2;
+        const START_Y = 50;
+        const ROW_H = 30; // Vertical distance between rows
+        const COL_W = 30; // Horizontal distance for bounce
+
+        // Bins need to cover range [-PADDING, ROWS+PADDING]
+        const BIN_OFFSET = PADDING + 2;
+        const BIN_COUNT = ROWS + 2 * PADDING + 5;
+
+        // Physics
+        const GRAVITY = 0.2;
+        const BOUNCE_DAMP = 0.6;
+
+        let balls = [];
+        let bins = new Array(BIN_COUNT).fill(0);
+        let dropping = false;
+        let dropInterval = null;
+        let speed = 1;
+
+        // Setup Pegs
+        const pegs = [];
+        for (let r = 0; r < ROWS; r++) {
+            // Widen range
+            for (let c = -PADDING; c <= r + PADDING; c++) {
+                const x = START_X + (c - r / 2) * COL_W;
+                const y = START_Y + r * ROW_H;
+                pegs.push({ x, y, r: PEG_R });
+            }
+        }
+
+        // Define Bin Zones
+        const binY = START_Y + ROWS * ROW_H + 20;
+
+        function updateSpeed(val) {
+            speed = parseInt(val);
+            if (dropping) {
+                clearInterval(dropInterval);
+                dropInterval = setInterval(spawnBall, 200 / speed);
+            }
+        }
+
+        function toggleDrop() {
+            dropping = !dropping;
+            const btn = document.getElementById('btn-drop');
+            if (dropping) {
+                btn.textContent = "Stop Dropping";
+                btn.classList.add('active');
+                dropInterval = setInterval(spawnBall, 200 / speed);
+            } else {
+                btn.textContent = "Start Dropping";
+                btn.classList.remove('active');
+                clearInterval(dropInterval);
+            }
+        }
+
+        function resetSim() {
+            balls = [];
+            bins.fill(0);
+            draw();
+        }
+
+        function spawnBall() {
+            balls.push({
+                x: START_X + (Math.random() - 0.5),
+                y: START_Y - 20,
+                vx: 0,
+                vy: 0,
+                active: true,
+                radius: BALL_R
+            });
+        }
+
+        function updatePhysics() {
+            const steps = speed;
+
+            for (let s = 0; s < steps; s++) {
+                for (let i = 0; i < balls.length; i++) {
+                    const b = balls[i];
+                    if (!b.active) continue;
+
+                    b.vy += GRAVITY;
+                    b.x += b.vx;
+                    b.y += b.vy;
+
+                    // Collision with Pegs
+                    for (let px = 0; px < pegs.length; px++) {
+                        const p = pegs[px];
+                        const dx = b.x - p.x;
+                        const dy = b.y - p.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < (b.radius + p.r)) {
+                            const nx = dx / dist;
+                            const ny = dy / dist;
+
+                            const vDotN = b.vx * nx + b.vy * ny;
+                            b.vx = b.vx - 2 * vDotN * nx;
+                            b.vy = b.vy - 2 * vDotN * ny;
+
+                            b.vx *= BOUNCE_DAMP;
+                            b.vy *= BOUNCE_DAMP;
+
+                            const overlap = (b.radius + p.r) - dist;
+                            b.x += nx * overlap;
+                            b.y += ny * overlap;
+
+                            if (Math.abs(b.vx) < 0.1) {
+                                b.vx += (Math.random() > 0.5 ? 1 : -1);
+                            }
+                        }
+                    }
+
+                    // Binning
+                    if (b.y > binY) {
+                        b.active = false;
+                        const offset = (b.x - START_X) / COL_W;
+                        let idx = Math.round(offset + BIN_COUNT / 2);
+
+                        if (idx < 0) idx = 0;
+                        if (idx >= BIN_COUNT) idx = BIN_COUNT - 1;
+                        bins[idx]++;
+                    }
+                }
+            }
+            balls = balls.filter(b => b.active);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw Pegs
+            ctx.fillStyle = '#888';
+            for (const p of pegs) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Draw Balls
+            ctx.fillStyle = '#d69e2e';
+            for (const b of balls) {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Draw Bins / Histogram
+            const binW = COL_W - 2;
+
+            for (let i = 0; i < BIN_COUNT; i++) {
+                const offset = i - BIN_COUNT / 2;
+                const x = START_X + offset * COL_W;
+
+                const h = bins[i] * 5;
+
+                if (h > 0) {
+                    ctx.fillStyle = 'rgba(44, 82, 130, 0.6)';
+                    ctx.fillRect(x - binW / 2, HEIGHT - h, binW, h);
+
+                    ctx.fillStyle = '#333';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(bins[i], x, HEIGHT - h - 5);
+                }
+            }
+
+            // Theoretical Curve
+            const total = bins.reduce((a, b) => a + b, 0);
+            if (total > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#b13e3e';
+                ctx.lineWidth = 2;
+
+                const sigma = Math.sqrt(ROWS * 0.25);
+
+                let first = true;
+                const startX = START_X - (BIN_COUNT / 2) * COL_W;
+                const endX = START_X + (BIN_COUNT / 2) * COL_W;
+
+                for (let xPixel = startX; xPixel <= endX; xPixel += 2) {
+                    const z = (xPixel - START_X) / COL_W;
+
+                    const pdf = (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow(z / sigma, 2));
+                    const y = HEIGHT - (pdf * total * 5);
+
+                    if (first) { ctx.moveTo(xPixel, y); first = false; }
+                    else ctx.lineTo(xPixel, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        function loop() {
+            updatePhysics();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+
+    </script>
+</body>
+
+</html>
