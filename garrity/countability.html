@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countability - Cantor's Diagonalization</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --highlight: #ffeeaa;
+            --diagonal: #b13e3e;
+            --counter: #2c5282;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .list-container {
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: scroll;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        .number-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+            font-size: 1.1rem;
+        }
+
+        .row-index {
+            width: 40px;
+            color: #888;
+            text-align: right;
+            margin-right: 1rem;
+            user-select: none;
+        }
+
+        .digits {
+            letter-spacing: 4px;
+        }
+
+        .diagonal-digit {
+            color: var(--diagonal);
+            font-weight: bold;
+            background-color: rgba(177, 62, 62, 0.1);
+            border-radius: 2px;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            width: 100%;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        .result-box {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f0f4f8;
+            border-left: 4px solid var(--counter);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .result-title {
+            font-family: 'Gill Sans', sans-serif;
+            font-weight: bold;
+            color: var(--counter);
+            margin-bottom: 0.5rem;
+        }
+
+        .new-number {
+            font-size: 1.2rem;
+            word-break: break-all;
+            letter-spacing: 2px;
+        }
+
+        .digit-flip {
+            color: var(--counter);
+            font-weight: bold;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Countability</h1>
+        <span class="subtitle">Chapter 10: The Axiom of Choice & Uncountability</span>
+    </header>
+
+    <main>
+        <p>
+            Cantor's Diagonalization Argument proves that the real numbers are <strong>uncountable</strong>.
+            Even if you list infinitely many real numbers between 0 and 1, we can always construct a new number that is
+            not on your list.
+        </p>
+
+        <p>
+            <span class="sidenote">
+                <strong>The Method:</strong> Take the $n$-th digit of the $n$-th number and flip it (0 &rarr; 1, 1
+                &rarr; 0). The result differs from every number in the list by at least one digit.
+            </span>
+            <strong>Instructions:</strong> Scroll the list of random binary numbers. Generating the "Diagonal Number"
+            creates a sequence guaranteed to be missing from the list.
+        </p>
+
+        <div class="viz-container">
+            <div class="list-container" id="list">
+                <!-- Rows injected by JS -->
+            </div>
+
+            <div class="controls">
+                <button onclick="addRows(10)">Add More Rows</button>
+                <button onclick="updateDiagonal()">Update Counter-Example</button>
+            </div>
+
+            <div class="result-box">
+                <div class="result-title">New Number (The Counter-Example)</div>
+                <div class="new-number">0.<span id="result-digits">...</span></div>
+                <p style="font-size: 0.9rem; margin-top: 0.5rem; color: #555;">
+                    This number differs from Row $N$ at position $N$.
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const listEl = document.getElementById('list');
+        const resEl = document.getElementById('result-digits');
+
+        let rowCount = 0;
+        const numbers = []; // array of strings (just digits)
+
+        function generateRandomBinary(len) {
+            let s = "";
+            for (let i = 0; i < len; i++) {
+                s += Math.random() > 0.5 ? "1" : "0";
+            }
+            return s;
+        }
+
+        function addRows(n) {
+            for (let i = 0; i < n; i++) {
+                rowCount++;
+                // Generate enough digits to cover at least the diagonal (rowCount)
+                // Let's generate generous length.
+                const len = Math.max(50, rowCount + 20);
+                const bin = generateRandomBinary(len);
+                numbers.push(bin);
+
+                const div = document.createElement('div');
+                div.className = 'number-row';
+                div.id = 'row-' + (rowCount - 1);
+
+                // Format digits
+                // Highlight the diagonal digit (index rowCount-1)
+                let digitHtml = "";
+                const diagIdx = rowCount - 1;
+
+                for (let j = 0; j < Math.min(30, bin.length); j++) {
+                    if (j === diagIdx) {
+                        digitHtml += `<span class="diagonal-digit">${bin[j]}</span>`;
+                    } else {
+                        digitHtml += bin[j];
+                    }
+                }
+                digitHtml += "...";
+
+                div.innerHTML = `
+                    <span class="row-index">${rowCount}.</span>
+                    <span class="digits">0.${digitHtml}</span>
+                `;
+                listEl.appendChild(div);
+            }
+            updateDiagonal();
+        }
+
+        function updateDiagonal() {
+            let resHtml = "";
+            // Construct the flipped number
+            // Only show first ~30 digits for UI calculation cleanliness
+            const limit = Math.min(numbers.length, 30);
+
+            for (let i = 0; i < limit; i++) {
+                const originalBit = numbers[i][i];
+                const flippedBit = originalBit === "0" ? "1" : "0";
+                resHtml += `<span class="digit-flip" title="Differs from Row ${i + 1}">${flippedBit}</span>`;
+            }
+            if (numbers.length > 30) resHtml += "...";
+            resEl.innerHTML = resHtml;
+
+            // Re-highlight list just in case (e.g. if we generated way more digits later)
+            // Ideally we just keep list static once drawn for performance, but the diagonal index is fixed per row.
+        }
+
+        // Infinite Scroll Simulation
+        listEl.addEventListener('scroll', () => {
+            if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 50) {
+                addRows(5);
+            }
+        });
+
+        // Init
+        addRows(20);
+
+    </script>
+</body>
+
+</html>
