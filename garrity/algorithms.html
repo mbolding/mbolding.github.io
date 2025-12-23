@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithms - Sorting Comparison</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --bar: #2c5282;
+            --active: #b13e3e;
+            /* Active element being compared/swapped */
+            --pivot: #38b2ac;
+            /* Quick sort pivot */
+            --sorted: #6a9955;
+            /* Sorted element */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stats-panel {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 0.5rem;
+            padding: 0 1rem;
+        }
+
+        .stat-group {
+            text-align: center;
+        }
+
+        .stat-val {
+            font-weight: bold;
+            color: var(--fg);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Algorithms</h1>
+        <span class="subtitle">Chapter 16: Sorting Efficiency ($O(n^2)$ vs $O(n \log n)$)</span>
+    </header>
+
+    <main>
+        <p>
+            An <strong>algorithm</strong> is a step-by-step procedure for calculation. The efficiency of an algorithm is
+            measured by how its runtime grows with input size ($n$).
+        </p>
+        <p>
+            <span class="sidenote">
+                <strong>Bubble Sort [$O(n^2)$]:</strong> Simple repeatedly swaps adjacent elements if they are in wrong
+                order.<br>
+                <strong>Quick Sort [$O(n \log n)$]:</strong> Comparison sort using divide and conquer. Puts "pivot" in
+                right place.
+            </span>
+        </p>
+        <p>
+            <strong>Instructions:</strong> Select an algorithm and run it. Observe the number of comparisons and swaps.
+        </p>
+
+        <div class="stats-panel">
+            <div class="stat-group">Algorithm: <span id="stat-algo" class="stat-val">None</span></div>
+            <div class="stat-group">Comparisons: <span id="stat-comps" class="stat-val">0</span></div>
+            <div class="stat-group">Swaps: <span id="stat-swaps" class="stat-val">0</span></div>
+        </div>
+
+        <div class="viz-container">
+            <canvas id="canvas" width="800" height="400"></canvas>
+
+            <div class="controls">
+                <button onclick="setAlgo('bubble')" id="btn-bubble">Bubble Sort</button>
+                <button onclick="setAlgo('quick')" id="btn-quick">Quick Sort</button>
+                <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
+                <button onclick="shuffleData()">Shuffle</button>
+                <button onclick="runSort()" id="btn-run" disabled>Run</button>
+                <div class="slider-container">
+                    <span>Speed:</span>
+                    <input type="range" id="param-speed" min="1" max="50" value="10">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statAlgo = document.getElementById('stat-algo');
+        const statComps = document.getElementById('stat-comps');
+        const statSwaps = document.getElementById('stat-swaps');
+        const speedInput = document.getElementById('param-speed');
+
+        // Config
+        const N = 100; // Number of elements
+
+        // State
+        let array = [];
+        let sorting = false;
+        let algorithm = null;
+        let comparisons = 0;
+        let swaps = 0;
+
+        // Animation Queue
+        // We push "frames" or "operations" to a queue and drain them in the loop
+        // Ops: { type: 'compare'|'swap'|'sorted', indices: [] }
+        // Wait, for 100 elements, full history is too big for memory?
+        // No, 100^2 is 10000. It's fine.
+        // Or we can use async/await with delay.
+
+        // Let's use async generator approach with sleep.
+        let abortController = null;
+
+        // Init
+        shuffleData();
+
+        function shuffleData() {
+            if (sorting && abortController) abortController.abort();
+            sorting = false;
+            document.getElementById('btn-run').disabled = (algorithm === null);
+
+            array = [];
+            for (let i = 0; i < N; i++) {
+                array.push({
+                    value: Math.random(),
+                    state: 'default' // default, compare, pivot, sorted
+                });
+            }
+
+            comparisons = 0;
+            swaps = 0;
+            updateStats();
+            draw();
+        }
+
+        function setAlgo(name) {
+            algorithm = name;
+            document.querySelectorAll('.controls button[id^="btn-"]').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('btn-' + name);
+            if (btn) btn.classList.add('active');
+
+            statAlgo.textContent = (name === 'bubble') ? "Bubble Sort" : "Quick Sort";
+            shuffleData(); // Reset on change
+        }
+
+        async function runSort() {
+            if (sorting) return;
+            sorting = true;
+            document.getElementById('btn-run').disabled = true;
+            abortController = new AbortController();
+            const signal = abortController.signal;
+
+            try {
+                if (algorithm === 'bubble') {
+                    await bubbleSort(signal);
+                } else if (algorithm === 'quick') {
+                    await quickSort(array, 0, array.length - 1, signal);
+                }
+
+                // Mark all sorted
+                for (let i = 0; i < N; i++) array[i].state = 'sorted';
+                draw();
+
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    console.log("Sorting aborted");
+                } else {
+                    console.error(e);
+                }
+            } finally {
+                sorting = false;
+                // document.getElementById('btn-run').disabled = false; // Usually keep disabled until shuffle?
+            }
+        }
+
+        // Helpers
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        async function getDelay() {
+            // Speed 1 to 50.
+            // Delay 100ms to 0ms?
+            const s = parseInt(speedInput.value);
+            // Non-linear?
+            // 50 -> 0 (just requestAnimationFrame)
+            // 1 -> 100
+            const maxDelay = 200;
+            const delay = maxDelay - (s / 50) * maxDelay;
+            return Math.max(0, delay);
+        }
+
+        async function sync(signal) {
+            if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            draw();
+            updateStats();
+            await sleep(await getDelay());
+        }
+
+        // --- Bubble Sort ---
+        async function bubbleSort(signal) {
+            let n = array.length;
+            for (let i = 0; i < n - 1; i++) {
+                for (let j = 0; j < n - i - 1; j++) {
+                    // Highlight Compare
+                    array[j].state = 'compare';
+                    array[j + 1].state = 'compare';
+                    comparisons++;
+                    await sync(signal);
+
+                    if (array[j].value > array[j + 1].value) {
+                        // Swap
+                        let temp = array[j].value;
+                        array[j].value = array[j + 1].value;
+                        array[j + 1].value = temp;
+                        swaps++;
+                        await sync(signal);
+                    }
+
+                    // Reset state
+                    array[j].state = 'default';
+                    array[j + 1].state = 'default';
+                }
+                // Mark sorted
+                array[n - i - 1].state = 'sorted';
+            }
+            array[0].state = 'sorted';
+        }
+
+        // --- Quick Sort ---
+        async function quickSort(arr, low, high, signal) {
+            if (low < high) {
+                let pi = await partition(arr, low, high, signal);
+
+                // Recursion
+                await quickSort(arr, low, pi - 1, signal);
+                await quickSort(arr, pi + 1, high, signal);
+            } else if (low >= 0 && high >= 0 && low === high) {
+                arr[low].state = 'sorted';
+                await sync(signal);
+            }
+        }
+
+        async function partition(arr, low, high, signal) {
+            let pivot = arr[high].value;
+            arr[high].state = 'pivot'; // Mark pivot
+
+            let i = (low - 1);
+
+            for (let j = low; j < high; j++) {
+                arr[j].state = 'compare';
+                comparisons++;
+                await sync(signal);
+
+                if (arr[j].value < pivot) {
+                    i++;
+
+                    // Swap i and j
+                    let temp = arr[i].value;
+                    arr[i].value = arr[j].value;
+                    arr[j].value = temp;
+                    swaps++;
+                    // arr[i].state = 'swap'; // Flash?
+                    await sync(signal);
+                }
+                arr[j].state = 'default';
+            }
+
+            // Swap i+1 and high (pivot)
+            let temp = arr[i + 1].value;
+            arr[i + 1].value = arr[high].value;
+            arr[high].value = temp;
+            swaps++;
+
+            arr[high].state = 'default'; // Unmark pivot old position
+            arr[i + 1].state = 'sorted'; // Pivot is now sorted
+            await sync(signal);
+
+            return i + 1;
+        }
+
+        function updateStats() {
+            statComps.textContent = comparisons;
+            statSwaps.textContent = swaps;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const barW = canvas.width / N;
+
+            for (let i = 0; i < N; i++) {
+                const item = array[i];
+                const h = item.value * (canvas.height - 20); // 20px padding top?
+                const x = i * barW;
+                const y = canvas.height - h;
+
+                // Color based on state
+                if (item.state === 'sorted') ctx.fillStyle = '#6a9955';
+                else if (item.state === 'compare') ctx.fillStyle = '#b13e3e';
+                else if (item.state === 'pivot') ctx.fillStyle = '#38b2ac';
+                else ctx.fillStyle = '#2c5282';
+
+                // Draw bar
+                ctx.fillRect(x, y, barW - 1, h); // -1 for gap
+            }
+        }
+
+    </script>
+</body>
+
+</html>
