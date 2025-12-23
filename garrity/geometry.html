@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperbolic Geometry - Poincaré Disk</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --geo-line: #2c5282;
+            --geo-point: #b13e3e;
+            --disk-bg: #fff;
+            --disk-border: #333;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: transparent;
+            /* disk draws its own bg */
+            width: 100%;
+            max-width: 600px;
+            cursor: pointer;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button:active {
+            background: #ccc;
+        }
+
+        .stats {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.03);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 4px;
+            font-family: 'Gill Sans', sans-serif;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-val {
+            font-weight: bold;
+            font-family: 'Consolas', monospace;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Geometry</h1>
+        <span class="subtitle">Chapter 8: Hyperbolic Geometry (Poincaré Disk)</span>
+    </header>
+
+    <main>
+        <p>
+            In Hyperbolic Geometry, the sum of angles in a triangle is always less than 180 degrees.
+            We use the <strong>Poincaré Disk Model</strong>, where "lines" (geodesics) are circular arcs perpendicular
+            to the boundary.
+        </p>
+
+        <p>
+            <span class="sidenote">
+                <strong>Gauss-Bonnet Theorem:</strong> The "defect" (180 - sum) is proportional to the area of the
+                triangle times the curvature.
+            </span>
+            <strong>Instructions:</strong> Drag the red vertices ($A, B, C$) to reshape the triangle. Observe how the
+            angle sum drops as points move toward the boundary (infinity).
+        </p>
+
+        <div class="viz-container">
+            <canvas id="canvas" width="600" height="600"></canvas>
+
+            <div class="stats">
+                <div class="stat-row">
+                    <span>Angle A ($\alpha$)</span>
+                    <span id="val-a" class="stat-val">0°</span>
+                </div>
+                <div class="stat-row">
+                    <span>Angle B ($\beta$)</span>
+                    <span id="val-b" class="stat-val">0°</span>
+                </div>
+                <div class="stat-row">
+                    <span>Angle C ($\gamma$)</span>
+                    <span id="val-c" class="stat-val">0°</span>
+                </div>
+                <hr style="width:100%; border:0; border-top:1px solid #ccc; margin: 0.5rem 0;">
+                <div class="stat-row">
+                    <span><strong>Sum</strong></span>
+                    <span id="val-sum" class="stat-val">0°</span>
+                </div>
+                <div class="stat-row" style="color: #666; font-size: 0.9rem;">
+                    <span>Euclidean Sum</span>
+                    <span>180°</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button onclick="resetPoints()">Reset Triangle</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Config
+        const SIZE = 600;
+        const CENTER = SIZE / 2;
+        const RADIUS = 250; // Disk radius in pixels
+
+        // State
+        // Triangle vertices in Complex Plane coords (Unit Disk: |z| < 1)
+        // Store as {x, y}
+        let points = [
+            { x: 0.2, y: 0.2 }, // A
+            { x: -0.2, y: 0.2 }, // B
+            { x: 0, y: -0.3 }   // C
+        ];
+
+        let dragIdx = -1;
+
+        // Math Helpers
+        function dist(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        // Complex math helpers
+        function cAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+        function cSub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+        function cMult(a, b) { return { x: a.x * b.x - a.y * b.y, y: a.x * b.y + a.y * b.x }; }
+        function cDiv(a, b) {
+            const d = b.x * b.x + b.y * b.y;
+            return { x: (a.x * b.x + a.y * b.y) / d, y: (a.y * b.x - a.x * b.y) / d };
+        }
+        function cConj(a) { return { x: a.x, y: -a.y }; }
+        function cModSq(a) { return a.x * a.x + a.y * a.y; }
+
+        function toScreen(p) {
+            return {
+                x: CENTER + p.x * RADIUS,
+                y: CENTER - p.y * RADIUS // Y up in math, down in canvas
+            };
+        }
+
+        function toMath(sx, sy) {
+            return {
+                x: (sx - CENTER) / RADIUS,
+                y: -(sy - CENTER) / RADIUS
+            };
+        }
+
+        // Geometry Logic
+        // Calculate circle through p1, p2 orthogonal to unit circle
+        // This circle passes through p1 and p1_inverse = 1/conj(p1).
+        // Center of orthogonal circle?
+        // Let circle be |z - C|^2 = R^2.
+        // Orthogonality to unit circle means |C|^2 = R^2 + 1.
+        // It's often easier to map straight line if passing through origin.
+
+        function getArcParams(p1, p2) {
+            // Check if collinear with origin
+            // Cross product p1 x p2
+            const cp = p1.x * p2.y - p1.y * p2.x;
+            if (Math.abs(cp) < 1e-6) {
+                return { type: 'line', p1, p2 };
+            }
+
+            // Calculate center of orthogonal circle
+            // Circle passes through p1, p2.
+            // Also passes through reflection of p1 across unit circle: p1_inv = p1 / |p1|^2
+            const den = cModSq(p1);
+            const p1_inv = { x: p1.x / den, y: p1.y / den };
+
+            // Find circumcenter of p1, p2, p1_inv
+            // Using formula for circle from 3 points
+            const D = 2 * (p1.x * (p2.y - p1_inv.y) + p2.x * (p1_inv.y - p1.y) + p1_inv.x * (p1.y - p2.y));
+
+            const Ux = ((p1.x * p1.x + p1.y * p1.y) * (p2.y - p1_inv.y) +
+                (p2.x * p2.x + p2.y * p2.y) * (p1_inv.y - p1.y) +
+                (p1_inv.x * p1_inv.x + p1_inv.y * p1_inv.y) * (p1.y - p2.y)) / D;
+
+            const Uy = ((p1.x * p1.x + p1.y * p1.y) * (p1_inv.x - p2.x) +
+                (p2.x * p2.x + p2.y * p2.y) * (p1.x - p1_inv.x) +
+                (p1_inv.x * p1_inv.x + p1_inv.y * p1_inv.y) * (p2.x - p1.x)) / D;
+
+            const C = { x: Ux, y: Uy };
+            const R = Math.sqrt(Math.pow(p1.x - C.x, 2) + Math.pow(p1.y - C.y, 2));
+
+            // Determine angles for arc
+            // We need arc from p1 to p2.
+            const ang1 = Math.atan2(p1.y - C.y, p1.x - C.x);
+            const ang2 = Math.atan2(p2.y - C.y, p2.x - C.x);
+
+            // Determine direction (shortest path within disk?)
+            // Just draw proper arc. Canvas arc uses start/end.
+            // We need to know if we go CCW or CW.
+            // p1 to p2.
+            // Let's use logic: midpoint of arc should be inside disk?
+            // Actually, simplest is calculating the tangent vector at p1.
+
+            return { type: 'arc', c: C, r: R, ang1, ang2, p1, p2 };
+        }
+
+        // Draw
+        function draw() {
+            ctx.clearRect(0, 0, SIZE, SIZE);
+
+            // 1. Draw Disk
+            ctx.beginPath();
+            ctx.arc(CENTER, CENTER, RADIUS, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 2. Draw Geodesics
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#2c5282'; // var(--geo-line)
+
+            const pairs = [[0, 1], [1, 2], [2, 0]];
+            const tangentVectors = []; // Store vectors for angle calc [ [v_in, v_out], ... ]
+
+            // Calculate tangents at each vertex for angle calc
+            // For vertex i, we need tangent of line i->j and line i->k.
+            const angles = [0, 0, 0];
+
+            // Helper to get tangent vector at p1 pointing towards p2
+            const getTangent = (pFrom, pTo) => {
+                const params = getArcParams(pFrom, pTo);
+                let tx, ty;
+                if (params.type === 'line') {
+                    tx = pTo.x - pFrom.x;
+                    ty = pTo.y - pFrom.y;
+                } else {
+                    // Tangent to circle at pFrom.
+                    // Normal is (pFrom - C). Tangent is perpendicular.
+                    // (dx, dy) = (pFrom.x - C.x, pFrom.y - C.y)
+                    // Tangent is (-dy, dx) or (dy, -dx).
+                    // Must point towards pTo.
+                    // Visual check: Cross prod of Normal and Tangent?
+                    // Let's use derivative of angle.
+                    const dx = pFrom.x - params.c.x;
+                    const dy = pFrom.y - params.c.y;
+
+                    // Possible tangents
+                    const t1 = { x: -dy, y: dx };
+                    const t2 = { x: dy, y: -dx };
+
+                    // Check which one points 'along' the arc towards p2.
+                    // Small step?
+                    // Or dot product with straight line p1->p2. 
+                    const straight = { x: pTo.x - pFrom.x, y: pTo.y - pFrom.y };
+                    if (t1.x * straight.x + t1.y * straight.y > 0) return t1;
+                    return t2;
+                }
+                return { x: tx, y: ty };
+            };
+
+            // Calculate Angles
+            for (let i = 0; i < 3; i++) {
+                const p = points[i];
+                const prev = points[(i + 2) % 3];
+                const next = points[(i + 1) % 3];
+
+                const v1 = getTangent(p, prev);
+                const v2 = getTangent(p, next);
+
+                // Angle between v1 and v2
+                const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+                const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+                const dot = v1.x * v2.x + v1.y * v2.y;
+                let ang = Math.acos(dot / (mag1 * mag2));
+                angles[i] = ang * (180 / Math.PI);
+            }
+
+            // Draw Lines
+            pairs.forEach(pair => {
+                const p1 = points[pair[0]];
+                const p2 = points[pair[1]];
+                const params = getArcParams(p1, p2);
+
+                ctx.beginPath();
+                if (params.type === 'line') {
+                    const s1 = toScreen(p1);
+                    const s2 = toScreen(p2);
+                    ctx.moveTo(s1.x, s1.y);
+                    ctx.lineTo(s2.x, s2.y);
+                } else {
+                    // Draw arc
+                    // Canvas arc y is flipped relative to math... handled by toScreen for Center?
+                    // Wait, parametric arc drawing might be safer to ensure correct segment.
+                    // Center C is in math coords.
+                    const sC = toScreen(params.c);
+                    const sR = params.r * RADIUS;
+
+                    // Angles in canvas coords?
+                    // atan2(y, x). Canvas Y is inverted.
+                    // Let's rely on computing intermediate points to avoid arc-hell.
+                    // 20 segments.
+                    // How to interpolate?
+                    // We know arc goes from p1 to p2.
+                    // Arc center C.
+                    // p(t) on circle.
+                    // We can check `anticlockwise` param for ctx.arc
+
+                    // Let's use canvas native arc
+                    // Need startAngle, endAngle in Canvas system (Y down).
+                    const sP1 = toScreen(p1);
+                    const sP2 = toScreen(p2);
+
+                    const a1 = Math.atan2(sP1.y - sC.y, sP1.x - sC.x);
+                    const a2 = Math.atan2(sP2.y - sC.y, sP2.x - sC.x);
+
+                    // Use vector cross product to determine direction?
+                    // Vector C->P1, C->P2.
+                    // Check signed angle diff.
+                    // But we want the "hyperbolic segment", which is the one inside the disk.
+                    // Since circle is orthogonal to boundary, part of it is in, part out.
+                    // We just draw the short way? No, could be long way if near boundary.
+
+                    // Actually, since all points are inside disk, the arc between them inside the disk
+                    // is uniquely determined and doesn't cross the "infinite" boundary unless ideal.
+
+                    // We can check if midpoint of "short" arc is inside disk (distance < RADIUS).
+                    // Or check angle diff.
+
+                    let diff = a2 - a1;
+                    while (diff <= -Math.PI) diff += 2 * Math.PI;
+                    while (diff > Math.PI) diff -= 2 * Math.PI;
+
+                    ctx.arc(sC.x, sC.y, sR, a1, a2, diff < 0);
+                }
+                ctx.stroke();
+            });
+
+            // 3. Draw Points
+            points.forEach((p, i) => {
+                const s = toScreen(p);
+                ctx.fillStyle = '#b13e3e';
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 14px Gill Sans';
+                ctx.fillText(['A', 'B', 'C'][i], s.x + 10, s.y - 10);
+            });
+
+            // Update Stats
+            document.getElementById('val-a').textContent = angles[0].toFixed(1) + "°";
+            document.getElementById('val-b').textContent = angles[1].toFixed(1) + "°";
+            document.getElementById('val-c').textContent = angles[2].toFixed(1) + "°";
+
+            const sum = angles[0] + angles[1] + angles[2];
+            document.getElementById('val-sum').textContent = sum.toFixed(1) + "°";
+            document.getElementById('val-sum').style.color = (sum > 179) ? '#333' : '#b13e3e';
+        }
+
+        // Interaction
+        canvas.addEventListener('mousedown', e => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Check points
+            const m = toMath(x, y);
+            let minDist = 0.05;
+
+            points.forEach((p, i) => {
+                const d = dist(p, m);
+                if (d < minDist) {
+                    dragIdx = i;
+                    minDist = d;
+                }
+            });
+        });
+
+        window.addEventListener('mouseup', () => dragIdx = -1);
+
+        canvas.addEventListener('mousemove', e => {
+            if (dragIdx === -1) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const m = toMath(x, y);
+            const d = Math.sqrt(m.x * m.x + m.y * m.y);
+
+            // Constrain to inside disk (margin 0.02)
+            if (d < 0.98) {
+                points[dragIdx] = m;
+            } else {
+                // Project to boundary-ish
+                const scale = 0.98 / d;
+                points[dragIdx] = { x: m.x * scale, y: m.y * scale };
+            }
+            draw();
+        });
+
+        function resetPoints() {
+            points = [
+                { x: 0.2, y: 0.2 },
+                { x: -0.2, y: 0.2 },
+                { x: 0, y: -0.3 }
+            ];
+            draw();
+        }
+
+        // Init
+        draw();
+
+    </script>
+</body>
+
+</html>
