@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complex Analysis - Conformal Maps</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #fffff8;
+            --fg: #111111;
+            --accent: #b13e3e;
+            --grid-line: #a0aec0;
+            --grid-line-bold: #4a5568;
+            --cursor-z: #3182ce;
+            --cursor-w: #e53e3e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'et-book', 'Palatino', 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header,
+        main {
+            width: 100%;
+            max-width: 1000px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+            color: #555;
+            display: block;
+            margin-bottom: 2rem;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        .canvases {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .canvas-label {
+            font-family: 'Gill Sans', sans-serif;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ddd;
+        }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .coord-display {
+            font-family: 'Consolas', monospace;
+            background: rgba(0, 0, 0, 0.03);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            color: #555;
+            vertical-align: baseline;
+            position: relative;
+        }
+
+        @media (max-width: 1200px) {
+            .sidenote {
+                float: none;
+                margin: 1rem 0;
+                width: 100%;
+                padding-left: 1rem;
+                border-left: 2px solid #eee;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.html"
+            style="text-decoration: none; color: #888; font-size: 0.9rem; font-family: 'Gill Sans', sans-serif;">&larr;
+            Back to Index</a>
+        <h1>Complex Analysis</h1>
+        <span class="subtitle">Chapter 9: Conformal Maps</span>
+    </header>
+
+    <main>
+        <p>
+            An analytic function $f(z)$ is a **conformal map**, meaning it preserves angles locally.
+            Small squares in the grid of the $z$-plane map to small "squares" (curvilinear quads with 90° corners) in
+            the $w$-plane.
+        </p>
+
+        <p>
+            <span class="sidenote">
+                <strong>Z-Plane:</strong> The input domain/grid. <br>
+                <strong>W-Plane:</strong> The output range $w = f(z)$.
+            </span>
+            <strong>Instructions:</strong> Select a function and move the mouse over the left canvas ($Z$-Plane).
+            Observe how the grid lines deform in the right canvas ($W$-Plane) while maintaining their orthogonal
+            intersections.
+        </p>
+
+        <div class="viz-container">
+            <div class="controls">
+                <button onclick="setFunc('sq')" id="btn-sq" class="active">$f(z) = z^2$</button>
+                <button onclick="setFunc('exp')" id="btn-exp">$f(z) = e^z$</button>
+                <button onclick="setFunc('inv')" id="btn-inv">$f(z) = 1/z$</button>
+                <button onclick="setFunc('jou')" id="btn-jou">$f(z) = z + 1/z$</button>
+            </div>
+
+            <div class="canvases">
+                <div class="canvas-wrapper">
+                    <div class="canvas-label">$Z$-Plane (Input)</div>
+                    <canvas id="canvasZ" width="400" height="400"></canvas>
+                </div>
+                <div class="canvas-wrapper">
+                    <div class="canvas-label">$W$-Plane (Output)</div>
+                    <canvas id="canvasW" width="400" height="400"></canvas>
+                </div>
+            </div>
+
+            <div class="coord-display" id="coords">
+                z = 0.00 + 0.00i &nbsp;&rarr;&nbsp; w = 0.00 + 0.00i
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const cvZ = document.getElementById('canvasZ');
+        const ctxZ = cvZ.getContext('2d');
+        const cvW = document.getElementById('canvasW');
+        const ctxW = cvW.getContext('2d');
+        const coordDisp = document.getElementById('coords');
+
+        // Config
+        const SCALE = 80; // pixels per unit
+        const CW = cvZ.width;
+        const CH = cvZ.height;
+        const CX = CW / 2;
+        const CY = CH / 2;
+
+        // State
+        let currentFunc = 'sq';
+        let cursorZ = { x: 0.5, y: 0.5 };
+
+        // Math Helpers
+        function toPixel(x, y) {
+            return { x: CX + x * SCALE, y: CY - y * SCALE };
+        }
+        function fromPixel(px, py) {
+            return { x: (px - CX) / SCALE, y: (CY - py) / SCALE };
+        }
+
+        // Functions (return {u, v} or null if undef)
+        const functions = {
+            'sq': (x, y) => ({ u: x * x - y * y, v: 2 * x * y }),
+            'exp': (x, y) => {
+                const mag = Math.exp(x);
+                return { u: mag * Math.cos(y), v: mag * Math.sin(y) };
+            },
+            'inv': (x, y) => {
+                const den = x * x + y * y;
+                if (den < 0.0001) return null;
+                return { u: x / den, v: -y / den };
+            },
+            'jou': (x, y) => {
+                const den = x * x + y * y;
+                if (den < 0.0001) return null;
+                // z + 1/z = (x+iy) + (x-iy)/(x^2+y^2)
+                const u = x + x / den;
+                const v = y - y / den;
+                return { u, v };
+            }
+        };
+
+        function setFunc(name) {
+            currentFunc = name;
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + name).classList.add('active');
+            draw();
+        }
+
+        // Drawing
+        function drawGridZ() {
+            ctxZ.clearRect(0, 0, CW, CH);
+            ctxZ.lineWidth = 1;
+
+            // Draw Axis
+            ctxZ.strokeStyle = '#ddd';
+            ctxZ.beginPath(); ctxZ.moveTo(0, CY); ctxZ.lineTo(CW, CY); ctxZ.stroke();
+            ctxZ.beginPath(); ctxZ.moveTo(CX, 0); ctxZ.lineTo(CX, CH); ctxZ.stroke();
+
+            // Draw Grid Lines
+            // Vertical lines x = const
+            for (let x = -3; x <= 3; x += 0.5) {
+                if (Math.abs(x) < 0.1) continue; // skip axis
+                ctxZ.beginPath();
+                ctxZ.strokeStyle = (Math.abs(x % 1) < 0.1) ? 'var(--grid-line-bold)' : 'var(--grid-line)';
+                const p1 = toPixel(x, -3);
+                const p2 = toPixel(x, 3);
+                ctxZ.moveTo(p1.x, p1.y);
+                ctxZ.lineTo(p2.x, p2.y);
+                ctxZ.stroke();
+            }
+            // Horizontal lines y = const
+            for (let y = -3; y <= 3; y += 0.5) {
+                if (Math.abs(y) < 0.1) continue;
+                ctxZ.beginPath();
+                ctxZ.strokeStyle = (Math.abs(y % 1) < 0.1) ? 'var(--grid-line-bold)' : 'var(--grid-line)';
+                const p1 = toPixel(-3, y);
+                const p2 = toPixel(3, y);
+                ctxZ.moveTo(p1.x, p1.y);
+                ctxZ.lineTo(p2.x, p2.y);
+                ctxZ.stroke();
+            }
+
+            // Draw Cursor
+            const cp = toPixel(cursorZ.x, cursorZ.y);
+            ctxZ.beginPath(); ctxZ.arc(cp.x, cp.y, 5, 0, 2 * Math.PI);
+            ctxZ.fillStyle = 'var(--cursor-z)'; ctxZ.fill();
+
+            // Highlight current grid line near cursor?
+            // Maybe just drawing is enough.
+        }
+
+        function drawGridW() {
+            ctxW.clearRect(0, 0, CW, CH);
+            ctxW.lineWidth = 1;
+
+            // Draw Axis
+            ctxW.strokeStyle = '#ddd';
+            ctxW.beginPath(); ctxW.moveTo(0, CY); ctxW.lineTo(CW, CY); ctxW.stroke();
+            ctxW.beginPath(); ctxW.moveTo(CX, 0); ctxW.lineTo(CX, CH); ctxW.stroke();
+
+            const f = functions[currentFunc];
+            const step = 0.05; // sampling step for curves
+
+            // Draw Transformed Vertical lines (x = const, y varies)
+            for (let x = -3; x <= 3; x += 0.5) {
+                // Determine style
+                ctxW.strokeStyle = (Math.abs(x % 1) < 0.1) ? 'var(--grid-line-bold)' : 'var(--grid-line)';
+                if (Math.abs(x) < 0.1) ctxW.strokeStyle = '#ddd'; // axis mapping
+
+                ctxW.beginPath();
+                let penDown = false;
+
+                for (let y = -3; y <= 3; y += step) {
+                    const w = f(x, y);
+                    if (!w) { penDown = false; continue; }
+
+                    const p = toPixel(w.u, w.v);
+
+                    // Simple clipping to avoid crazy lines
+                    if (p.x < -100 || p.x > CW + 100 || p.y < -100 || p.y > CH + 100) {
+                        penDown = false; continue;
+                    }
+
+                    if (!penDown) { ctxW.moveTo(p.x, p.y); penDown = true; }
+                    else { ctxW.lineTo(p.x, p.y); }
+                }
+                ctxW.stroke();
+            }
+
+            // Draw Transformed Horizontal lines (y = const, x varies)
+            for (let y = -3; y <= 3; y += 0.5) {
+                ctxW.strokeStyle = (Math.abs(y % 1) < 0.1) ? 'var(--grid-line-bold)' : 'var(--grid-line)';
+                if (Math.abs(y) < 0.1) ctxW.strokeStyle = '#ddd';
+
+                ctxW.beginPath();
+                let penDown = false;
+
+                for (let x = -3; x <= 3; x += step) {
+                    const w = f(x, y);
+                    if (!w) { penDown = false; continue; }
+
+                    const p = toPixel(w.u, w.v);
+
+                    if (p.x < -100 || p.x > CW + 100 || p.y < -100 || p.y > CH + 100) {
+                        penDown = false; continue;
+                    }
+
+                    if (!penDown) { ctxW.moveTo(p.x, p.y); penDown = true; }
+                    else { ctxW.lineTo(p.x, p.y); }
+                }
+                ctxW.stroke();
+            }
+
+            // Draw Transformed Cursor
+            const w = f(cursorZ.x, cursorZ.y);
+            if (w) {
+                const wp = toPixel(w.u, w.v);
+                ctxW.beginPath(); ctxW.arc(wp.x, wp.y, 5, 0, 2 * Math.PI);
+                ctxW.fillStyle = 'var(--cursor-w)'; ctxW.fill();
+
+                updateText(cursorZ.x, cursorZ.y, w.u, w.v);
+            } else {
+                updateText(cursorZ.x, cursorZ.y, null, null);
+            }
+        }
+
+        function updateText(x, y, u, v) {
+            const fmt = (n) => (n < 0 ? '-' : '+') + Math.abs(n).toFixed(2);
+            const zStr = `${x.toFixed(2)} ${fmt(y)}i`;
+            const wStr = (u === null) ? "Undefined" : `${u.toFixed(2)} ${fmt(v)}i`;
+            coordDisp.innerHTML = `z = ${zStr} &nbsp;&rarr;&nbsp; w = ${wStr}`;
+        }
+
+        function draw() {
+            drawGridZ();
+            drawGridW();
+        }
+
+        // Interaction
+        cvZ.addEventListener('mousemove', e => {
+            const rect = cvZ.getBoundingClientRect();
+            const px = e.clientX - rect.left;
+            const py = e.clientY - rect.top;
+            cursorZ = fromPixel(px, py);
+            draw();
+        });
+
+        cvZ.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const rect = cvZ.getBoundingClientRect();
+            const px = e.touches[0].clientX - rect.left;
+            const py = e.touches[0].clientY - rect.top;
+            cursorZ = fromPixel(px, py);
+            draw();
+        }, { passive: false });
+
+        // Init
+        draw();
+
+    </script>
+</body>
+
+</html>
