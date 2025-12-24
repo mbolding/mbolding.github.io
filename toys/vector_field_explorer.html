@@ -518,6 +518,29 @@
                     drawArrow(ctx, px, py, endX, endY);
                 }
             }
+
+            // 5. Draw Trajectories
+            if (trajectories.length > 0) {
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#9333ea';
+
+                trajectories.forEach(t => {
+                    ctx.beginPath();
+                    // Transform first point
+                    let startX = (t.pts[0].x / (2 * state.range) + 0.5) * width;
+                    let startY = ((-t.pts[0].y) / (2 * state.range) + 0.5) * height;
+
+                    ctx.moveTo(startX, startY);
+
+                    for (let i = 1; i < t.pts.length; i++) {
+                        const pt = t.pts[i];
+                        const tx = (pt.x / (2 * state.range) + 0.5) * width;
+                        const ty = ((-pt.y) / (2 * state.range) + 0.5) * height;
+                        ctx.lineTo(tx, ty);
+                    }
+                    ctx.stroke();
+                });
+            }
         }
 
         /**
@@ -540,6 +563,102 @@
             ctx.fill();
         }
 
+
+        // --- SIMULATION ENGINE (Phase Plots) ---
+
+        let trajectories = [];
+        let animationId = null;
+
+        function rk4(x, y, h, func) {
+            // Helper to get {u,v} from field function
+            // Note: Our field functions return {u,v}, which corresponds to {dx,dy}
+            const k1 = func(x, y);
+
+            const x2 = x + 0.5 * h * k1.u;
+            const y2 = y + 0.5 * h * k1.v;
+            const k2 = func(x2, y2);
+
+            const x3 = x + 0.5 * h * k2.u;
+            const y3 = y + 0.5 * h * k2.v;
+            const k3 = func(x3, y3);
+
+            const x4 = x + h * k3.u;
+            const y4 = y + h * k3.v;
+            const k4 = func(x4, y4);
+
+            return {
+                x: x + (h / 6) * (k1.u + 2 * k2.u + 2 * k3.u + k4.u),
+                y: y + (h / 6) * (k1.v + 2 * k2.v + 2 * k3.v + k4.v)
+            };
+        }
+
+        function stepTrajectories() {
+            if (trajectories.length === 0) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+                return;
+            }
+
+            const field = fields[state.fieldKey];
+            const h = 0.02; // Time step
+            const maxPoints = 500; // Limit trail length
+
+            trajectories.forEach(t => {
+                if (t.pts.length >= maxPoints) return;
+
+                const last = t.pts[t.pts.length - 1];
+
+                // Integrate
+                const next = rk4(last.x, last.y, h, field.func);
+
+                // Bounds check (stop if far out of view)
+                if (Math.abs(next.x) > state.range * 1.5 || Math.abs(next.y) > state.range * 1.5) {
+                    return; // Stop adding points
+                }
+
+                t.pts.push(next);
+            });
+
+            draw();
+            animationId = requestAnimationFrame(stepTrajectories);
+        }
+
+        function clearTrajectories() {
+            trajectories = [];
+            draw();
+        }
+
+        // --- INTERACTION ---
+
+        canvas.addEventListener('mousedown', e => {
+            const rect = canvas.getBoundingClientRect();
+            // Get logical coordinates (accounting for DPI)
+            const dpr = window.devicePixelRatio || 1;
+
+            // Mouse pos relative to canvas element
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            // Convert to logical pixel coordinates (for math mapping)
+            // Note: In draw(), we use logic based on canvas.width/dpr
+            const width = canvas.width / dpr;
+            const height = canvas.height / dpr;
+
+            // Map Screen -> Math (Inverse of draw logic)
+            // x = (px / width - 0.5) * 2 * state.range
+            // y = -((py / height - 0.5) * 2 * state.range)
+            const mathX = (mx / width - 0.5) * 2 * state.range;
+            const mathY = -((my / height - 0.5) * 2 * state.range);
+
+            trajectories.push({
+                pts: [{ x: mathX, y: mathY }],
+                color: '#9333ea' // Purple
+            });
+
+            if (!animationId) {
+                stepTrajectories();
+            }
+        });
 
         // --- UI INITIALIZATION ---
 
@@ -569,11 +688,30 @@
                 draw();
             };
 
+            // Add Clear Button logic (UI element added in HTML below)
+            const controlsDiv = document.querySelector('.controls');
+            const clearDiv = document.createElement('div');
+            clearDiv.className = 'control-panel';
+            clearDiv.innerHTML = `
+                <h3>Simulation</h3>
+                <button onclick="clearTrajectories()" style="justify-content: center; width: 100%;">
+                    Clear Particles
+                </button>
+                <div style="margin-top:8px; font-size: 0.8rem; color: #666;">
+                    Click on the canvas to spawn particles.
+                </div>
+            `;
+            // Insert before the Description panel
+            const descPanel = controlsDiv.lastElementChild;
+            controlsDiv.insertBefore(clearDiv, descPanel);
+
             updateInfo();
         }
 
         function setField(key) {
             state.fieldKey = key;
+            // Clear trajectories when switching fields to avoid confusion
+            trajectories = [];
 
             // Update buttons
             document.querySelectorAll('.field-grid button').forEach(b => {
