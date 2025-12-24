@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Board Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            text-align: center;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            grid-gap: 2px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            width: 60px;
+            height: 60px;
+            background-color: #fff;
+            border: 1px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            cursor: pointer;
+        }
+        #message {
+            margin-bottom: 10px;
+        }
+        button {
+            font-size: 16px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="board"></div>
+        <div id="message">Player 1's turn</div>
+        <button id="reset-btn">Reset Game</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const message = document.getElementById('message');
+        const resetBtn = document.getElementById('reset-btn');
+        let selectedCell = null;
+        let currentPlayer = 1;
+        let gameBoard = [];
+
+        const EMPTY = 0;
+        const P1_PAWN = 1;
+        const P1_ROOK = 2;
+        const P1_BISHOP = 3;
+        const P2_PAWN = 4;
+        const P2_ROOK = 5;
+        const P2_BISHOP = 6;
+
+        function initializeBoard() {
+            gameBoard = Array(5).fill().map(() => Array(5).fill(EMPTY));
+            // Player 1 pieces
+            gameBoard[0] = [P1_ROOK, P1_PAWN, P1_PAWN, P1_PAWN, P1_BISHOP];
+            // Player 2 pieces
+            gameBoard[4] = [P2_BISHOP, P2_PAWN, P2_PAWN, P2_PAWN, P2_ROOK];
+            renderBoard();
+        }
+
+        function renderBoard() {
+            board.innerHTML = '';
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 5; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    cell.textContent = getPieceSymbol(gameBoard[row][col]);
+                    cell.addEventListener('click', handleCellClick);
+                    board.appendChild(cell);
+                }
+            }
+        }
+
+        function getPieceSymbol(piece) {
+            switch(piece) {
+                case P1_PAWN: return '🔵';
+                case P1_ROOK: return '🏰';
+                case P1_BISHOP: return '🔷';
+                case P2_PAWN: return '🔴';
+                case P2_ROOK: return '🏯';
+                case P2_BISHOP: return '🔶';
+                default: return '';
+            }
+        }
+
+        function handleCellClick(event) {
+            const row = parseInt(event.target.dataset.row);
+            const col = parseInt(event.target.dataset.col);
+
+            if (!selectedCell) {
+                if (isPlayerPiece(gameBoard[row][col], currentPlayer)) {
+                    selectedCell = { row, col };
+                    event.target.style.backgroundColor = '#ffff00';
+                }
+            } else {
+                if (isValidMove(selectedCell, { row, col })) {
+                    movePiece(selectedCell, { row, col });
+                    selectedCell = null;
+                    switchPlayer();
+                    renderBoard();
+                    checkWinCondition();
+                } else {
+                    // Deselect if the move is invalid
+                    selectedCell = null;
+                    renderBoard();
+                }
+            }
+        }
+
+        function isPlayerPiece(piece, player) {
+            return player === 1 ? (piece >= P1_PAWN && piece <= P1_BISHOP) : (piece >= P2_PAWN && piece <= P2_BISHOP);
+        }
+
+        function isValidMove(from, to) {
+            const piece = gameBoard[from.row][from.col];
+            const rowDiff = to.row - from.row;
+            const colDiff = to.col - from.col;
+
+            // Check if the destination is occupied by the same player's piece
+            if (isPlayerPiece(gameBoard[to.row][to.col], currentPlayer)) {
+                return false;
+            }
+
+            switch(piece) {
+                case P1_PAWN:
+                case P2_PAWN:
+                    return Math.abs(rowDiff) <= 1 && Math.abs(colDiff) <= 1;
+                case P1_ROOK:
+                case P2_ROOK:
+                    return (rowDiff === 0 || colDiff === 0) && !hasObstaclesBetween(from, to);
+                case P1_BISHOP:
+                case P2_BISHOP:
+                    return Math.abs(rowDiff) === Math.abs(colDiff) && !hasObstaclesBetween(from, to);
+                default:
+                    return false;
+            }
+        }
+
+        function hasObstaclesBetween(from, to) {
+            const rowStep = Math.sign(to.row - from.row);
+            const colStep = Math.sign(to.col - from.col);
+            let row = from.row + rowStep;
+            let col = from.col + colStep;
+
+            while (row !== to.row || col !== to.col) {
+                if (gameBoard[row][col] !== EMPTY) {
+                    return true;
+                }
+                row += rowStep;
+                col += colStep;
+            }
+
+            return false;
+        }
+
+        function movePiece(from, to) {
+            gameBoard[to.row][to.col] = gameBoard[from.row][from.col];
+            gameBoard[from.row][from.col] = EMPTY;
+        }
+
+        function switchPlayer() {
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            message.textContent = `Player ${currentPlayer}'s turn`;
+        }
+
+        function checkWinCondition() {
+            const targetRow = currentPlayer === 1 ? 4 : 0;
+            const win = gameBoard[targetRow].some(cell => isPlayerPiece(cell, currentPlayer));
+            if (win) {
+                message.textContent = `Player ${currentPlayer} wins!`;
+                board.removeEventListener('click', handleCellClick);
+            }
+        }
+
+        resetBtn.addEventListener('click', () => {
+            currentPlayer = 1;
+            selectedCell = null;
+            message.textContent = "Player 1's turn";
+            initializeBoard();
+        });
+
+        initializeBoard();
+    </script>
+</body>
+</html>
+
+

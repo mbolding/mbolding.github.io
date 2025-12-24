@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hexagon Board Game with Multiple Piece Types</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        canvas {
+            border: 1px solid #000;
+            margin-top: 20px;
+        }
+        input, button, select {
+            margin: 5px;
+            padding: 5px;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        .gamePiece {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            position: absolute;
+            cursor: move;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hexagon Board Game with Multiple Piece Types</h1>
+    <div>
+        <label for="rows">Rows:</label>
+        <input type="number" id="rows" min="1" max="20" value="6">
+        <label for="cols">Columns:</label>
+        <input type="number" id="cols" min="1" max="20" value="6">
+        <button onclick="generateBoard()">Generate Board</button>
+    </div>
+    <div>
+        <label for="pieceType">Piece Type:</label>
+        <select id="pieceType">
+            <option value="pawn">Pawn</option>
+            <option value="rook">Rook</option>
+            <option value="knight">Knight</option>
+            <option value="bishop">Bishop</option>
+            <option value="queen">Queen</option>
+            <option value="king">King</option>
+        </select>
+    </div>
+    <div id="gameContainer">
+        <canvas id="hexCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('hexCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('gameContainer');
+        const pieceTypeSelect = document.getElementById('pieceType');
+
+        let isDragging = false;
+        let draggedPiece = null;
+        let dragOffsetX, dragOffsetY;
+
+        const pieceTypes = {
+            pawn: { symbol: '♙', color: '#8B4513' },
+            rook: { symbol: '♖', color: '#A0522D' },
+            knight: { symbol: '♘', color: '#D2691E' },
+            bishop: { symbol: '♗', color: '#CD853F' },
+            queen: { symbol: '♕', color: '#DEB887' },
+            king: { symbol: '♔', color: '#F4A460' }
+        };
+
+        function drawHexagon(x, y, size) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (2 * Math.PI / 6 * i) + (Math.PI / 6);
+                const xPos = x + size * Math.cos(angle);
+                const yPos = y + size * Math.sin(angle);
+                if (i === 0) {
+                    ctx.moveTo(xPos, yPos);
+                } else {
+                    ctx.lineTo(xPos, yPos);
+                }
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        function generateBoard() {
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            const hexSize = 20;
+            const hexHeight = hexSize * 2;
+            const hexWidth = Math.sqrt(3) * hexSize;
+
+            canvas.width = (cols + 0.5) * hexWidth;
+            canvas.height = (rows + 0.5) * (hexHeight * 0.75);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const x = col * hexWidth + ((row % 2) * (hexWidth / 2)) + (hexWidth / 2);
+                    const y = row * (hexHeight * 0.75) + (hexHeight / 2);
+                    drawHexagon(x, y, hexSize);
+                }
+            }
+
+            gameContainer.style.width = canvas.width + 'px';
+            gameContainer.style.height = canvas.height + 'px';
+        }
+
+        function createGamePiece(x, y, type) {
+            const piece = document.createElement('div');
+            piece.className = 'gamePiece';
+            piece.style.left = x + 'px';
+            piece.style.top = y + 'px';
+            piece.style.backgroundColor = pieceTypes[type].color;
+            piece.textContent = pieceTypes[type].symbol;
+            piece.dataset.type = type;
+            gameContainer.appendChild(piece);
+
+            piece.addEventListener('mousedown', startDragging);
+        }
+
+        function startDragging(e) {
+            isDragging = true;
+            draggedPiece = e.target;
+            const rect = draggedPiece.getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+        }
+
+        function drag(e) {
+            if (isDragging && draggedPiece) {
+                const containerRect = gameContainer.getBoundingClientRect();
+                let newX = e.clientX - containerRect.left - dragOffsetX;
+                let newY = e.clientY - containerRect.top - dragOffsetY;
+
+                // Constrain the game piece within the canvas
+                newX = Math.max(0, Math.min(newX, canvas.width - draggedPiece.offsetWidth));
+                newY = Math.max(0, Math.min(newY, canvas.height - draggedPiece.offsetHeight));
+
+                draggedPiece.style.left = newX + 'px';
+                draggedPiece.style.top = newY + 'px';
+            }
+        }
+
+        function stopDragging() {
+            isDragging = false;
+            draggedPiece = null;
+        }
+
+        gameContainer.addEventListener('dblclick', function(e) {
+            const rect = gameContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left - 15; // 15 is half the width of the game piece
+            const y = e.clientY - rect.top - 15; // 15 is half the height of the game piece
+            const selectedType = pieceTypeSelect.value;
+            createGamePiece(x, y, selectedType);
+        });
+
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDragging);
+
+        // Initial board generation
+        generateBoard();
+    </script>
+</body>
+</html>
+
+

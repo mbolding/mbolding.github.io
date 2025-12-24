@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Tutor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        .sentence {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+        .input-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            font-size: 1.2em;
+            padding: 10px;
+            width: 100%;
+            max-width: 500px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+        }
+        .stats {
+            font-size: 1em;
+            margin-top: 20px;
+        }
+        .stats div {
+            margin-bottom: 10px;
+        }
+        .highlight {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="sentence" id="sentence"></div>
+    <div class="input-container">
+        <input type="text" id="userInput" placeholder="Start typing here...">
+    </div>
+    <div class="stats">
+        <div id="wpm">WPM: 0</div>
+        <div id="accuracy">Accuracy: 100%</div>
+    </div>
+</div>
+
+<script>
+const sentences = [
+    "The quick brown fox jumps over the lazy dog.",
+    "A journey of a thousand miles begins with a single step.",
+    "To be or not to be, that is the question.",
+    "All that glitters is not gold.",
+    "The pen is mightier than the sword.",
+    "Actions speak louder than words.",
+    "You can lead a horse to water, but you can't make it drink.",
+    "A picture is worth a thousand words.",
+    "When in Rome, do as the Romans do.",
+    "Fortune favors the bold.",
+    "A watched pot never boils.",
+    "Brevity is the soul of wit.",
+    "Curiosity killed the cat.",
+    "Don't count your chickens before they hatch.",
+    "Every cloud has a silver lining.",
+    "Fools rush in where angels fear to tread.",
+    "Give them an inch and they'll take a mile.",
+    "Honesty is the best policy.",
+    "If it ain't broke, don't fix it.",
+    "It takes two to tango.",
+    "Knowledge is power.",
+    "Laughter is the best medicine.",
+    "Misery loves company.",
+    "Necessity is the mother of invention.",
+    "No man is an island.",
+    "Old habits die hard.",
+    "Practice makes perfect.",
+    "Rome wasn't built in a day.",
+    "The early bird catches the worm.",
+    "The grass is always greener on the other side.",
+    "The second mouse gets the cheese.",
+    "Time and tide wait for no man.",
+    "Two wrongs don't make a right.",
+    "Variety is the spice of life.",
+    "You can't judge a book by its cover.",
+    "Better late than never.",
+    "Birds of a feather flock together.",
+    "Don't cry over spilled milk.",
+    "Don't put all your eggs in one basket.",
+    "Every rose has its thorn.",
+    "Good things come to those who wait.",
+    "If the shoe fits, wear it.",
+    "If you can't beat them, join them.",
+    "If you play with fire, you'll get burned.",
+    "It's better to give than to receive.",
+    "Let sleeping dogs lie.",
+    "Lightning never strikes twice in the same place.",
+    "Look before you leap.",
+    "Money doesn't grow on trees.",
+    "Necessity is the mother of invention.",
+    "No pain, no gain.",
+    "Out of sight, out of mind.",
+    "People who live in glass houses shouldn't throw stones.",
+    "The best things in life are free.",
+    "Patience is a virtue.",
+    "The best things in life are free.",
+    "There's no place like home.",
+    "Time heals all wounds.",
+    "What goes around comes around.",
+    "You can't have your cake and eat it too.",
+    "A rolling stone gathers no moss.",
+    "Better safe than sorry.",
+    "Cleanliness is next to godliness.",
+    "Don't bite the hand that feeds you.",
+    "Don't judge a book by its cover.",
+    "Don't make a mountain out of a molehill.",
+    "Every dog has its day.",
+    "Familiarity breeds contempt.",
+    "Great minds think alike.",
+    "If you want something done right, do it yourself.",
+    "It's a piece of cake.",
+    "Haste makes waste.",
+    "Ignorance is bliss.",
+    "In for a penny, in for a pound.",
+    "It's a small world.",
+    "It's better to be safe than sorry.",
+    "It's never too late to learn.",
+    "Let bygones be bygones.",
+    "Live and let live.",
+    "Look on the bright side.",
+    "Many hands make light work.",
+    "Money can't buy happiness.",
+    "No news is good news.",
+    "Out of the frying pan and into the fire.",
+    "People who live in glass houses shouldn't throw stones.",
+    "Practice what you preach.",
+    "Silence is golden.",
+    "The early bird catches the worm.",
+    "The apple doesn't fall far from the tree.",
+    "The squeaky wheel gets the grease.",
+    "There's no such thing as a free lunch.",
+    "Too many cooks spoil the broth.",
+    "Two heads are better than one.",
+    "Waste not, want not.",
+    "Where there's a will, there's a way.",
+    "You can't teach an old dog new tricks.",
+    "A penny saved is a penny earned.",
+    "All's well that ends well.",
+    "An apple a day keeps the doctor away.",
+    "As you sow, so shall you reap.",
+    "Beauty is in the eye of the beholder.",
+    "Birds of a feather flock together.",
+    "Don't burn your bridges behind you.",
+    "Don't put the cart before the horse.",
+    "Early to bed and early to rise makes a man healthy, wealthy, and wise.",
+    "Easier said than done.",
+    "Every man for himself.",
+    "Failure is the mother of success.",
+    "Finders keepers, losers weepers.",
+    "Fortune favors the prepared mind.",
+    "Good fences make good neighbors.",
+    "He who laughs last laughs best.",
+    "Hope for the best but prepare for the worst.",
+    "If it sounds too good to be true, it probably is.",
+    "It's not rocket science.",
+    "Keep your friends close and your enemies closer.",
+    "Laughter is the shortest distance between two people.",
+    "Life is not a bed of roses.",
+    "Make hay while the sun shines.",
+    "Money is the root of all evil.",
+    "Necessity knows no law.",
+    "No smoke without fire.",
+    "Once bitten, twice shy.",
+    "Patience is bitter, but its fruit is sweet.",
+    "The ball is in your court.",
+    "The devil is in the details.",
+    "The end justifies the means.",
+    "The more things change, the more they stay the same.",
+    "The road to hell is paved with good intentions.",
+    "The way to a man's heart is through his stomach.",
+    "There's no accounting for taste.",
+    "To each his own.",
+    "Truth is stranger than fiction.",
+    "United we stand, divided we fall.",
+    "When the going gets tough, the tough get going.",
+    "You can't make an omelette without breaking eggs.",
+    "You can't squeeze blood from a turnip."
+];
+
+    const sentenceElement = document.getElementById('sentence');
+    const userInput = document.getElementById('userInput');
+    const wpmElement = document.getElementById('wpm');
+    const accuracyElement = document.getElementById('accuracy');
+
+    // Select a random sentence from the list
+    const sentence = sentences[Math.floor(Math.random() * sentences.length)];
+    sentenceElement.innerText = sentence;
+
+    let startTime;
+    let typedCharacters = 0;
+    let correctCharacters = 0;
+
+    userInput.addEventListener('input', () => {
+        const userTyped = userInput.value;
+        typedCharacters = userTyped.length;
+
+        // Calculate the number of correct characters
+        correctCharacters = 0;
+        for (let i = 0; i < userTyped.length; i++) {
+            if (userTyped[i] === sentence[i]) {
+                correctCharacters++;
+            } else {
+                break;
+            }
+        }
+
+        // Highlight correct and error parts
+        sentenceElement.innerHTML = `
+            <span class="highlight">${sentence.slice(0, correctCharacters)}</span>
+            <span class="error">${sentence.slice(correctCharacters)}</span>
+        `;
+
+        // Start timing on first input
+        if (!startTime) {
+            startTime = new Date();
+        }
+
+        // Calculate WPM
+        const elapsedTime = (new Date() - startTime) / 1000 / 60; // in minutes
+        const wordsTyped = correctCharacters / 5;
+        const wpm = Math.floor(wordsTyped / elapsedTime);
+        wpmElement.innerText = `WPM: ${wpm}`;
+
+        // Calculate accuracy
+        const accuracy = Math.floor((correctCharacters / typedCharacters) * 100);
+        accuracyElement.innerText = `Accuracy: ${accuracy}%`;
+
+        // Reset when sentence is completed
+        if (userTyped === sentence) {
+            userInput.disabled = true;
+            alert(`Well done! You completed the sentence with ${wpm} WPM and ${accuracy}% accuracy.`);
+        }
+    });
+</script>
+
+</body>
+</html>
