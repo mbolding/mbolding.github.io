@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gyroscope — Precession Study</title>
+    <title>NMR Relaxation — Proton Dynamics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
@@ -224,6 +224,27 @@
             border: none;
         }
 
+        .action-btn {
+            background: transparent;
+            border: 1px solid var(--text-secondary);
+            color: var(--text-primary);
+            font-family: 'IBM Plex Mono', monospace;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.08em;
+        }
+
+        .action-btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
         .stats-panel {
             top: 50%;
             right: 40px;
@@ -331,24 +352,24 @@
 
     <div class="overlay header">
         <div class="title-block">
-            <h1 class="title">Gyroscope</h1>
-            <p class="subtitle">Precession dynamics / Study 01</p>
+            <h1 class="title">NMR Relaxation</h1>
+            <p class="subtitle">Bloch Equation Dynamics / Proton Frame</p>
         </div>
         <div class="swiss-cross"></div>
     </div>
 
     <div class="overlay stats-panel">
         <div class="stat-item">
-            <div class="stat-label">Rotation</div>
-            <div class="stat-value" id="spin-display">600</div>
+            <div class="stat-label">Longitudinal (Mz)</div>
+            <div class="stat-value" id="mz-display">1.00</div>
         </div>
         <div class="stat-item">
-            <div class="stat-label">Precession</div>
-            <div class="stat-value" id="precession-display">15°</div>
+            <div class="stat-label">Transverse (Mxy)</div>
+            <div class="stat-value" id="mxy-display">0.00</div>
         </div>
         <div class="stat-item">
-            <div class="stat-label">Angle</div>
-            <div class="stat-value" id="tilt-display">30°</div>
+            <div class="stat-label">Phase</div>
+            <div class="stat-value" id="phase-display">0°</div>
         </div>
     </div>
 
@@ -358,24 +379,32 @@
         <div class="control-row">
             <div class="control-group">
                 <div class="control-header">
-                    <span class="control-label">Spin</span>
-                    <span class="control-value" id="spin-value">60</span>
+                    <span class="control-label">B0 Field</span>
+                    <span class="control-value" id="b0-value">1.5 T</span>
                 </div>
-                <input type="range" id="spin-speed" min="0" max="120" value="60">
+                <input type="range" id="b0-slider" min="0" max="300" value="150">
             </div>
             <div class="control-group">
                 <div class="control-header">
-                    <span class="control-label">Precession</span>
-                    <span class="control-value" id="precession-value">15</span>
+                    <span class="control-label">T1 Relaxation</span>
+                    <span class="control-value" id="t1-value">1000 ms</span>
                 </div>
-                <input type="range" id="precession-rate" min="0" max="50" value="15">
+                <input type="range" id="t1-slider" min="100" max="5000" value="1000">
             </div>
             <div class="control-group">
                 <div class="control-header">
-                    <span class="control-label">Tilt</span>
-                    <span class="control-value" id="tilt-value">30°</span>
+                    <span class="control-label">T2 Relaxation</span>
+                    <span class="control-value" id="t2-value">200 ms</span>
                 </div>
-                <input type="range" id="tilt-angle" min="5" max="60" value="30">
+                <input type="range" id="t2-slider" min="50" max="2000" value="200">
+            </div>
+            <div class="control-group">
+                <div style="display: flex; gap: 8px; align-items: flex-end;">
+                    <button class="action-btn" id="pulse-90" style="flex: 1; padding: 10px; font-size: 11px;">90°
+                        Pulse</button>
+                    <button class="action-btn" id="pulse-180" style="flex: 1; padding: 10px; font-size: 11px;">180°
+                        Pulse</button>
+                </div>
             </div>
         </div>
     </div>
@@ -685,29 +714,54 @@
         let trailPoints = [];
         let trailUpdateCounter = 0;
 
-        // Controls
-        let spinSpeed = 60;
-        let precessionRate = 15;
-        let tiltAngle = 30;
+        // Controls - NMR/MRI Parameters
+        let B0 = 1.5; // Tesla (magnetic field strength)
+        let T1 = 1000; // ms (longitudinal relaxation time)
+        let T2 = 200; // ms (transverse relaxation time)
 
-        const spinSlider = document.getElementById('spin-speed');
-        const precessionSlider = document.getElementById('precession-rate');
-        const tiltSlider = document.getElementById('tilt-angle');
+        // Magnetization vector (normalized to M0 = 1)
+        let Mx = 0;
+        let My = 0;
+        let Mz = 1; // At equilibrium, all magnetization is along B0 (z-axis)
 
-        spinSlider.addEventListener('input', (e) => {
-            spinSpeed = parseFloat(e.target.value);
-            document.getElementById('spin-value').textContent = spinSpeed;
+        const M0 = 1; // Equilibrium magnetization
+        let lastTime = performance.now();
+
+        const b0Slider = document.getElementById('b0-slider');
+        const t1Slider = document.getElementById('t1-slider');
+        const t2Slider = document.getElementById('t2-slider');
+        const pulse90Btn = document.getElementById('pulse-90');
+        const pulse180Btn = document.getElementById('pulse-180');
+
+        b0Slider.addEventListener('input', (e) => {
+            B0 = parseFloat(e.target.value) / 100; // Convert to Tesla
+            document.getElementById('b0-value').textContent = B0.toFixed(1) + ' T';
         });
 
-        precessionSlider.addEventListener('input', (e) => {
-            precessionRate = parseFloat(e.target.value);
-            document.getElementById('precession-value').textContent = precessionRate;
+        t1Slider.addEventListener('input', (e) => {
+            T1 = parseFloat(e.target.value);
+            document.getElementById('t1-value').textContent = T1 + ' ms';
         });
 
-        tiltSlider.addEventListener('input', (e) => {
-            tiltAngle = parseFloat(e.target.value);
-            document.getElementById('tilt-value').textContent = tiltAngle + '°';
-            document.getElementById('tilt-display').textContent = tiltAngle + '°';
+        t2Slider.addEventListener('input', (e) => {
+            T2 = parseFloat(e.target.value);
+            document.getElementById('t2-value').textContent = T2 + ' ms';
+        });
+
+        // RF Pulse functions
+        pulse90Btn.addEventListener('click', () => {
+            // 90° pulse tips magnetization from z to x-y plane
+            const magnitude = Math.sqrt(Mx * Mx + My * My + Mz * Mz);
+            Mx = magnitude;
+            My = 0;
+            Mz = 0;
+            trailPoints = []; // Clear trail
+        });
+
+        pulse180Btn.addEventListener('click', () => {
+            // 180° pulse inverts z-magnetization
+            Mz = -Mz;
+            trailPoints = []; // Clear trail
         });
 
         // Mouse controls for camera
@@ -765,10 +819,57 @@
 
         // Animation
         let precessionAngle = 0;
-        let spinAngle = 0;
 
         function animate() {
             requestAnimationFrame(animate);
+
+            // Time step
+            const currentTime = performance.now();
+            const dt = (currentTime - lastTime) / 1000; // Convert to seconds
+            lastTime = currentTime;
+
+            // Clamp dt to avoid huge jumps
+            const clampedDt = Math.min(dt, 0.1);
+
+            // Bloch Equations:
+            // dMx/dt = γ(My*Bz - Mz*By) - Mx/T2
+            // dMy/dt = γ(Mz*Bx - Mx*Bz) - My/T2
+            // dMz/dt = γ(Mx*By - My*Bx) - (Mz - M0)/T1
+            //
+            // With B = [0, 0, B0] (field along z):
+            // dMx/dt = γ*My*B0 - Mx/T2
+            // dMy/dt = -γ*Mx*B0 - My/T2
+            // dMz/dt = -(Mz - M0)/T1
+
+            const gamma = 42.58; // MHz/T (gyromagnetic ratio for hydrogen protons)
+            const omega = gamma * B0 * 2 * Math.PI * 1e6; // rad/s (Larmor frequency)
+
+            // Scale omega for visual speed (otherwise too fast)
+            const omega_scaled = omega * 0.000001; // Scaled for visualization
+
+            // Convert T1 and T2 from ms to seconds
+            const T1_sec = T1 / 1000;
+            const T2_sec = T2 / 1000;
+
+            // Precession (rotation in x-y plane)
+            const dAngle = omega_scaled * clampedDt;
+            const cos_dAngle = Math.cos(dAngle);
+            const sin_dAngle = Math.sin(dAngle);
+
+            const Mx_new = Mx * cos_dAngle + My * sin_dAngle;
+            const My_new = -Mx * sin_dAngle + My * cos_dAngle;
+
+            Mx = Mx_new;
+            My = My_new;
+
+            // T2 Relaxation (transverse dephasing)
+            const decay_T2 = Math.exp(-clampedDt / T2_sec);
+            Mx *= decay_T2;
+            My *= decay_T2;
+
+            // T1 Relaxation (longitudinal recovery)
+            const recovery_T1 = Math.exp(-clampedDt / T1_sec);
+            Mz = M0 + (Mz - M0) * recovery_T1;
 
             // Update camera position
             camera.position.x = cameraDistance * Math.sin(cameraAngle.theta) * Math.cos(cameraAngle.phi);
@@ -776,62 +877,91 @@
             camera.position.z = cameraDistance * Math.cos(cameraAngle.theta) * Math.cos(cameraAngle.phi);
             camera.lookAt(0, 1, 0);
 
-            // Rotor spin
-            const spinDelta = spinSpeed * 0.02;
-            spinAngle += spinDelta;
-            rotorGroup.rotation.y = spinAngle;
+            // Hide the old gyroscope components
+            rotorGroup.visible = false;
+            gyroscopeAxis.visible = false;
+            precessionGroup.visible = false;
 
-            // Precession
-            const precessionDelta = precessionRate * 0.001;
-            precessionAngle += precessionDelta;
-            precessionGroup.rotation.y = precessionAngle;
+            // Calculate magnetization components
+            const Mxy = Math.sqrt(Mx * Mx + My * My); // Transverse magnetization magnitude
+            const M_total = Math.sqrt(Mx * Mx + My * My + Mz * Mz);
 
-            // Apply tilt
-            const tiltRad = THREE.MathUtils.degToRad(tiltAngle);
-            gyroscopeAxis.rotation.z = tiltRad;
+            // Update vector arrows to represent magnetization
+            const arrowScale = 1.5;
 
-            // Update vector arrows - position at the pivot point (bottom)
-            vectorsGroup.position.set(0, 0, 0);
-            vectorsGroup.rotation.y = precessionAngle;
-
-            // Calculate component lengths based on tilt
-            const axisLength = 1.5;
-            const verticalLength = Math.cos(tiltRad) * axisLength;
-            const horizontalLength = Math.sin(tiltRad) * axisLength;
-
-            // Update vertical arrow (always points up)
-            verticalArrow.scale.y = verticalLength;
-            verticalArrow.rotation.z = 0;
+            // Vertical arrow represents Mz (longitudinal component)
+            verticalArrow.scale.set(1, Math.abs(Mz) * arrowScale, 1);
             verticalArrow.position.set(0, 0, 0);
+            if (Mz < 0) {
+                verticalArrow.rotation.x = Math.PI; // Point downward if negative
+            } else {
+                verticalArrow.rotation.x = 0;
+            }
 
-            // Update horizontal arrow (points inward in the tilt direction)
-            horizontalArrow.scale.y = horizontalLength;
-            horizontalArrow.rotation.z = Math.PI / 2;
-            horizontalArrow.position.set(0, 0, 0);
+            // Horizontal arrow represents Mxy (transverse component)
+            if (Mxy > 0.001) {
+                horizontalArrow.visible = true;
+                horizontalArrow.scale.set(1, Mxy * arrowScale, 1);
 
-            // Update axis arrow (along the gyroscope axis)
-            axisArrow.rotation.z = tiltRad;
-            axisArrow.position.set(0, 0, 0);
+                // Orient in x-y plane based on phase
+                const phase = Math.atan2(My, Mx);
+                horizontalArrow.rotation.x = 0;
+                horizontalArrow.rotation.y = phase;
+                horizontalArrow.rotation.z = Math.PI / 2;
+                horizontalArrow.position.set(0, 0, 0);
+            } else {
+                horizontalArrow.visible = false;
+            }
 
-            // Update label positions
-            verticalLabel.position.set(0.3, verticalLength + 0.3, 0);
-            horizontalLabel.position.set(-horizontalLength - 0.3, -0.3, 0);
-            axisLabel.position.set(
-                Math.sin(tiltRad) * (axisLength + 0.5),
-                Math.cos(tiltRad) * (axisLength + 0.5),
-                0
-            );
+            // Axis arrow represents total magnetization vector
+            if (M_total > 0.001) {
+                axisArrow.visible = true;
+                axisArrow.scale.set(1, M_total * arrowScale, 1);
 
-            // Update trail - get world position of top cap
-            topCap.updateMatrixWorld();
-            const topCapWorldPos = new THREE.Vector3();
-            topCap.getWorldPosition(topCapWorldPos);
+                // Orient arrow to point in direction of M vector
+                const tiltAngle = Math.atan2(Mxy, Mz);
+                const azimuthAngle = Math.atan2(My, Mx);
 
-            // Add point to trail every few frames
+                axisArrow.rotation.y = azimuthAngle;
+                axisArrow.rotation.z = tiltAngle;
+                axisArrow.position.set(0, 0, 0);
+            } else {
+                axisArrow.visible = false;
+            }
+
+            // Update vector labels
+            verticalLabel.position.set(0.3, Math.abs(Mz) * arrowScale + 0.3, 0);
+            if (Mxy > 0.001) {
+                const phase = Math.atan2(My, Mx);
+                horizontalLabel.position.set(
+                    Math.cos(phase) * (Mxy * arrowScale + 0.5),
+                    -0.3,
+                    Math.sin(phase) * (Mxy * arrowScale + 0.5)
+                );
+            }
+
+            if (M_total > 0.001) {
+                const tiltAngle = Math.atan2(Mxy, Mz);
+                const azimuthAngle = Math.atan2(My, Mx);
+                axisLabel.position.set(
+                    Math.cos(azimuthAngle) * Math.sin(tiltAngle) * (M_total * arrowScale + 0.5),
+                    Math.cos(tiltAngle) * (M_total * arrowScale + 0.5),
+                    Math.sin(azimuthAngle) * Math.sin(tiltAngle) * (M_total * arrowScale + 0.5)
+                );
+            }
+
+            // Update trail - track the tip of the magnetization vector
             trailUpdateCounter++;
-            if (trailUpdateCounter >= 2 && precessionRate > 0) {
+            if (trailUpdateCounter >= 2) {
                 trailUpdateCounter = 0;
-                trailPoints.push(topCapWorldPos.clone());
+
+                const vectorTip = new THREE.Vector3(
+                    Mx * arrowScale,
+                    Mz * arrowScale,
+                    My * arrowScale
+                );
+
+                trailPoints.push(vectorTip);
 
                 // Keep trail at max length
                 if (trailPoints.length > trailMaxPoints) {
@@ -856,9 +986,11 @@
             }
 
             // Update displays
-            const rpm = Math.round(spinSpeed * 10);
-            document.getElementById('spin-display').textContent = rpm;
-            document.getElementById('precession-display').textContent = precessionRate + '°';
+            document.getElementById('mz-display').textContent = Mz.toFixed(2);
+            document.getElementById('mxy-display').textContent = Mxy.toFixed(2);
+
+            const phase_deg = ((Math.atan2(My, Mx) * 180 / Math.PI) + 360) % 360;
+            document.getElementById('phase-display').textContent = phase_deg.toFixed(0) + '°';
 
             renderer.render(scene, camera);
         }
