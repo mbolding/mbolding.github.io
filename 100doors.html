@@ -4,52 +4,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JavaScript Doors Example</title>
+    <title>100 Doors Puzzle — Visualization</title>
+
+    <!-- Swiss Design Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
     <style>
+        /* Swiss Design Color Palette */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-red: #ff3300;
+            --card-bg: #f5f5f5;
+            --door-open: #16a34a;
+            --door-closed: #dc2626;
+            --grid-gap: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Container and Layout */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Header Styling */
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 12px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            margin: 0 0 32px 0;
+        }
+
+        /* Problem Description */
+        .description {
+            background: var(--card-bg);
+            padding: 32px;
+            margin-bottom: 40px;
+            max-width: 800px;
+        }
+
+        .description h2 {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            color: var(--secondary-text);
+        }
+
+        .description p {
+            margin-bottom: 12px;
+            line-height: 1.8;
+        }
+
+        .description strong {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        /* Door Visualization */
+        .doors-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+            gap: var(--grid-gap);
+            margin-bottom: 40px;
+            padding: 32px;
+            background: var(--card-bg);
+        }
+
+        /* Individual Door Styling */
         .door {
-            display: inline-block;
-            width: 20px;
-            height: 40px;
-            margin: 5px;
-            border: 1px solid black;
+            aspect-ratio: 1 / 2;
+            border: 2px solid var(--text-color);
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+            position: relative;
         }
 
-        .closed {
-            background-color: red;
+        .door.closed {
+            background-color: var(--door-closed);
         }
 
-        .open {
-            background-color: green;
+        .door.open {
+            background-color: var(--door-open);
+        }
+
+        /* Door hover effect */
+        .door:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Legend Section */
+        .legend {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            margin-bottom: 40px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .legend-box {
+            width: 24px;
+            height: 48px;
+            border: 2px solid var(--text-color);
+        }
+
+        .legend-box.closed {
+            background-color: var(--door-closed);
+        }
+
+        .legend-box.open {
+            background-color: var(--door-open);
+        }
+
+        /* Footer Info */
+        .info {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--secondary-text);
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 24px;
+            border-top: 1px solid #eee;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 24px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .doors-container {
+                grid-template-columns: repeat(auto-fill, minmax(24px, 1fr));
+                gap: 6px;
+                padding: 20px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div id="output"></div>
+    <div class="container">
+        <!-- Header Section -->
+        <header>
+            <h1>100 Doors</h1>
+            <p class="subtitle">A Classic Computer Science Puzzle</p>
+        </header>
+
+        <!-- Problem Description -->
+        <div class="description">
+            <h2>The Problem</h2>
+            <p>
+                There are <strong>100 doors</strong> in a hallway, all initially closed.
+            </p>
+            <p>
+                A person walks through the hallway <strong>100 times</strong>. On the first pass,
+                they toggle every door (1, 2, 3, ..., 100). On the second pass, they toggle every
+                second door (2, 4, 6, ..., 100). On the third pass, every third door (3, 6, 9, ...),
+                and so on.
+            </p>
+            <p>
+                <strong>Question:</strong> After all 100 passes, which doors remain open?
+            </p>
+            <p>
+                <strong>Answer:</strong> Only the <em>perfect squares</em> (1, 4, 9, 16, 25, 36, 49, 64, 81, 100)
+                remain open, because perfect squares have an odd number of divisors.
+            </p>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-box closed"></div>
+                <span>Closed</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box open"></div>
+                <span>Open</span>
+            </div>
+        </div>
+
+        <!-- Doors Visualization Container -->
+        <div id="doors-container" class="doors-container"></div>
+
+        <!-- Footer Info -->
+        <div class="info">
+            Animation speed: 100ms per pass
+        </div>
+    </div>
+
     <script>
-        var doors = [];
-        for (var i = 0; i < 100; i++) {
-            doors[i] = false;
-            var door = document.createElement("div");
-            door.className = "door closed";
-            door.title = "Door " + (i + 1) + " is closed";
-            document.getElementById("output").appendChild(door);
+        // ============================================================
+        // 100 DOORS PUZZLE SIMULATION
+        // ============================================================
+
+        /**
+         * State array: tracks whether each door is open (true) or closed (false)
+         * Index 0 = Door 1, Index 99 = Door 100
+         */
+        const doors = new Array(100).fill(false);
+
+        /**
+         * Create and render all 100 door elements in the DOM
+         */
+        function initializeDoors() {
+            const container = document.getElementById('doors-container');
+
+            // Create 100 door divs
+            for (let i = 0; i < 100; i++) {
+                const doorElement = document.createElement('div');
+                doorElement.className = 'door closed';
+                doorElement.title = `Door ${i + 1}: Closed`;
+                doorElement.dataset.doorNumber = i + 1;
+                container.appendChild(doorElement);
+            }
         }
 
-        function updateDoors(step) {
-            if (step > 100) return;
-
-            for (var i2 = step - 1; i2 < 100; i2 += step) {
-                doors[i2] = !doors[i2];
-                var door = document.getElementsByClassName("door")[i2];
-                door.className = "door " + (doors[i2] ? "open" : "closed");
-                door.title = "Door " + (i2 + 1) + " is " + (doors[i2] ? "open" : "closed");
+        /**
+         * Recursive function to simulate each pass through the hallway
+         * @param {number} pass - Current pass number (1-100)
+         * 
+         * On pass N, toggle every Nth door:
+         *   - Pass 1: toggle doors 1, 2, 3, ..., 100
+         *   - Pass 2: toggle doors 2, 4, 6, ..., 100
+         *   - Pass 3: toggle doors 3, 6, 9, ..., 100
+         *   - etc.
+         */
+        function runPass(pass) {
+            // Base case: all 100 passes complete
+            if (pass > 100) {
+                return;
             }
 
-            setTimeout(function () { updateDoors(step + 1); }, 100);
+            // Toggle every Nth door (where N = current pass number)
+            // Start at index (pass - 1) because array is 0-indexed
+            // Increment by 'pass' to hit every Nth door
+            for (let doorIndex = pass - 1; doorIndex < 100; doorIndex += pass) {
+                // Toggle the state
+                doors[doorIndex] = !doors[doorIndex];
+
+                // Update the DOM element
+                const doorElement = document.querySelectorAll('.door')[doorIndex];
+                const doorNumber = doorIndex + 1;
+                const newState = doors[doorIndex];
+
+                // Update class and title
+                doorElement.className = newState ? 'door open' : 'door closed';
+                doorElement.title = `Door ${doorNumber}: ${newState ? 'Open' : 'Closed'}`;
+            }
+
+            // Schedule next pass after 100ms delay (for animation effect)
+            setTimeout(() => runPass(pass + 1), 100);
         }
 
-        updateDoors(1);
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        // Create all door elements
+        initializeDoors();
+
+        // Start the simulation from pass 1
+        runPass(1);
     </script>
 </body>
 
