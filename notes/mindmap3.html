@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mind Mapping App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+        }
+        #canvas {
+            background-color: white;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+        }
+        #controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+        }
+        #editInput {
+            position: absolute;
+            display: none;
+            font-size: 14px;
+            padding: 2px;
+            border: 1px solid #ccc;
+        }
+        #instructions {
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            max-width: 800px;
+        }
+        h1 {
+            text-align: center;
+        }
+        #exportArea {
+            width: 800px;
+            height: 200px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mind Mapping App</h1>
+    <div id="instructions">
+        <h3>Instructions:</h3>
+        <ul>
+            <li>Double-click on an empty area to create a new node</li>
+            <li>Double-click on a node to edit its text</li>
+            <li>Left-click and drag to move nodes</li>
+            <li>Right-click on two nodes consecutively to connect them</li>
+            <li>Middle-click (mouse wheel click) on a node to delete it</li>
+            <li>Use the "Add Node" button to create a node at a random position</li>
+            <li>Click "Export to Mermaid" to generate Mermaid syntax for your diagram</li>
+        </ul>
+    </div>
+    <div id="controls">
+        <button id="addNode">Add Node</button>
+        <button id="exportBtn">Export to Mermaid</button>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <input type="text" id="editInput">
+    <textarea id="exportArea" readonly></textarea>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const addNodeBtn = document.getElementById('addNode');
+        const exportBtn = document.getElementById('exportBtn');
+        const editInput = document.getElementById('editInput');
+        const exportArea = document.getElementById('exportArea');
+
+        let nodes = [];
+        let dragging = false;
+        let selectedNode = null;
+        let connectionStartNode = null;
+        let offset = { x: 0, y: 0 };
+
+        class Node {
+            constructor(x, y, text = 'New Node') {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.connections = [];
+                this.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 30, 0, 2 * Math.PI);
+                ctx.fillStyle = '#3498db';
+                ctx.fill();
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '14px Arial';
+                ctx.fillText(this.text, this.x, this.y);
+            }
+
+            isPointInside(x, y) {
+                return Math.sqrt((x - this.x) ** 2 + (y - this.y) ** 2) <= 30;
+            }
+
+            connectTo(node) {
+                if (!this.connections.includes(node)) {
+                    this.connections.push(node);
+                    node.connections.push(this);
+                }
+            }
+        }
+
+        function drawConnections() {
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            for (let node of nodes) {
+                for (let connectedNode of node.connections) {
+                    ctx.beginPath();
+                    ctx.moveTo(node.x, node.y);
+                    ctx.lineTo(connectedNode.x, connectedNode.y);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawConnections();
+            for (let node of nodes) {
+                node.draw();
+            }
+        }
+
+        function deleteNode(nodeToDelete) {
+            nodes = nodes.filter(node => node !== nodeToDelete);
+            for (let node of nodes) {
+                node.connections = node.connections.filter(conn => conn !== nodeToDelete);
+            }
+            draw();
+        }
+
+        function addNode(x, y) {
+            const newNode = new Node(x, y);
+            nodes.push(newNode);
+            draw();
+            return newNode;
+        }
+
+        function exportToMermaid() {
+            let mermaidSyntax = "graph TD\n";
+            const addedConnections = new Set();
+
+            for (let node of nodes) {
+                mermaidSyntax += `    ${node.id}[${node.text}]\n`;
+                for (let connectedNode of node.connections) {
+                    const connectionKey = `${node.id}-${connectedNode.id}`;
+                    const reverseConnectionKey = `${connectedNode.id}-${node.id}`;
+                    if (!addedConnections.has(connectionKey) && !addedConnections.has(reverseConnectionKey)) {
+                        mermaidSyntax += `    ${node.id} --- ${connectedNode.id}\n`;
+                        addedConnections.add(connectionKey);
+                    }
+                }
+            }
+
+            exportArea.value = mermaidSyntax;
+            exportArea.style.display = 'block';
+        }
+
+        addNodeBtn.addEventListener('click', () => {
+            const x = Math.random() * (canvas.width - 60) + 30;
+            const y = Math.random() * (canvas.height - 60) + 30;
+            addNode(x, y);
+        });
+
+        exportBtn.addEventListener('click', exportToMermaid);
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (let node of nodes) {
+                if (node.isPointInside(x, y)) {
+                    if (e.button === 1) { // Middle click
+                        e.preventDefault();
+                        deleteNode(node);
+                        return;
+                    } else if (e.button === 2) { // Right click
+                        e.preventDefault();
+                        if (!connectionStartNode) {
+                            connectionStartNode = node;
+                        } else {
+                            connectionStartNode.connectTo(node);
+                            connectionStartNode = null;
+                            draw();
+                        }
+                        return;
+                    }
+                    selectedNode = node;
+                    offset.x = x - node.x;
+                    offset.y = y - node.y;
+                    dragging = true;
+                    return;
+                }
+            }
+        });
+
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); // Prevent the default context menu
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (dragging && selectedNode) {
+                const rect = canvas.getBoundingClientRect();
+                selectedNode.x = e.clientX - rect.left - offset.x;
+                selectedNode.y = e.clientY - rect.top - offset.y;
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            dragging = false;
+            selectedNode = null;
+        });
+
+        canvas.addEventListener('dblclick', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            let clickedNode = null;
+            for (let node of nodes) {
+                if (node.isPointInside(x, y)) {
+                    clickedNode = node;
+                    break;
+                }
+            }
+
+            if (clickedNode) {
+                // Edit existing node
+                editInput.style.display = 'block';
+                editInput.style.left = (e.clientX - 50) + 'px';
+                editInput.style.top = (e.clientY - 10) + 'px';
+                editInput.value = clickedNode.text;
+                editInput.focus();
+                editInput.select();
+
+                function handleEdit(e) {
+                    if (e.key === 'Enter' || e.type === 'blur') {
+                        clickedNode.text = editInput.value;
+                        editInput.style.display = 'none';
+                        draw();
+                        editInput.removeEventListener('keydown', handleEdit);
+                        editInput.removeEventListener('blur', handleEdit);
+                    }
+                }
+
+                editInput.addEventListener('keydown', handleEdit);
+                editInput.addEventListener('blur', handleEdit);
+            } else {
+                // Create new node
+                const newNode = addNode(x, y);
+                editInput.style.display = 'block';
+                editInput.style.left = (e.clientX - 50) + 'px';
+                editInput.style.top = (e.clientY - 10) + 'px';
+                editInput.value = newNode.text;
+                editInput.focus();
+                editInput.select();
+
+                function handleNewNodeEdit(e) {
+                    if (e.key === 'Enter' || e.type === 'blur') {
+                        newNode.text = editInput.value;
+                        editInput.style.display = 'none';
+                        draw();
+                        editInput.removeEventListener('keydown', handleNewNodeEdit);
+                        editInput.removeEventListener('blur', handleNewNodeEdit);
+                    }
+                }
+
+                editInput.addEventListener('keydown', handleNewNodeEdit);
+                editInput.addEventListener('blur', handleNewNodeEdit);
+            }
+        });
+
+        draw();
+    </script>
+</body>
+</html>
