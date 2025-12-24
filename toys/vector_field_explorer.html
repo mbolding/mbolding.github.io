@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Field Explorer</title>
+    <!-- Import Inter font for the clean "Swiss" aesthetic -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Swiss Design Color Palette */
+            --bg-color: #ffffff;
+            --text-main: #111111;
+            --text-sub: #555555;
+            --accent: #0055ff;
+            /* International Klein Blue-ish */
+            --accent-hover: #0044cc;
+            --border: #e0e0e0;
+            --panel-bg: #f5f5f5;
+            --positive: #22c55e;
+            --negative: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 40px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--text-main);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-sub);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        /* Layout Grid */
+        .app-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            /* Canvas takes available space, Sidebar fixed */
+            gap: 40px;
+        }
+
+        @media (max-width: 900px) {
+            .app-grid {
+                grid-template-columns: 1fr;
+                /* Stack on smaller screens */
+            }
+        }
+
+        /* Canvas Area */
+        .canvas-wrapper {
+            position: relative;
+            background: #fff;
+            border: 1px solid var(--border);
+            aspect-ratio: 1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .overlay-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        /* Controls Section */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .control-panel {
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+
+        h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-sub);
+            margin-bottom: 16px;
+        }
+
+        /* Button Grid */
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        button {
+            padding: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            border-color: var(--text-main);
+            background: #fafafa;
+        }
+
+        button.active {
+            background: var(--text-main);
+            color: white;
+            border-color: var(--text-main);
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 16px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--text-main);
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .stat-box {
+            background: var(--panel-bg);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-top: 4px;
+        }
+
+        /* Legend */
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .color-bar {
+            height: 16px;
+            width: 100%;
+            border-radius: 4px;
+            /* Gradient matching the canvas rendering logic: Red (Neg) -> White (0) -> Blue (Pos) */
+            background: linear-gradient(90deg, rgba(255, 50, 50, 0.8) 0%, rgba(255, 255, 255, 1) 50%, rgba(0, 85, 255, 0.8) 100%);
+            border: 1px solid var(--border);
+        }
+
+        .description {
+            font-size: 0.95rem;
+            color: var(--text-sub);
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Vector Field Explorer</h1>
+            <div class="subtitle">Interactive visualization of divergence and curl</div>
+        </header>
+
+        <div class="app-grid">
+            <!-- Visualization Canvas -->
+            <div class="canvas-wrapper">
+                <canvas id="fieldCanvas"></canvas>
+                <div class="overlay-info">
+                    <div id="formulaDisplay">F(x,y) = ...</div>
+                </div>
+            </div>
+
+            <!-- Controls Sidebar -->
+            <div class="controls">
+
+                <!-- Field Selection -->
+                <div class="control-panel" style="border-top: none; padding-top: 0;">
+                    <h3>Preset Fields</h3>
+                    <div class="field-grid" id="buttonContainer">
+                        <!-- Buttons injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Parameters -->
+                <div class="control-panel">
+                    <h3>Visualization Parameters</h3>
+                    <div class="slider-group">
+                        <div class="slider-label"><span>Vector Density</span><span id="densityVal">16</span></div>
+                        <input type="range" id="density" min="8" max="32" value="16">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label"><span>Vector Scale</span><span id="scaleVal">1.0</span></div>
+                        <input type="range" id="scale" min="0.5" max="2.0" step="0.1" value="1.0">
+                    </div>
+                </div>
+
+                <!-- Analysis -->
+                <div class="control-panel">
+                    <h3>Field Properties</h3>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-label">Divergence (∇·F)</div>
+                            <div class="stat-value" id="divDisplay">0</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Curl (∇×F)</div>
+                            <div class="stat-value" id="curlDisplay">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="control-panel">
+                    <h3>Curl Legend</h3>
+                    <div class="legend-labels">
+                        <span>Negative (CW)</span>
+                        <span>0</span>
+                        <span>Positive (CCW)</span>
+                    </div>
+                    <div class="color-bar"></div>
+                </div>
+
+                <!-- Description -->
+                <div class="control-panel">
+                    <h3>Description</h3>
+                    <p class="description" id="descDisplay">Select a field to see details.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * VECTOR FIELD EXPLORER
+         * ---------------------
+         * This script renders 2D vector fields and visualizes their properties (Curl).
+         * 
+         * Core Concepts:
+         * - Vector Field F(x,y) = <P(x,y), Q(x,y)>
+         * - Curl (2D): (dQ/dx - dP/dy) k̂  -> Represents local rotation.
+         * - Divergence: (dP/dx + dQ/dy)   -> Represents local expansion/contraction.
+         */
+
+        // Canvas Setup
+        const canvas = document.getElementById('fieldCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // State Management
+        const state = {
+            fieldKey: 'saddle',
+            density: 16,     // Number of cells along one axis
+            scale: 1.0,      // Visual scaler for vector length
+            intensity: 1.0,  // Multiplier for field magnitude
+            range: 3.0       // Domain range [-range, range]
+        };
+
+        /**
+         * FIELD DEFINITIONS
+         * Each field defines:
+         * - func: The vector function (x,y) => {u, v}
+         * - curlFunc: Analytic curl calculation (x,y) => number
+         * - divText: String representation of divergence
+         */
+        const fields = {
+            saddle: {
+                name: 'Saddle Point',
+                formula: 'F = (x, -y)',
+                desc: 'A hyperbolic field with zero curl (irrotational) and zero divergence (incompressible). Compresses along Y, expands along X.',
+                func: (x, y) => ({ u: x, v: -y }),
+                curlFunc: () => 0,
+                divText: '0',
+                curlText: '0'
+            },
+            sink: {
+                name: 'Sink',
+                formula: 'F = (-x, -y)',
+                desc: 'Vectors point inward to the origin. High negative divergence (compression). Zero curl.',
+                func: (x, y) => ({ u: -x, v: -y }),
+                curlFunc: () => 0,
+                divText: '-2',
+                curlText: '0'
+            },
+            source: {
+                name: 'Source',
+                formula: 'F = (x, y)',
+                desc: 'Vectors point outward from the origin. Positive divergence (expansion). Zero curl.',
+                func: (x, y) => ({ u: x, v: y }),
+                curlFunc: () => 0,
+                divText: '2',
+                curlText: '0'
+            },
+            vortex: {
+                name: 'Vortex',
+                formula: 'F = (-y, x)',
+                desc: 'Pure rotation. Vectors circulate the origin. Constant positive curl (2). Zero divergence.',
+                func: (x, y) => ({ u: -y, v: x }),
+                curlFunc: () => 2,
+                divText: '0',
+                curlText: '2'
+            },
+            shear: {
+                name: 'Shear Flow',
+                formula: 'F = (y, 0)',
+                desc: 'Horizontal flow speed increases with Y. Creates rotation (curl) despite straight streamlines.',
+                func: (x, y) => ({ u: y, v: 0 }),
+                curlFunc: () => -1,
+                divText: '0',
+                curlText: '-1'
+            },
+            dipole: {
+                name: 'Dipole',
+                formula: 'F ~ 1/r²',
+                desc: 'Two poles (source and sink) close together. Function decays as 1/r^2.',
+                func: (x, y) => {
+                    const d = Math.pow(x * x + y * y, 2) + 0.1; // +0.1 avoids singularity
+                    return {
+                        u: (x * x - y * y) / d,
+                        v: (2 * x * y) / d
+                    };
+                },
+                curlFunc: () => 0, // Everywhere except origin
+                divText: '0*',
+                curlText: '0*'
+            },
+            wave: {
+                name: 'Wave Lattice',
+                formula: 'F = (sin y, cos x)',
+                desc: 'Periodic lattice of rotating cells. Curl varies sinusoidally across the plane.',
+                func: (x, y) => ({ u: Math.sin(y), v: Math.cos(x) }),
+                curlFunc: (x, y) => -Math.sin(x) - Math.cos(y),
+                divText: '0',
+                curlText: 'f(x,y)'
+            }
+        };
+
+        // --- RENDER ENGINE ---
+
+        function resize() {
+            // Handle high-DPI displays for crisp rendering
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+
+            // Normalize context scale setup
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+
+            draw();
+        }
+
+        function draw() {
+            // Get Canvas Dimensions (Logical Pixels)
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            const field = fields[state.fieldKey];
+
+            // 1. Clear Background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. Draw Curl Heatmap (Background)
+            // We sample the curl at a grid resolution and color code it.
+            // Red = Negative Curl (Clockwise), Green/Blue = Positive Curl (CCW)
+            const res = 60; // Heatmap resolution
+            const cellW = width / res;
+            const cellH = height / res;
+
+            for (let i = 0; i < res; i++) {
+                for (let j = 0; j < res; j++) {
+                    // Map screen coords (i,j) to math coords (x,y)
+                    const x = ((i + 0.5) / res - 0.5) * 2 * state.range;
+                    const y = -((j + 0.5) / res - 0.5) * 2 * state.range; // Flip Y for math coords
+
+                    const val = field.curlFunc(x, y);
+
+                    // Color mapping strategy: 
+                    // White (0) -> Blue (+) or Red (-)
+                    // We use opacity assignment for a "clean" look
+                    const maxVal = 2.0;
+                    const intensity = Math.min(Math.abs(val) / maxVal, 0.6); // Cap opacity
+
+                    if (val > 0.01) {
+                        ctx.fillStyle = `rgba(0, 85, 255, ${intensity})`; // Blue for positive
+                    } else if (val < -0.01) {
+                        ctx.fillStyle = `rgba(255, 50, 50, ${intensity})`; // Red for negative
+                    } else {
+                        ctx.fillStyle = 'rgba(0,0,0,0)'; // Transparent for zero
+                    }
+
+                    // Draw cell with slight overlap to avoid subpixel gaps
+                    ctx.fillRect(i * cellW, j * cellH, cellW + 1, cellH + 1);
+                }
+            }
+
+            // 3. Draw Grid Lines (Axes)
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // X Axis
+            ctx.moveTo(0, height / 2); ctx.lineTo(width, height / 2);
+            // Y Axis
+            ctx.moveTo(width / 2, 0); ctx.lineTo(width / 2, height);
+            ctx.stroke();
+
+            // 4. Draw Vector Arrows
+            // We sample the field at a coarser resolution determined by 'density'
+            const step = width / state.density;
+
+            ctx.strokeStyle = '#111111';
+            ctx.fillStyle = '#111111';
+
+            for (let px = step / 2; px < width; px += step) {
+                for (let py = step / 2; py < height; py += step) {
+                    // Transform Screen -> Math
+                    const x = (px / width - 0.5) * 2 * state.range;
+                    const y = -((py / height - 0.5) * 2 * state.range);
+
+                    // Compute Vector
+                    let v = field.func(x, y);
+
+                    // Calculate Magnitude
+                    const mag = Math.sqrt(v.u * v.u + v.v * v.v);
+
+                    // Skip negligible vectors
+                    if (mag < 0.001) continue;
+
+                    // Normalize for drawing direction
+                    const uHat = v.u / mag;
+                    const vHat = v.v / mag;
+
+                    // Scale vector visual length
+                    // We apply a soft clamp (tanh) to prevent massive arrows from exploding the screen
+                    const visualMag = Math.tanh(mag * 0.5) * (step * 0.8) * state.scale;
+
+                    // Canvas Y is inverted relative to Math Y, so -vHat
+                    const endX = px + uHat * visualMag;
+                    const endY = py - vHat * visualMag;
+
+                    drawArrow(ctx, px, py, endX, endY);
+                }
+            }
+        }
+
+        /**
+         * Helper to draw an arrow with a head
+         */
+        function drawArrow(ctx, x1, y1, x2, y2) {
+            const headLength = 6 * state.scale;
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+        }
+
+
+        // --- UI INITIALIZATION ---
+
+        function initUI() {
+            const container = document.getElementById('buttonContainer');
+
+            // Generate Buttons
+            Object.keys(fields).forEach(key => {
+                const btn = document.createElement('button');
+                btn.innerHTML = `<span>${fields[key].name}</span>`;
+                btn.onclick = () => setField(key);
+                if (key === state.fieldKey) btn.classList.add('active');
+                btn.dataset.key = key;
+                container.appendChild(btn);
+            });
+
+            // Sliders
+            document.getElementById('density').oninput = (e) => {
+                state.density = parseInt(e.target.value);
+                document.getElementById('densityVal').textContent = state.density;
+                draw();
+            };
+
+            document.getElementById('scale').oninput = (e) => {
+                state.scale = parseFloat(e.target.value);
+                document.getElementById('scaleVal').textContent = state.scale.toFixed(1);
+                draw();
+            };
+
+            updateInfo();
+        }
+
+        function setField(key) {
+            state.fieldKey = key;
+
+            // Update buttons
+            document.querySelectorAll('.field-grid button').forEach(b => {
+                b.classList.toggle('active', b.dataset.key === key);
+            });
+
+            updateInfo();
+            draw();
+        }
+
+        function updateInfo() {
+            const f = fields[state.fieldKey];
+            document.getElementById('formulaDisplay').textContent = f.formula;
+            document.getElementById('divDisplay').textContent = f.divText;
+            document.getElementById('curlDisplay').textContent = f.curlText;
+            document.getElementById('descDisplay').textContent = f.desc;
+        }
+
+        // --- BOOTSTRAP ---
+        initUI();
+        window.addEventListener('resize', resize);
+        // Initial draw
+        resize();
+
+    </script>
+</body>
+
+</html>
