@@ -642,15 +642,15 @@
         function createArrow(color, length = 1) {
             const group = new THREE.Group();
 
-            // Shaft
-            const shaftGeometry = new THREE.CylinderGeometry(0.03, 0.03, length, 12);
+            // Shaft (thinner)
+            const shaftGeometry = new THREE.CylinderGeometry(0.02, 0.02, length, 12);
             const shaftMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.3, roughness: 0.5 });
             const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
             shaft.position.y = length / 2;
             group.add(shaft);
 
-            // Head
-            const headGeometry = new THREE.ConeGeometry(0.08, 0.2, 12);
+            // Head (thinner)
+            const headGeometry = new THREE.ConeGeometry(0.06, 0.15, 12);
             const headMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.3, roughness: 0.5 });
             const head = new THREE.Mesh(headGeometry, headMaterial);
             head.position.y = length + 0.1;
@@ -861,13 +861,13 @@
             const subDt = clampedDt / subSteps;
 
             for (let step = 0; step < subSteps; step++) {
-                // Precession (rotation in x-y plane)
+                // Precession (counter-clockwise rotation in x-y plane when viewed from +z)
                 const dAngle = omega_scaled * subDt;
                 const cos_dAngle = Math.cos(dAngle);
                 const sin_dAngle = Math.sin(dAngle);
 
-                const Mx_new = Mx * cos_dAngle + My * sin_dAngle;
-                const My_new = -Mx * sin_dAngle + My * cos_dAngle;
+                const Mx_new = Mx * cos_dAngle - My * sin_dAngle;
+                const My_new = Mx * sin_dAngle + My * cos_dAngle;
 
                 Mx = Mx_new;
                 My = My_new;
