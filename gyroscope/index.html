@@ -698,7 +698,7 @@
         vectorsGroup.add(axisLabel);
 
         // Trail for the top cap
-        const trailMaxPoints = 800;
+        const trailMaxPoints = 2000;
         const trailPositions = new Float32Array(trailMaxPoints * 3);
         const trailGeometry = new THREE.BufferGeometry();
         trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
@@ -845,31 +845,52 @@
             const omega = gamma * B0 * 2 * Math.PI * 1e6; // rad/s (Larmor frequency)
 
             // Scale omega for visual speed (otherwise too fast)
-            const omega_scaled = omega * 0.00000025; // Scaled for slower, clearer visualization
+            const omega_scaled = omega * 0.000000025; // Scaled much slower for clear visualization
 
             // Convert T1 and T2 from ms to seconds
             const T1_sec = T1 / 1000;
             const T2_sec = T2 / 1000;
 
-            // Precession (rotation in x-y plane)
-            const dAngle = omega_scaled * clampedDt;
-            const cos_dAngle = Math.cos(dAngle);
-            const sin_dAngle = Math.sin(dAngle);
+            // Sub-stepping for smooth trail and accurate physics
+            const subSteps = 8;
+            const subDt = clampedDt / subSteps;
 
-            const Mx_new = Mx * cos_dAngle + My * sin_dAngle;
-            const My_new = -Mx * sin_dAngle + My * cos_dAngle;
+            for (let step = 0; step < subSteps; step++) {
+                // Precession (rotation in x-y plane)
+                const dAngle = omega_scaled * subDt;
+                const cos_dAngle = Math.cos(dAngle);
+                const sin_dAngle = Math.sin(dAngle);
 
-            Mx = Mx_new;
-            My = My_new;
+                const Mx_new = Mx * cos_dAngle + My * sin_dAngle;
+                const My_new = -Mx * sin_dAngle + My * cos_dAngle;
 
-            // T2 Relaxation (transverse dephasing)
-            const decay_T2 = Math.exp(-clampedDt / T2_sec);
-            Mx *= decay_T2;
-            My *= decay_T2;
+                Mx = Mx_new;
+                My = My_new;
 
-            // T1 Relaxation (longitudinal recovery)
-            const recovery_T1 = Math.exp(-clampedDt / T1_sec);
-            Mz = M0 + (Mz - M0) * recovery_T1;
+                // T2 Relaxation (transverse dephasing)
+                const decay_T2 = Math.exp(-subDt / T2_sec);
+                Mx *= decay_T2;
+                My *= decay_T2;
+
+                // T1 Relaxation (longitudinal recovery)
+                const recovery_T1 = Math.exp(-subDt / T1_sec);
+                Mz = M0 + (Mz - M0) * recovery_T1;
+
+                // Add trail point every sub-step for smooth curve
+                const arrowScale = 1.5;
+                const vectorTip = new THREE.Vector3(
+                    Mx * arrowScale,
+                    Mz * arrowScale,
+                    My * arrowScale
+                );
+
+                trailPoints.push(vectorTip);
+
+                // Keep trail at max length
+                if (trailPoints.length > trailMaxPoints) {
+                    trailPoints.shift();
+                }
+            }
 
             // Update camera position
             camera.position.x = cameraDistance * Math.sin(cameraAngle.theta) * Math.cos(cameraAngle.phi);
@@ -950,40 +971,21 @@
                 );
             }
 
-            // Update trail - track the tip of the magnetization vector (every frame for smooth trail)
-            trailUpdateCounter++;
-            if (trailUpdateCounter >= 1) {
-                trailUpdateCounter = 0;
-
-                const vectorTip = new THREE.Vector3(
-                    Mx * arrowScale,
-                    Mz * arrowScale,
-                    My * arrowScale
-                );
-
-                trailPoints.push(vectorTip);
-
-                // Keep trail at max length
-                if (trailPoints.length > trailMaxPoints) {
-                    trailPoints.shift();
+            // Update trail geometry from accumulated points
+            const positions = trail.geometry.attributes.position.array;
+            for (let i = 0; i < trailMaxPoints; i++) {
+                if (i < trailPoints.length) {
+                    positions[i * 3] = trailPoints[i].x;
+                    positions[i * 3 + 1] = trailPoints[i].y;
+                    positions[i * 3 + 2] = trailPoints[i].z;
+                } else {
+                    positions[i * 3] = 0;
+                    positions[i * 3 + 1] = 0;
+                    positions[i * 3 + 2] = 0;
                 }
-
-                // Update trail geometry
-                const positions = trail.geometry.attributes.position.array;
-                for (let i = 0; i < trailMaxPoints; i++) {
-                    if (i < trailPoints.length) {
-                        positions[i * 3] = trailPoints[i].x;
-                        positions[i * 3 + 1] = trailPoints[i].y;
-                        positions[i * 3 + 2] = trailPoints[i].z;
-                    } else {
-                        positions[i * 3] = 0;
-                        positions[i * 3 + 1] = 0;
-                        positions[i * 3 + 2] = 0;
-                    }
-                }
-                trail.geometry.attributes.position.needsUpdate = true;
-                trail.geometry.setDrawRange(0, trailPoints.length);
             }
+            trail.geometry.attributes.position.needsUpdate = true;
+            trail.geometry.setDrawRange(0, trailPoints.length);
 
             // Update displays
             document.getElementById('mz-display').textContent = Mz.toFixed(2);
