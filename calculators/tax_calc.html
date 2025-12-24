@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tip Calculator</title>
+
+    <!-- Swiss Design Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            /* International Orange / Swiss Red */
+            --card-bg: #f5f5f5;
+            --border-color: #e5e5e5;
+            --grid-gap: 24px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Header Styling */
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 12px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            margin: 0;
+        }
+
+        /* Input Section */
+        .input-section {
+            background-color: var(--card-bg);
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        .input-group {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            color: var(--secondary-text);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .currency-symbol {
+            font-size: 32px;
+            font-weight: 300;
+            position: absolute;
+            left: 0;
+            pointer-events: none;
+            color: var(--text-color);
+        }
+
+        input[type="number"] {
+            width: 100%;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 32px;
+            font-weight: 400;
+            padding: 8px 8px 8px 24px;
+            border: none;
+            border-bottom: 2px solid var(--text-color);
+            background: transparent;
+            color: var(--text-color);
+            border-radius: 0;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input[type="number"]:focus {
+            border-bottom-color: var(--accent-color);
+        }
+
+        input[type="number"]::placeholder {
+            color: #cccccc;
+        }
+
+        /* Results Grid */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+
+        .result-card {
+            background: var(--card-bg);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 140px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            cursor: default;
+        }
+
+        .result-card:hover {
+            background-color: #eeeeee;
+        }
+
+        /* Highlight specific interesting percentages */
+        .result-card.highlight {
+            background-color: var(--text-color);
+            color: white;
+        }
+
+        .result-card.highlight .percentage {
+            color: white;
+            border-bottom-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .result-card.highlight .label {
+            color: #999;
+        }
+
+        .result-card.highlight .value.total {
+            color: white;
+        }
+
+        .percentage {
+            font-size: 48px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ddd;
+            display: inline-block;
+        }
+
+        .amounts {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .amount-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--secondary-text);
+            font-weight: 600;
+        }
+
+        .value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+        }
+
+        .value.total {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 60px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            font-size: 12px;
+            color: var(--secondary-text);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-color);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .percentage {
+                font-size: 36px;
+            }
+
+            .results-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="../index.html" class="nav-link">← Back to Index</a>
+
+        <header>
+            <h1>Tip Calculator</h1>
+            <p class="subtitle">Quick calculation utility.</p>
+        </header>
+
+        <section class="input-section">
+            <div class="input-group">
+                <label for="charge">Bill Amount</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="charge" step="0.01" min="0" placeholder="0.00" oninput="calculateTip()"
+                        autofocus>
+                </div>
+            </div>
+        </section>
+
+        <section class="results-grid" id="results">
+            <!-- Results will be injected here via JS -->
+            <div class="result-card">
+                <div class="percentage">10%</div>
+                <div class="amounts">
+                    <div class="amount-row">
+                        <span class="label">Tip</span>
+                        <span class="value" id="tip10">$0.00</span>
+                    </div>
+                    <div class="amount-row">
+                        <span class="label">Total</span>
+                        <span class="value total" id="total10">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-card">
+                <div class="percentage">15%</div>
+                <div class="amounts">
+                    <div class="amount-row">
+                        <span class="label">Tip</span>
+                        <span class="value" id="tip15">$0.00</span>
+                    </div>
+                    <div class="amount-row">
+                        <span class="label">Total</span>
+                        <span class="value total" id="total15">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Standard Service (20%) Highlighted -->
+            <div class="result-card highlight">
+                <div class="percentage">20%</div>
+                <div class="amounts">
+                    <div class="amount-row">
+                        <span class="label">Tip</span>
+                        <span class="value" id="tip20">$0.00</span>
+                    </div>
+                    <div class="amount-row">
+                        <span class="label">Total</span>
+                        <span class="value total" id="total20">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-card">
+                <div class="percentage">25%</div>
+                <div class="amounts">
+                    <div class="amount-row">
+                        <span class="label">Tip</span>
+                        <span class="value" id="tip25">$0.00</span>
+                    </div>
+                    <div class="amount-row">
+                        <span class="label">Total</span>
+                        <span class="value total" id="total25">$0.00</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="footer">
+            Start typing to calculate automatically.
+        </div>
+    </div>
+
+    <script>
+        function calculateTip() {
+            const chargeInput = document.getElementById('charge').value;
+            const charge = parseFloat(chargeInput);
+
+            const percentages = [10, 15, 20, 25];
+
+            percentages.forEach(percentage => {
+                let tipAmount = 0;
+                let total = 0;
+
+                if (!isNaN(charge) && charge >= 0) {
+                    tipAmount = charge * (percentage / 100);
+                    total = charge + tipAmount;
+                }
+
+                document.getElementById(`tip${percentage}`).textContent = `$${tipAmount.toFixed(2)}`;
+                document.getElementById(`total${percentage}`).textContent = `$${total.toFixed(2)}`;
+            });
+        }
+    </script>
+</body>
+
+</html>
