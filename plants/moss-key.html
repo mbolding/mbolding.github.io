@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birmingham, AL Moss Dichotomous Key</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #2d7d2d;
+            --card-bg: #f5f5f5;
+            --card-hover: #e8f5e8;
+            --border-color: #dddddd;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            color: #000;
+            text-decoration: underline;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--secondary-text);
+            margin: 0;
+        }
+
+        .intro {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .intro h2 {
+            margin-top: 0;
+            font-size: 1.3rem;
+        }
+
+        .key-step {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent-color);
+            display: none;
+        }
+
+        .key-step.active {
+            display: block;
+        }
+
+        .step-number {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-question {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .choice-btn {
+            background-color: #ffffff;
+            border: 2px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .choice-btn:hover {
+            background-color: var(--card-hover);
+            border-color: var(--accent-color);
+            transform: translateX(4px);
+        }
+
+        .result {
+            background-color: #e8f5e8;
+            border-left: 4px solid var(--accent-color);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result h2 {
+            color: var(--accent-color);
+            margin-top: 0;
+            font-size: 1.8rem;
+        }
+
+        .scientific-name {
+            font-style: italic;
+            color: var(--secondary-text);
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .characteristics {
+            margin-top: 1.5rem;
+        }
+
+        .characteristics h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .characteristics ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .characteristics li {
+            margin-bottom: 0.3rem;
+        }
+
+        .reset-btn {
+            background-color: var(--text-color);
+            color: #ffffff;
+            border: none;
+            padding: 0.75rem 2rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .reset-btn:hover {
+            background-color: var(--accent-color);
+        }
+
+        .habitat-note {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .choice-btn:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&larr; Back to Plants</a>
+
+        <header>
+            <h1>Moss Identification Key</h1>
+            <p class="subtitle">A Dichotomous Key for Common Mosses in Birmingham, Alabama</p>
+        </header>
+
+        <div class="intro">
+            <h2>How to Use This Key</h2>
+            <p>This dichotomous key will help you identify common moss species found in the Birmingham, Alabama area.
+                Answer each question by selecting the choice that best matches your specimen. Each choice will lead you
+                to the next question or to an identification.</p>
+            <p><strong>Tips for identification:</strong></p>
+            <ul>
+                <li>Use a hand lens (10x magnification) for best results</li>
+                <li>Examine the leaf shape, arrangement, and tip</li>
+                <li>Note the habitat where you found the moss</li>
+                <li>Fresh, moist specimens are easier to identify than dried ones</li>
+            </ul>
+        </div>
+
+        <div id="key-container">
+            <!-- Step 1 -->
+            <div class="key-step active" data-step="1">
+                <div class="step-number">Step 1</div>
+                <div class="step-question">What is the overall growth form of the moss?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-next="2">
+                        <strong>Upright (acrocarpous):</strong> Growing in tufts or cushions, with stems growing
+                        vertically and sporophytes at the tips
+                    </button>
+                    <button class="choice-btn" data-next="6">
+                        <strong>Creeping or mat-forming (pleurocarpous):</strong> Growing horizontally with branching
+                        stems and sporophytes on side branches
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="key-step" data-step="2">
+                <div class="step-number">Step 2</div>
+                <div class="step-question">What color is the moss?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-next="3">
+                        <strong>Bright to yellow-green</strong>
+                    </button>
+                    <button class="choice-btn" data-next="4">
+                        <strong>Dark green to brownish-green</strong>
+                    </button>
+                    <button class="choice-btn" data-next="5">
+                        <strong>Whitish or glaucous (pale blue-green)</strong>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="key-step" data-step="3">
+                <div class="step-number">Step 3</div>
+                <div class="step-question">Where is the moss growing?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-result="ceratodon">
+                        <strong>On disturbed soil, roadsides, or bare ground</strong> - Leaves have a distinctive
+                        reddish seta (stalk)
+                    </button>
+                    <button class="choice-btn" data-result="bryum">
+                        <strong>On rocks, walls, or soil in gardens</strong> - Forms small cushions with pear-shaped
+                        capsules
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="key-step" data-step="4">
+                <div class="step-number">Step 4</div>
+                <div class="step-question">Examine the leaf tips. What do they look like?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-result="polytrichum">
+                        <strong>Leaves with toothed tips, appearing saw-like</strong> - Stiff, wiry stems; leaves have
+                        vertical plates (lamellae) on upper surface
+                    </button>
+                    <button class="choice-btn" data-result="atrichum">
+                        <strong>Leaves with wavy, crisped margins when dry</strong> - Broad leaves with parallel ridges
+                        on upper surface
+                    </button>
+                    <button class="choice-btn" data-result="funaria">
+                        <strong>Leaves rounded with a pointed tip</strong> - Often found near old fires or disturbed
+                        soil
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="key-step" data-step="5">
+                <div class="step-number">Step 5</div>
+                <div class="step-question">How are the leaves arranged?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-result="leucobryum">
+                        <strong>Densely packed, forming pale cushions</strong> - Leaves whitish, soft and spongy when
+                        moist
+                    </button>
+                    <button class="choice-btn" data-result="dicranum">
+                        <strong>Leaves curved to one side</strong> - Leaves lance-shaped with a single costa (midrib)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 6 -->
+            <div class="key-step" data-step="6">
+                <div class="step-number">Step 6</div>
+                <div class="step-question">How much branching does the moss have?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-next="7">
+                        <strong>Irregularly branched</strong> - Branches not in a regular pattern
+                    </button>
+                    <button class="choice-btn" data-next="9">
+                        <strong>Regularly pinnate (feather-like)</strong> - Branches arranged like feathers along main
+                        stem
+                    </button>
+                    <button class="choice-btn" data-next="10">
+                        <strong>Tree-like or dendroid</strong> - Resembles a tiny tree with horizontal branches
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 7 -->
+            <div class="key-step" data-step="7">
+                <div class="step-number">Step 7</div>
+                <div class="step-question">What is the leaf shape?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-next="8">
+                        <strong>Ovate to lance-shaped with a pointed tip</strong>
+                    </button>
+                    <button class="choice-btn" data-result="anomodon">
+                        <strong>Tongue-shaped, rounded at tip</strong> - Growing on tree bark or rocks; leaves papillose
+                        (bumpy)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 8 -->
+            <div class="key-step" data-step="8">
+                <div class="step-number">Step 8</div>
+                <div class="step-question">Where is the moss growing?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-result="brachythecium">
+                        <strong>On soil, rocks, or wood in various habitats</strong> - Glossy, yellow-green; leaves
+                        strongly plicate (pleated)
+                    </button>
+                    <button class="choice-btn" data-result="entodon">
+                        <strong>On tree bases or rotten logs</strong> - Very glossy, satiny appearance; leaves smooth
+                        and shiny
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 9 -->
+            <div class="key-step" data-step="9">
+                <div class="step-number">Step 9</div>
+                <div class="step-question">Examine the leaves closely. How do they appear?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-result="hypnum">
+                        <strong>Leaves curved to one side, sickle-shaped</strong> - Strongly curved when dry; golden to
+                        yellow-green
+                    </button>
+                    <button class="choice-btn" data-result="thuidium">
+                        <strong>Leaves triangular, forming fern-like fronds</strong> - Twice or thrice pinnate; leaves
+                        papillose
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 10 -->
+            <div class="key-step" data-step="10">
+                <div class="step-number">Step 10</div>
+                <div class="step-question">Where is this moss growing?</div>
+                <div class="choices">
+                    <button class="choice-btn" data-result="climacium">
+                        <strong>In wet areas, swamps, or near streams</strong> - Upright stems from creeping rhizome;
+                        tree-like appearance
+                    </button>
+                    <button class="choice-btn" data-result="plagiomnium">
+                        <strong>On moist soil, rocks, or logs in forests</strong> - Large, broad leaves arranged like a
+                        rosette; leaves bordered
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="result" data-result="ceratodon">
+            <h2>Fire Moss</h2>
+            <p class="scientific-name">Ceratodon purpureus</p>
+            <p>One of the most common and widespread mosses in the world, fire moss is often the first to colonize
+                disturbed areas.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Bright green to yellow-green tufts</li>
+                    <li>Distinctive purple-red seta (stalk) when mature</li>
+                    <li>Small, lance-shaped leaves</li>
+                    <li>Grows 1-3 cm tall</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Bare soil, roadsides, burned areas, old fields, gardens, sidewalk cracks</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Very common on disturbed soil around construction sites,
+                parking lots, and along roadsides throughout the metro area.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="bryum">
+            <h2>Silver Moss / Bryum</h2>
+            <p class="scientific-name">Bryum argenteum</p>
+            <p>A cosmopolitan moss with a distinctive silvery appearance, extremely tolerant of urban conditions.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Silvery-green color due to hyaline (clear) leaf tips</li>
+                    <li>Forms small, tight cushions</li>
+                    <li>Pear-shaped capsules when present</li>
+                    <li>Very small, typically under 1 cm tall</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Sidewalks, walls, rocks, compacted soil, urban environments</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Extremely common on concrete surfaces, between pavers,
+                and on walls downtown and in residential areas.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="polytrichum">
+            <h2>Haircap Moss</h2>
+            <p class="scientific-name">Polytrichum commune</p>
+            <p>One of the largest and most recognizable mosses, often forming extensive carpets in suitable habitats.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Dark green to brownish-green</li>
+                    <li>Stiff, wiry stems up to 15 cm tall</li>
+                    <li>Leaves with parallel vertical plates (lamellae) on upper surface</li>
+                    <li>Leaves with toothed margins</li>
+                    <li>Capsules square or angular, covered with hairy calyptra</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Acidic soil in woods, old fields, bogs, and disturbed areas</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Common in Oak Mountain State Park and Ruffner Mountain,
+                especially in acidic forest soils.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="atrichum">
+            <h2>Crane's Bill Moss</h2>
+            <p class="scientific-name">Atrichum angustatum</p>
+            <p>A distinctive moss with broad, crisped leaves that have parallel ridges on their upper surface.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Dark green leaves</li>
+                    <li>Leaves with undulate (wavy) margins, especially when dry</li>
+                    <li>Parallel ridges (lamellae) on upper leaf surface</li>
+                    <li>Grows in small tufts, 2-4 cm tall</li>
+                    <li>Cylindrical capsules on long setae</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Moist soil along trails, stream banks, and disturbed forest areas</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Found along shaded trails in Turkey Creek Nature Preserve
+                and Red Mountain Park.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="funaria">
+            <h2>Cord Moss</h2>
+            <p class="scientific-name">Funaria hygrometrica</p>
+            <p>A pioneer moss that quickly colonizes areas after fires or soil disturbance.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Bright yellow-green to green</li>
+                    <li>Pear-shaped capsules that are asymmetric</li>
+                    <li>Capsule on a hygroscopic seta that twists when dry</li>
+                    <li>Leaves rounded with a pointed tip</li>
+                    <li>Forms small patches</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Disturbed soil, burned areas, greenhouses, potting soil</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Common in gardens and greenhouses; appears after
+                controlled burns in natural areas.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="leucobryum">
+            <h2>Pincushion Moss</h2>
+            <p class="scientific-name">Leucobryum glaucum</p>
+            <p>A beautiful moss forming distinctive pale, cushion-like mounds in forests.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Whitish to pale glaucous green color</li>
+                    <li>Forms dense, rounded cushions</li>
+                    <li>Leaves whitish, giving the cushion a frosted appearance</li>
+                    <li>Spongy texture when moist, brittle when dry</li>
+                    <li>Can grow quite large (10-20 cm diameter)</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Acidic forest floor, especially under pines and hardwoods</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Common in Oak Mountain State Park and mature forests in
+                Homewood Forest Preserve.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="dicranum">
+            <h2>Fork Moss / Broom Moss</h2>
+            <p class="scientific-name">Dicranum scoparium</p>
+            <p>A very common forest moss with leaves that characteristically curve to one side.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Yellow-green to dark green</li>
+                    <li>Leaves curved to one side like a broom</li>
+                    <li>Lance-shaped leaves with a single strong midrib</li>
+                    <li>Forms loose tufts or mats</li>
+                    <li>Grows 3-8 cm tall</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Decaying logs, tree bases, rocks in moist forests</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Very common on rotting logs and tree bases in Oak
+                Mountain, Ruffner Mountain, and Turkey Creek.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="brachythecium">
+            <h2>Satin Moss</h2>
+            <p class="scientific-name">Brachythecium rutabulum</p>
+            <p>A common and variable pleurocarpous moss with a glossy appearance.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Glossy, yellow-green to golden-green</li>
+                    <li>Irregularly branched</li>
+                    <li>Leaves strongly pleated (plicate)</li>
+                    <li>Ovate-lanceolate leaves with pointed tips</li>
+                    <li>Forms loose to dense mats</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Soil, rocks, logs, tree bases in various habitats</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Widespread in parks and natural areas; common on soil and
+                at tree bases along trails.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="entodon">
+            <h2>Entodon Moss</h2>
+            <p class="scientific-name">Entodon seductrix</p>
+            <p>A lustrous moss with a distinctive satiny sheen, common on tree bark.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Very glossy, satiny appearance</li>
+                    <li>Yellow-green to golden color</li>
+                    <li>Irregularly branched, forming smooth mats</li>
+                    <li>Leaves symmetric, smooth, and shiny</li>
+                    <li>Thin, complanate (flattened) appearance</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Tree bases, rotten logs, occasionally rocks</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Very common on tree trunks in urban parks and natural
+                areas throughout Jefferson County.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="anomodon">
+            <h2>Tree Apron Moss</h2>
+            <p class="scientific-name">Anomodon attenuatus</p>
+            <p>A common moss on tree bark in southeastern forests, with distinctive papillose leaves.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Dark green to yellow-green</li>
+                    <li>Irregularly branched</li>
+                    <li>Leaves tongue-shaped, rounded at tip</li>
+                    <li>Leaves papillose (bumpy texture under magnification)</li>
+                    <li>Forms loose mats on bark</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Tree bark, especially hardwoods, occasionally on rocks</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Abundant on oak and hickory trees in Ruffner Mountain and
+                Oak Mountain State Park.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="hypnum">
+            <h2>Feather Moss</h2>
+            <p class="scientific-name">Hypnum curvifolium</p>
+            <p>A beautiful moss with sickle-shaped leaves arranged in a feather-like pattern.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Golden to yellow-green, glossy</li>
+                    <li>Regularly pinnate (feather-like) branching</li>
+                    <li>Leaves strongly curved to one side (falcate-secund)</li>
+                    <li>Sickle-shaped leaves, especially when dry</li>
+                    <li>Forms extensive mats</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Logs, tree bases, soil in moist forests</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Common in moist ravines and creek sides in Turkey Creek
+                Nature Preserve and Moss Rock Preserve.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="thuidium">
+            <h2>Fern Moss</h2>
+            <p class="scientific-name">Thuidium delicatulum</p>
+            <p>A delicate, fern-like moss with intricate branching patterns.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Yellow-green to bright green</li>
+                    <li>Twice to thrice pinnately branched (like a fern frond)</li>
+                    <li>Triangular leaves</li>
+                    <li>Leaves papillose (bumpy under magnification)</li>
+                    <li>Forms delicate, lacy mats</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Soil, logs, rocks in moist forests</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Found in rich, moist woods at Oak Mountain and along
+                shaded stream banks.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="climacium">
+            <h2>Tree Moss</h2>
+            <p class="scientific-name">Climacium americanum</p>
+            <p>A distinctive moss with a tree-like growth form, growing from a creeping underground stem.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Dark green to yellow-green</li>
+                    <li>Tree-like (dendroid) growth form</li>
+                    <li>Upright stems from horizontal rhizome</li>
+                    <li>Branches spreading horizontally from upright stem</li>
+                    <li>Grows 5-10 cm tall</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Swamps, wet woods, stream margins, seeps</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Found in wet areas near streams in Turkey Creek and in
+                seepage areas at Ruffner Mountain.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+        <div class="result" data-result="plagiomnium">
+            <h2>Leafy Moss</h2>
+            <p class="scientific-name">Plagiomnium cuspidatum</p>
+            <p>A beautiful moss with large, broad leaves arranged in a rosette pattern.</p>
+            <div class="characteristics">
+                <h3>Key Characteristics:</h3>
+                <ul>
+                    <li>Bright green to dark green</li>
+                    <li>Large, broad leaves (2-5 mm long)</li>
+                    <li>Leaves arranged in a rosette at stem tips</li>
+                    <li>Leaves bordered by elongated cells</li>
+                    <li>Leaves with a toothed margin</li>
+                </ul>
+                <h3>Habitat:</h3>
+                <p>Moist soil, rocks, logs in forests; stream banks</p>
+            </div>
+            <div class="habitat-note">
+                <strong>Where to find in Birmingham:</strong> Common on moist rocks and logs near streams in Oak
+                Mountain and Turkey Creek.
+            </div>
+            <button class="reset-btn" onclick="resetKey()">Identify Another Moss</button>
+        </div>
+
+    </div>
+
+    <script>
+        let currentStep = 1;
+
+        function showStep(stepNumber) {
+            // Hide all steps
+            document.querySelectorAll('.key-step').forEach(step => {
+                step.classList.remove('active');
+            });
+
+            // Show the target step
+            const targetStep = document.querySelector(`.key-step[data-step="${stepNumber}"]`);
+            if (targetStep) {
+                targetStep.classList.add('active');
+                currentStep = stepNumber;
+                // Scroll to the step
+                targetStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function showResult(resultId) {
+            // Hide all steps
+            document.querySelectorAll('.key-step').forEach(step => {
+                step.classList.remove('active');
+            });
+
+            // Hide all results
+            document.querySelectorAll('.result').forEach(result => {
+                result.classList.remove('active');
+            });
+
+            // Show the target result
+            const targetResult = document.querySelector(`.result[data-result="${resultId}"]`);
+            if (targetResult) {
+                targetResult.classList.add('active');
+                // Scroll to the result
+                targetResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function resetKey() {
+            // Hide all results
+            document.querySelectorAll('.result').forEach(result => {
+                result.classList.remove('active');
+            });
+
+            // Show step 1
+            showStep(1);
+        }
+
+        // Add click handlers to all choice buttons
+        document.querySelectorAll('.choice-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                const nextStep = this.getAttribute('data-next');
+                const resultId = this.getAttribute('data-result');
+
+                if (nextStep) {
+                    showStep(parseInt(nextStep));
+                } else if (resultId) {
+                    showResult(resultId);
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
