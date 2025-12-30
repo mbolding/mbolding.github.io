@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Plasticity Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --text-color: #ffffff;
+            --secondary-text: #888888;
+            --accent-color: #ff3300;
+            --card-bg: #1a1a1a;
+            --neuron-inactive: #333333;
+            --neuron-active: #00ff88;
+            --synapse-weak: rgba(255, 255, 255, 0.1);
+            --synapse-strong: rgba(255, 51, 0, 0.8);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+            border-bottom: 3px solid var(--accent-color);
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 10px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            margin: 0;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .canvas-container {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background-color: #000000;
+            border: 2px solid #333;
+        }
+
+        .controls-panel {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 4px;
+            height: fit-content;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .control-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+            margin: 0 0 15px 0;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background-color: #333;
+            color: var(--text-color);
+            border: none;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background-color: #444;
+        }
+
+        button.active {
+            background-color: var(--accent-color);
+            color: #ffffff;
+        }
+
+        button.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .slider-control {
+            margin-bottom: 15px;
+        }
+
+        .slider-control label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            color: var(--secondary-text);
+        }
+
+        .slider-value {
+            float: right;
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            cursor: pointer;
+            border: none;
+        }
+
+        .stats-panel {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--accent-color);
+        }
+
+        .info-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--secondary-text);
+            margin-top: 10px;
+        }
+
+        .neuron-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 30px);
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .neuron-button {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            font-size: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Neural Plasticity</h1>
+            <p class="subtitle">Interactive simulation of Hebbian and anti-Hebbian learning in neural ensembles</p>
+        </header>
+
+        <div class="main-grid">
+            <div class="canvas-container">
+                <canvas id="networkCanvas" width="800" height="600"></canvas>
+            </div>
+
+            <div class="controls-panel">
+                <div class="control-section">
+                    <h3>Learning Mode</h3>
+                    <div class="button-group">
+                        <button id="hebbianBtn" class="active">Hebbian</button>
+                        <button id="antiHebbianBtn">Anti-Hebbian</button>
+                    </div>
+                    <p class="info-text" id="modeDescription">
+                        Hebbian: Connections strengthen when neurons fire together
+                    </p>
+                </div>
+
+                <div class="control-section">
+                    <h3>Simulation Control</h3>
+                    <div class="button-group">
+                        <button id="playPauseBtn" class="full-width">Pause</button>
+                        <button id="resetBtn" class="full-width">Reset Network</button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Parameters</h3>
+                    <div class="slider-control">
+                        <label>
+                            Learning Rate
+                            <span class="slider-value" id="learningRateValue">0.05</span>
+                        </label>
+                        <input type="range" id="learningRate" min="0" max="0.2" step="0.01" value="0.05">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            Decay Rate
+                            <span class="slider-value" id="decayRateValue">0.01</span>
+                        </label>
+                        <input type="range" id="decayRate" min="0" max="0.05" step="0.001" value="0.01">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            Firing Threshold
+                            <span class="slider-value" id="thresholdValue">0.5</span>
+                        </label>
+                        <input type="range" id="threshold" min="0.1" max="1" step="0.05" value="0.5">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            Spontaneous Activity
+                            <span class="slider-value" id="spontaneousValue">0.02</span>
+                        </label>
+                        <input type="range" id="spontaneous" min="0" max="0.1" step="0.01" value="0.02">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Stimulation</h3>
+                    <div class="button-group">
+                        <button id="stimulateRandomBtn">Random</button>
+                        <button id="stimulatePatternBtn">Pattern</button>
+                        <button id="stimulateAllBtn" class="full-width">All Neurons</button>
+                    </div>
+                    <div class="neuron-grid" id="neuronGrid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-panel">
+            <div class="stat">
+                <div class="stat-label">Active Neurons</div>
+                <div class="stat-value" id="activeNeurons">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Avg Weight</div>
+                <div class="stat-value" id="avgWeight">0.50</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Total Spikes</div>
+                <div class="stat-value" id="totalSpikes">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Time Steps</div>
+                <div class="stat-value" id="timeSteps">0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Neural Network Simulation
+        class Neuron {
+            constructor(x, y, id) {
+                this.x = x;
+                this.y = y;
+                this.id = id;
+                this.activity = 0;
+                this.input = 0;
+                this.spiked = false;
+                this.decayRate = 0.9;
+            }
+
+            update(threshold) {
+                // Add input to activity
+                this.activity += this.input;
+
+                // Check if neuron spikes
+                this.spiked = this.activity > threshold;
+
+                // Reset if spiked, otherwise decay
+                if (this.spiked) {
+                    this.activity = 0;
+                } else {
+                    this.activity *= this.decayRate;
+                }
+
+                // Reset input for next iteration
+                this.input = 0;
+            }
+
+            stimulate(amount = 1.0) {
+                this.input += amount;
+            }
+        }
+
+        class Synapse {
+            constructor(from, to) {
+                this.from = from;
+                this.to = to;
+                this.weight = Math.random() * 0.5 + 0.25; // Initialize between 0.25 and 0.75
+                this.minWeight = 0.01;
+                this.maxWeight = 1.0;
+            }
+
+            updateWeight(learningRate, isHebbian, decayRate) {
+                // Hebbian learning: strengthen if both neurons are active
+                // Anti-Hebbian: weaken if both neurons are active
+                if (this.from.spiked && this.to.spiked) {
+                    if (isHebbian) {
+                        this.weight += learningRate * (this.maxWeight - this.weight);
+                    } else {
+                        this.weight -= learningRate * (this.weight - this.minWeight);
+                    }
+                }
+
+                // Natural decay toward baseline
+                const baseline = 0.5;
+                this.weight += (baseline - this.weight) * decayRate;
+
+                // Clamp weight
+                this.weight = Math.max(this.minWeight, Math.min(this.maxWeight, this.weight));
+            }
+
+            transmit() {
+                if (this.from.spiked) {
+                    this.to.input += this.weight;
+                }
+            }
+        }
+
+        class NeuralNetwork {
+            constructor(numNeurons) {
+                this.neurons = [];
+                this.synapses = [];
+                this.totalSpikes = 0;
+                this.timeSteps = 0;
+
+                // Create neurons in a grid-like pattern
+                const gridSize = Math.ceil(Math.sqrt(numNeurons));
+                const spacing = 120;
+                const offsetX = 50;
+                const offsetY = 50;
+
+                for (let i = 0; i < numNeurons; i++) {
+                    const row = Math.floor(i / gridSize);
+                    const col = i % gridSize;
+                    const x = offsetX + col * spacing + (Math.random() - 0.5) * 40;
+                    const y = offsetY + row * spacing + (Math.random() - 0.5) * 40;
+                    this.neurons.push(new Neuron(x, y, i));
+                }
+
+                // Create synapses (not fully connected, about 30% connectivity)
+                for (let i = 0; i < this.neurons.length; i++) {
+                    for (let j = 0; j < this.neurons.length; j++) {
+                        if (i !== j && Math.random() < 0.3) {
+                            this.synapses.push(new Synapse(this.neurons[i], this.neurons[j]));
+                        }
+                    }
+                }
+            }
+
+            update(threshold, learningRate, isHebbian, decayRate, spontaneousRate) {
+                this.timeSteps++;
+
+                // Spontaneous activity
+                this.neurons.forEach(neuron => {
+                    if (Math.random() < spontaneousRate) {
+                        neuron.stimulate(0.5);
+                    }
+                });
+
+                // Transmit signals through synapses
+                this.synapses.forEach(synapse => synapse.transmit());
+
+                // Update neurons
+                this.neurons.forEach(neuron => {
+                    neuron.update(threshold);
+                    if (neuron.spiked) this.totalSpikes++;
+                });
+
+                // Update synaptic weights
+                this.synapses.forEach(synapse =>
+                    synapse.updateWeight(learningRate, isHebbian, decayRate)
+                );
+            }
+
+            getAverageWeight() {
+                if (this.synapses.length === 0) return 0;
+                const sum = this.synapses.reduce((acc, syn) => acc + syn.weight, 0);
+                return sum / this.synapses.length;
+            }
+
+            getActiveNeurons() {
+                return this.neurons.filter(n => n.spiked).length;
+            }
+
+            reset() {
+                this.neurons.forEach(neuron => {
+                    neuron.activity = 0;
+                    neuron.input = 0;
+                    neuron.spiked = false;
+                });
+                this.synapses.forEach(synapse => {
+                    synapse.weight = Math.random() * 0.5 + 0.25;
+                });
+                this.totalSpikes = 0;
+                this.timeSteps = 0;
+            }
+        }
+
+        // Visualization
+        class NetworkVisualizer {
+            constructor(canvas, network) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.network = network;
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw synapses
+                this.network.synapses.forEach(synapse => {
+                    const alpha = synapse.weight;
+                    const color = `rgba(255, 51, 0, ${alpha * 0.3})`;
+                    const width = synapse.weight * 2;
+
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.beginPath();
+                    ctx.moveTo(synapse.from.x, synapse.from.y);
+                    ctx.lineTo(synapse.to.x, synapse.to.y);
+                    ctx.stroke();
+                });
+
+                // Draw neurons
+                this.network.neurons.forEach(neuron => {
+                    const radius = 12;
+
+                    // Outer glow if spiked
+                    if (neuron.spiked) {
+                        ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
+                        ctx.beginPath();
+                        ctx.arc(neuron.x, neuron.y, radius + 8, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Neuron body
+                    if (neuron.spiked) {
+                        ctx.fillStyle = '#00ff88';
+                    } else if (neuron.activity > 0.1) {
+                        const intensity = Math.min(neuron.activity, 1);
+                        ctx.fillStyle = `rgba(0, 255, 136, ${intensity * 0.5})`;
+                    } else {
+                        ctx.fillStyle = '#333333';
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(neuron.x, neuron.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Neuron border
+                    ctx.strokeStyle = neuron.spiked ? '#ffffff' : '#555555';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Neuron ID
+                    ctx.fillStyle = neuron.spiked ? '#000000' : '#888888';
+                    ctx.font = '10px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(neuron.id, neuron.x, neuron.y);
+                });
+            }
+        }
+
+        // Application State
+        const NUM_NEURONS = 25;
+        const network = new NeuralNetwork(NUM_NEURONS);
+        const canvas = document.getElementById('networkCanvas');
+        const visualizer = new NetworkVisualizer(canvas, network);
+
+        let isRunning = true;
+        let isHebbian = true;
+        let learningRate = 0.05;
+        let decayRate = 0.01;
+        let threshold = 0.5;
+        let spontaneousRate = 0.02;
+
+        // UI Elements
+        const hebbianBtn = document.getElementById('hebbianBtn');
+        const antiHebbianBtn = document.getElementById('antiHebbianBtn');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const stimulateRandomBtn = document.getElementById('stimulateRandomBtn');
+        const stimulatePatternBtn = document.getElementById('stimulatePatternBtn');
+        const stimulateAllBtn = document.getElementById('stimulateAllBtn');
+        const modeDescription = document.getElementById('modeDescription');
+
+        // Sliders
+        const learningRateSlider = document.getElementById('learningRate');
+        const decayRateSlider = document.getElementById('decayRate');
+        const thresholdSlider = document.getElementById('threshold');
+        const spontaneousSlider = document.getElementById('spontaneous');
+
+        // Stats
+        const activeNeuronsEl = document.getElementById('activeNeurons');
+        const avgWeightEl = document.getElementById('avgWeight');
+        const totalSpikesEl = document.getElementById('totalSpikes');
+        const timeStepsEl = document.getElementById('timeSteps');
+
+        // Neuron grid
+        const neuronGrid = document.getElementById('neuronGrid');
+        for (let i = 0; i < NUM_NEURONS; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'neuron-button';
+            btn.textContent = i;
+            btn.addEventListener('click', () => {
+                network.neurons[i].stimulate(1.0);
+            });
+            neuronGrid.appendChild(btn);
+        }
+
+        // Event Listeners
+        hebbianBtn.addEventListener('click', () => {
+            isHebbian = true;
+            hebbianBtn.classList.add('active');
+            antiHebbianBtn.classList.remove('active');
+            modeDescription.textContent = 'Hebbian: Connections strengthen when neurons fire together';
+        });
+
+        antiHebbianBtn.addEventListener('click', () => {
+            isHebbian = false;
+            antiHebbianBtn.classList.add('active');
+            hebbianBtn.classList.remove('active');
+            modeDescription.textContent = 'Anti-Hebbian: Connections weaken when neurons fire together';
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            playPauseBtn.textContent = isRunning ? 'Pause' : 'Play';
+        });
+
+        resetBtn.addEventListener('click', () => {
+            network.reset();
+        });
+
+        stimulateRandomBtn.addEventListener('click', () => {
+            const randomNeuron = network.neurons[Math.floor(Math.random() * network.neurons.length)];
+            randomNeuron.stimulate(1.0);
+        });
+
+        stimulatePatternBtn.addEventListener('click', () => {
+            // Stimulate neurons 0-4 (a pattern)
+            for (let i = 0; i < Math.min(5, network.neurons.length); i++) {
+                network.neurons[i].stimulate(1.0);
+            }
+        });
+
+        stimulateAllBtn.addEventListener('click', () => {
+            network.neurons.forEach(n => n.stimulate(0.8));
+        });
+
+        learningRateSlider.addEventListener('input', (e) => {
+            learningRate = parseFloat(e.target.value);
+            document.getElementById('learningRateValue').textContent = learningRate.toFixed(2);
+        });
+
+        decayRateSlider.addEventListener('input', (e) => {
+            decayRate = parseFloat(e.target.value);
+            document.getElementById('decayRateValue').textContent = decayRate.toFixed(3);
+        });
+
+        thresholdSlider.addEventListener('input', (e) => {
+            threshold = parseFloat(e.target.value);
+            document.getElementById('thresholdValue').textContent = threshold.toFixed(2);
+        });
+
+        spontaneousSlider.addEventListener('input', (e) => {
+            spontaneousRate = parseFloat(e.target.value);
+            document.getElementById('spontaneousValue').textContent = spontaneousRate.toFixed(2);
+        });
+
+        // Animation Loop
+        function animate() {
+            if (isRunning) {
+                network.update(threshold, learningRate, isHebbian, decayRate, spontaneousRate);
+
+                // Update stats
+                activeNeuronsEl.textContent = network.getActiveNeurons();
+                avgWeightEl.textContent = network.getAverageWeight().toFixed(2);
+                totalSpikesEl.textContent = network.totalSpikes;
+                timeStepsEl.textContent = network.timeSteps;
+            }
+
+            visualizer.draw();
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
