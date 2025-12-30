@@ -666,16 +666,26 @@
 
                 // Draw trail
                 if (showTrails && this.trail.length > 1) {
-                    ctx.strokeStyle = this.isSpecial ? 'rgba(204, 0, 0, 0.1)' : 'rgba(51, 51, 51, 0.1)';
                     ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
-                    for (let i = 1; i < this.trail.length; i++) {
-                        const alpha = i / this.trail.length * 0.15;
+                    for (let i = 0; i < this.trail.length - 1; i++) {
+                        const p1 = this.trail[i];
+                        const p2 = this.trail[i + 1];
+
+                        // Check for wrapping (distance too large)
+                        const dx = Math.abs(p1.x - p2.x);
+                        const dy = Math.abs(p1.y - p2.y);
+                        if (dx > this.width / 2 || dy > this.height / 2) {
+                            continue; // Skip this segment if it wraps
+                        }
+
+                        const alpha = (i + 1) / this.trail.length * 0.4; // Initial higher opacity
+                        // Draw segment
+                        ctx.beginPath();
                         ctx.strokeStyle = this.isSpecial ? `rgba(204, 0, 0, ${alpha})` : `rgba(51, 51, 51, ${alpha})`;
-                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
                     }
-                    ctx.stroke();
                 }
 
                 // Draw boid as simple triangle (Tufte style: minimal)
