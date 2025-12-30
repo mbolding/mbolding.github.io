@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flocking Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=ET+Book:wght@400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #fffff8;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #cc0000;
+            --card-bg: #ffffff;
+            --border-color: #cccccc;
+            --boid-color: #333333;
+            --trail-color: rgba(51, 51, 51, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'ET Book', Palatino, 'Palatino Linotype', 'Palatino LT STD', 'Book Antiqua', Georgia, serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--text-color);
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 400;
+            margin: 0 0 5px 0;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--secondary-text);
+            margin: 0;
+            font-style: italic;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .canvas-container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background-color: var(--bg-color);
+        }
+
+        .controls-panel {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .control-section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .control-section h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+            margin: 0 0 15px 0;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        button {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        button:hover {
+            background-color: #f5f5f5;
+            border-color: var(--text-color);
+        }
+
+        button.active {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border-color: var(--text-color);
+        }
+
+        .slider-control {
+            margin-bottom: 18px;
+        }
+
+        .slider-control label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            color: var(--secondary-text);
+        }
+
+        .slider-value {
+            float: right;
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 2px;
+            background: var(--border-color);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--text-color);
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: var(--text-color);
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            margin-bottom: 30px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .stat {
+            text-align: left;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 300;
+            color: var(--text-color);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sparklines-panel {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .sparklines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 35px;
+        }
+
+        .sparkline-container {
+            position: relative;
+        }
+
+        .sparkline-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .sparkline-value {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-color);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sparkline-canvas {
+            width: 100%;
+            height: 40px;
+            display: block;
+            background-color: var(--bg-color);
+        }
+
+        .sparkline-range {
+            font-size: 9px;
+            color: var(--secondary-text);
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .info-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--secondary-text);
+            margin-top: 10px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Flocking Behavior</h1>
+            <p class="subtitle">A minimalist exploration of emergent collective motion</p>
+        </header>
+
+        <div class="main-grid">
+            <div class="canvas-container">
+                <canvas id="flockCanvas" width="900" height="600"></canvas>
+            </div>
+
+            <div class="controls-panel">
+                <div class="control-section">
+                    <h3>Simulation</h3>
+                    <div class="button-group">
+                        <button id="playPauseBtn">Pause</button>
+                        <button id="resetBtn">Reset</button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Flocking Rules</h3>
+                    <div class="slider-control">
+                        <label>
+                            Separation
+                            <span class="slider-value" id="separationValue">1.5</span>
+                        </label>
+                        <input type="range" id="separationSlider" min="0" max="3" step="0.1" value="1.5">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            Alignment
+                            <span class="slider-value" id="alignmentValue">1.0</span>
+                        </label>
+                        <input type="range" id="alignmentSlider" min="0" max="3" step="0.1" value="1.0">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            Cohesion
+                            <span class="slider-value" id="cohesionValue">1.0</span>
+                        </label>
+                        <input type="range" id="cohesionSlider" min="0" max="3" step="0.1" value="1.0">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Parameters</h3>
+                    <div class="slider-control">
+                        <label>
+                            Max Speed
+                            <span class="slider-value" id="maxSpeedValue">4</span>
+                        </label>
+                        <input type="range" id="maxSpeedSlider" min="1" max="8" step="0.5" value="4">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            Perception
+                            <span class="slider-value" id="perceptionValue">80</span>
+                        </label>
+                        <input type="range" id="perceptionSlider" min="20" max="150" step="10" value="80">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Display</h3>
+                    <div class="button-group">
+                        <button id="showTrailsBtn">Show Trails</button>
+                        <button id="showVectorsBtn">Show Vectors</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-label">Boids</div>
+                <div class="stat-value" id="boidCount">100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Avg Speed</div>
+                <div class="stat-value" id="avgSpeed">0.0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Alignment</div>
+                <div class="stat-value" id="alignmentStat">0.0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Cohesion</div>
+                <div class="stat-value" id="cohesionStat">0.0</div>
+            </div>
+        </div>
+
+        <div class="sparklines-panel">
+            <div class="sparklines-grid">
+                <div class="sparkline-container">
+                    <div class="sparkline-label">
+                        <span>Average Velocity</span>
+                        <span class="sparkline-value" id="velocityValue">0.0</span>
+                    </div>
+                    <canvas id="velocitySparkline" class="sparkline-canvas" width="700" height="40"></canvas>
+                    <div class="sparkline-range">
+                        <span id="velocityMin">0</span>
+                        <span id="velocityMax">8</span>
+                    </div>
+                </div>
+                <div class="sparkline-container">
+                    <div class="sparkline-label">
+                        <span>Alignment Index</span>
+                        <span class="sparkline-value" id="alignmentIndexValue">0.0</span>
+                    </div>
+                    <canvas id="alignmentSparkline" class="sparkline-canvas" width="700" height="40"></canvas>
+                    <div class="sparkline-range">
+                        <span id="alignmentMin">0.0</span>
+                        <span id="alignmentMax">1.0</span>
+                    </div>
+                </div>
+                <div class="sparkline-container">
+                    <div class="sparkline-label">
+                        <span>Spatial Dispersion</span>
+                        <span class="sparkline-value" id="dispersionValue">0</span>
+                    </div>
+                    <canvas id="dispersionSparkline" class="sparkline-canvas" width="700" height="40"></canvas>
+                    <div class="sparkline-range">
+                        <span id="dispersionMin">0</span>
+                        <span id="dispersionMax">500</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Vector2D utility class
+        class Vector2D {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+
+            add(v) {
+                return new Vector2D(this.x + v.x, this.y + v.y);
+            }
+
+            sub(v) {
+                return new Vector2D(this.x - v.x, this.y - v.y);
+            }
+
+            mult(n) {
+                return new Vector2D(this.x * n, this.y * n);
+            }
+
+            div(n) {
+                return new Vector2D(this.x / n, this.y / n);
+            }
+
+            mag() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+
+            normalize() {
+                const m = this.mag();
+                if (m > 0) {
+                    return this.div(m);
+                }
+                return new Vector2D(0, 0);
+            }
+
+            limit(max) {
+                if (this.mag() > max) {
+                    return this.normalize().mult(max);
+                }
+                return new Vector2D(this.x, this.y);
+            }
+
+            setMag(n) {
+                return this.normalize().mult(n);
+            }
+
+            dist(v) {
+                return Math.sqrt((this.x - v.x) ** 2 + (this.y - v.y) ** 2);
+            }
+
+            dot(v) {
+                return this.x * v.x + this.y * v.y;
+            }
+        }
+
+        // Boid class
+        class Boid {
+            constructor(x, y, width, height) {
+                this.position = new Vector2D(x, y);
+                this.velocity = new Vector2D(
+                    Math.random() * 2 - 1,
+                    Math.random() * 2 - 1
+                ).setMag(Math.random() * 2 + 2);
+                this.acceleration = new Vector2D(0, 0);
+                this.maxForce = 0.2;
+                this.maxSpeed = 4;
+                this.width = width;
+                this.height = height;
+                this.trail = [];
+                this.maxTrailLength = 30;
+            }
+
+            edges() {
+                if (this.position.x > this.width) this.position.x = 0;
+                if (this.position.x < 0) this.position.x = this.width;
+                if (this.position.y > this.height) this.position.y = 0;
+                if (this.position.y < 0) this.position.y = this.height;
+            }
+
+            align(boids, perception) {
+                let steering = new Vector2D(0, 0);
+                let total = 0;
+                for (let other of boids) {
+                    let d = this.position.dist(other.position);
+                    if (other !== this && d < perception) {
+                        steering = steering.add(other.velocity);
+                        total++;
+                    }
+                }
+                if (total > 0) {
+                    steering = steering.div(total);
+                    steering = steering.setMag(this.maxSpeed);
+                    steering = steering.sub(this.velocity);
+                    steering = steering.limit(this.maxForce);
+                }
+                return steering;
+            }
+
+            cohesion(boids, perception) {
+                let steering = new Vector2D(0, 0);
+                let total = 0;
+                for (let other of boids) {
+                    let d = this.position.dist(other.position);
+                    if (other !== this && d < perception) {
+                        steering = steering.add(other.position);
+                        total++;
+                    }
+                }
+                if (total > 0) {
+                    steering = steering.div(total);
+                    steering = steering.sub(this.position);
+                    steering = steering.setMag(this.maxSpeed);
+                    steering = steering.sub(this.velocity);
+                    steering = steering.limit(this.maxForce);
+                }
+                return steering;
+            }
+
+            separation(boids, perception) {
+                let steering = new Vector2D(0, 0);
+                let total = 0;
+                for (let other of boids) {
+                    let d = this.position.dist(other.position);
+                    if (other !== this && d < perception / 2) {
+                        let diff = this.position.sub(other.position);
+                        diff = diff.div(d * d); // Weight by distance
+                        steering = steering.add(diff);
+                        total++;
+                    }
+                }
+                if (total > 0) {
+                    steering = steering.div(total);
+                    steering = steering.setMag(this.maxSpeed);
+                    steering = steering.sub(this.velocity);
+                    steering = steering.limit(this.maxForce);
+                }
+                return steering;
+            }
+
+            flock(boids, perception, separationWeight, alignmentWeight, cohesionWeight) {
+                let alignment = this.align(boids, perception).mult(alignmentWeight);
+                let cohesion = this.cohesion(boids, perception).mult(cohesionWeight);
+                let separation = this.separation(boids, perception).mult(separationWeight);
+
+                this.acceleration = this.acceleration.add(alignment);
+                this.acceleration = this.acceleration.add(cohesion);
+                this.acceleration = this.acceleration.add(separation);
+            }
+
+            update() {
+                this.position = this.position.add(this.velocity);
+                this.velocity = this.velocity.add(this.acceleration);
+                this.velocity = this.velocity.limit(this.maxSpeed);
+                this.acceleration = this.acceleration.mult(0);
+
+                // Update trail
+                this.trail.push({x: this.position.x, y: this.position.y});
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+            }
+
+            show(ctx, showVectors, showTrails) {
+                // Draw trail
+                if (showTrails && this.trail.length > 1) {
+                    ctx.strokeStyle = 'rgba(51, 51, 51, 0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const alpha = i / this.trail.length * 0.15;
+                        ctx.strokeStyle = `rgba(51, 51, 51, ${alpha})`;
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+
+                // Draw boid as simple triangle (Tufte style: minimal)
+                const angle = Math.atan2(this.velocity.y, this.velocity.x);
+                ctx.save();
+                ctx.translate(this.position.x, this.position.y);
+                ctx.rotate(angle);
+
+                ctx.fillStyle = '#333333';
+                ctx.beginPath();
+                ctx.moveTo(6, 0);
+                ctx.lineTo(-4, 3);
+                ctx.lineTo(-4, -3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Draw velocity vector
+                if (showVectors) {
+                    ctx.strokeStyle = 'rgba(204, 0, 0, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(this.velocity.x * 5, this.velocity.y * 5);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Sparkline class (Tufte style)
+        class Sparkline {
+            constructor(canvas, maxDataPoints = 200, minValue = 0, maxValue = 1, color = '#333333') {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.data = [];
+                this.maxDataPoints = maxDataPoints;
+                this.minValue = minValue;
+                this.maxValue = maxValue;
+                this.color = color;
+            }
+
+            addData(value) {
+                this.data.push(value);
+                if (this.data.length > this.maxDataPoints) {
+                    this.data.shift();
+                }
+            }
+
+            clear() {
+                this.data = [];
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+
+                ctx.clearRect(0, 0, width, height);
+
+                if (this.data.length < 2) return;
+
+                const range = this.maxValue - this.minValue || 1;
+
+                // Draw minimal, thin line (Tufte principle: maximize data-ink ratio)
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+
+                for (let i = 0; i < this.data.length; i++) {
+                    const x = (i / (this.maxDataPoints - 1)) * width;
+                    const y = height - ((this.data[i] - this.minValue) / range) * height;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+
+                ctx.stroke();
+
+                // Mark last data point with small dot
+                if (this.data.length > 0) {
+                    const lastIdx = this.data.length - 1;
+                    const lastX = (lastIdx / (this.maxDataPoints - 1)) * width;
+                    const lastY = height - ((this.data[lastIdx] - this.minValue) / range) * height;
+
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(lastX, lastY, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            getCurrentValue() {
+                return this.data.length > 0 ? this.data[this.data.length - 1] : 0;
+            }
+        }
+
+        // Application State
+        const canvas = document.getElementById('flockCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        const flock = [];
+        const numBoids = 100;
+
+        // Initialize boids
+        for (let i = 0; i < numBoids; i++) {
+            flock.push(new Boid(
+                Math.random() * width,
+                Math.random() * height,
+                width,
+                height
+            ));
+        }
+
+        // Initialize sparklines
+        const velocitySparkline = new Sparkline(
+            document.getElementById('velocitySparkline'),
+            200, 0, 8, '#333333'
+        );
+        const alignmentSparkline = new Sparkline(
+            document.getElementById('alignmentSparkline'),
+            200, 0, 1, '#666666'
+        );
+        const dispersionSparkline = new Sparkline(
+            document.getElementById('dispersionSparkline'),
+            200, 0, 500, '#999999'
+        );
+
+        // State variables
+        let isRunning = true;
+        let showTrails = false;
+        let showVectors = false;
+        let separationWeight = 1.5;
+        let alignmentWeight = 1.0;
+        let cohesionWeight = 1.0;
+        let maxSpeed = 4;
+        let perception = 80;
+
+        // UI Elements
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const showTrailsBtn = document.getElementById('showTrailsBtn');
+        const showVectorsBtn = document.getElementById('showVectorsBtn');
+
+        // Sliders
+        const separationSlider = document.getElementById('separationSlider');
+        const alignmentSlider = document.getElementById('alignmentSlider');
+        const cohesionSlider = document.getElementById('cohesionSlider');
+        const maxSpeedSlider = document.getElementById('maxSpeedSlider');
+        const perceptionSlider = document.getElementById('perceptionSlider');
+
+        // Event Listeners
+        playPauseBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            playPauseBtn.textContent = isRunning ? 'Pause' : 'Play';
+        });
+
+        resetBtn.addEventListener('click', () => {
+            flock.length = 0;
+            for (let i = 0; i < numBoids; i++) {
+                flock.push(new Boid(
+                    Math.random() * width,
+                    Math.random() * height,
+                    width,
+                    height
+                ));
+            }
+            velocitySparkline.clear();
+            alignmentSparkline.clear();
+            dispersionSparkline.clear();
+        });
+
+        showTrailsBtn.addEventListener('click', () => {
+            showTrails = !showTrails;
+            showTrailsBtn.classList.toggle('active');
+        });
+
+        showVectorsBtn.addEventListener('click', () => {
+            showVectors = !showVectors;
+            showVectorsBtn.classList.toggle('active');
+        });
+
+        separationSlider.addEventListener('input', (e) => {
+            separationWeight = parseFloat(e.target.value);
+            document.getElementById('separationValue').textContent = separationWeight.toFixed(1);
+        });
+
+        alignmentSlider.addEventListener('input', (e) => {
+            alignmentWeight = parseFloat(e.target.value);
+            document.getElementById('alignmentValue').textContent = alignmentWeight.toFixed(1);
+        });
+
+        cohesionSlider.addEventListener('input', (e) => {
+            cohesionWeight = parseFloat(e.target.value);
+            document.getElementById('cohesionValue').textContent = cohesionWeight.toFixed(1);
+        });
+
+        maxSpeedSlider.addEventListener('input', (e) => {
+            maxSpeed = parseFloat(e.target.value);
+            flock.forEach(boid => boid.maxSpeed = maxSpeed);
+            document.getElementById('maxSpeedValue').textContent = maxSpeed.toFixed(1);
+        });
+
+        perceptionSlider.addEventListener('input', (e) => {
+            perception = parseFloat(e.target.value);
+            document.getElementById('perceptionValue').textContent = perception.toFixed(0);
+        });
+
+        // Calculate flock statistics
+        function calculateStats() {
+            let totalSpeed = 0;
+            let avgVelocity = new Vector2D(0, 0);
+            let centerOfMass = new Vector2D(0, 0);
+
+            for (let boid of flock) {
+                totalSpeed += boid.velocity.mag();
+                avgVelocity = avgVelocity.add(boid.velocity.normalize());
+                centerOfMass = centerOfMass.add(boid.position);
+            }
+
+            const avgSpeed = totalSpeed / flock.length;
+            avgVelocity = avgVelocity.div(flock.length);
+            const alignmentIndex = avgVelocity.mag(); // 0-1, higher = more aligned
+            centerOfMass = centerOfMass.div(flock.length);
+
+            // Calculate spatial dispersion (average distance from center)
+            let totalDistance = 0;
+            for (let boid of flock) {
+                totalDistance += boid.position.dist(centerOfMass);
+            }
+            const dispersion = totalDistance / flock.length;
+
+            return {
+                avgSpeed: avgSpeed,
+                alignmentIndex: alignmentIndex,
+                dispersion: dispersion
+            };
+        }
+
+        // Animation loop
+        function animate() {
+            if (isRunning) {
+                // Clear canvas
+                ctx.fillStyle = 'rgba(255, 255, 248, 1)';
+                ctx.fillRect(0, 0, width, height);
+
+                // Update and draw boids
+                for (let boid of flock) {
+                    boid.edges();
+                    boid.flock(flock, perception, separationWeight, alignmentWeight, cohesionWeight);
+                    boid.update();
+                    boid.show(ctx, showVectors, showTrails);
+                }
+
+                // Calculate and update statistics
+                const stats = calculateStats();
+
+                document.getElementById('boidCount').textContent = flock.length;
+                document.getElementById('avgSpeed').textContent = stats.avgSpeed.toFixed(2);
+                document.getElementById('alignmentStat').textContent = stats.alignmentIndex.toFixed(2);
+                document.getElementById('cohesionStat').textContent = stats.dispersion.toFixed(0);
+
+                // Update sparklines (sample every few frames to reduce noise)
+                velocitySparkline.addData(stats.avgSpeed);
+                alignmentSparkline.addData(stats.alignmentIndex);
+                dispersionSparkline.addData(stats.dispersion);
+
+                document.getElementById('velocityValue').textContent = stats.avgSpeed.toFixed(2);
+                document.getElementById('alignmentIndexValue').textContent = stats.alignmentIndex.toFixed(3);
+                document.getElementById('dispersionValue').textContent = stats.dispersion.toFixed(0);
+            }
+
+            // Draw sparklines
+            velocitySparkline.draw();
+            alignmentSparkline.draw();
+            dispersionSparkline.draw();
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
