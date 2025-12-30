@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flocking Simulation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=ET+Book:wght@400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=ET+Book:wght@400&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-color: #fffff8;
@@ -74,8 +76,10 @@
         canvas {
             display: block;
             width: 100%;
+            height: 1200px;
             background-color: var(--bg-color);
         }
+
 
         .controls-panel {
             font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
@@ -282,6 +286,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -291,7 +296,7 @@
 
         <div class="main-grid">
             <div class="canvas-container">
-                <canvas id="flockCanvas" width="900" height="600"></canvas>
+                <canvas id="flockCanvas"></canvas>
             </div>
 
             <div class="controls-panel">
@@ -337,20 +342,50 @@
                         </label>
                         <input type="range" id="maxSpeedSlider" min="1" max="8" step="0.5" value="4">
                     </div>
-                    <div class="slider-control">
+                </div>
+
+                <div class="control-section">
+                    <h3>Network Topology</h3>
+                    <div class="button-group" style="margin-bottom: 20px;">
+                        <button id="topoMetricBtn" class="active">Metric (Radius)</button>
+                        <button id="topoKnnBtn">k-Nearest</button>
+                        <button id="topoSmallWorldBtn">Small World</button>
+                        <button id="topoFixedBtn">Fixed Random</button>
+                    </div>
+
+                    <div class="slider-control" id="perceptionControl">
                         <label>
-                            Perception
+                            Radius
                             <span class="slider-value" id="perceptionValue">80</span>
                         </label>
-                        <input type="range" id="perceptionSlider" min="20" max="150" step="10" value="80">
+                        <input type="range" id="perceptionSlider" min="20" max="250" step="10" value="80">
+                    </div>
+
+                    <div class="slider-control" id="kNeighborsControl" style="display: none;">
+                        <label>
+                            Neighbors (k)
+                            <span class="slider-value" id="kNeighborsValue">6</span>
+                        </label>
+                        <input type="range" id="kNeighborsSlider" min="2" max="20" step="2" value="6">
+                    </div>
+
+                    <div class="slider-control" id="rewiringControl" style="display: none;">
+                        <label>
+                            Rewiring (p)
+                            <span class="slider-value" id="rewiringValue">0.1</span>
+                        </label>
+                        <input type="range" id="rewiringSlider" min="0" max="1" step="0.05" value="0.1">
                     </div>
                 </div>
+
 
                 <div class="control-section">
                     <h3>Display</h3>
                     <div class="button-group">
                         <button id="showTrailsBtn">Show Trails</button>
                         <button id="showVectorsBtn">Show Vectors</button>
+                        <button id="showConnectionsBtn">Show Connections</button>
+
                     </div>
                 </div>
             </div>
@@ -472,7 +507,9 @@
 
         // Boid class
         class Boid {
-            constructor(x, y, width, height) {
+            constructor(x, y, width, height, id, isSpecial = false) {
+                this.id = id;
+                this.isSpecial = isSpecial;
                 this.position = new Vector2D(x, y);
                 this.velocity = new Vector2D(
                     Math.random() * 2 - 1,
@@ -485,6 +522,10 @@
                 this.height = height;
                 this.trail = [];
                 this.maxTrailLength = 30;
+                this.neighbors = []; // Explicit list of connected boids
+
+                // Special boid pathing
+                this.angle = 0;
             }
 
             edges() {
@@ -494,12 +535,11 @@
                 if (this.position.y < 0) this.position.y = this.height;
             }
 
-            align(boids, perception) {
+            align() {
                 let steering = new Vector2D(0, 0);
                 let total = 0;
-                for (let other of boids) {
-                    let d = this.position.dist(other.position);
-                    if (other !== this && d < perception) {
+                for (let other of this.neighbors) {
+                    if (other !== this) {
                         steering = steering.add(other.velocity);
                         total++;
                     }
@@ -513,12 +553,11 @@
                 return steering;
             }
 
-            cohesion(boids, perception) {
+            cohesion() {
                 let steering = new Vector2D(0, 0);
                 let total = 0;
-                for (let other of boids) {
-                    let d = this.position.dist(other.position);
-                    if (other !== this && d < perception) {
+                for (let other of this.neighbors) {
+                    if (other !== this) {
                         steering = steering.add(other.position);
                         total++;
                     }
@@ -533,16 +572,21 @@
                 return steering;
             }
 
-            separation(boids, perception) {
+            separation() {
                 let steering = new Vector2D(0, 0);
                 let total = 0;
-                for (let other of boids) {
-                    let d = this.position.dist(other.position);
-                    if (other !== this && d < perception / 2) {
-                        let diff = this.position.sub(other.position);
-                        diff = diff.div(d * d); // Weight by distance
-                        steering = steering.add(diff);
-                        total++;
+                for (let other of this.neighbors) {
+                    if (other !== this) {
+                        let d = this.position.dist(other.position);
+                        // Separation still considers distance to avoid crashes, even if topologically connected
+                        // We use a safe distance that's physically meaningful (e.g., 25px)
+                        // If d is 0 (occupying same space), careful with division.
+                        if (d < 30 && d > 0) {
+                            let diff = this.position.sub(other.position);
+                            diff = diff.div(d * d); // Weight by distance
+                            steering = steering.add(diff);
+                            total++;
+                        }
                     }
                 }
                 if (total > 0) {
@@ -554,10 +598,12 @@
                 return steering;
             }
 
-            flock(boids, perception, separationWeight, alignmentWeight, cohesionWeight) {
-                let alignment = this.align(boids, perception).mult(alignmentWeight);
-                let cohesion = this.cohesion(boids, perception).mult(cohesionWeight);
-                let separation = this.separation(boids, perception).mult(separationWeight);
+            flock(separationWeight, alignmentWeight, cohesionWeight) {
+                if (this.isSpecial) return; // Special boids ignore flocking rules
+
+                let alignment = this.align().mult(alignmentWeight);
+                let cohesion = this.cohesion().mult(cohesionWeight);
+                let separation = this.separation().mult(separationWeight);
 
                 this.acceleration = this.acceleration.add(alignment);
                 this.acceleration = this.acceleration.add(cohesion);
@@ -565,28 +611,68 @@
             }
 
             update() {
-                this.position = this.position.add(this.velocity);
-                this.velocity = this.velocity.add(this.acceleration);
-                this.velocity = this.velocity.limit(this.maxSpeed);
-                this.acceleration = this.acceleration.mult(0);
+                if (this.isSpecial) {
+                    // Circular path in middle of field
+                    this.angle += 0.02;
+                    const radius = Math.min(this.width, this.height) * 0.25;
+                    const centerX = this.width / 2;
+                    const centerY = this.height / 2;
+
+                    const nextX = centerX + Math.cos(this.angle) * radius;
+                    const nextY = centerY + Math.sin(this.angle) * radius;
+
+                    // Set velocity based on change (for facing direction)
+                    // Scale up for visual vector length of ~4 (maxSpeed)
+                    // normalize() and mult() creates new Vector2D, safe to assign
+                    this.velocity = new Vector2D(nextX - this.position.x, nextY - this.position.y).setMag(this.maxSpeed);
+
+                    this.position.x = nextX;
+                    this.position.y = nextY;
+                } else {
+                    this.position = this.position.add(this.velocity);
+                    this.velocity = this.velocity.add(this.acceleration);
+                    this.velocity = this.velocity.limit(this.maxSpeed);
+                    this.acceleration = this.acceleration.mult(0);
+                }
 
                 // Update trail
-                this.trail.push({x: this.position.x, y: this.position.y});
+                this.trail.push({ x: this.position.x, y: this.position.y });
                 if (this.trail.length > this.maxTrailLength) {
                     this.trail.shift();
                 }
             }
 
-            show(ctx, showVectors, showTrails) {
+            show(ctx, showVectors, showTrails, showConnections) {
+                // Draw connections
+                if (showConnections) {
+                    ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    for (let other of this.neighbors) {
+                        // Draw line to neighbor.
+                        // Optimization: Try to avoid drawing twice? (undirected graph)
+                        // But for k-NN graph is directed, so draw all.
+                        ctx.moveTo(this.position.x, this.position.y);
+
+                        // Handle wrap-around gracefully? For now, raw line.
+                        // Ideally we check if distance is huge (wrapped), don't draw line across screen.
+                        if (Math.abs(this.position.x - other.position.x) < this.width / 2 &&
+                            Math.abs(this.position.y - other.position.y) < this.height / 2) {
+                            ctx.lineTo(other.position.x, other.position.y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+
                 // Draw trail
                 if (showTrails && this.trail.length > 1) {
-                    ctx.strokeStyle = 'rgba(51, 51, 51, 0.1)';
+                    ctx.strokeStyle = this.isSpecial ? 'rgba(204, 0, 0, 0.1)' : 'rgba(51, 51, 51, 0.1)';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(this.trail[0].x, this.trail[0].y);
                     for (let i = 1; i < this.trail.length; i++) {
                         const alpha = i / this.trail.length * 0.15;
-                        ctx.strokeStyle = `rgba(51, 51, 51, ${alpha})`;
+                        ctx.strokeStyle = this.isSpecial ? `rgba(204, 0, 0, ${alpha})` : `rgba(51, 51, 51, ${alpha})`;
                         ctx.lineTo(this.trail[i].x, this.trail[i].y);
                     }
                     ctx.stroke();
@@ -598,7 +684,7 @@
                 ctx.translate(this.position.x, this.position.y);
                 ctx.rotate(angle);
 
-                ctx.fillStyle = '#333333';
+                ctx.fillStyle = this.isSpecial ? '#cc0000' : '#333333';
                 ctx.beginPath();
                 ctx.moveTo(6, 0);
                 ctx.lineTo(-4, 3);
@@ -619,6 +705,7 @@
                 ctx.restore();
             }
         }
+
 
         // Sparkline class (Tufte style)
         class Sparkline {
@@ -695,20 +782,61 @@
         // Application State
         const canvas = document.getElementById('flockCanvas');
         const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
+
+        // Dynamic dimensions
+        let width, height;
+
+        function resizeCanvas() {
+            // Get the display size from the DOM (set by CSS)
+            // This ensures we always match the laid-out size
+            const displayWidth = canvas.clientWidth;
+            const displayHeight = canvas.clientHeight;
+
+            // Handle High DPI
+            const dpr = window.devicePixelRatio || 1;
+
+            // Only update buffer size if it changes (prevents flickering/context loss if not needed)
+            if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
+                canvas.width = displayWidth * dpr;
+                canvas.height = displayHeight * dpr;
+
+                // Scale context to match logical coordination system
+                ctx.scale(dpr, dpr);
+            }
+
+            // Update simulation bounds (logical pixels)
+            width = displayWidth;
+            height = displayHeight;
+
+            // Update boids
+            flock.forEach(boid => {
+                boid.width = width;
+                boid.height = height;
+            });
+        }
+
 
         const flock = [];
         const numBoids = 100;
 
         // Initialize boids
-        for (let i = 0; i < numBoids; i++) {
-            flock.push(new Boid(
-                Math.random() * width,
-                Math.random() * height,
-                width,
-                height
-            ));
+        function initBoids() {
+            flock.length = 0;
+            for (let i = 0; i < numBoids; i++) {
+                const isSpecial = (i === 0);
+                flock.push(new Boid(
+                    Math.random() * width,
+                    Math.random() * height,
+                    width,
+                    height,
+                    i,
+                    isSpecial
+                ));
+            }
+            // If fixed topology, generate it once
+            if (networkTopology === 'fixed' || networkTopology === 'small-world') { // handle small-world init too
+                generateFixedNetwork();
+            }
         }
 
         // Initialize sparklines
@@ -729,17 +857,35 @@
         let isRunning = true;
         let showTrails = false;
         let showVectors = false;
+        let showConnections = false;
         let separationWeight = 1.5;
         let alignmentWeight = 1.0;
         let cohesionWeight = 1.0;
         let maxSpeed = 4;
         let perception = 80;
 
+        // Graph Theory State
+        let networkTopology = 'metric'; // 'metric', 'knn', 'fixed', 'small-world'
+        let kNeighbors = 6;
+        let pRewire = 0.1;
+
         // UI Elements
         const playPauseBtn = document.getElementById('playPauseBtn');
         const resetBtn = document.getElementById('resetBtn');
         const showTrailsBtn = document.getElementById('showTrailsBtn');
         const showVectorsBtn = document.getElementById('showVectorsBtn');
+        const showConnectionsBtn = document.getElementById('showConnectionsBtn');
+
+        // Topology Buttons
+        const topoMetricBtn = document.getElementById('topoMetricBtn');
+        const topoKnnBtn = document.getElementById('topoKnnBtn');
+        const topoSmallWorldBtn = document.getElementById('topoSmallWorldBtn');
+        const topoFixedBtn = document.getElementById('topoFixedBtn');
+
+        // Controls
+        const perceptionControl = document.getElementById('perceptionControl');
+        const kNeighborsControl = document.getElementById('kNeighborsControl');
+        const rewiringControl = document.getElementById('rewiringControl');
 
         // Sliders
         const separationSlider = document.getElementById('separationSlider');
@@ -747,6 +893,8 @@
         const cohesionSlider = document.getElementById('cohesionSlider');
         const maxSpeedSlider = document.getElementById('maxSpeedSlider');
         const perceptionSlider = document.getElementById('perceptionSlider');
+        const kNeighborsSlider = document.getElementById('kNeighborsSlider');
+        const rewiringSlider = document.getElementById('rewiringSlider');
 
         // Event Listeners
         playPauseBtn.addEventListener('click', () => {
@@ -755,15 +903,7 @@
         });
 
         resetBtn.addEventListener('click', () => {
-            flock.length = 0;
-            for (let i = 0; i < numBoids; i++) {
-                flock.push(new Boid(
-                    Math.random() * width,
-                    Math.random() * height,
-                    width,
-                    height
-                ));
-            }
+            initBoids();
             velocitySparkline.clear();
             alignmentSparkline.clear();
             dispersionSparkline.clear();
@@ -778,6 +918,53 @@
             showVectors = !showVectors;
             showVectorsBtn.classList.toggle('active');
         });
+
+        showConnectionsBtn.addEventListener('click', () => {
+            showConnections = !showConnections;
+            showConnectionsBtn.classList.toggle('active');
+        });
+
+        // Topology Switcher
+        function setTopology(type) {
+            networkTopology = type;
+            // Update buttons
+            topoMetricBtn.classList.remove('active');
+            topoKnnBtn.classList.remove('active');
+            topoSmallWorldBtn.classList.remove('active');
+            topoFixedBtn.classList.remove('active');
+
+            // Default visibility
+            perceptionControl.style.display = 'none';
+            kNeighborsControl.style.display = 'none';
+            rewiringControl.style.display = 'none';
+
+            if (type === 'metric') {
+                topoMetricBtn.classList.add('active');
+                perceptionControl.style.display = 'block';
+            } else if (type === 'knn') {
+                topoKnnBtn.classList.add('active');
+                kNeighborsControl.style.display = 'block';
+            } else if (type === 'small-world') {
+                topoSmallWorldBtn.classList.add('active');
+                kNeighborsControl.style.display = 'block'; // Uses K for ring lattice
+                rewiringControl.style.display = 'block';
+                // Regenerate logic handled by caller or manual update
+                generateFixedNetwork();
+            } else if (type === 'fixed') {
+                topoFixedBtn.classList.add('active');
+                // Could act as Erdos-Renyi? Or just fixed random.
+                // Let's use K-Neighbors slider to define degree of random graph?
+                // For simplicity, let's say Fixed Random = Small World with p=1 (Random Graph) or p=infinite?
+                // Or independent. Let's keep it simple.
+                generateFixedNetwork();
+            }
+        }
+
+        topoMetricBtn.addEventListener('click', () => setTopology('metric'));
+        topoKnnBtn.addEventListener('click', () => setTopology('knn'));
+        topoSmallWorldBtn.addEventListener('click', () => setTopology('small-world'));
+        topoFixedBtn.addEventListener('click', () => setTopology('fixed'));
+
 
         separationSlider.addEventListener('input', (e) => {
             separationWeight = parseFloat(e.target.value);
@@ -805,6 +992,122 @@
             document.getElementById('perceptionValue').textContent = perception.toFixed(0);
         });
 
+        kNeighborsSlider.addEventListener('input', (e) => {
+            kNeighbors = parseInt(e.target.value);
+            document.getElementById('kNeighborsValue').textContent = kNeighbors;
+            if (networkTopology === 'small-world' || networkTopology === 'fixed') {
+                generateFixedNetwork();
+            }
+        });
+
+        rewiringSlider.addEventListener('input', (e) => {
+            pRewire = parseFloat(e.target.value);
+            document.getElementById('rewiringValue').textContent = pRewire.toFixed(2);
+            if (networkTopology === 'small-world') {
+                generateFixedNetwork();
+            }
+        });
+
+        // Helper to regenerate static graphs
+        function generateFixedNetwork() {
+            if (networkTopology === 'fixed') {
+                // Random Graph (Degree ~ K)
+                for (let boid of flock) {
+                    boid.neighbors = [];
+                    let potentialNeighbors = flock.filter(b => b !== boid);
+                    // Shuffle
+                    for (let i = potentialNeighbors.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [potentialNeighbors[i], potentialNeighbors[j]] = [potentialNeighbors[j], potentialNeighbors[i]];
+                    }
+                    boid.neighbors = potentialNeighbors.slice(0, Math.min(kNeighbors, potentialNeighbors.length));
+                }
+            } else if (networkTopology === 'small-world') {
+                // Watts-Strogatz
+                // 1. Regular Ring Lattice
+                // Connect each node to K/2 neighbors on each side.
+                // Treat flock array as ring.
+                const n = flock.length;
+                const halfK = Math.floor(kNeighbors / 2);
+
+                // Reset neighbors
+                flock.forEach(b => b.neighbors = []);
+
+                // Construct Ring
+                for (let i = 0; i < n; i++) {
+                    for (let j = 1; j <= halfK; j++) {
+                        // Forward connection
+                        const neighborIdx = (i + j) % n;
+                        flock[i].neighbors.push(flock[neighborIdx]);
+                        // Backward connection (for undirected graph consistency, but we implement as directed edges for now)
+                        // Actually, WS is usually undirected. If I have link A->B, I should have B->A?
+                        // Flocking is usually directed. Let's just do: each node connects to K next nodes.
+                        // Then rewire.
+                        // Standard WS: Ring with N, K. Each node connected to K nearest neighbors.
+                        // Because it's a directed graph implementation here (boid.neighbors), let's just make each 
+                        // node 'i' connect to (i+1)...(i+K) mod n.
+                    }
+                    // If K is odd, add one more? Let's just stick to K total outgoing links.
+                    if (kNeighbors % 2 !== 0) {
+                        const extra = (i + halfK + 1) % n;
+                        flock[i].neighbors.push(flock[extra]);
+                    }
+                }
+
+                // 2. Rewire
+                // For each edge (i, j), with prob p, replace j with k (random choice)
+                for (let boid of flock) {
+                    for (let m = 0; m < boid.neighbors.length; m++) {
+                        if (Math.random() < pRewire) {
+                            // Pick random new neighbor that isn't self or already neighbor
+                            let attempts = 0;
+                            let newTarget;
+                            do {
+                                newTarget = flock[Math.floor(Math.random() * n)];
+                                attempts++;
+                            } while ((newTarget === boid || boid.neighbors.includes(newTarget)) && attempts < 10);
+
+                            if (newTarget !== boid && !boid.neighbors.includes(newTarget)) {
+                                boid.neighbors[m] = newTarget;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Graph Update Logic
+        function updateNetwork() {
+            if (networkTopology === 'metric') {
+                // Classic behavior
+                for (let boid of flock) {
+                    boid.neighbors = [];
+                    for (let other of flock) {
+                        if (boid !== other) {
+                            if (boid.position.dist(other.position) < perception) {
+                                boid.neighbors.push(other);
+                            }
+                        }
+                    }
+                }
+            } else if (networkTopology === 'knn') {
+                // KNN
+                for (let boid of flock) {
+                    let others = [];
+                    for (let other of flock) {
+                        if (boid !== other) {
+                            others.push({ boid: other, dist: boid.position.dist(other.position) });
+                        }
+                    }
+                    others.sort((a, b) => a.dist - b.dist);
+                    boid.neighbors = others.slice(0, kNeighbors).map(o => o.boid);
+                }
+            }
+            // Fixed and Small World do not update every frame
+        }
+
+
+
         // Calculate flock statistics
         function calculateStats() {
             let totalSpeed = 0;
@@ -813,13 +1116,17 @@
 
             for (let boid of flock) {
                 totalSpeed += boid.velocity.mag();
+                // Normalized velocity (direction only) for alignment
                 avgVelocity = avgVelocity.add(boid.velocity.normalize());
                 centerOfMass = centerOfMass.add(boid.position);
             }
 
             const avgSpeed = totalSpeed / flock.length;
-            avgVelocity = avgVelocity.div(flock.length);
-            const alignmentIndex = avgVelocity.mag(); // 0-1, higher = more aligned
+
+            // Alignment index: Magnitude of average normalized velocity vector.
+            // If all aligned: mag is 1. If random: mag is 0.
+            const alignmentIndex = avgVelocity.div(flock.length).mag();
+
             centerOfMass = centerOfMass.div(flock.length);
 
             // Calculate spatial dispersion (average distance from center)
@@ -843,12 +1150,17 @@
                 ctx.fillStyle = 'rgba(255, 255, 248, 1)';
                 ctx.fillRect(0, 0, width, height);
 
+                // Update Network (unless fixed)
+                if (networkTopology !== 'fixed') {
+                    updateNetwork();
+                }
+
                 // Update and draw boids
                 for (let boid of flock) {
-                    boid.edges();
-                    boid.flock(flock, perception, separationWeight, alignmentWeight, cohesionWeight);
+                    boid.edges(); // Wrap around screen
+                    boid.flock(separationWeight, alignmentWeight, cohesionWeight);
                     boid.update();
-                    boid.show(ctx, showVectors, showTrails);
+                    boid.show(ctx, showVectors, showTrails, showConnections);
                 }
 
                 // Calculate and update statistics
@@ -859,7 +1171,7 @@
                 document.getElementById('alignmentStat').textContent = stats.alignmentIndex.toFixed(2);
                 document.getElementById('cohesionStat').textContent = stats.dispersion.toFixed(0);
 
-                // Update sparklines (sample every few frames to reduce noise)
+                // Update sparklines (sample every few frames to reduce noise? currently every frame)
                 velocitySparkline.addData(stats.avgSpeed);
                 alignmentSparkline.addData(stats.alignmentIndex);
                 dispersionSparkline.addData(stats.dispersion);
@@ -877,8 +1189,17 @@
             requestAnimationFrame(animate);
         }
 
-        // Start animation
+        // Start
+        resizeCanvas();
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            if (networkTopology === 'fixed') updateNetwork(); // Re-link if needed, though positions persist
+        });
+
+        initBoids();
         animate();
+
     </script>
 </body>
+
 </html>
