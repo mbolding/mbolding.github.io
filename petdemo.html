@@ -1,157 +1,443 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PET Imaging Principles Demo</title>
+    <title>PET Imaging Principles</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/et-book/1.0.0/et-book.min.css">
     <style>
+        /* Tufte-inspired CSS */
         body {
-            font-family: Arial, sans-serif;
+            background-color: #fffff8;
+            color: #111;
+            font-family: "et-book", Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 4rem;
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        h1 {
+            font-weight: 400;
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            font-size: 2.2rem;
+            font-style: italic;
+        }
+
+        h2 {
+            font-style: italic;
+            font-weight: 400;
+            margin-top: 2.5rem;
+            font-size: 1.4rem;
+        }
+
+        .layout-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 4rem;
+            align-items: start;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            justify-content: center;
         }
-        #canvas {
-            border: 1px solid black;
-            margin-bottom: 20px;
+
+        canvas {
+            background-color: #fffff8;
+            /* Match body */
+            /* Border is often clutter in Tufte design, but we need to delimit the simulation area. 
+               We'll use a very subtle border or just rely on the graphics. Let's try subtle. */
+            border: 1px solid #ddd;
         }
-        #controls {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+
+        .controls {
+            font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+            /* Sans for UI elements */
+            font-size: 0.9rem;
         }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .control-group:last-child {
+            border-bottom: none;
+        }
+
         button {
-            margin: 10px;
-            padding: 10px;
-            font-size: 16px;
+            background: #fff;
+            border: 1px solid #aaa;
+            color: #333;
+            padding: 0.5rem 1rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            border-color: #333;
+            background: #fdfdfd;
+        }
+
+        button.active {
+            background: #eee;
+            border-color: #333;
+            font-weight: bold;
+        }
+
+        .caption {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            max-width: 300px;
+            /* Sidenote width */
+        }
+
+        .stats {
+            font-family: "et-book", monospace;
+            font-variant-numeric: tabular-nums;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 900px) {
+            .layout-container {
+                grid-template-columns: 1fr;
+            }
+
+            .caption {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
+
 <body>
-    <h1>PET Imaging Principles Demo</h1>
-    <canvas id="canvas" width="400" height="400"></canvas>
-    <div id="controls">
-        <button id="emitButton">Emit Positron</button>
-        <button id="resetButton">Reset</button>
+    <h1>Positron Emission Tomography (PET)</h1>
+
+    <div class="layout-container">
+        <div class="main-content">
+            <p>
+                PET imaging relies on the annihilation of positrons and electrons. When a positron is emitted from a
+                radiotracer, it travels a short distance (positron range) before encountering an electron. The resulting
+                annihilation produces two 511 keV photons traveling in approximately opposite directions.
+            </p>
+            <div class="canvas-container">
+                <canvas id="simCanvas" width="600" height="600"></canvas>
+            </div>
+
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <p><strong>Simulation Control</strong></p>
+                <button id="btn-emit">Single Event</button>
+                <button id="btn-auto">Continuous Scan</button>
+                <button id="btn-clear">Clear</button>
+            </div>
+
+            <div class="control-group">
+                <p><strong>Legend</strong></p>
+                <svg width="200" height="100" style="background: transparent;">
+                    <circle cx="15" cy="15" r="4" fill="#a00" /> <text x="30" y="20" font-size="12">Positron</text>
+                    <circle cx="15" cy="45" r="4" fill="#FFC800" /> <text x="30" y="50"
+                        font-size="12">Annihilation</text>
+                    <line x1="5" y1="75" x2="25" y2="75" stroke="#333" stroke-width="1" stroke-dasharray="4" /> <text
+                        x="30" y="80" font-size="12">Line of Response (LOR)</text>
+                </svg>
+            </div>
+
+            <div class="caption">
+                <p>
+                    <span id="status-text">Ready.</span>
+                </p>
+                <div class="stats">
+                    Events: <span id="event-count">0</span>
+                </div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: #555;">
+                In a real scanner, coincidence detection defines the Line of Response (LOR). Millions of LORs are
+                reconstructed to form an image.
+            </p>
+        </div>
     </div>
-    <p id="info">Click "Emit Positron" to start the demonstration.</p>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const emitButton = document.getElementById('emitButton');
-        const resetButton = document.getElementById('resetButton');
-        const info = document.getElementById('info');
+        class PETSimulation {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
 
-        const centerX = 200;
-        const centerY = 200;
-        const ringRadius = 180;
-        const bodyRadius = 70;
-        const bodyOffsetX = 30;
-        const bodyOffsetY = -20;
+                // Scale for retina displays
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = this.width * dpr;
+                this.canvas.height = this.height * dpr;
+                this.ctx.scale(dpr, dpr);
+                this.canvas.style.width = `${this.width}px`;
+                this.canvas.style.height = `${this.height}px`;
 
-        let positronX, positronY, angle;
+                this.centerX = this.width / 2;
+                this.centerY = this.height / 2;
+                this.ringRadius = 250;
+                this.objectRadius = 80;
 
-        function drawDetectorRing() {
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, ringRadius, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'blue';
-            ctx.lineWidth = 20;
-            ctx.stroke();
-        }
+                this.events = []; // Store past LORs
+                this.animatingEvents = []; // Currently animating
+                this.isContinuous = false;
+                this.frameCount = 0;
+                this.totalEvents = 0;
 
-        function drawBody() {
-            ctx.beginPath();
-            ctx.arc(centerX + bodyOffsetX, centerY + bodyOffsetY, bodyRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(255, 200, 200, 0.5)';
-            ctx.fill();
-        }
+                this.dom = {
+                    status: document.getElementById('status-text'),
+                    count: document.getElementById('event-count'),
+                    btnEmit: document.getElementById('btn-emit'),
+                    btnAuto: document.getElementById('btn-auto'),
+                    btnClear: document.getElementById('btn-clear')
+                };
 
-        function emitPositron() {
-            const r = Math.random() * bodyRadius;
-            const theta = Math.random() * 2 * Math.PI;
-            positronX = centerX + bodyOffsetX + r * Math.cos(theta);
-            positronY = centerY + bodyOffsetY + r * Math.sin(theta);
-            angle = Math.random() * 2 * Math.PI;
-
-            ctx.clearRect(0, 0, 400, 400);
-            drawDetectorRing();
-            drawBody();
-
-            // Draw positron
-            ctx.beginPath();
-            ctx.arc(positronX, positronY, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
-            ctx.fill();
-
-            info.textContent = 'Positron emitted. Click again to show annihilation.';
-            emitButton.textContent = 'Show Annihilation';
-            emitButton.onclick = showAnnihilation;
-        }
-
-        function intersectLineCircle(x1, y1, x2, y2, cx, cy, r) {
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const a = dx * dx + dy * dy;
-            const b = 2 * (dx * (x1 - cx) + dy * (y1 - cy));
-            const c = (x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy) - r * r;
-            const discriminant = b * b - 4 * a * c;
-            
-            if (discriminant < 0) return null;
-            
-            const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-            
-            return [
-                { x: x1 + t1 * dx, y: y1 + t1 * dy },
-                { x: x1 + t2 * dx, y: y1 + t2 * dy }
-            ];
-        }
-
-        function showAnnihilation() {
-            const endX = positronX + Math.cos(angle) * 400;
-            const endY = positronY + Math.sin(angle) * 400;
-
-            const intersections = intersectLineCircle(positronX, positronY, endX, endY, centerX, centerY, ringRadius);
-
-            if (intersections) {
-                ctx.beginPath();
-                ctx.moveTo(intersections[0].x, intersections[0].y);
-                ctx.lineTo(intersections[1].x, intersections[1].y);
-                ctx.strokeStyle = 'yellow';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // Draw detection points
-                ctx.beginPath();
-                ctx.arc(intersections[0].x, intersections[0].y, 8, 0, 2 * Math.PI);
-                ctx.arc(intersections[1].x, intersections[1].y, 8, 0, 2 * Math.PI);
-                ctx.fillStyle = 'green';
-                ctx.fill();
-
-                info.textContent = 'Annihilation detected. The line of response is shown.';
-            } else {
-                info.textContent = 'Error: No intersection with detector ring found.';
+                this.bindEvents();
+                this.loop();
             }
 
-            emitButton.textContent = 'Emit Positron';
-            emitButton.onclick = emitPositron;
+            bindEvents() {
+                this.dom.btnEmit.addEventListener('click', () => {
+                    this.stopContinuous();
+                    this.spawnEvent();
+                    this.dom.status.textContent = "Single event emitted.";
+                });
+
+                this.dom.btnAuto.addEventListener('click', () => {
+                    this.toggleContinuous();
+                });
+
+                this.dom.btnClear.addEventListener('click', () => {
+                    this.events = [];
+                    this.animatingEvents = [];
+                    this.totalEvents = 0;
+                    this.dom.count.textContent = 0;
+                    this.ctx.clearRect(0, 0, this.width, this.height);
+                    this.dom.status.textContent = "Cleared.";
+                });
+            }
+
+            toggleContinuous() {
+                this.isContinuous = !this.isContinuous;
+                this.dom.btnAuto.classList.toggle('active', this.isContinuous);
+                this.dom.status.textContent = this.isContinuous ? "Acquiring data..." : "Paused.";
+            }
+
+            stopContinuous() {
+                this.isContinuous = false;
+                this.dom.btnAuto.classList.remove('active');
+            }
+
+            spawnEvent() {
+                // Random point in object
+                const r = Math.sqrt(Math.random()) * this.objectRadius; // Correct uniform distribution
+                const theta = Math.random() * 2 * Math.PI;
+                const startX = this.centerX + r * Math.cos(theta);
+                const startY = this.centerY + r * Math.sin(theta);
+
+                // Positron range (random walk approximation - short single step)
+                const range = 5 + Math.random() * 10;
+                const rangeAngle = Math.random() * 2 * Math.PI;
+                const annihilateX = startX + range * Math.cos(rangeAngle);
+                const annihilateY = startY + range * Math.sin(rangeAngle);
+
+                // Emission angle
+                const emitAngle = Math.random() * 2 * Math.PI; // 0 to 2PI
+
+                // Calculate intersections with ring
+                // Line: P + t * D
+                // Circle: |X - C|^2 = R^2
+                // Simplified: We know the origin is (centerX, centerY)
+                // Let's work in local coordinates relative to center
+                const lx = annihilateX - this.centerX;
+                const ly = annihilateY - this.centerY;
+                const dx = Math.cos(emitAngle);
+                const dy = Math.sin(emitAngle);
+
+                // Quadratic t^2(dx^2 + dy^2) + 2t(lx*dx + ly*dy) + (lx^2 + ly^2 - R^2) = 0
+                // dx^2 + dy^2 = 1
+                const B = 2 * (lx * dx + ly * dy);
+                const C = (lx * lx + ly * ly) - (this.ringRadius * this.ringRadius);
+
+                const det = B * B - 4 * C;
+                if (det < 0) return; // Should not happen if inside ring
+
+                const t1 = (-B + Math.sqrt(det)) / 2;
+                const t2 = (-B - Math.sqrt(det)) / 2;
+
+                const p1 = { x: this.centerX + lx + t1 * dx, y: this.centerY + ly + t1 * dy };
+                const p2 = { x: this.centerX + lx + t2 * dx, y: this.centerY + ly + t2 * dy };
+
+                this.animatingEvents.push({
+                    state: 'positron', // positron -> annihilation -> photons
+                    startX, startY,
+                    annihilateX, annihilateY,
+                    p1, p2,
+                    t: 0,
+                    progress: 0
+                });
+            }
+
+            update() {
+                if (this.isContinuous) {
+                    // Emit speed
+                    if (this.frameCount % 5 === 0) this.spawnEvent();
+                }
+
+                // Update animations
+                for (let i = this.animatingEvents.length - 1; i >= 0; i--) {
+                    const e = this.animatingEvents[i];
+
+                    if (e.state === 'positron') {
+                        e.progress += 0.1;
+                        if (e.progress >= 1) {
+                            e.progress = 0;
+                            e.state = 'annihilation';
+                        }
+                    } else if (e.state === 'annihilation') {
+                        e.progress += 0.2; // Flash speed
+                        if (e.progress >= 1) {
+                            e.progress = 0;
+                            e.state = 'photons';
+                        }
+                    } else if (e.state === 'photons') {
+                        e.progress += 0.05; // Photon speed
+                        if (e.progress >= 1) {
+                            // Finished
+                            this.events.push(e);
+                            this.totalEvents++;
+                            this.dom.count.textContent = this.totalEvents;
+                            this.animatingEvents.splice(i, 1);
+                        }
+                    }
+                }
+
+                // Limit stored events for performance/visual clarity
+                if (this.events.length > 500) {
+                    this.events.shift();
+                }
+
+                this.frameCount++;
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                // Draw Detector Ring
+                this.ctx.beginPath();
+                this.ctx.arc(this.centerX, this.centerY, this.ringRadius, 0, 2 * Math.PI);
+                this.ctx.strokeStyle = '#333';
+                this.ctx.lineWidth = 1; // Fine line
+                this.ctx.stroke();
+
+                // Draw Detector Blocks (subtle ticks)
+                const numDetectors = 72;
+                for (let i = 0; i < numDetectors; i++) {
+                    const ang = (i / numDetectors) * 2 * Math.PI;
+                    const x1 = this.centerX + (this.ringRadius - 5) * Math.cos(ang);
+                    const y1 = this.centerY + (this.ringRadius - 5) * Math.sin(ang);
+                    const x2 = this.centerX + (this.ringRadius + 5) * Math.cos(ang);
+                    const y2 = this.centerY + (this.ringRadius + 5) * Math.sin(ang);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x1, y1);
+                    this.ctx.lineTo(x2, y2);
+                    this.ctx.stroke();
+                }
+
+                // Draw Object (Brain/phantom)
+                this.ctx.beginPath();
+                this.ctx.arc(this.centerX, this.centerY, this.objectRadius, 0, 2 * Math.PI);
+                this.ctx.fillStyle = 'rgba(200, 200, 200, 0.1)';
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#ccc';
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+
+                // Draw Completed Lines of Response (LORs) - Fading history
+                this.ctx.lineWidth = 0.5;
+                this.events.forEach((e, idx) => {
+                    const alpha = Math.max(0.05, idx / this.events.length * 0.3); // Fade out older ones
+                    this.ctx.strokeStyle = `rgba(50, 50, 50, ${alpha})`;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(e.p1.x, e.p1.y);
+                    this.ctx.lineTo(e.p2.x, e.p2.y);
+                    this.ctx.stroke();
+                });
+
+                // Draw Active Animations
+                this.animatingEvents.forEach(e => {
+                    if (e.state === 'positron') {
+                        // Moving positron
+                        const curX = e.startX + (e.annihilateX - e.startX) * e.progress;
+                        const curY = e.startY + (e.annihilateY - e.startY) * e.progress;
+
+                        this.ctx.fillStyle = '#a00';
+                        this.ctx.beginPath();
+                        this.ctx.arc(curX, curY, 2, 0, 2 * Math.PI);
+                        this.ctx.fill();
+                    }
+                    else if (e.state === 'annihilation') {
+                        // Flash
+                        this.ctx.fillStyle = `rgba(255, 200, 0, ${1 - e.progress})`;
+                        this.ctx.beginPath();
+                        this.ctx.arc(e.annihilateX, e.annihilateY, 6 * Math.sin(e.progress * Math.PI), 0, 2 * Math.PI);
+                        this.ctx.fill();
+                    }
+                    else if (e.state === 'photons') {
+                        // Two photons moving outwards
+                        const x1 = e.annihilateX + (e.p1.x - e.annihilateX) * e.progress;
+                        const y1 = e.annihilateY + (e.p1.y - e.annihilateY) * e.progress;
+                        const x2 = e.annihilateX + (e.p2.x - e.annihilateX) * e.progress;
+                        const y2 = e.annihilateY + (e.p2.y - e.annihilateY) * e.progress;
+
+                        // Photons
+                        this.ctx.fillStyle = '#00a';
+                        this.ctx.beginPath();
+                        this.ctx.arc(x1, y1, 2, 0, 2 * Math.PI);
+                        this.ctx.arc(x2, y2, 2, 0, 2 * Math.PI);
+                        this.ctx.fill();
+
+                        // Trailing line segments
+                        this.ctx.strokeStyle = 'rgba(0, 0, 150, 0.5)';
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(e.annihilateX, e.annihilateY);
+                        this.ctx.lineTo(x1, y1);
+                        this.ctx.moveTo(e.annihilateX, e.annihilateY);
+                        this.ctx.lineTo(x2, y2);
+                        this.ctx.stroke();
+                    }
+                });
+            }
+
+            loop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.loop());
+            }
         }
 
-        function reset() {
-            ctx.clearRect(0, 0, 400, 400);
-            drawDetectorRing();
-            drawBody();
-            info.textContent = 'Click "Emit Positron" to start the demonstration.';
-            emitButton.textContent = 'Emit Positron';
-            emitButton.onclick = emitPositron;
-        }
-
-        emitButton.onclick = emitPositron;
-        resetButton.onclick = reset;
-
-        reset();
+        // Initialize
+        window.onload = () => {
+            new PETSimulation('simCanvas');
+        };
     </script>
 </body>
+
 </html>

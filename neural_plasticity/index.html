@@ -4,32 +4,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Plasticity Sim</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+    <title>Hebbian Learning Demo</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+Pro:wght@400;600&display=swap"
+        rel="stylesheet">
     <style>
         :root {
-            --bg-color: #ffffff;
-            --text-color: #111111;
-            --secondary-text: #666666;
-            --accent-color: #ff3300;
-            --card-bg: #f9f9f9;
-            --border-color: #e5e5e5;
-            --input-bg: #eeeeee;
-            --node-input: #0070f3;
+            --bg-primary: #0a0f1a;
+            --bg-secondary: #121a2e;
+            --bg-card: #1a2440;
+            --text-primary: #e8edf5;
+            --text-secondary: #8b9dc3;
+            --accent-primary: #00d4aa;
+            --accent-secondary: #ff6b9d;
+            --accent-tertiary: #6b8aff;
+            --synapse-glow: rgba(0, 212, 170, 0.6);
+            --neuron-color: #4a6fa5;
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #111111;
-                --text-color: #ffffff;
-                --secondary-text: #999999;
-                --card-bg: #1a1a1a;
-                --border-color: #333333;
-                --input-bg: #222222;
-                --node-input: #3291ff;
-            }
+        .dark {
+            --bg-primary: #0a0f1a;
+            --bg-secondary: #121a2e;
+            --bg-card: #1a2440;
+            --text-primary: #e8edf5;
+            --text-secondary: #8b9dc3;
+        }
+
+        html:not(.dark) {
+            --bg-primary: #f0f4f8;
+            --bg-secondary: #ffffff;
+            --bg-card: #e8eef5;
+            --text-primary: #1a2440;
+            --text-secondary: #4a6fa5;
+            --neuron-color: #6b8aff;
         }
 
         * {
@@ -39,809 +46,668 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-            flex-direction: column;
+            font-family: 'Source Sans Pro', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image:
+                radial-gradient(circle at 25% 25%, var(--accent-primary) 1px, transparent 1px),
+                radial-gradient(circle at 75% 75%, var(--accent-secondary) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 60px 40px;
-            width: 100%;
-            flex-grow: 1;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
         }
 
         header {
-            margin-bottom: 60px;
-            border-bottom: 4px solid var(--text-color);
-            padding-bottom: 20px;
+            text-align: center;
+            padding: 40px 20px 30px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         h1 {
-            font-size: 48px;
-            font-weight: 800;
-            margin: 0 0 16px 0;
-            letter-spacing: -2px;
-            text-transform: uppercase;
-            line-height: 1;
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
         }
 
         .subtitle {
-            font-size: 18px;
-            font-weight: 400;
-            color: var(--secondary-text);
-            max-width: 800px;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto;
+            font-style: italic;
         }
 
-        .layout-grid {
-            display: grid;
-            grid-template-columns: 1fr 340px;
-            gap: 40px;
-        }
-
-        /* Simulation Canvas Area */
-        .canvas-wrapper {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
+        .visualization-area {
+            background: var(--bg-secondary);
+            border-radius: 24px;
+            padding: 30px;
+            margin: 30px 0;
+            min-height: 400px;
             position: relative;
-            aspect-ratio: 4/3;
-            width: 100%;
             overflow: hidden;
-            border-radius: 4px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.8s ease-out 0.5s both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .visualization-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 450px;
+            position: relative;
         }
 
         canvas {
-            display: block;
             width: 100%;
             height: 100%;
+            border-radius: 12px;
         }
 
-        .overlay-label {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            font-family: 'Inter', sans-serif;
-            font-size: 12px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--secondary-text);
-            pointer-events: none;
-            mix-blend-mode: difference;
-        }
-
-        /* Controls Sidebar */
         .controls {
             display: flex;
-            flex-direction: column;
-            gap: 32px;
-        }
-
-        .control-group {
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 32px;
-        }
-
-        .control-group:last-child {
-            border-bottom: none;
-        }
-
-        h3 {
-            font-size: 12px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            color: var(--text-color);
-        }
-
-        .btn-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            flex-wrap: wrap;
             gap: 12px;
-        }
-
-        button {
-            background-color: var(--input-bg);
-            color: var(--text-color);
-            border: none;
-            padding: 12px 16px;
-            font-family: 'Inter', sans-serif;
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-            border-radius: 4px;
-        }
-
-        button:hover {
-            background-color: var(--border-color);
-        }
-
-        button.active {
-            background-color: var(--accent-color);
-            color: #ffffff;
-        }
-
-        button.primary {
-            background-color: var(--text-color);
-            color: var(--bg-color);
-        }
-
-        button.primary:hover {
-            opacity: 0.9;
-        }
-
-        /* Sliders */
-        .slider-container {
-            margin-bottom: 20px;
-        }
-
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .slider-val {
-            font-family: monospace;
-            color: var(--accent-color);
-        }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 4px;
-            background: var(--border-color);
-            outline: none;
-            border-radius: 2px;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            background: var(--text-color);
-            cursor: pointer;
-            border-radius: 50%;
-            transition: transform 0.1s;
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-        }
-
-        /* Metrics */
-        .metrics {
             margin-top: 20px;
+            justify-content: center;
         }
 
-        .metric-item {
-            margin-bottom: 20px;
+        .control-btn {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary));
+            border: none;
+            color: #0a0f1a;
+            padding: 14px 32px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3);
         }
 
-        .metric-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--secondary-text);
-            margin-bottom: 4px;
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 170, 0.5);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn.secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 2px solid var(--accent-tertiary);
+            padding: 12px 28px;
+            box-shadow: none;
+        }
+
+        .control-btn.secondary:hover {
+            background: rgba(107, 138, 255, 0.1);
+        }
+
+        .legend {
             display: flex;
-            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-top: 24px;
+            justify-content: center;
         }
 
-        .stat-value {
-            color: var(--text-color);
-            font-weight: 700;
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
         }
 
-        .sparkline {
-            width: 100%;
-            height: 40px;
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border-color);
-            border-radius: 2px;
-        }
-
-        .legend-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
+        .legend-dot {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            margin-right: 6px;
         }
 
-        @media (max-width: 900px) {
-            .layout-grid {
-                grid-template-columns: 1fr;
+        .info-panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 30px;
+            margin-top: 20px;
+            animation: slideUp 0.5s ease-out;
+            text-align: center;
+        }
+
+        .info-panel h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            margin-bottom: 12px;
+            color: var(--accent-primary);
+        }
+
+        .info-panel p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 24px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .key-points {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+            text-align: left;
+        }
+
+        .key-point {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(0, 212, 170, 0.05);
+            border-radius: 12px;
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .key-point-icon {
+            font-size: 20px;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .canvas-container {
+                height: 350px;
             }
 
-            .container {
-                padding: 40px 20px;
-            }
-
-            h1 {
-                font-size: 36px;
+            header {
+                padding: 20px 10px;
             }
         }
     </style>
 </head>
 
 <body>
+    <div class="bg-pattern"></div>
     <div class="container">
         <header>
-            <h1>Neural Plasticity NEEDS WORK</h1>
-            <p class="subtitle">Simulation of synaptic plasticity in a recurrent network. Explore Hebbian dynamics and
-                response to high-frequency inputs.</p>
+            <h1>Hebbian Learning Demo</h1>
+            <p class="subtitle">"Neurons that fire together, wire together"</p>
         </header>
 
-        <div class="layout-grid">
-            <!-- Main Visualization -->
-            <div class="visualization">
-                <div class="canvas-wrapper">
-                    <span class="overlay-label">Network Activity</span>
-                    <canvas id="simCanvas"></canvas>
-                </div>
+        <div class="visualization-area">
+            <div class="canvas-container">
+                <canvas id="neuralCanvas"></canvas>
+            </div>
+            <div class="tooltip" id="tooltip"></div>
+
+            <div class="controls">
+                <button class="control-btn" id="triggerBtn">Stimulate Network</button>
+                <button class="control-btn secondary" id="resetBtn">Reset Network</button>
             </div>
 
-            <!-- Controls Sidebar -->
-            <div class="controls">
-
-                <!-- Playback -->
-                <div class="control-group">
-                    <h3>Control</h3>
-                    <div class="btn-row">
-                        <button id="playPauseBtn" class="primary">Pause</button>
-                        <button id="resetBtn">Reset</button>
-                    </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #00d4aa"></div>Active / Strengthened
                 </div>
-
-                <!-- Learning Rules -->
-                <div class="control-group">
-                    <h3>Plasticity Rule</h3>
-                    <div class="btn-row">
-                        <button id="hebbianBtn" class="active">Hebbian</button>
-                        <button id="antiHebbianBtn">Anti-Hebbian</button>
-                    </div>
-                    <div style="margin-top: 12px; font-size: 12px; color: var(--secondary-text); line-height: 1.4;">
-                        <span id="ruleDesc"><strong>Hebbian:</strong> "Fire together, wire together." Connections
-                            strengthen when neurons activate simultaneously.</span>
-                    </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #4a6fa5"></div>Resting Neuron
                 </div>
-
-                <!-- Parameters -->
-                <div class="control-group">
-                    <h3>Parameters</h3>
-
-                    <div class="slider-container">
-                        <div class="slider-header">
-                            <span>Learning Rate</span>
-                            <span class="slider-val" id="lrVal">0.05</span>
-                        </div>
-                        <input type="range" id="lrSlider" min="0" max="0.2" step="0.01" value="0.05">
-                    </div>
-
-                    <div class="slider-container">
-                        <div class="slider-header">
-                            <span>Weight Decay</span>
-                            <span class="slider-val" id="decayVal">0.01</span>
-                        </div>
-                        <input type="range" id="decaySlider" min="0" max="0.05" step="0.001" value="0.01">
-                    </div>
-
-                    <div class="slider-container">
-                        <div class="slider-header">
-                            <span>Noise Level</span>
-                            <span class="slider-val" id="noiseVal">0.02</span>
-                        </div>
-                        <input type="range" id="noiseSlider" min="0" max="0.1" step="0.01" value="0.02">
-                    </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #ff6b9d"></div>Weakened Synapse
                 </div>
+            </div>
+        </div>
 
-                <!-- Inputs -->
-                <div class="control-group">
-                    <h3>External Input <span class="legend-indicator"
-                            style="background-color: var(--node-input); margin-left:8px;"></span></h3>
-
-                    <div class="slider-container">
-                        <div class="slider-header">
-                            <span>Input Frequency</span>
-                            <span class="slider-val" id="freqVal">0.0</span>
-                        </div>
-                        <input type="range" id="freqSlider" min="0" max="0.5" step="0.01" value="0.0">
-                    </div>
-                    <div style="font-size: 12px; color: var(--secondary-text);">
-                        Increases firing rate of designated input nodes (Blue).
-                    </div>
+        <div class="info-panel">
+            <h2>The Mechanism of Associative Learning</h2>
+            <p>
+                This simulation demonstrates Hebbian learning, the foundational principle of neural plasticity.
+                When pre-synaptic and post-synaptic neurons activate simultaneously (or in close succession),
+                the connection between them strengthens (Long-Term Potentiation). Conversely, connections that fail to
+                synchronize weaken.
+            </p>
+            <div class="key-points">
+                <div class="key-point">
+                    <span class="key-point-icon">🔗</span>
+                    <span><strong>Association:</strong> Repeated simultaneous activation builds strong pathways.</span>
                 </div>
-
-                <!-- Metrics -->
-                <div class="control-group">
-                    <h3>Metrics</h3>
-                    <div class="metrics">
-                        <div class="metric-item">
-                            <div class="metric-label">
-                                <span>Avg Weight</span>
-                                <span class="stat-value" id="avgWeightStat">0.50</span>
-                            </div>
-                            <canvas id="weightSpark" class="sparkline"></canvas>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">
-                                <span>Global Activity</span>
-                                <span class="stat-value" id="activityStat">0%</span>
-                            </div>
-                            <canvas id="activitySpark" class="sparkline"></canvas>
-                        </div>
-                    </div>
+                <div class="key-point">
+                    <span class="key-point-icon">📈</span>
+                    <span><strong>Facilitation:</strong> Strengthened pathways make future activation easier.</span>
                 </div>
-
+                <div class="key-point">
+                    <span class="key-point-icon">🧠</span>
+                    <span><strong>Memory:</strong> Information is stored in the pattern of synaptic weights.</span>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        /**
-         * Configuration & State within a closure to avoid global pollution
-         */
-        const App = (() => {
-            // -- Constants --
-            const NUM_NEURONS = 42;
-            const GRID_COLS = 6; // approximate
+        // Dark mode setup
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        });
 
-            // -- Classes --
+        const canvas = document.getElementById('neuralCanvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
 
-            class Neuron {
-                constructor(id, x, y) {
-                    this.id = id;
-                    this.x = x; // range 0.0 - 1.0
-                    this.y = y; // range 0.0 - 1.0
+        let neurons = [];
+        let synapses = [];
+        let particles = [];
+        let animationId = null;
 
-                    this.v = 0.0;     // Membrane potential
-                    this.spiked = false;
-                    this.refractory = 0;
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = container.clientWidth * dpr;
+            canvas.height = container.clientHeight * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.width = container.clientWidth + 'px';
+            canvas.style.height = container.clientHeight + 'px';
+        }
 
-                    this.isInputNode = false;
-                }
-
-                update(noiseLevel, inputFreq) {
-                    // 1. Decay
-                    this.v *= 0.9;
-
-                    // 2. Noise (Spontaneous activity)
-                    if (Math.random() < noiseLevel) {
-                        this.v += 0.4;
-                    }
-
-                    // 3. External High-Freq Input (if applicable)
-                    if (this.isInputNode && Math.random() < inputFreq) {
-                        this.v += 0.8;
-                    }
-
-                    // 4. Refractory & Spiking Logic
-                    this.spiked = false;
-                    if (this.refractory > 0) {
-                        this.refractory--;
-                        this.v = 0; // clamped
-                    } else if (this.v >= 1.0) {
-                        this.spiked = true;
-                        this.v = 0;
-                        this.refractory = 4; // Refractory duration
-                    }
-                }
-
-                zap(amount) {
-                    this.v += amount;
-                }
+        class Neuron {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 12 + Math.random() * 8;
+                this.activity = 0;
+                this.phase = Math.random() * Math.PI * 2;
+                this.connections = [];
+                this.targetRadius = this.radius;
+                this.baseColor = this.getColor();
             }
 
-            class Synapse {
-                constructor(pre, post) {
-                    this.pre = pre;
-                    this.post = post;
-                    this.w = 0.5; // Initial weight
-                }
-
-                transmit() {
-                    if (this.pre.spiked) {
-                        // Impact post-synaptic neuron
-                        // Weight scales the inputs
-                        this.post.zap(this.w * 0.5);
-                    }
-                }
-
-                learn(lr, decay, isHebbian) {
-                    // Simple Co-activity rule
-                    // If Pre fired AND Post fired "now" (simultaneous window)
-                    const coActive = (this.pre.spiked && this.post.spiked);
-
-                    if (coActive) {
-                        if (isHebbian) {
-                            // LTP
-                            this.w += lr * (1.0 - this.w);
-                        } else {
-                            // LTD (Anti-Hebbian)
-                            this.w -= lr * (this.w);
-                        }
-                    }
-
-                    // Simple Homeostatic Decay applied every step (slowly forgets)
-                    // Decays towards 0.5 to keep things dynamic, or 0.0? 
-                    // Let's decay specifically towards 0 (depression) or center
-                    // Standard usage usually decays towards 0, but we want a baseline.
-                    // Implementation: Decay towards 0.5
-                    this.w -= decay * (this.w - 0.5);
-
-                    // Hard Clamp
-                    this.w = Math.max(0.01, Math.min(1.0, this.w));
-                }
+            getColor() {
+                const isDark = document.documentElement.classList.contains('dark');
+                return isDark ? '#4a6fa5' : '#6b8aff';
             }
 
-            // -- App State --
-            const state = {
-                running: true,
-                params: {
-                    lr: 0.05,
-                    decay: 0.01,
-                    noise: 0.02,
-                    inputFreq: 0.0,
-                    isHebbian: true
-                },
-                network: {
-                    neurons: [],
-                    synapses: []
-                },
-                history: {
-                    weight: new Array(50).fill(0.5),
-                    activity: new Array(50).fill(0)
-                }
-            };
-
-            // -- Initialization --
-            function initNetwork() {
-                state.network.neurons = [];
-                state.network.synapses = [];
-
-                const rows = Math.ceil(NUM_NEURONS / GRID_COLS);
-
-                // Create Neurons
-                for (let i = 0; i < NUM_NEURONS; i++) {
-                    const r = Math.floor(i / GRID_COLS);
-                    const c = i % GRID_COLS;
-
-                    // Grid positions with jitter
-                    const jx = (Math.random() - 0.5) * 0.4;
-                    const jy = (Math.random() - 0.5) * 0.4;
-
-                    // Normalize to approximately 0-1 space (with padding handled in draw)
-                    const x = (c + 0.5 + jx) / GRID_COLS;
-                    const y = (r + 0.5 + jy) / rows;
-
-                    const n = new Neuron(i, x, y);
-                    state.network.neurons.push(n);
-                }
-
-                // Pick Input Nodes (3 random)
-                let inputsPicked = 0;
-                while (inputsPicked < 3) {
-                    const idx = Math.floor(Math.random() * NUM_NEURONS);
-                    if (!state.network.neurons[idx].isInputNode) {
-                        state.network.neurons[idx].isInputNode = true;
-                        inputsPicked++;
-                    }
-                }
-
-                // Create Synapses (Distance based)
-                state.network.neurons.forEach(pre => {
-                    state.network.neurons.forEach(post => {
-                        if (pre === post) return;
-
-                        const dx = pre.x - post.x;
-                        const dy = pre.y - post.y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-
-                        // Connectivity rule: prefer close neighbors
-                        if (dist < 0.35 && Math.random() < 0.4) {
-                            state.network.synapses.push(new Synapse(pre, post));
-                        }
-                    });
-                });
-
-                // Reset History
-                state.history.weight.fill(0.5);
-                state.history.activity.fill(0);
+            update() {
+                this.phase += 0.02;
+                this.activity = Math.max(0, this.activity - 0.02);
+                this.baseColor = this.getColor();
             }
 
-            // -- Simulation Step --
-            function step() {
-                if (!state.running) return;
+            draw() {
+                ctx.save();
+                const safeRadius = Math.max(1, this.radius);
 
-                const { neurons, synapses } = state.network;
-                const p = state.params;
-
-                // 1. Update Neurons (Integrate & Fire)
-                neurons.forEach(n => n.update(p.noise, p.inputFreq));
-
-                // 2. Transmit Spikes
-                synapses.forEach(s => s.transmit());
-
-                // 3. Plasticity
-                synapses.forEach(s => s.learn(p.lr, p.decay, p.isHebbian));
-
-                // 4. Stats
-                const totalW = synapses.reduce((acc, s) => acc + s.w, 0);
-                const avgW = synapses.length ? totalW / synapses.length : 0;
-                const active = neurons.filter(n => n.spiked).length;
-
-                state.history.weight.push(avgW);
-                state.history.weight.shift();
-
-                const activityPct = active / neurons.length;
-                state.history.activity.push(activityPct);
-                state.history.activity.shift();
-
-                // 5. DOM Updates (Throttled ideally, but lightweight here)
-                dom.avgWeight.textContent = avgW.toFixed(2);
-                dom.activity.textContent = Math.round(activityPct * 100) + '%';
-            }
-
-            // -- Visualization --
-            const canvas = document.getElementById('simCanvas');
-            const ctx = canvas.getContext('2d');
-
-            // Sparklines
-            const ctxW = document.getElementById('weightSpark').getContext('2d');
-            const ctxA = document.getElementById('activitySpark').getContext('2d');
-
-            let width, height;
-
-            function resize() {
-                const p = canvas.parentElement;
-                width = p.clientWidth;
-                height = p.clientHeight;
-
-                const dpr = window.devicePixelRatio || 1;
-
-                // Main Canvas
-                canvas.width = width * dpr;
-                canvas.height = height * dpr;
-                ctx.scale(dpr, dpr);
-
-                // Sparks
-                resizeSpark(document.getElementById('weightSpark'), ctxW);
-                resizeSpark(document.getElementById('activitySpark'), ctxA);
-            }
-
-            function resizeSpark(el, c) {
-                const r = el.getBoundingClientRect();
-                el.width = r.width * window.devicePixelRatio;
-                el.height = r.height * window.devicePixelRatio;
-            }
-
-            // Colors (computed style handling)
-            function getColors() {
-                const style = getComputedStyle(document.body);
-                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                return {
-                    bg: style.getPropertyValue('--bg-color').trim(),
-                    node: style.getPropertyValue('--border-color').trim(), // inactive node
-                    nodeInput: style.getPropertyValue('--node-input').trim(),
-                    accent: style.getPropertyValue('--accent-color').trim(),
-                    text: style.getPropertyValue('--text-color').trim()
-                };
-            }
-
-            function draw() {
-                const cols = getColors();
-
-                // Clear
-                ctx.clearRect(0, 0, width, height);
-
-                // Draw Synapses
-                // We draw them behind nodes
-                state.network.synapses.forEach(s => {
-                    if (s.w < 0.05) return; // Skip very weak links
-
-                    const x1 = s.pre.x * width * 0.8 + width * 0.1;
-                    const y1 = s.pre.y * height * 0.8 + height * 0.1;
-                    const x2 = s.post.x * width * 0.8 + width * 0.1;
-                    const y2 = s.post.y * height * 0.8 + height * 0.1;
-
+                // Glow
+                if (this.activity > 0.1) {
+                    const glowRadius = Math.max(1, safeRadius * 3);
+                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
+                    gradient.addColorStop(0, `rgba(0, 212, 170, ${this.activity * 0.5})`);
+                    gradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = gradient;
                     ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-
-                    // Style
-                    ctx.lineWidth = 1 + (s.w * 2);
-
-                    // If active pathway (pre & post fired), highlight
-                    if (s.pre.spiked && s.post.spiked) {
-                        ctx.strokeStyle = cols.accent;
-                        ctx.globalAlpha = 1.0;
-                    } else {
-                        // Base color depends on theme
-                        ctx.strokeStyle = cols.text;
-                        ctx.globalAlpha = 0.05 + (s.w * 0.15);
-                    }
-                    ctx.stroke();
-                });
-                ctx.globalAlpha = 1.0;
-
-
-                // Draw Nodes
-                state.network.neurons.forEach(n => {
-                    const cx = n.x * width * 0.8 + width * 0.1;
-                    const cy = n.y * height * 0.8 + height * 0.1;
-
-                    ctx.beginPath();
-
-                    // Radius logic
-                    const r = n.isInputNode ? 6 : 4;
-                    const rSpike = n.spiked ? r + 4 : r;
-
-                    ctx.arc(cx, cy, rSpike, 0, Math.PI * 2);
-
-                    if (n.spiked) {
-                        ctx.fillStyle = cols.accent;
-                    } else if (n.isInputNode) {
-                        ctx.fillStyle = cols.nodeInput;
-                    } else {
-                        // Inactive, but slight fill if potential is high
-                        ctx.fillStyle = cols.node;
-                    }
-
+                    ctx.arc(this.x, this.y, glowRadius, 0, Math.PI * 2);
                     ctx.fill();
+                }
 
-                    // Input Ring
-                    if (n.isInputNode) {
-                        ctx.strokeStyle = cols.nodeInput;
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
-                        ctx.stroke();
+                // Body
+                const pulseRadius = Math.max(1, safeRadius + Math.sin(this.phase) * 2);
+                const bodyGradient = ctx.createRadialGradient(
+                    this.x - pulseRadius * 0.3, this.y - pulseRadius * 0.3, 0,
+                    this.x, this.y, pulseRadius
+                );
+
+                if (this.activity > 0.3) {
+                    bodyGradient.addColorStop(0, '#00ffc8');
+                    bodyGradient.addColorStop(1, '#00d4aa');
+                } else {
+                    bodyGradient.addColorStop(0, this.lightenColor(this.baseColor));
+                    bodyGradient.addColorStop(1, this.baseColor);
+                }
+
+                ctx.fillStyle = bodyGradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, pulseRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Nucleus
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, pulseRadius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            lightenColor(color) {
+                // Simple lighten approximate for hex
+                // Not perfectly robust but fine for this controlled palette
+                return '#8caed9';
+            }
+
+            fire() {
+                this.activity = 1;
+            }
+        }
+
+        class Synapse {
+            constructor(from, to) {
+                this.from = from;
+                this.to = to;
+                this.strength = 0.3 + Math.random() * 0.2;
+                this.targetStrength = this.strength;
+                this.activity = 0;
+                this.weakeningEffect = 0;
+            }
+
+            update() {
+                this.strength += (this.targetStrength - this.strength) * 0.05;
+                this.activity = Math.max(0, this.activity - 0.03);
+                this.weakeningEffect = Math.max(0, this.weakeningEffect - 0.005);
+            }
+
+            draw() {
+                const dx = this.to.x - this.from.x;
+                const dy = this.to.y - this.from.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 1) return;
+
+                let alpha = 0.2 + this.strength * 0.6;
+                let color = `rgba(107, 138, 255, ${alpha})`;
+
+                if (this.activity > 0.1) {
+                    color = `rgba(0, 212, 170, ${alpha + this.activity * 0.4})`;
+                }
+
+                if (this.weakeningEffect > 0) {
+                    const pink = this.weakeningEffect;
+                    // Pinkish rgb(255, 107, 157)
+                    color = `rgba(255, 107, 157, ${alpha + pink * 0.3})`;
+                } else if (this.targetStrength > this.strength + 0.1) {
+                    // Strengthening glow
+                    color = `rgba(0, 212, 170, ${alpha})`;
+                }
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1 + this.strength * 5;
+                ctx.beginPath();
+                ctx.moveTo(this.from.x, this.from.y);
+                ctx.lineTo(this.to.x, this.to.y);
+                ctx.stroke();
+
+                // Arrowhead
+                const endX = this.to.x - (dx / dist) * this.to.radius;
+                const endY = this.to.y - (dy / dist) * this.to.radius;
+                const arrowSize = 6 + this.strength * 4;
+                const angle = Math.atan2(dy, dx);
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - arrowSize * Math.cos(angle - Math.PI / 6), endY - arrowSize * Math.sin(angle - Math.PI / 6));
+                ctx.lineTo(endX - arrowSize * Math.cos(angle + Math.PI / 6), endY - arrowSize * Math.sin(angle + Math.PI / 6));
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            transmit() {
+                this.activity = 1;
+            }
+
+            strengthen() {
+                this.targetStrength = Math.min(1.0, this.targetStrength + 0.15);
+            }
+
+            weaken() {
+                this.targetStrength = Math.max(0.1, this.targetStrength - 0.15);
+                this.weakeningEffect = 1;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.life = 1;
+                this.color = color;
+                this.radius = 2 + Math.random() * 3;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.02;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+            }
+
+            draw() {
+                const radius = Math.max(0.1, this.radius * this.life);
+                ctx.fillStyle = this.color.replace('rgb', 'rgba').replace(')', `, ${this.life})`);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function initializeNetwork() {
+            neurons = [];
+            synapses = [];
+            particles = [];
+
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            // Create neurons
+            const neuronCount = 8;
+            for (let i = 0; i < neuronCount; i++) {
+                const angle = (i / neuronCount) * Math.PI * 2;
+                const radius = Math.min(width, height) * 0.35;
+                const x = width / 2 + Math.cos(angle) * radius + (Math.random() - 0.5) * 30;
+                const y = height / 2 + Math.sin(angle) * radius + (Math.random() - 0.5) * 30;
+                neurons.push(new Neuron(x, y));
+            }
+            // Central neuron
+            neurons.push(new Neuron(width / 2, height / 2));
+
+            // Fully connect nearby
+            neurons.forEach((n1, i) => {
+                const others = neurons.filter((n2, j) => i !== j);
+                // Connect to 2-3 others
+                const nearest = others.sort((a, b) => {
+                    const d1 = Math.hypot(a.x - n1.x, a.y - n1.y);
+                    const d2 = Math.hypot(b.x - n1.x, b.y - n1.y);
+                    return d1 - d2;
+                }).slice(0, 3);
+
+                nearest.forEach(n2 => {
+                    // Check existing direction
+                    if (!synapses.some(s => s.from === n1 && s.to === n2)) {
+                        // 50% chance to connect
+                        if (Math.random() < 0.6) {
+                            synapses.push(new Synapse(n1, n2));
+                            n1.connections.push(n2);
+                        }
+                    }
+                });
+            });
+        }
+
+        function triggerActivity() {
+            // Pick a random starter
+            const startNeuron = neurons[Math.floor(Math.random() * neurons.length)];
+            startNeuron.fire();
+            createParticles(startNeuron.x, startNeuron.y, 'rgb(0, 212, 170)');
+
+            // Propagate Hebbian Logic
+            setTimeout(() => {
+                const firedTogether = [];
+                const outgoingSynapses = synapses.filter(s => s.from === startNeuron);
+
+                outgoingSynapses.forEach(synapse => {
+                    const postsynaptic = synapse.to;
+                    // Transmission probability depends on synaptic strength
+                    if (Math.random() < (synapse.strength + 0.2)) {
+                        postsynaptic.fire();
+                        firedTogether.push(postsynaptic);
+                        createParticles(postsynaptic.x, postsynaptic.y, 'rgb(0, 212, 170)');
+
+                        // LTP
+                        synapse.transmit();
+                        synapse.strengthen();
                     }
                 });
 
-                // Sparklines
-                drawSpark(ctxW, state.history.weight, 0, 1, cols.accent);
-                drawSpark(ctxA, state.history.activity, 0, 1, cols.accent);
-            }
-
-            function drawSpark(c, data, min, max, col) {
-                const w = c.canvas.width;
-                const h = c.canvas.height;
-                c.clearRect(0, 0, w, h);
-
-                c.beginPath();
-                c.strokeStyle = col;
-                c.lineWidth = 2 * window.devicePixelRatio;
-
-                const dx = w / (data.length - 1);
-
-                data.forEach((val, i) => {
-                    const norm = (val - min) / (max - min);
-                    // Flip Y
-                    const y = h - (norm * h);
-                    if (i === 0) c.moveTo(0, y);
-                    else c.lineTo(i * dx, y);
+                // LTD for failures (simplified)
+                outgoingSynapses.forEach(synapse => {
+                    if (!firedTogether.includes(synapse.to)) {
+                        synapse.weaken();
+                        createParticles((synapse.from.x + synapse.to.x) / 2, (synapse.from.y + synapse.to.y) / 2, 'rgb(255, 107, 157)');
+                    }
                 });
-                c.stroke();
-            }
+            }, 200);
+        }
 
-            function loop() {
-                step();
-                draw();
-                requestAnimationFrame(loop);
-            }
+        function animate() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            ctx.clearRect(0, 0, width, height);
 
-            // -- DOM Wiring --
-            const dom = {
-                playPause: document.getElementById('playPauseBtn'),
-                reset: document.getElementById('resetBtn'),
-                hebbian: document.getElementById('hebbianBtn'),
-                antiHebbian: document.getElementById('antiHebbianBtn'),
-                ruleDesc: document.getElementById('ruleDesc'),
+            synapses.forEach(s => { s.update(); s.draw(); });
+            neurons.forEach(n => { n.update(); n.draw(); });
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => { p.update(); p.draw(); });
 
-                lrVal: document.getElementById('lrVal'),
-                lrSlider: document.getElementById('lrSlider'),
-                decayVal: document.getElementById('decayVal'),
-                decaySlider: document.getElementById('decaySlider'),
-                noiseVal: document.getElementById('noiseVal'),
-                noiseSlider: document.getElementById('noiseSlider'),
-                freqVal: document.getElementById('freqVal'),
-                freqSlider: document.getElementById('freqSlider'),
+            requestAnimationFrame(animate);
+        }
 
-                avgWeight: document.getElementById('avgWeightStat'),
-                activity: document.getElementById('activityStat')
-            };
+        // Interactions
+        document.getElementById('triggerBtn').addEventListener('click', triggerActivity);
+        document.getElementById('resetBtn').addEventListener('click', initializeNetwork);
 
-            function bindEvents() {
-                dom.playPause.onclick = () => {
-                    state.running = !state.running;
-                    dom.playPause.textContent = state.running ? "Pause" : "Play";
-                };
+        // Canvas Click
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
-                dom.reset.onclick = () => {
-                    initNetwork();
-                    // Reset visual history too
-                    state.history.weight.fill(0.5);
-                    state.history.activity.fill(0);
-                };
-
-                // Rules
-                dom.hebbian.onclick = () => {
-                    state.params.isHebbian = true;
-                    dom.hebbian.classList.add('active');
-                    dom.antiHebbian.classList.remove('active');
-                    dom.ruleDesc.innerHTML = '<strong>Hebbian:</strong> "Fire together, wire together." Connections strengthen when neurons activate simultaneously.';
-                };
-                dom.antiHebbian.onclick = () => {
-                    state.params.isHebbian = false;
-                    dom.antiHebbian.classList.add('active');
-                    dom.hebbian.classList.remove('active');
-                    dom.ruleDesc.innerHTML = '<strong>Anti-Hebbian:</strong> "Fire together, wire apart." Connections weaken when neurons activate simultaneously. Useful for de-correlation.';
-                };
-
-                // Sliders
-                dom.lrSlider.oninput = (e) => {
-                    state.params.lr = parseFloat(e.target.value);
-                    dom.lrVal.textContent = state.params.lr;
-                };
-                dom.decaySlider.oninput = (e) => {
-                    state.params.decay = parseFloat(e.target.value);
-                    dom.decayVal.textContent = state.params.decay;
-                };
-                dom.noiseSlider.oninput = (e) => {
-                    state.params.noise = parseFloat(e.target.value);
-                    dom.noiseVal.textContent = state.params.noise;
-                };
-                dom.freqSlider.oninput = (e) => {
-                    state.params.inputFreq = parseFloat(e.target.value);
-                    dom.freqVal.textContent = state.params.inputFreq;
-                };
-
-                // Canvas Interaction (Click to zap)
-                canvas.addEventListener('mousedown', (e) => {
-                    const rect = canvas.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / rect.width;
-                    const y = (e.clientY - rect.top) / rect.height;
-
-                    // Transform to Sim Coords which are 0-1 but drawn in 0.1-0.9 box
-                    // The drawing logic is: cx = n.x * 0.8 + 0.1
-                    // So n.x = (cx - 0.1) / 0.8
-                    const sx = (x - 0.1) / 0.8;
-                    const sy = (y - 0.1) / 0.8;
-
-                    // Find neighbors
-                    state.network.neurons.forEach(n => {
-                        const dx = n.x - sx;
-                        const dy = n.y - sy;
-                        if (dx * dx + dy * dy < 0.005) {
-                            n.zap(1.0); // manual fire
-                        }
+            for (const n of neurons) {
+                if (Math.hypot(n.x - x, n.y - y) < n.radius + 10) {
+                    // Manual fire
+                    n.fire();
+                    createParticles(n.x, n.y, 'rgb(0, 212, 170)');
+                    // Propagate
+                    const outgoing = synapses.filter(s => s.from === n);
+                    outgoing.forEach((s, i) => {
+                        setTimeout(() => {
+                            if (Math.random() < s.strength + 0.3) {
+                                s.to.fire();
+                                s.transmit();
+                                s.strengthen();
+                                createParticles(s.to.x, s.to.y, 'rgb(0, 212, 170)');
+                            } else {
+                                s.weaken();
+                            }
+                        }, 150 + i * 50);
                     });
-                });
+                    break;
+                }
             }
+        });
 
-            // -- Start --
-            initNetwork();
-            bindEvents();
-            window.addEventListener('resize', resize);
-            resize();
-            requestAnimationFrame(loop);
+        // Resize
+        window.addEventListener('resize', () => { resizeCanvas(); initializeNetwork(); });
 
-        })();
+        // Init
+        resizeCanvas();
+        initializeNetwork();
+        animate();
+
     </script>
 </body>
 
