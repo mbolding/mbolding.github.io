@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuroimaging Dichotomous Key</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --card-bg: #f5f5f5;
+            --card-hover: #e0e0e0;
+            --border-color: #dddddd;
+            --success-color: #111111;
+            /* Minimalist: Yes is strong/positive */
+            --danger-color: #666666;
+            /* Minimalist: No is secondary/neutral */
+        }
+
+        /* Dark mode support - adhering to system prefs but keeping high contrast */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #111111;
+                --text-color: #ffffff;
+                --secondary-text: #aaaaaa;
+                --card-bg: #222222;
+                --card-hover: #333333;
+                --border-color: #333333;
+                --success-color: #ffffff;
+                --danger-color: #aaaaaa;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 40px;
+            flex-grow: 1;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            font-weight: 400;
+            color: var(--secondary-text);
+            max-width: 600px;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            /* Explicitly ensure sans-serif */
+        }
+
+        .brain-icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        /* Path Tracker - Minimalist Breadcrumbs */
+        .path-tracker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+        }
+
+        .path-step {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 8px;
+            background-color: var(--card-bg);
+            color: var(--secondary-text);
+        }
+
+        .path-step.yes {
+            color: var(--text-color);
+            border-left: 2px solid var(--text-color);
+        }
+
+        .path-step.no {
+            color: var(--secondary-text);
+            border-left: 2px solid var(--secondary-text);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .path-arrow {
+            color: var(--secondary-text);
+            font-size: 12px;
+        }
+
+        /* Question Card */
+        .question-card {
+            background-color: var(--card-bg);
+            padding: 40px;
+            margin-bottom: 40px;
+            /* Sharp corners for Swiss look */
+            /* No shadow, use flat color */
+        }
+
+        .step-indicator {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+        }
+
+        .question-text {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            line-height: 1.2;
+            letter-spacing: -1px;
+        }
+
+        .hint {
+            font-size: 16px;
+            color: var(--secondary-text);
+            margin-bottom: 40px;
+            line-height: 1.5;
+            border-left: 2px solid var(--accent-color);
+            padding-left: 16px;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .btn {
+            border: none;
+            padding: 24px;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            position: relative;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-yes {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+        }
+
+        .btn-yes:hover {
+            background-color: var(--accent-color);
+            color: #fff;
+        }
+
+        .btn-no {
+            background-color: #e5e5e5;
+            /* Distinct from card bg */
+            color: var(--text-color);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .btn-no {
+                background-color: #333;
+            }
+        }
+
+        .btn-no:hover {
+            background-color: #cccccc;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .btn-no:hover {
+                background-color: #444;
+            }
+        }
+
+        /* Result Card */
+        .result-card {
+            background-color: var(--text-color);
+            /* Inverted for high impact */
+            color: var(--bg-color);
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .result-card {
+                background-color: var(--card-bg);
+                color: var(--text-color);
+                border: 2px solid var(--accent-color);
+            }
+        }
+
+        .result-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            display: block;
+        }
+
+        .result-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 8px 0;
+            letter-spacing: -2px;
+            color: var(--accent-color);
+            line-height: 1;
+        }
+
+        .result-fullname {
+            font-size: 18px;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .result-description h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .result-description p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .result-description ul {
+            padding-left: 20px;
+            margin-bottom: 24px;
+        }
+
+        .result-description li {
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .btn-restart {
+            margin-top: 32px;
+            padding: 16px 32px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .btn-restart {
+                background-color: var(--text-color);
+                color: var(--bg-color);
+            }
+        }
+
+        .btn-restart:hover {
+            background-color: var(--accent-color);
+            color: #fff;
+        }
+
+
+
+        @media (max-width: 600px) {
+            .buttons {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+
+            .question-text {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Neuroimaging<br>Dichotomous Key</h1>
+            <p class="subtitle">Identify brain imaging modalities through binary classification.</p>
+        </header>
+
+        <div class="path-tracker" id="pathTracker">
+            <span
+                style="color: var(--secondary-text); font-size: 12px; text-transform: uppercase; font-weight: 600;">Start
+                →</span>
+        </div>
+
+        <div id="content"></div>
+
+
+    </div>
+
+    <script>
+        // Decision Tree Data (unchanged logic, just content)
+        const decisionTree = {
+            id: 'root',
+            question: 'Does the technique use ionizing radiation?',
+            hint: 'Ionizing radiation includes X-rays, gamma rays, and radioactive tracers.',
+            yes: {
+                id: 'ionizing',
+                question: 'Does it use radioactive tracers injected into the body?',
+                hint: 'Radioactive tracers are molecules labeled with radioactive isotopes that emit detectable signals.',
+                yes: {
+                    id: 'tracer',
+                    question: 'Does it detect single photons emitted from the tracer?',
+                    hint: 'Single photon emission uses gamma cameras rotating around the head, unlike PET which detects coincidences.',
+                    yes: {
+                        result: 'SPECT',
+                        fullName: 'Single Photon Emission Computed Tomography',
+                        icon: '☢️',
+                        description: 'SPECT uses gamma-emitting radiotracers to create 3D images of blood flow and metabolic activity in the brain.',
+                        uses: ['Epilepsy localization', 'Dementia assessment', 'Brain perfusion studies', 'Parkinson\'s disease evaluation'],
+                        pros: ['Widely available', 'Lower cost than PET', 'Long tracer half-lives'],
+                        cons: ['Lower resolution than PET', 'Radiation exposure', 'Limited quantification']
+                    },
+                    no: {
+                        result: 'PET',
+                        fullName: 'Positron Emission Tomography',
+                        icon: '☢️',
+                        description: 'PET detects pairs of gamma rays from positron-emitting tracers, providing detailed metabolic and molecular imaging of the brain.',
+                        uses: ['Tumor detection', 'Alzheimer\'s diagnosis (amyloid PET)', 'Epilepsy surgery planning', 'Research on neurotransmitters'],
+                        pros: ['High sensitivity', 'Quantitative measurements', 'Molecular specificity'],
+                        cons: ['Expensive', 'Requires cyclotron nearby', 'Radiation exposure']
+                    }
+                },
+                no: {
+                    id: 'xray',
+                    question: 'Does it use contrast dye injected into blood vessels with real-time X-ray imaging?',
+                    hint: 'This technique visualizes blood vessels in real-time during the procedure. Often used for interventions.',
+                    yes: {
+                        result: 'DSA',
+                        fullName: 'Digital Subtraction Angiography',
+                        icon: '💉',
+                        description: 'DSA is an invasive technique that provides high-resolution images of cerebral blood vessels by subtracting pre-contrast images from post-contrast images.',
+                        uses: ['Aneurysm detection', 'AVM evaluation', 'Stroke intervention', 'Vessel stenosis assessment'],
+                        pros: ['Highest vascular resolution', 'Allows intervention', 'Real-time imaging'],
+                        cons: ['Invasive procedure', 'Radiation exposure', 'Contrast risks']
+                    },
+                    no: {
+                        result: 'CT',
+                        fullName: 'Computed Tomography',
+                        icon: '📡',
+                        description: 'CT uses X-rays and computer processing to create detailed cross-sectional images of the brain. It is the first-line scan for trauma.',
+                        uses: ['Acute stroke assessment', 'Hemorrhage detection', 'Trauma evaluation', 'Skull fractures'],
+                        pros: ['Fast acquisition', 'Widely available', 'Good bone visualization', 'Detects acute bleeding'],
+                        cons: ['Radiation exposure', 'Limited soft tissue contrast', 'Artifact from metal']
+                    }
+                }
+            },
+            no: {
+                id: 'nonionizing',
+                question: 'Does it measure electrical or magnetic fields generated by neural activity?',
+                hint: 'These techniques detect signals produced directly by the firing of neurons, rather than changes in blood flow.',
+                yes: {
+                    id: 'electromagnetic',
+                    question: 'Does it measure magnetic fields using superconducting sensors (SQUIDs)?',
+                    hint: 'These sensors need to be kept extremely cold and require a magnetically shielded room.',
+                    yes: {
+                        result: 'MEG',
+                        fullName: 'Magnetoencephalography',
+                        icon: '🧲',
+                        description: 'MEG measures the tiny magnetic fields produced by electrical currents in the brain, offering excellent temporal resolution and good spatial localization.',
+                        uses: ['Epilepsy surgery planning', 'Pre-surgical brain mapping', 'Cognitive neuroscience research', 'Studying neural oscillations'],
+                        pros: ['Millisecond temporal resolution', 'Non-invasive', 'No signal distortion from skull', 'Direct measure of neural activity'],
+                        cons: ['Extremely expensive', 'Requires shielded room', 'Limited to cortical sources', 'Sensitive to movement']
+                    },
+                    no: {
+                        result: 'EEG',
+                        fullName: 'Electroencephalography',
+                        icon: '⚡',
+                        description: 'EEG records electrical activity from electrodes placed on the scalp. It is the standard for detecting seizures.',
+                        uses: ['Epilepsy diagnosis', 'Sleep studies', 'Brain death determination', 'Cognitive research', 'Intraoperative monitoring'],
+                        pros: ['High temporal resolution', 'Portable', 'Inexpensive', 'Non-invasive', 'Real-time monitoring'],
+                        cons: ['Limited spatial resolution', 'Skull distorts signals', 'Sensitive to artifacts']
+                    }
+                },
+                no: {
+                    id: 'nonelectric',
+                    question: 'Does it use strong magnetic fields and radiofrequency pulses?',
+                    hint: 'The patient typically lies in a long, narrow tube. It is very loud.',
+                    yes: {
+                        id: 'mri',
+                        question: 'Does it measure blood oxygen level changes (BOLD signal) during tasks or rest?',
+                        hint: 'This is used to map "functional" activity rather than just anatomy.',
+                        yes: {
+                            result: 'fMRI',
+                            fullName: 'Functional Magnetic Resonance Imaging',
+                            icon: '🧲',
+                            description: 'fMRI detects brain activity by measuring changes in blood oxygenation (BOLD signal), allowing visualization of which brain areas are active during tasks.',
+                            uses: ['Pre-surgical mapping', 'Cognitive neuroscience', 'Psychiatric research', 'Lie detection research', 'Brain-computer interfaces'],
+                            pros: ['No radiation', 'Good spatial resolution', 'Whole-brain coverage', 'Non-invasive'],
+                            cons: ['Indirect measure of activity', 'Slow temporal resolution', 'Motion sensitive', 'Expensive', 'Loud']
+                        },
+                        no: {
+                            result: 'MRI',
+                            fullName: 'Magnetic Resonance Imaging',
+                            icon: '🧲',
+                            description: 'MRI uses powerful magnets and radio waves to create detailed structural images of the brain with excellent soft tissue contrast.',
+                            uses: ['Tumor detection', 'MS lesions', 'Brain structure analysis', 'White matter imaging (DTI)', 'Stroke evaluation'],
+                            pros: ['Excellent soft tissue contrast', 'No radiation', 'Multiple sequences available', 'Can image in any plane'],
+                            cons: ['Expensive', 'Claustrophobia issues', 'Contraindicated with some implants', 'Long scan times']
+                        }
+                    },
+                    no: {
+                        id: 'other',
+                        question: 'Does it use near-infrared light to measure brain oxygenation through the skull?',
+                        hint: 'This often looks like a cap with lights and sensors, and is more portable than MRI.',
+                        yes: {
+                            result: 'fNIRS',
+                            fullName: 'Functional Near-Infrared Spectroscopy',
+                            icon: '🔴',
+                            description: 'fNIRS uses near-infrared light to measure cortical hemodynamic changes, offering a portable and quiet alternative to fMRI.',
+                            uses: ['Infant brain research', 'Brain-computer interfaces', 'Cognitive monitoring', 'Neurofeedback', 'Bedside monitoring'],
+                            pros: ['Portable', 'Tolerant to motion', 'Safe for repeated use', 'Can study natural behaviors', 'Lower cost than fMRI'],
+                            cons: ['Limited to cortex', 'Lower spatial resolution', 'Affected by hair/skin', 'Cannot image deep structures']
+                        },
+                        no: {
+                            result: 'TCD',
+                            fullName: 'Transcranial Doppler Ultrasonography',
+                            icon: '🔊',
+                            description: 'TCD uses ultrasound waves to measure blood flow velocity in major cerebral arteries through thin parts of the skull.',
+                            uses: ['Stroke risk assessment', 'Vasospasm monitoring', 'Sickle cell screening', 'Brain death confirmation', 'Microemboli detection'],
+                            pros: ['Portable', 'Real-time monitoring', 'No radiation', 'Inexpensive', 'Can be done at bedside'],
+                            cons: ['Operator dependent', 'Limited acoustic windows', 'Cannot image brain tissue', 'Only major vessels']
+                        }
+                    }
+                }
+            }
+        };
+
+        let currentNode = decisionTree;
+        let pathHistory = [];
+
+        function renderQuestion(node) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="question-card">
+                    <span class="step-indicator">Step ${pathHistory.length + 1}</span>
+                    <p class="question-text">${node.question}</p>
+                    <p class="hint">${node.hint}</p>
+                    <div class="buttons">
+                        <button class="btn btn-yes" onclick="answer(true)">YES</button>
+                        <button class="btn btn-no" onclick="answer(false)">NO</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderResult(node) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="result-card">
+                    <span class="result-icon">${node.icon}</span>
+                    <h2 class="result-title">${node.result}</h2>
+                    <p class="result-fullname">${node.fullName}</p>
+                    <div class="result-description">
+                        <h4>Overview</h4>
+                        <p>${node.description}</p>
+                        <h4>Clinical Uses</h4>
+                        <ul>
+                            ${node.uses.map(use => `<li>${use}</li>`).join('')}
+                        </ul>
+                        <h4>Advantages</h4>
+                        <ul>
+                            ${node.pros.map(pro => `<li>${pro}</li>`).join('')}
+                        </ul>
+                        <h4>Limitations</h4>
+                        <ul>
+                            ${node.cons.map(con => `<li>${con}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <button class="btn-restart" onclick="restart()">Start Over</button>
+                </div>
+            `;
+        }
+
+        function updatePath() {
+            const tracker = document.getElementById('pathTracker');
+            if (pathHistory.length === 0) {
+                tracker.innerHTML = '<span style="color: var(--secondary-text); font-size: 12px; text-transform: uppercase; font-weight: 600;">Start →</span>';
+                return;
+            }
+
+            tracker.innerHTML = pathHistory.map((step, index) => `
+                <div class="path-step ${step.answer ? 'yes' : 'no'}">
+                    ${step.answer ? 'YES' : 'NO'}: Q${index + 1}
+                </div>
+                ${index < pathHistory.length - 1 ? '<span class="path-arrow">→</span>' : ''}
+            `).join('');
+        }
+
+        function answer(isYes) {
+            const shortQuestion = currentNode.question.length > 30
+                ? currentNode.question.substring(0, 30) + '...'
+                : currentNode.question;
+
+            pathHistory.push({
+                question: shortQuestion,
+                answer: isYes
+            });
+
+            currentNode = isYes ? currentNode.yes : currentNode.no;
+            updatePath();
+
+            if (currentNode.result) {
+                renderResult(currentNode);
+            } else {
+                renderQuestion(currentNode);
+            }
+        }
+
+        function restart() {
+            currentNode = decisionTree;
+            pathHistory = [];
+            updatePath();
+            renderQuestion(currentNode);
+        }
+
+        // Initial render
+        renderQuestion(currentNode);
+    </script>
+</body>
+
+</html>

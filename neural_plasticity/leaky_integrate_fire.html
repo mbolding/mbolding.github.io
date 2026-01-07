@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stochastic LIF Neuron</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Source+Sans+Pro:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #fffff8;
+            --bg-secondary: #fffff8;
+            --bg-tertiary: #f7f7f0;
+            --text-primary: #111;
+            --text-secondary: #555;
+            --text-muted: #888;
+            --accent: #a00;
+            --border-color: #ccc;
+            --axis-color: #333;
+            --grid-color: rgba(0, 0, 0, 0.06);
+            --membrane-color: #1a1a1a;
+            --threshold-color: #a00;
+            --spike-color: #111;
+            --rate-color: #555;
+        }
+
+        .dark {
+            --bg-primary: #151515;
+            --bg-secondary: #151515;
+            --bg-tertiary: #1e1e1e;
+            --text-primary: #d4d4d4;
+            --text-secondary: #999;
+            --text-muted: #666;
+            --accent: #c45;
+            --border-color: #333;
+            --axis-color: #888;
+            --grid-color: rgba(255, 255, 255, 0.05);
+            --membrane-color: #d4d4d4;
+            --threshold-color: #c45;
+            --spike-color: #d4d4d4;
+            --rate-color: #888;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Crimson Pro', Georgia, serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 18px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 900px) {
+            .main-grid {
+                grid-template-columns: 260px 1fr;
+                gap: 3rem;
+            }
+        }
+
+        .sidebar {
+            font-family: 'Source Sans Pro', -apple-system, sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .section-title {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+            font-weight: 400;
+        }
+
+        .param-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .param-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 6px;
+        }
+
+        .param-name {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .param-value {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 2px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--border-color);
+            border-radius: 0;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 14px;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .equation-box {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .visualization-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .canvas-section {
+            position: relative;
+        }
+
+        .canvas-title {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        canvas {
+            width: 100%;
+            height: 150px;
+            display: block;
+        }
+
+        .canvas-annotation {
+            position: absolute;
+            right: 0;
+            top: 0;
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .stats-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            text-align: left;
+        }
+
+        .stat-value {
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-line {
+            width: 20px;
+            height: 2px;
+        }
+
+        .legend-line.dashed {
+            background: repeating-linear-gradient(to right,
+                    var(--threshold-color) 0,
+                    var(--threshold-color) 4px,
+                    transparent 4px,
+                    transparent 8px);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            canvas {
+                height: 120px;
+            }
+
+            .stats-row {
+                gap: 1rem;
+            }
+        }
+
+        /* Tufte-style sidenote for mobile */
+        .marginnote {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-top: 1rem;
+        }
+
+        .test-results {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--accent);
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 0.85rem;
+        }
+
+        .test-results h3 {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .test-case {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .test-case:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .test-case-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .test-pass {
+            color: #2a7;
+        }
+
+        .test-fail {
+            color: var(--accent);
+        }
+
+        .test-detail {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        .test-formula {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            background: var(--bg-primary);
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Stochastic Leaky Integrate-and-Fire Model</h1>
+            <p class="subtitle">τ dV/dt = −(V − V<sub>rest</sub>) + RI + σξ(t)</p>
+        </header>
+
+        <div class="main-grid">
+            <aside class="sidebar">
+                <div class="section-title">Parameters</div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">τ membrane time constant</span>
+                        <span class="param-value" id="tauVal">20 ms</span>
+                    </div>
+                    <input type="range" id="tau" min="5" max="50" value="20" step="1">
+                </div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">V<sub>thresh</sub> threshold</span>
+                        <span class="param-value" id="threshVal">−55 mV</span>
+                    </div>
+                    <input type="range" id="threshold" min="-65" max="-40" value="-55" step="1">
+                </div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">V<sub>rest</sub> resting potential</span>
+                        <span class="param-value" id="restVal">−70 mV</span>
+                    </div>
+                    <input type="range" id="rest" min="-80" max="-60" value="-70" step="1">
+                </div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">I input current</span>
+                        <span class="param-value" id="currentVal">15 pA</span>
+                    </div>
+                    <input type="range" id="current" min="0" max="40" value="15" step="0.5">
+                </div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">σ noise amplitude</span>
+                        <span class="param-value" id="noiseVal">5 mV</span>
+                    </div>
+                    <input type="range" id="noise" min="0" max="15" value="5" step="0.5">
+                </div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">R membrane resistance</span>
+                        <span class="param-value" id="resistanceVal">1 MΩ</span>
+                    </div>
+                    <input type="range" id="resistance" min="0.5" max="3" value="1" step="0.1">
+                </div>
+
+                <div class="param-group">
+                    <div class="param-label">
+                        <span class="param-name">ISI window</span>
+                        <span class="param-value" id="isiWindowVal">5 s</span>
+                    </div>
+                    <input type="range" id="isiWindow" min="1" max="30" value="5" step="1">
+                </div>
+
+                <div class="controls-row">
+                    <button class="btn btn-primary" id="toggleBtn">Start</button>
+                    <button class="btn" id="resetBtn">Reset</button>
+                </div>
+                <div class="controls-row">
+                    <button class="btn" id="defaultsBtn">Restore Defaults</button>
+                </div>
+                <div class="controls-row">
+                    <button class="btn" id="testCvBtn">Test CV Calculation</button>
+                </div>
+
+                <div class="equation-box">
+                    V(t+dt) = V + (dt/τ)[−(V−V<sub>rest</sub>) + RI] + σ√(dt/τ) · N(0,1)
+                </div>
+            </aside>
+
+            <main class="visualization-area">
+                <div class="canvas-section">
+                    <div class="canvas-title">Membrane Potential</div>
+                    <span class="canvas-annotation">mV</span>
+                    <canvas id="membraneCanvas"></canvas>
+                </div>
+
+                <div class="canvas-section">
+                    <div class="canvas-title">Spike Events</div>
+                    <canvas id="rasterCanvas"></canvas>
+                </div>
+
+                <div class="canvas-section">
+                    <div class="canvas-title">Instantaneous Firing Rate</div>
+                    <span class="canvas-annotation">Hz</span>
+                    <canvas id="rateCanvas"></canvas>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: var(--membrane-color)"></div>
+                        <span>Membrane V</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line dashed"></div>
+                        <span>Threshold</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: var(--spike-color); height: 10px; width: 2px;">
+                        </div>
+                        <span>Spike</span>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <div class="stat-value" id="spikeCount">0</div>
+                        <div class="stat-label">Total Spikes</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="firingRate">0.0</div>
+                        <div class="stat-label">Firing Rate (Hz)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="meanISI">—</div>
+                        <div class="stat-label">Mean ISI (ms)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="cvISI">—</div>
+                        <div class="stat-label">CV of ISI</div>
+                    </div>
+                </div>
+
+                <p class="marginnote">
+                    The coefficient of variation (CV) measures spike timing variability.
+                    A CV near 1 indicates Poisson-like stochastic firing; CV near 0 indicates regular, clock-like
+                    firing.
+                </p>
+
+                <div id="testResults" class="test-results" style="display: none;"></div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.classList.toggle('dark', event.matches);
+        });
+
+        // Canvas setup
+        const membraneCanvas = document.getElementById('membraneCanvas');
+        const rasterCanvas = document.getElementById('rasterCanvas');
+        const rateCanvas = document.getElementById('rateCanvas');
+
+        const membraneCtx = membraneCanvas.getContext('2d');
+        const rasterCtx = rasterCanvas.getContext('2d');
+        const rateCtx = rateCanvas.getContext('2d');
+
+        function getColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                bg: isDark ? '#151515' : '#fffff8',
+                axis: isDark ? '#888' : '#333',
+                grid: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+                membrane: isDark ? '#d4d4d4' : '#1a1a1a',
+                threshold: isDark ? '#c45' : '#a00',
+                spike: isDark ? '#d4d4d4' : '#111',
+                rate: isDark ? '#888' : '#555',
+                text: isDark ? '#666' : '#888'
+            };
+        }
+
+        function resizeCanvases() {
+            const dpr = window.devicePixelRatio || 1;
+            [membraneCanvas, rasterCanvas, rateCanvas].forEach(canvas => {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(dpr, dpr);
+            });
+        }
+
+        resizeCanvases();
+        window.addEventListener('resize', resizeCanvases);
+
+        // Simulation parameters
+        const defaultParams = {
+            tau: 20,
+            threshold: -55,
+            rest: -70,
+            current: 15,
+            noise: 5,
+            resistance: 1,
+            isiWindow: 5
+        };
+
+        const params = { ...defaultParams };
+
+        const dt = 0.5; // ms
+        const displayWindow = 2000; // ms
+        let time = 0;
+        let V = params.rest;
+        let running = false;
+        let animationId = null;
+
+        // Data storage
+        let membraneData = [];
+        let spikeTimes = [];
+        let rateHistory = [];
+        const maxDataPoints = Math.ceil(displayWindow / dt);
+
+        // Parameter controls
+        const paramInputs = {
+            tau: document.getElementById('tau'),
+            threshold: document.getElementById('threshold'),
+            rest: document.getElementById('rest'),
+            current: document.getElementById('current'),
+            noise: document.getElementById('noise'),
+            resistance: document.getElementById('resistance'),
+            isiWindow: document.getElementById('isiWindow')
+        };
+
+        const paramDisplays = {
+            tau: document.getElementById('tauVal'),
+            threshold: document.getElementById('threshVal'),
+            rest: document.getElementById('restVal'),
+            current: document.getElementById('currentVal'),
+            noise: document.getElementById('noiseVal'),
+            resistance: document.getElementById('resistanceVal'),
+            isiWindow: document.getElementById('isiWindowVal')
+        };
+
+        const units = {
+            tau: ' ms',
+            threshold: ' mV',
+            rest: ' mV',
+            current: ' pA',
+            noise: ' mV',
+            resistance: ' MΩ',
+            isiWindow: ' s'
+        };
+
+        function formatValue(key, val) {
+            if (key === 'threshold' || key === 'rest') {
+                return '−' + Math.abs(val) + units[key];
+            }
+            return val + units[key];
+        }
+
+        Object.keys(paramInputs).forEach(key => {
+            paramInputs[key].addEventListener('input', () => {
+                params[key] = parseFloat(paramInputs[key].value);
+                paramDisplays[key].textContent = formatValue(key, params[key]);
+            });
+        });
+
+        // Control buttons
+        const toggleBtn = document.getElementById('toggleBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        toggleBtn.addEventListener('click', () => {
+            running = !running;
+            toggleBtn.textContent = running ? 'Pause' : 'Start';
+            toggleBtn.classList.toggle('btn-primary', !running);
+            if (running) simulate();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            running = false;
+            toggleBtn.textContent = 'Start';
+            toggleBtn.classList.add('btn-primary');
+            time = 0;
+            V = params.rest;
+            membraneData = [];
+            spikeTimes = [];
+            rateHistory = [];
+            if (animationId) cancelAnimationFrame(animationId);
+            updateStats();
+            clearCanvases();
+        });
+
+        const defaultsBtn = document.getElementById('defaultsBtn');
+        defaultsBtn.addEventListener('click', () => {
+            Object.keys(defaultParams).forEach(key => {
+                params[key] = defaultParams[key];
+                paramInputs[key].value = defaultParams[key];
+                paramDisplays[key].textContent = formatValue(key, defaultParams[key]);
+            });
+
+            running = false;
+            toggleBtn.textContent = 'Start';
+            toggleBtn.classList.add('btn-primary');
+            time = 0;
+            V = params.rest;
+            membraneData = [];
+            spikeTimes = [];
+            rateHistory = [];
+            if (animationId) cancelAnimationFrame(animationId);
+            updateStats();
+            clearCanvases();
+        });
+
+        // Gaussian random number (Box-Muller)
+        function randn() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // sLIF simulation step
+        function step() {
+            const dV = (dt / params.tau) * (-(V - params.rest) + params.resistance * params.current);
+            const noise = params.noise * Math.sqrt(dt / params.tau) * randn();
+            V += dV + noise;
+
+            let spiked = false;
+            if (V >= params.threshold) {
+                spikeTimes.push(time);
+                V = params.rest;
+                spiked = true;
+            }
+
+            membraneData.push({ time, V, spiked });
+            if (membraneData.length > maxDataPoints) {
+                membraneData.shift();
+            }
+
+            const recentSpikes = spikeTimes.filter(t => t > time - 1000);
+            const rate = recentSpikes.length;
+            rateHistory.push({ time, rate });
+            if (rateHistory.length > maxDataPoints) {
+                rateHistory.shift();
+            }
+
+            time += dt;
+        }
+
+        function simulate() {
+            if (!running) return;
+
+            for (let i = 0; i < 10; i++) {
+                step();
+            }
+
+            draw();
+            updateStats();
+            animationId = requestAnimationFrame(simulate);
+        }
+
+        function clearCanvases() {
+            const colors = getColors();
+            [
+                { canvas: membraneCanvas, ctx: membraneCtx },
+                { canvas: rasterCanvas, ctx: rasterCtx },
+                { canvas: rateCanvas, ctx: rateCtx }
+            ].forEach(({ canvas, ctx }) => {
+                const rect = canvas.getBoundingClientRect();
+                ctx.fillStyle = colors.bg;
+                ctx.fillRect(0, 0, rect.width, rect.height);
+            });
+        }
+
+        function draw() {
+            const colors = getColors();
+            const membraneRect = membraneCanvas.getBoundingClientRect();
+            const rasterRect = rasterCanvas.getBoundingClientRect();
+            const rateRect = rateCanvas.getBoundingClientRect();
+
+            // Clear
+            membraneCtx.fillStyle = colors.bg;
+            membraneCtx.fillRect(0, 0, membraneRect.width, membraneRect.height);
+
+            rasterCtx.fillStyle = colors.bg;
+            rasterCtx.fillRect(0, 0, rasterRect.width, rasterRect.height);
+
+            rateCtx.fillStyle = colors.bg;
+            rateCtx.fillRect(0, 0, rateRect.width, rateRect.height);
+
+            if (membraneData.length < 2) return;
+
+            const startTime = Math.max(0, time - displayWindow);
+            const padding = { left: 40, right: 15, top: 15, bottom: 20 };
+
+            drawMembranePotential(membraneCtx, membraneRect, padding, startTime, colors);
+            drawRaster(rasterCtx, rasterRect, padding, startTime, colors);
+            drawFiringRate(rateCtx, rateRect, padding, startTime, colors);
+        }
+
+        function drawAxis(ctx, rect, padding, yMin, yMax, colors) {
+            const w = rect.width - padding.left - padding.right;
+            const h = rect.height - padding.top - padding.bottom;
+
+            // Y axis line (Tufte style: just a range frame)
+            ctx.strokeStyle = colors.axis;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, padding.top);
+            ctx.lineTo(padding.left, rect.height - padding.bottom);
+            ctx.stroke();
+
+            // Y-axis labels (minimal)
+            ctx.fillStyle = colors.text;
+            ctx.font = '11px Source Sans Pro, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(yMax.toFixed(0), padding.left - 6, padding.top + 4);
+            ctx.fillText(yMin.toFixed(0), padding.left - 6, rect.height - padding.bottom + 4);
+        }
+
+        function drawMembranePotential(ctx, rect, padding, startTime, colors) {
+            const w = rect.width - padding.left - padding.right;
+            const h = rect.height - padding.top - padding.bottom;
+            const yMin = -80, yMax = -30;
+
+            drawAxis(ctx, rect, padding, yMin, yMax, colors);
+
+            // Threshold line (dashed)
+            const threshY = padding.top + h * (1 - (params.threshold - yMin) / (yMax - yMin));
+            ctx.strokeStyle = colors.threshold;
+            ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, threshY);
+            ctx.lineTo(rect.width - padding.right, threshY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Membrane potential trace
+            ctx.strokeStyle = colors.membrane;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+
+            let first = true;
+            membraneData.forEach(point => {
+                const x = padding.left + ((point.time - startTime) / displayWindow) * w;
+                const y = padding.top + h * (1 - (point.V - yMin) / (yMax - yMin));
+
+                if (first) {
+                    ctx.moveTo(x, y);
+                    first = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+        }
+
+        function drawRaster(ctx, rect, padding, startTime, colors) {
+            const w = rect.width - padding.left - padding.right;
+            const h = rect.height - padding.top - padding.bottom;
+
+            // Baseline
+            ctx.strokeStyle = colors.axis;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, rect.height / 2);
+            ctx.lineTo(rect.width - padding.right, rect.height / 2);
+            ctx.stroke();
+
+            // Spike ticks
+            ctx.strokeStyle = colors.spike;
+            ctx.lineWidth = 1.5;
+
+            const recentSpikes = spikeTimes.filter(t => t >= startTime && t <= time);
+            recentSpikes.forEach(spikeTime => {
+                const x = padding.left + ((spikeTime - startTime) / displayWindow) * w;
+                ctx.beginPath();
+                ctx.moveTo(x, rect.height / 2 - 15);
+                ctx.lineTo(x, rect.height / 2 + 15);
+                ctx.stroke();
+            });
+        }
+
+        function drawFiringRate(ctx, rect, padding, startTime, colors) {
+            const w = rect.width - padding.left - padding.right;
+            const h = rect.height - padding.top - padding.bottom;
+            const yMin = 0, yMax = 60;
+
+            drawAxis(ctx, rect, padding, yMin, yMax, colors);
+
+            if (rateHistory.length < 2) return;
+
+            // Rate area fill (subtle)
+            ctx.fillStyle = colors.grid;
+            ctx.beginPath();
+            let first = true;
+            const baseY = rect.height - padding.bottom;
+
+            rateHistory.forEach(point => {
+                const x = padding.left + ((point.time - startTime) / displayWindow) * w;
+                const y = padding.top + h * (1 - Math.min(point.rate, yMax) / yMax);
+
+                if (first) {
+                    ctx.moveTo(x, baseY);
+                    ctx.lineTo(x, y);
+                    first = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            const lastPoint = rateHistory[rateHistory.length - 1];
+            const lastX = padding.left + ((lastPoint.time - startTime) / displayWindow) * w;
+            ctx.lineTo(lastX, baseY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Rate line
+            ctx.strokeStyle = colors.rate;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            first = true;
+            rateHistory.forEach(point => {
+                const x = padding.left + ((point.time - startTime) / displayWindow) * w;
+                const y = padding.top + h * (1 - Math.min(point.rate, yMax) / yMax);
+                if (first) {
+                    ctx.moveTo(x, y);
+                    first = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+        }
+
+        function updateStats() {
+            document.getElementById('spikeCount').textContent = spikeTimes.length;
+
+            const rate = time > 0 ? (spikeTimes.length / (time / 1000)).toFixed(1) : '0.0';
+            document.getElementById('firingRate').textContent = rate;
+
+            // Use windowed ISI calculation
+            const windowMs = params.isiWindow * 1000; // Convert seconds to ms
+            const windowStart = time - windowMs;
+
+            // Get spikes within the window (need one spike before window for first ISI)
+            const windowedSpikes = spikeTimes.filter(t => t >= windowStart);
+
+            // Calculate ISIs only for spikes within the window
+            // We need at least 2 spikes in the window to compute ISI
+            if (windowedSpikes.length >= 2) {
+                const isis = [];
+                for (let i = 1; i < windowedSpikes.length; i++) {
+                    isis.push(windowedSpikes[i] - windowedSpikes[i - 1]);
+                }
+
+                const n = isis.length;
+                const meanISI = isis.reduce((a, b) => a + b, 0) / n;
+                const variance = isis.reduce((sum, isi) => sum + Math.pow(isi - meanISI, 2), 0) / n;
+                const stdISI = Math.sqrt(variance);
+                const cv = stdISI / meanISI;
+
+                document.getElementById('meanISI').textContent = meanISI.toFixed(1);
+                document.getElementById('cvISI').textContent = cv.toFixed(2);
+            } else {
+                document.getElementById('meanISI').textContent = '—';
+                document.getElementById('cvISI').textContent = '—';
+            }
+        }
+
+        // CV Calculation Test Suite
+        const testCvBtn = document.getElementById('testCvBtn');
+        const testResultsDiv = document.getElementById('testResults');
+
+        function calculateCV(isiArray) {
+            if (isiArray.length < 2) return null;
+
+            const n = isiArray.length;
+            const mean = isiArray.reduce((a, b) => a + b, 0) / n;
+            const variance = isiArray.reduce((sum, isi) => sum + Math.pow(isi - mean, 2), 0) / n;
+            const std = Math.sqrt(variance);
+            const cv = std / mean;
+
+            return { mean, variance, std, cv, n };
+        }
+
+        function runCVTests() {
+            const tests = [];
+
+            // Test 1: Constant ISI (CV should be 0)
+            const constantISI = [100, 100, 100, 100, 100];
+            const result1 = calculateCV(constantISI);
+            tests.push({
+                name: 'Constant ISI (all 100ms)',
+                data: constantISI,
+                result: result1,
+                expectedCV: 0,
+                pass: Math.abs(result1.cv - 0) < 0.0001
+            });
+
+            // Test 2: Known values - easy to verify manually
+            // ISI = [10, 20, 30] → mean = 20, deviations = [-10, 0, 10]
+            // variance = (100 + 0 + 100) / 3 = 66.67, std = 8.165, CV = 8.165/20 = 0.408
+            const simpleISI = [10, 20, 30];
+            const result2 = calculateCV(simpleISI);
+            const expectedCV2 = Math.sqrt(200 / 3) / 20; // ≈ 0.4082
+            tests.push({
+                name: 'Simple ISI [10, 20, 30]',
+                data: simpleISI,
+                result: result2,
+                expectedCV: expectedCV2,
+                pass: Math.abs(result2.cv - expectedCV2) < 0.0001
+            });
+
+            // Test 3: Two values
+            // ISI = [50, 150] → mean = 100, deviations = [-50, 50]
+            // variance = (2500 + 2500) / 2 = 2500, std = 50, CV = 50/100 = 0.5
+            const twoISI = [50, 150];
+            const result3 = calculateCV(twoISI);
+            tests.push({
+                name: 'Two ISI [50, 150]',
+                data: twoISI,
+                result: result3,
+                expectedCV: 0.5,
+                pass: Math.abs(result3.cv - 0.5) < 0.0001
+            });
+
+            // Test 4: Poisson-like (CV ≈ 1)
+            // For exponential distribution, CV = 1
+            // Simulate with varied intervals
+            const poissonLike = [50, 120, 30, 200, 80, 150, 40, 180, 60, 90];
+            const result4 = calculateCV(poissonLike);
+            tests.push({
+                name: 'Variable ISI (checking calculation)',
+                data: poissonLike,
+                result: result4,
+                expectedCV: null, // Just display, don't check
+                pass: true
+            });
+
+            // Test 5: Compare with current simulation data (using windowed spikes)
+            let simTest = null;
+            const windowMs = params.isiWindow * 1000;
+            const windowStart = time - windowMs;
+            const windowedSpikes = spikeTimes.filter(t => t >= windowStart);
+
+            if (windowedSpikes.length >= 3) {
+                const simISI = [];
+                for (let i = 1; i < windowedSpikes.length; i++) {
+                    simISI.push(windowedSpikes[i] - windowedSpikes[i - 1]);
+                }
+                const resultSim = calculateCV(simISI);
+                const displayedCV = parseFloat(document.getElementById('cvISI').textContent);
+                simTest = {
+                    name: `Current Simulation (${params.isiWindow}s window)`,
+                    data: simISI.length > 10 ? `[${simISI.slice(0, 5).map(x => x.toFixed(1)).join(', ')}, ... ${simISI.length} ISIs]` : simISI.map(x => x.toFixed(1)),
+                    result: resultSim,
+                    displayedCV: displayedCV,
+                    windowInfo: `${windowedSpikes.length} spikes in window`,
+                    pass: Math.abs(resultSim.cv - displayedCV) < 0.01
+                };
+            }
+
+            // Render results
+            let html = '<h3>CV Calculation Test Results</h3>';
+            html += '<div class="test-formula">CV = σ / μ where σ = √(Σ(x−μ)²/n) and μ = Σx/n</div>';
+
+            tests.forEach(test => {
+                const statusClass = test.pass ? 'test-pass' : 'test-fail';
+                const statusText = test.pass ? '✓ PASS' : '✗ FAIL';
+
+                html += `<div class="test-case">
+                    <div class="test-case-title">${test.name} <span class="${statusClass}">${statusText}</span></div>
+                    <div class="test-detail">
+                        Data: [${Array.isArray(test.data) ? test.data.join(', ') : test.data}]<br>
+                        n = ${test.result.n},
+                        Mean = ${test.result.mean.toFixed(4)},
+                        Variance = ${test.result.variance.toFixed(4)},
+                        Std = ${test.result.std.toFixed(4)}<br>
+                        <strong>Calculated CV = ${test.result.cv.toFixed(6)}</strong>
+                        ${test.expectedCV !== null ? `<br>Expected CV = ${test.expectedCV.toFixed(6)}` : ''}
+                    </div>
+                </div>`;
+            });
+
+            if (simTest) {
+                const statusClass = simTest.pass ? 'test-pass' : 'test-fail';
+                const statusText = simTest.pass ? '✓ PASS' : '✗ FAIL';
+
+                html += `<div class="test-case">
+                    <div class="test-case-title">${simTest.name} <span class="${statusClass}">${statusText}</span></div>
+                    <div class="test-detail">
+                        ${simTest.windowInfo}<br>
+                        ISI values: ${Array.isArray(simTest.data) ? '[' + simTest.data.join(', ') + ']' : simTest.data}<br>
+                        n = ${simTest.result.n},
+                        Mean = ${simTest.result.mean.toFixed(4)} ms,
+                        Std = ${simTest.result.std.toFixed(4)} ms<br>
+                        <strong>Calculated CV = ${simTest.result.cv.toFixed(6)}</strong><br>
+                        Displayed CV = ${simTest.displayedCV.toFixed(6)}
+                        ${!simTest.pass ? '<br><span class="test-fail">Mismatch detected!</span>' : ''}
+                    </div>
+                </div>`;
+            } else {
+                html += `<div class="test-case">
+                    <div class="test-case-title">Current Simulation Data</div>
+                    <div class="test-detail">Run the simulation to generate at least 3 spikes within the ${params.isiWindow}s window to test against live data.</div>
+                </div>`;
+            }
+
+            testResultsDiv.innerHTML = html;
+            testResultsDiv.style.display = 'block';
+        }
+
+        testCvBtn.addEventListener('click', runCVTests);
+
+        // Initial render
+        clearCanvases();
+    </script>
+</body>
+
+</html>
