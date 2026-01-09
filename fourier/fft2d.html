@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D FFT Visualization</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --panel-bg: #f5f5f5;
+            --text-color: #111111;
+            --accent-color: #6600cc;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background-color: var(--panel-bg);
+            padding: 40px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .canvas-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            flex: 1;
+        }
+
+        header {
+            margin-bottom: 40px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            color: var(--accent-color);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .control-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            color: #444;
+        }
+
+        select,
+        button {
+            width: 100%;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button {
+            background-color: var(--text-color);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background-color: var(--accent-color);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+            accent-color: var(--accent-color);
+        }
+
+        .value-display {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-color);
+            float: right;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent-color);
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            text-transform: none;
+            font-size: 14px;
+        }
+
+        .canvas-container {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
+        }
+
+        .canvas-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #999;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            border: 1px solid var(--border-color);
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .canvas-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <a href="index.html" class="back-link">← Back to Fourier</a>
+
+            <header>
+                <h1>2D FFT</h1>
+                <p>Explore how spatial patterns transform into frequency domain. Draw on the left canvas or select a preset pattern.</p>
+            </header>
+
+            <div class="control-group">
+                <label for="preset">Preset Pattern</label>
+                <select id="preset">
+                    <option value="blank">Blank Canvas</option>
+                    <option value="sine-h">Horizontal Sine Wave</option>
+                    <option value="sine-v">Vertical Sine Wave</option>
+                    <option value="sine-d">Diagonal Sine Wave</option>
+                    <option value="checkerboard">Checkerboard</option>
+                    <option value="gaussian">Gaussian Blob</option>
+                    <option value="edges">Edge Pattern</option>
+                    <option value="noise">Random Noise</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="patternFreq">Pattern Frequency <span id="freqValue" class="value-display">8</span></label>
+                <input type="range" id="patternFreq" min="1" max="32" value="8" step="1">
+            </div>
+
+            <div class="control-group">
+                <label for="brushSize">Brush Size <span id="brushValue" class="value-display">10</span></label>
+                <input type="range" id="brushSize" min="1" max="50" value="10" step="1">
+            </div>
+
+            <div class="control-group">
+                <button id="clearBtn">Clear Canvas</button>
+            </div>
+
+            <div class="control-group">
+                <label>Display Options</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="logScale" checked>
+                    <label for="logScale">Log Scale</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="centerDC" checked>
+                    <label for="centerDC">Center DC Component</label>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; font-size: 12px; color: #999;">
+                <p><strong>Tip:</strong> Draw on the spatial domain canvas to see real-time FFT updates.</p>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <div class="canvas-header">Spatial Domain (Input)</div>
+                    <div class="canvas-wrapper">
+                        <canvas id="spatialCanvas" width="256" height="256"></canvas>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <div class="canvas-header">Frequency Domain (FFT Magnitude)</div>
+                    <div class="canvas-wrapper">
+                        <canvas id="freqCanvas" width="256" height="256"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const SIZE = 256;
+
+        const spatialCanvas = document.getElementById('spatialCanvas');
+        const freqCanvas = document.getElementById('freqCanvas');
+        const spatialCtx = spatialCanvas.getContext('2d');
+        const freqCtx = freqCanvas.getContext('2d');
+
+        const presetSelect = document.getElementById('preset');
+        const patternFreqSlider = document.getElementById('patternFreq');
+        const brushSizeSlider = document.getElementById('brushSize');
+        const clearBtn = document.getElementById('clearBtn');
+        const logScaleCheckbox = document.getElementById('logScale');
+        const centerDCCheckbox = document.getElementById('centerDC');
+        const freqValue = document.getElementById('freqValue');
+        const brushValue = document.getElementById('brushValue');
+
+        let spatialData = new Float64Array(SIZE * SIZE);
+        let isDrawing = false;
+
+        // Initialize with blank canvas
+        clearCanvas();
+
+        // FFT Implementation (Cooley-Tukey radix-2)
+        function fft(real, imag) {
+            const n = real.length;
+            if (n <= 1) return;
+
+            // Bit-reversal permutation
+            for (let i = 0, j = 0; i < n; i++) {
+                if (i < j) {
+                    [real[i], real[j]] = [real[j], real[i]];
+                    [imag[i], imag[j]] = [imag[j], imag[i]];
+                }
+                let m = n >> 1;
+                while (m >= 1 && j >= m) {
+                    j -= m;
+                    m >>= 1;
+                }
+                j += m;
+            }
+
+            // Cooley-Tukey iterative FFT
+            for (let len = 2; len <= n; len <<= 1) {
+                const halfLen = len >> 1;
+                const angle = -2 * Math.PI / len;
+                const wReal = Math.cos(angle);
+                const wImag = Math.sin(angle);
+
+                for (let i = 0; i < n; i += len) {
+                    let curReal = 1, curImag = 0;
+                    for (let j = 0; j < halfLen; j++) {
+                        const uReal = real[i + j];
+                        const uImag = imag[i + j];
+                        const tReal = curReal * real[i + j + halfLen] - curImag * imag[i + j + halfLen];
+                        const tImag = curReal * imag[i + j + halfLen] + curImag * real[i + j + halfLen];
+
+                        real[i + j] = uReal + tReal;
+                        imag[i + j] = uImag + tImag;
+                        real[i + j + halfLen] = uReal - tReal;
+                        imag[i + j + halfLen] = uImag - tImag;
+
+                        const nextReal = curReal * wReal - curImag * wImag;
+                        curImag = curReal * wImag + curImag * wReal;
+                        curReal = nextReal;
+                    }
+                }
+            }
+        }
+
+        function fft2D(data) {
+            const real = new Float64Array(SIZE * SIZE);
+            const imag = new Float64Array(SIZE * SIZE);
+
+            // Copy input data
+            for (let i = 0; i < SIZE * SIZE; i++) {
+                real[i] = data[i];
+            }
+
+            // FFT on rows
+            const rowReal = new Float64Array(SIZE);
+            const rowImag = new Float64Array(SIZE);
+            for (let y = 0; y < SIZE; y++) {
+                for (let x = 0; x < SIZE; x++) {
+                    rowReal[x] = real[y * SIZE + x];
+                    rowImag[x] = imag[y * SIZE + x];
+                }
+                fft(rowReal, rowImag);
+                for (let x = 0; x < SIZE; x++) {
+                    real[y * SIZE + x] = rowReal[x];
+                    imag[y * SIZE + x] = rowImag[x];
+                }
+            }
+
+            // FFT on columns
+            const colReal = new Float64Array(SIZE);
+            const colImag = new Float64Array(SIZE);
+            for (let x = 0; x < SIZE; x++) {
+                for (let y = 0; y < SIZE; y++) {
+                    colReal[y] = real[y * SIZE + x];
+                    colImag[y] = imag[y * SIZE + x];
+                }
+                fft(colReal, colImag);
+                for (let y = 0; y < SIZE; y++) {
+                    real[y * SIZE + x] = colReal[y];
+                    imag[y * SIZE + x] = colImag[y];
+                }
+            }
+
+            return { real, imag };
+        }
+
+        function computeMagnitude(real, imag) {
+            const magnitude = new Float64Array(SIZE * SIZE);
+            for (let i = 0; i < SIZE * SIZE; i++) {
+                magnitude[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+            }
+            return magnitude;
+        }
+
+        function shiftDC(data) {
+            const shifted = new Float64Array(SIZE * SIZE);
+            const halfSize = SIZE / 2;
+            for (let y = 0; y < SIZE; y++) {
+                for (let x = 0; x < SIZE; x++) {
+                    const newX = (x + halfSize) % SIZE;
+                    const newY = (y + halfSize) % SIZE;
+                    shifted[newY * SIZE + newX] = data[y * SIZE + x];
+                }
+            }
+            return shifted;
+        }
+
+        function updateFFT() {
+            const { real, imag } = fft2D(spatialData);
+            let magnitude = computeMagnitude(real, imag);
+
+            if (centerDCCheckbox.checked) {
+                magnitude = shiftDC(magnitude);
+            }
+
+            // Apply log scale if enabled
+            if (logScaleCheckbox.checked) {
+                for (let i = 0; i < magnitude.length; i++) {
+                    magnitude[i] = Math.log1p(magnitude[i]);
+                }
+            }
+
+            // Find max for normalization
+            let maxVal = 0;
+            for (let i = 0; i < magnitude.length; i++) {
+                if (magnitude[i] > maxVal) maxVal = magnitude[i];
+            }
+
+            // Draw frequency domain
+            const imageData = freqCtx.createImageData(SIZE, SIZE);
+            for (let i = 0; i < SIZE * SIZE; i++) {
+                const val = maxVal > 0 ? Math.floor((magnitude[i] / maxVal) * 255) : 0;
+                imageData.data[i * 4] = val;
+                imageData.data[i * 4 + 1] = val;
+                imageData.data[i * 4 + 2] = val;
+                imageData.data[i * 4 + 3] = 255;
+            }
+            freqCtx.putImageData(imageData, 0, 0);
+        }
+
+        function drawSpatialDomain() {
+            const imageData = spatialCtx.createImageData(SIZE, SIZE);
+            for (let i = 0; i < SIZE * SIZE; i++) {
+                const val = Math.floor(spatialData[i] * 255);
+                imageData.data[i * 4] = val;
+                imageData.data[i * 4 + 1] = val;
+                imageData.data[i * 4 + 2] = val;
+                imageData.data[i * 4 + 3] = 255;
+            }
+            spatialCtx.putImageData(imageData, 0, 0);
+        }
+
+        function clearCanvas() {
+            spatialData.fill(0);
+            drawSpatialDomain();
+            updateFFT();
+        }
+
+        function generatePattern(type) {
+            const freq = parseInt(patternFreqSlider.value);
+
+            for (let y = 0; y < SIZE; y++) {
+                for (let x = 0; x < SIZE; x++) {
+                    let value = 0;
+                    const nx = x / SIZE;
+                    const ny = y / SIZE;
+
+                    switch (type) {
+                        case 'blank':
+                            value = 0;
+                            break;
+                        case 'sine-h':
+                            value = (Math.sin(2 * Math.PI * freq * nx) + 1) / 2;
+                            break;
+                        case 'sine-v':
+                            value = (Math.sin(2 * Math.PI * freq * ny) + 1) / 2;
+                            break;
+                        case 'sine-d':
+                            value = (Math.sin(2 * Math.PI * freq * (nx + ny) / Math.sqrt(2)) + 1) / 2;
+                            break;
+                        case 'checkerboard':
+                            const cx = Math.floor(x / (SIZE / freq)) % 2;
+                            const cy = Math.floor(y / (SIZE / freq)) % 2;
+                            value = cx ^ cy;
+                            break;
+                        case 'gaussian':
+                            const dx = nx - 0.5;
+                            const dy = ny - 0.5;
+                            value = Math.exp(-(dx * dx + dy * dy) * 50);
+                            break;
+                        case 'edges':
+                            value = (x === SIZE / 2 || y === SIZE / 2) ? 1 : 0;
+                            break;
+                        case 'noise':
+                            value = Math.random();
+                            break;
+                    }
+
+                    spatialData[y * SIZE + x] = value;
+                }
+            }
+
+            drawSpatialDomain();
+            updateFFT();
+        }
+
+        function drawBrush(cx, cy) {
+            const radius = parseInt(brushSizeSlider.value);
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        const x = cx + dx;
+                        const y = cy + dy;
+                        if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
+                            spatialData[y * SIZE + x] = 1;
+                        }
+                    }
+                }
+            }
+            drawSpatialDomain();
+            updateFFT();
+        }
+
+        function getCanvasCoords(e) {
+            const rect = spatialCanvas.getBoundingClientRect();
+            const scaleX = SIZE / rect.width;
+            const scaleY = SIZE / rect.height;
+            return {
+                x: Math.floor((e.clientX - rect.left) * scaleX),
+                y: Math.floor((e.clientY - rect.top) * scaleY)
+            };
+        }
+
+        // Event Listeners
+        spatialCanvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const coords = getCanvasCoords(e);
+            drawBrush(coords.x, coords.y);
+        });
+
+        spatialCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const coords = getCanvasCoords(e);
+            drawBrush(coords.x, coords.y);
+        });
+
+        spatialCanvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        spatialCanvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+
+        presetSelect.addEventListener('change', (e) => {
+            generatePattern(e.target.value);
+        });
+
+        patternFreqSlider.addEventListener('input', (e) => {
+            freqValue.textContent = e.target.value;
+            if (presetSelect.value !== 'blank') {
+                generatePattern(presetSelect.value);
+            }
+        });
+
+        brushSizeSlider.addEventListener('input', (e) => {
+            brushValue.textContent = e.target.value;
+        });
+
+        clearBtn.addEventListener('click', () => {
+            presetSelect.value = 'blank';
+            clearCanvas();
+        });
+
+        logScaleCheckbox.addEventListener('change', updateFFT);
+        centerDCCheckbox.addEventListener('change', updateFFT);
+    </script>
+</body>
+
+</html>
