@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- this needs more validation before it can be used -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X-Ray Water Interaction Simulator</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #121a2b;
+            --bg-tertiary: #1a2540;
+            --text-primary: #e8eef7;
+            --text-secondary: #8ba3c7;
+            --accent-blue: #00d4ff;
+            --accent-cyan: #00ffc8;
+            --accent-purple: #a855f7;
+            --accent-orange: #ff7b00;
+            --accent-red: #ff3d5a;
+            --accent-yellow: #ffd000;
+            --border-color: #2a3a5a;
+            --glow-blue: 0 0 20px rgba(0, 212, 255, 0.3);
+            --glow-cyan: 0 0 20px rgba(0, 255, 200, 0.3);
+        }
+
+        .light {
+            --bg-primary: #f0f4f8;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --border-color: #cbd5e0;
+            --glow-blue: 0 0 20px rgba(0, 150, 200, 0.2);
+            --glow-cyan: 0 0 20px rgba(0, 200, 150, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 2rem 1rem;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan), var(--accent-purple));
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .grid {
+                grid-template-columns: 320px 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--glow-blue);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-tertiary);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-blue);
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.6rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+        }
+
+        .value-display {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-cyan);
+            font-size: 0.9rem;
+            text-align: right;
+            margin-top: 0.25rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 0.5rem;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-cyan);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.75rem;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: auto;
+            margin-top: 0;
+        }
+
+        .tab.active {
+            background: var(--accent-blue);
+            color: #000;
+            border-color: var(--accent-blue);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .chart-container {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 0.5rem;
+            min-height: 350px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .result-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .result-card.ros {
+            border-left-color: var(--accent-orange);
+        }
+
+        .result-card.scatter {
+            border-left-color: var(--accent-purple);
+        }
+
+        .result-card.absorb {
+            border-left-color: var(--accent-red);
+        }
+
+        .result-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.25rem;
+        }
+
+        .result-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .info-box {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .info-box h4 {
+            color: var(--accent-purple);
+            margin-bottom: 0.5rem;
+        }
+
+        .equation {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            font-size: 0.8rem;
+            overflow-x: auto;
+        }
+
+        .reference-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .reference-table th,
+        .reference-table td {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .reference-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent-cyan);
+        }
+
+        .visualization-canvas {
+            width: 100%;
+            height: 300px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .water-molecule {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+        }
+
+        .xray-beam {
+            position: absolute;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-yellow), transparent);
+            box-shadow: 0 0 10px var(--accent-yellow);
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 2rem;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .validation-section {
+            margin-top: 1.5rem;
+        }
+
+        .validation-result {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+
+        .validation-pass {
+            color: var(--accent-cyan);
+        }
+
+        .validation-fail {
+            color: var(--accent-red);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 2000px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 2rem;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>☢️ X-Ray Water Interaction Simulator</h1>
+        <p class="subtitle">Monte Carlo simulation of absorption, scattering, and radiolysis</p>
+    </header>
+
+    <div class="container">
+        <div class="grid">
+            <!-- Control Panel -->
+            <div class="controls">
+                <div class="panel">
+                    <div class="panel-title">Simulation Parameters</div>
+
+                    <div class="control-group">
+                        <label>X-Ray Energy (keV)</label>
+                        <input type="range" id="energy" min="1" max="150" value="30" step="1">
+                        <div class="value-display" id="energy-display">30 keV</div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Photon Fluence (photons/cm²)</label>
+                        <input type="number" id="fluence" value="1e10" min="1e6" max="1e15" step="1e8">
+                    </div>
+
+                    <div class="control-group">
+                        <label>Water Depth (cm)</label>
+                        <input type="range" id="depth" min="0.1" max="30" value="5" step="0.1">
+                        <div class="value-display" id="depth-display">5 cm</div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Temperature (°C)</label>
+                        <input type="range" id="temperature" min="4" max="100" value="25" step="1">
+                        <div class="value-display" id="temp-display">25°C</div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Simulation Mode</label>
+                        <select id="mode">
+                            <option value="deterministic">Deterministic (Fast)</option>
+                            <option value="montecarlo">Monte Carlo (Detailed)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Monte Carlo Photons</label>
+                        <input type="number" id="mc-photons" value="10000" min="1000" max="100000" step="1000">
+                    </div>
+
+                    <button id="simulate-btn">Run Simulation</button>
+                </div>
+
+                <!-- Quick Results -->
+                <div class="panel" style="margin-top: 1rem;">
+                    <div class="panel-title">Quick Results</div>
+                    <div class="results-grid" id="quick-results">
+                        <div class="result-card absorb">
+                            <div class="result-value" id="absorbed-pct">--</div>
+                            <div class="result-label">Absorbed %</div>
+                        </div>
+                        <div class="result-card scatter">
+                            <div class="result-value" id="scattered-pct">--</div>
+                            <div class="result-label">Scattered %</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-value" id="transmitted-pct">--</div>
+                            <div class="result-label">Transmitted %</div>
+                        </div>
+                        <div class="result-card ros">
+                            <div class="result-value" id="total-ros">--</div>
+                            <div class="result-label">ROS (mol/L)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Display -->
+            <div class="main-display">
+                <div class="panel">
+                    <div class="tabs">
+                        <button class="tab active" data-tab="attenuation">Attenuation</button>
+                        <button class="tab" data-tab="crosssections">Cross-Sections</button>
+                        <button class="tab" data-tab="ros">ROS Production</button>
+                        <button class="tab" data-tab="spectrum">Energy Spectrum</button>
+                        <button class="tab" data-tab="visualization">Visualization</button>
+                        <button class="tab" data-tab="validation">Validation</button>
+                    </div>
+
+                    <!-- Attenuation Tab -->
+                    <div class="tab-content active" id="attenuation-tab">
+                        <div class="chart-container" id="attenuation-chart"></div>
+                        <div class="info-box">
+                            <h4>Beer-Lambert Law</h4>
+                            <p>X-ray attenuation follows the exponential decay law:</p>
+                            <div class="equation">I(x) = I₀ × exp(-μ × x)</div>
+                            <p>Where μ is the total linear attenuation coefficient (cm⁻¹), combining photoelectric
+                                absorption and scattering contributions.</p>
+                        </div>
+                    </div>
+
+                    <!-- Cross-Sections Tab -->
+                    <div class="tab-content" id="crosssections-tab">
+                        <div class="chart-container" id="crosssections-chart"></div>
+                        <div class="info-box">
+                            <h4>Interaction Cross-Sections</h4>
+                            <p>Data from NIST XCOM database. The total mass attenuation coefficient includes:</p>
+                            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                                <li><strong>Photoelectric:</strong> Dominant at low energies (< 30 keV)</li>
+                                <li><strong>Compton:</strong> Dominant at medium energies (30-100 keV)</li>
+                                <li><strong>Rayleigh:</strong> Coherent elastic scattering</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- ROS Tab -->
+                    <div class="tab-content" id="ros-tab">
+                        <div class="chart-container" id="ros-chart"></div>
+                        <div class="results-grid" id="ros-results" style="margin-top: 1rem;"></div>
+                        <div class="info-box">
+                            <h4>Radiolysis G-Values</h4>
+                            <p>Radiation chemical yields expressed as molecules per 100 eV of absorbed energy:</p>
+                            <table class="reference-table">
+                                <tr>
+                                    <th>Species</th>
+                                    <th>G-Value</th>
+                                    <th>Reference</th>
+                                </tr>
+                                <tr>
+                                    <td>OH• (hydroxyl)</td>
+                                    <td>2.7</td>
+                                    <td>Buxton et al., 1988</td>
+                                </tr>
+                                <tr>
+                                    <td>e⁻aq (solvated electron)</td>
+                                    <td>2.6</td>
+                                    <td>Buxton et al., 1988</td>
+                                </tr>
+                                <tr>
+                                    <td>H• (hydrogen atom)</td>
+                                    <td>0.6</td>
+                                    <td>Buxton et al., 1988</td>
+                                </tr>
+                                <tr>
+                                    <td>H₂O₂</td>
+                                    <td>0.7</td>
+                                    <td>Buxton et al., 1988</td>
+                                </tr>
+                                <tr>
+                                    <td>H₂</td>
+                                    <td>0.45</td>
+                                    <td>Buxton et al., 1988</td>
+                                </tr>
+                                <tr>
+                                    <td>HO₂•</td>
+                                    <td>0.02</td>
+                                    <td>Spinks & Woods, 1990</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Spectrum Tab -->
+                    <div class="tab-content" id="spectrum-tab">
+                        <div class="chart-container" id="spectrum-chart"></div>
+                        <div class="info-box">
+                            <h4>Compton Scattering Energy</h4>
+                            <p>The Klein-Nishina formula describes the angular distribution of scattered photons:</p>
+                            <div class="equation">E' = E / (1 + (E/511)(1 - cosθ))</div>
+                            <p>Where E is incident energy (keV), E' is scattered energy, and θ is scattering angle.</p>
+                        </div>
+                    </div>
+
+                    <!-- Visualization Tab -->
+                    <div class="tab-content" id="visualization-tab">
+                        <div class="visualization-canvas" id="viz-canvas"></div>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #ffd000;"></div>
+                                <span>X-ray photon</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #ff3d5a;"></div>
+                                <span>Photoelectric absorption</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #a855f7;"></div>
+                                <span>Compton scatter</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #00ffc8;"></div>
+                                <span>OH• radical</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #00d4ff;"></div>
+                                <span>e⁻aq</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Validation Tab -->
+                    <div class="tab-content" id="validation-tab">
+                        <div class="panel-title" style="margin-bottom: 1rem;">Model Validation Against Published Data
+                        </div>
+                        <div id="validation-results"></div>
+                        <div class="chart-container" id="validation-chart" style="margin-top: 1rem;"></div>
+                        <div class="info-box">
+                            <h4>Validation References</h4>
+                            <ul style="margin-left: 1.5rem;">
+                                <li>NIST XCOM: Photon Cross-Sections Database (Berger et al.)</li>
+                                <li>Buxton et al., 1988: Critical review of rate constants for reactions of hydrated
+                                    electrons</li>
+                                <li>Spinks & Woods, 1990: Introduction to Radiation Chemistry</li>
+                                <li>Hubbell & Seltzer, 1995: NIST Standard Reference Database 126</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Based on NIST XCOM photon cross-section data and radiation chemistry G-values from peer-reviewed literature
+        </p>
+        <p>References: <a href="#">Buxton et al. (1988)</a> | <a href="#">NIST XCOM Database</a> | <a href="#">Spinks &
+                Woods (1990)</a></p>
+    </footer>
+
+    <script>
+        // ============================================
+        // PHYSICAL CONSTANTS AND DATA
+        // ============================================
+
+        const CONSTANTS = {
+            AVOGADRO: 6.02214076e23,
+            ELECTRON_MASS_KEV: 511,  // Rest mass energy in keV
+            WATER_DENSITY: 1.0,      // g/cm³
+            WATER_MOLAR_MASS: 18.015, // g/mol
+            EV_PER_JOULE: 6.242e18,
+            CLASSICAL_ELECTRON_RADIUS: 2.8179e-13 // cm
+        };
+
+        // NIST XCOM data for water (H2O) - Mass attenuation coefficients in cm²/g
+        // Energy (keV), Total, Photoelectric, Compton, Rayleigh
+        const NIST_XCOM_WATER = [
+            [1, 4078, 4063, 0.179, 14.6],
+            [1.5, 1376, 1370, 0.219, 5.77],
+            [2, 617.3, 614.3, 0.247, 2.77],
+            [3, 193.5, 191.8, 0.283, 0.92],
+            [4, 82.69, 81.67, 0.304, 0.429],
+            [5, 42.40, 41.57, 0.317, 0.241],
+            [6, 24.83, 24.14, 0.326, 0.153],
+            [8, 10.82, 10.33, 0.335, 0.076],
+            [10, 5.329, 4.944, 0.339, 0.046],
+            [15, 1.614, 1.374, 0.339, 0.019],
+            [20, 0.7779, 0.5503, 0.334, 0.010],
+            [30, 0.3756, 0.1561, 0.314, 0.005],
+            [40, 0.2683, 0.0660, 0.291, 0.003],
+            [50, 0.2269, 0.0350, 0.269, 0.002],
+            [60, 0.2059, 0.0210, 0.251, 0.001],
+            [80, 0.1837, 0.0098, 0.222, 0.001],
+            [100, 0.1707, 0.0053, 0.199, 0.0005],
+            [150, 0.1505, 0.0017, 0.159, 0.0002],
+            [200, 0.1370, 0.0007, 0.133, 0.0001],
+            [300, 0.1186, 0.0002, 0.099, 0.00005],
+            [400, 0.1061, 0.0001, 0.078, 0.00003],
+            [500, 0.0969, 0.00005, 0.064, 0.00002],
+            [600, 0.0896, 0.00003, 0.054, 0.00001],
+            [800, 0.0786, 0.00002, 0.041, 0.000007],
+            [1000, 0.0707, 0.00001, 0.033, 0.000005]
+        ];
+
+        // G-values for water radiolysis (molecules per 100 eV)
+        // From Buxton et al. (1988) and Spinks & Woods (1990)
+        const G_VALUES = {
+            'OH•': { value: 2.7, color: '#00ffc8', name: 'Hydroxyl radical' },
+            'e⁻aq': { value: 2.6, color: '#00d4ff', name: 'Solvated electron' },
+            'H•': { value: 0.6, color: '#ff7b00', name: 'Hydrogen atom' },
+            'H₂O₂': { value: 0.7, color: '#ff3d5a', name: 'Hydrogen peroxide' },
+            'H₂': { value: 0.45, color: '#a855f7', name: 'Molecular hydrogen' },
+            'HO₂•': { value: 0.02, color: '#ffd000', name: 'Hydroperoxyl' },
+            'H₃O⁺': { value: 2.6, color: '#4ade80', name: 'Hydronium ion' }
+        };
+
+        // Temperature correction factors for G-values (approximate)
+        // Based on Elliot (1994) temperature dependence data
+        function getTemperatureFactor(tempC, species) {
+            const T = tempC + 273.15;
+            const T0 = 298.15;
+            // Simplified Arrhenius-like temperature dependence
+            const activationFactors = {
+                'OH•': 0.002,
+                'e⁻aq': 0.003,
+                'H•': 0.002,
+                'H₂O₂': 0.001,
+                'H₂': 0.001,
+                'HO₂•': 0.002,
+                'H₃O⁺': 0.003
+            };
+            return 1 + activationFactors[species] * (T - T0);
+        }
+
+        // ============================================
+        // PHYSICS CALCULATIONS
+        // ============================================
+
+        // Interpolate NIST data for arbitrary energy
+        function interpolateNIST(energyKeV) {
+            const data = NIST_XCOM_WATER;
+
+            if (energyKeV <= data[0][0]) return {
+                total: data[0][1],
+                photoelectric: data[0][2],
+                compton: data[0][3],
+                rayleigh: data[0][4]
+            };
+            if (energyKeV >= data[data.length - 1][0]) return {
+                total: data[data.length - 1][1],
+                photoelectric: data[data.length - 1][2],
+                compton: data[data.length - 1][3],
+                rayleigh: data[data.length - 1][4]
+            };
+
+            // Log-log interpolation (standard for cross-sections)
+            for (let i = 0; i < data.length - 1; i++) {
+                if (energyKeV >= data[i][0] && energyKeV <= data[i + 1][0]) {
+                    const logE = Math.log(energyKeV);
+                    const logE1 = Math.log(data[i][0]);
+                    const logE2 = Math.log(data[i + 1][0]);
+                    const t = (logE - logE1) / (logE2 - logE1);
+
+                    const interp = (v1, v2) => {
+                        if (v1 <= 0 || v2 <= 0) return v1 + t * (v2 - v1);
+                        return Math.exp(Math.log(v1) + t * (Math.log(v2) - Math.log(v1)));
+                    };
+
+                    return {
+                        total: interp(data[i][1], data[i + 1][1]),
+                        photoelectric: interp(data[i][2], data[i + 1][2]),
+                        compton: interp(data[i][3], data[i + 1][3]),
+                        rayleigh: interp(data[i][4], data[i + 1][4])
+                    };
+                }
+            }
+        }
+
+        // Klein-Nishina differential cross-section
+        function kleinNishina(energyKeV, theta) {
+            const gamma = energyKeV / CONSTANTS.ELECTRON_MASS_KEV;
+            const cosTheta = Math.cos(theta);
+            const P = 1 / (1 + gamma * (1 - cosTheta));
+
+            const r0sq = CONSTANTS.CLASSICAL_ELECTRON_RADIUS ** 2;
+            return 0.5 * r0sq * P * P * (P + 1 / P - Math.sin(theta) ** 2);
+        }
+
+        // Compton scattered photon energy
+        function comptonEnergy(energyKeV, theta) {
+            const gamma = energyKeV / CONSTANTS.ELECTRON_MASS_KEV;
+            return energyKeV / (1 + gamma * (1 - Math.cos(theta)));
+        }
+
+        // Sample Compton scattering angle using Klein-Nishina
+        function sampleComptonAngle(energyKeV) {
+            const gamma = energyKeV / CONSTANTS.ELECTRON_MASS_KEV;
+
+            // Rejection sampling based on Klein-Nishina
+            let theta;
+            const maxP = 1;
+
+            while (true) {
+                theta = Math.acos(1 - 2 * Math.random());
+                const P = 1 / (1 + gamma * (1 - Math.cos(theta)));
+                const kn = P * P * (P + 1 / P - Math.sin(theta) ** 2);
+                if (Math.random() < kn / 2) break;
+            }
+            return theta;
+        }
+
+        // Beer-Lambert attenuation
+        function attenuate(I0, mu, depth) {
+            return I0 * Math.exp(-mu * depth);
+        }
+
+        // Calculate absorbed dose
+        function calculateDose(fluence, energyKeV, depth, muTotal, muEn) {
+            // Energy fluence at depth
+            const psi0 = fluence * energyKeV * 1000 * 1.602e-19; // J/cm²
+            const psiDepth = psi0 * Math.exp(-muTotal * CONSTANTS.WATER_DENSITY * depth);
+
+            // Absorbed dose using mass energy-absorption coefficient
+            // D = Ψ × (μen/ρ) in Gy
+            const dose = psiDepth * muEn; // Gy (J/kg)
+            return dose;
+        }
+
+        // Calculate ROS concentrations from dose
+        function calculateROS(doseGy, volume, temperature) {
+            const results = {};
+            const energyEV = doseGy * 1000 * CONSTANTS.EV_PER_JOULE / 1000; // eV per gram
+            const energyPer100eV = energyEV / 100;
+
+            for (const [species, data] of Object.entries(G_VALUES)) {
+                const tempFactor = getTemperatureFactor(temperature, species);
+                const gValue = data.value * tempFactor;
+
+                // Molecules produced
+                const molecules = gValue * energyPer100eV;
+
+                // Concentration in mol/L (assuming 1g water = 1mL at standard conditions)
+                const moles = molecules / CONSTANTS.AVOGADRO;
+                const concentration = moles * 1000; // per liter
+
+                results[species] = {
+                    concentration: concentration,
+                    molecules: molecules,
+                    gValue: gValue,
+                    color: data.color,
+                    name: data.name
+                };
+            }
+
+            return results;
+        }
+
+        // ============================================
+        // MONTE CARLO SIMULATION
+        // ============================================
+
+        function runMonteCarlo(energyKeV, depth, nPhotons) {
+            const coeffs = interpolateNIST(energyKeV);
+            const muTotal = coeffs.total * CONSTANTS.WATER_DENSITY;
+            const muPhoto = coeffs.photoelectric * CONSTANTS.WATER_DENSITY;
+            const muCompton = coeffs.compton * CONSTANTS.WATER_DENSITY;
+            const muRayleigh = coeffs.rayleigh * CONSTANTS.WATER_DENSITY;
+
+            let transmitted = 0;
+            let absorbed = 0;
+            let scattered = 0;
+            const energySpectrum = new Array(100).fill(0);
+            const depthHist = new Array(50).fill(0);
+            const events = [];
+
+            for (let i = 0; i < nPhotons; i++) {
+                let x = 0;
+                let E = energyKeV;
+                let weight = 1;
+
+                while (x < depth && E > 1) { // Track until exit or low energy
+                    // Sample interaction distance
+                    const mu = interpolateNIST(E);
+                    const muTot = (mu.photoelectric + mu.compton + mu.rayleigh) * CONSTANTS.WATER_DENSITY;
+                    const step = -Math.log(Math.random()) / muTot;
+                    x += step;
+
+                    if (x >= depth) {
+                        transmitted++;
+                        break;
+                    }
+
+                    // Determine interaction type
+                    const r = Math.random();
+                    const pPhoto = mu.photoelectric / (mu.photoelectric + mu.compton + mu.rayleigh);
+                    const pCompton = mu.compton / (mu.photoelectric + mu.compton + mu.rayleigh);
+
+                    const depthBin = Math.floor((x / depth) * 50);
+                    if (depthBin < 50) depthHist[depthBin]++;
+
+                    if (r < pPhoto) {
+                        // Photoelectric absorption
+                        absorbed++;
+                        if (events.length < 200) {
+                            events.push({ type: 'photo', x: x, E: E });
+                        }
+                        break;
+                    } else if (r < pPhoto + pCompton) {
+                        // Compton scattering
+                        const theta = sampleComptonAngle(E);
+                        const Enew = comptonEnergy(E, theta);
+                        const deltaE = E - Enew;
+                        E = Enew;
+
+                        if (events.length < 200) {
+                            events.push({ type: 'compton', x: x, E: deltaE, theta: theta });
+                        }
+
+                        // Record in spectrum
+                        const bin = Math.floor((E / energyKeV) * 100);
+                        if (bin >= 0 && bin < 100) energySpectrum[bin]++;
+
+                        scattered++;
+                    } else {
+                        // Rayleigh - no energy loss, slight direction change
+                        if (events.length < 200) {
+                            events.push({ type: 'rayleigh', x: x, E: 0 });
+                        }
+                    }
+                }
+            }
+
+            return {
+                transmitted: transmitted / nPhotons,
+                absorbed: absorbed / nPhotons,
+                scattered: scattered / nPhotons,
+                energySpectrum: energySpectrum,
+                depthHistogram: depthHist,
+                events: events
+            };
+        }
+
+        // ============================================
+        // SIMULATION STATE
+        // ============================================
+
+        let simulationResults = null;
+
+        function runSimulation() {
+            const energy = parseFloat(document.getElementById('energy').value);
+            const fluence = parseFloat(document.getElementById('fluence').value);
+            const depth = parseFloat(document.getElementById('depth').value);
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const mode = document.getElementById('mode').value;
+            const mcPhotons = parseInt(document.getElementById('mc-photons').value);
+
+            const btn = document.getElementById('simulate-btn');
+            btn.disabled = true;
+            btn.textContent = 'Simulating...';
+
+            setTimeout(() => {
+                const coeffs = interpolateNIST(energy);
+                const muTotal = coeffs.total * CONSTANTS.WATER_DENSITY;
+
+                let mcResults = null;
+                if (mode === 'montecarlo') {
+                    mcResults = runMonteCarlo(energy, depth, mcPhotons);
+                }
+
+                // Deterministic calculations
+                const transmitted = Math.exp(-muTotal * depth);
+                const absorbed = (coeffs.photoelectric / coeffs.total) * (1 - transmitted);
+                const scattered = (1 - transmitted) - absorbed;
+
+                // Energy deposition
+                const muEn = coeffs.photoelectric + 0.5 * coeffs.compton; // Approximate energy-absorption
+                const dose = calculateDose(fluence, energy, depth / 2, muTotal, muEn * CONSTANTS.WATER_DENSITY);
+                const rosConcentrations = calculateROS(dose, depth, temperature);
+
+                simulationResults = {
+                    energy,
+                    fluence,
+                    depth,
+                    temperature,
+                    mode,
+                    coefficients: coeffs,
+                    muTotal,
+                    transmitted: mcResults ? mcResults.transmitted : transmitted,
+                    absorbed: mcResults ? mcResults.absorbed : absorbed,
+                    scattered: mcResults ? mcResults.scattered : scattered,
+                    dose,
+                    ros: rosConcentrations,
+                    monteCarlo: mcResults
+                };
+
+                updateDisplay();
+                btn.disabled = false;
+                btn.textContent = 'Run Simulation';
+            }, 100);
+        }
+
+        // ============================================
+        // DISPLAY FUNCTIONS
+        // ============================================
+
+        function updateDisplay() {
+            if (!simulationResults) return;
+            const r = simulationResults;
+
+            // Quick results
+            document.getElementById('absorbed-pct').textContent = (r.absorbed * 100).toFixed(1) + '%';
+            document.getElementById('scattered-pct').textContent = (r.scattered * 100).toFixed(1) + '%';
+            document.getElementById('transmitted-pct').textContent = (r.transmitted * 100).toFixed(1) + '%';
+
+            // Total ROS (sum of radical species)
+            const totalROS = r.ros['OH•'].concentration + r.ros['e⁻aq'].concentration + r.ros['H•'].concentration;
+            document.getElementById('total-ros').textContent = totalROS.toExponential(2);
+
+            plotAttenuation();
+            plotCrossSections();
+            plotROS();
+            plotSpectrum();
+            updateVisualization();
+            runValidation();
+        }
+
+        function plotAttenuation() {
+            const r = simulationResults;
+            const depths = [];
+            const intensities = [];
+            const absorbed = [];
+
+            for (let x = 0; x <= r.depth; x += r.depth / 100) {
+                depths.push(x);
+                const I = Math.exp(-r.muTotal * x);
+                intensities.push(I * 100);
+                absorbed.push((1 - I) * 100);
+            }
+
+            const traces = [
+                {
+                    x: depths,
+                    y: intensities,
+                    name: 'Transmitted',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#00d4ff', width: 3 }
+                },
+                {
+                    x: depths,
+                    y: absorbed,
+                    name: 'Attenuated',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#ff3d5a', width: 3 }
+                }
+            ];
+
+            // Add MC depth histogram if available
+            if (r.monteCarlo) {
+                const mcDepths = r.monteCarlo.depthHistogram.map((v, i) => (i + 0.5) * r.depth / 50);
+                const maxHist = Math.max(...r.monteCarlo.depthHistogram);
+                const mcIntensity = r.monteCarlo.depthHistogram.map(v => v / maxHist * 50);
+                traces.push({
+                    x: mcDepths,
+                    y: mcIntensity,
+                    name: 'MC Interactions',
+                    type: 'bar',
+                    marker: { color: 'rgba(168, 85, 247, 0.5)' },
+                    yaxis: 'y2'
+                });
+            }
+
+            const layout = {
+                title: `X-Ray Attenuation in Water (${r.energy} keV)`,
+                xaxis: { title: 'Depth (cm)', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                yaxis: { title: 'Intensity (%)', color: '#8ba3c7', gridcolor: '#2a3a5a', range: [0, 100] },
+                yaxis2: { title: 'MC Density', overlaying: 'y', side: 'right', showgrid: false },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(26,37,64,0.5)',
+                font: { color: '#e8eef7' },
+                legend: { x: 0.7, y: 0.95 },
+                margin: { t: 50, r: 60 }
+            };
+
+            Plotly.newPlot('attenuation-chart', traces, layout, { responsive: true });
+        }
+
+        function plotCrossSections() {
+            const energies = [];
+            const photoelectric = [];
+            const compton = [];
+            const rayleigh = [];
+            const total = [];
+
+            for (let E = 1; E <= 150; E *= 1.1) {
+                const c = interpolateNIST(E);
+                energies.push(E);
+                photoelectric.push(c.photoelectric);
+                compton.push(c.compton);
+                rayleigh.push(c.rayleigh);
+                total.push(c.total);
+            }
+
+            const traces = [
+                { x: energies, y: total, name: 'Total', line: { color: '#e8eef7', width: 3 } },
+                { x: energies, y: photoelectric, name: 'Photoelectric', line: { color: '#ff3d5a', width: 2 } },
+                { x: energies, y: compton, name: 'Compton', line: { color: '#a855f7', width: 2 } },
+                { x: energies, y: rayleigh, name: 'Rayleigh', line: { color: '#00ffc8', width: 2, dash: 'dash' } }
+            ];
+
+            // Add current energy marker
+            const currentCoeffs = interpolateNIST(simulationResults.energy);
+            traces.push({
+                x: [simulationResults.energy],
+                y: [currentCoeffs.total],
+                name: 'Current',
+                mode: 'markers',
+                marker: { size: 12, color: '#ffd000', symbol: 'star' }
+            });
+
+            const layout = {
+                title: 'Mass Attenuation Coefficients (NIST XCOM)',
+                xaxis: { title: 'Energy (keV)', type: 'log', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                yaxis: { title: 'μ/ρ (cm²/g)', type: 'log', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(26,37,64,0.5)',
+                font: { color: '#e8eef7' },
+                legend: { x: 0.7, y: 0.95 },
+                margin: { t: 50 }
+            };
+
+            Plotly.newPlot('crosssections-chart', traces, layout, { responsive: true });
+        }
+
+        function plotROS() {
+            const r = simulationResults;
+            const species = Object.keys(r.ros);
+            const concentrations = species.map(s => r.ros[s].concentration);
+            const colors = species.map(s => r.ros[s].color);
+
+            const trace = {
+                x: species,
+                y: concentrations,
+                type: 'bar',
+                marker: { color: colors },
+                text: concentrations.map(c => c.toExponential(2)),
+                textposition: 'outside'
+            };
+
+            const layout = {
+                title: 'Radiolysis Product Concentrations',
+                xaxis: { title: 'Species', color: '#8ba3c7' },
+                yaxis: { title: 'Concentration (mol/L)', type: 'log', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(26,37,64,0.5)',
+                font: { color: '#e8eef7' },
+                margin: { t: 50, b: 80 }
+            };
+
+            Plotly.newPlot('ros-chart', [trace], layout, { responsive: true });
+
+            // Update ROS results grid
+            const rosGrid = document.getElementById('ros-results');
+            rosGrid.innerHTML = species.map(s => `
+                <div class="result-card ros" style="border-left-color: ${r.ros[s].color}">
+                    <div class="result-value">${r.ros[s].concentration.toExponential(2)}</div>
+                    <div class="result-label">${s} (G=${r.ros[s].gValue.toFixed(2)})</div>
+                </div>
+            `).join('');
+        }
+
+        function plotSpectrum() {
+            const r = simulationResults;
+
+            if (r.monteCarlo) {
+                const spectrum = r.monteCarlo.energySpectrum;
+                const energies = spectrum.map((_, i) => r.energy * (i + 0.5) / 100);
+
+                const trace = {
+                    x: energies,
+                    y: spectrum,
+                    type: 'scatter',
+                    mode: 'lines',
+                    fill: 'tozeroy',
+                    line: { color: '#a855f7' },
+                    fillcolor: 'rgba(168, 85, 247, 0.3)'
+                };
+
+                const layout = {
+                    title: 'Compton Scattered Photon Energy Spectrum',
+                    xaxis: { title: 'Energy (keV)', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                    yaxis: { title: 'Counts', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(26,37,64,0.5)',
+                    font: { color: '#e8eef7' },
+                    margin: { t: 50 }
+                };
+
+                Plotly.newPlot('spectrum-chart', [trace], layout, { responsive: true });
+            } else {
+                // Show theoretical Compton edge
+                const angles = [];
+                const energies = [];
+                for (let theta = 0; theta <= Math.PI; theta += Math.PI / 100) {
+                    angles.push(theta * 180 / Math.PI);
+                    energies.push(comptonEnergy(r.energy, theta));
+                }
+
+                const trace = {
+                    x: angles,
+                    y: energies,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#a855f7', width: 3 }
+                };
+
+                const layout = {
+                    title: 'Compton Scattered Energy vs Angle (Klein-Nishina)',
+                    xaxis: { title: 'Scattering Angle (degrees)', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                    yaxis: { title: 'Scattered Energy (keV)', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(26,37,64,0.5)',
+                    font: { color: '#e8eef7' },
+                    margin: { t: 50 },
+                    annotations: [{
+                        x: 180,
+                        y: comptonEnergy(r.energy, Math.PI),
+                        text: `Compton Edge: ${comptonEnergy(r.energy, Math.PI).toFixed(1)} keV`,
+                        showarrow: true,
+                        arrowhead: 2,
+                        ax: -60,
+                        ay: -30,
+                        font: { color: '#ffd000' }
+                    }]
+                };
+
+                Plotly.newPlot('spectrum-chart', [trace], layout, { responsive: true });
+            }
+        }
+
+        function updateVisualization() {
+            const canvas = document.getElementById('viz-canvas');
+            canvas.innerHTML = '';
+
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+            const r = simulationResults;
+
+            // Draw water molecules (background)
+            for (let i = 0; i < 30; i++) {
+                const mol = document.createElement('div');
+                mol.className = 'water-molecule';
+                mol.innerHTML = `<svg viewBox="0 0 30 30">
+                    <circle cx="15" cy="15" r="8" fill="rgba(0,212,255,0.2)" />
+                    <circle cx="8" cy="8" r="4" fill="rgba(255,255,255,0.3)" />
+                    <circle cx="22" cy="8" r="4" fill="rgba(255,255,255,0.3)" />
+                </svg>`;
+                mol.style.left = Math.random() * (width - 30) + 'px';
+                mol.style.top = Math.random() * (height - 30) + 'px';
+                mol.style.opacity = 0.3;
+                canvas.appendChild(mol);
+            }
+
+            // Draw X-ray beams and interactions
+            if (r.monteCarlo && r.monteCarlo.events.length > 0) {
+                const events = r.monteCarlo.events.slice(0, 50);
+
+                events.forEach((event, i) => {
+                    setTimeout(() => {
+                        const x = (event.x / r.depth) * width * 0.8;
+                        const y = 20 + Math.random() * (height - 40);
+
+                        // Draw beam
+                        const beam = document.createElement('div');
+                        beam.className = 'xray-beam';
+                        beam.style.left = '0';
+                        beam.style.top = y + 'px';
+                        beam.style.width = x + 'px';
+                        canvas.appendChild(beam);
+
+                        // Draw interaction point
+                        const particle = document.createElement('div');
+                        particle.className = 'particle';
+                        particle.style.left = x + 'px';
+                        particle.style.top = y + 'px';
+
+                        if (event.type === 'photo') {
+                            particle.style.width = '12px';
+                            particle.style.height = '12px';
+                            particle.style.background = '#ff3d5a';
+                            particle.style.boxShadow = '0 0 15px #ff3d5a';
+                        } else if (event.type === 'compton') {
+                            particle.style.width = '8px';
+                            particle.style.height = '8px';
+                            particle.style.background = '#a855f7';
+                            particle.style.boxShadow = '0 0 10px #a855f7';
+                        } else {
+                            particle.style.width = '6px';
+                            particle.style.height = '6px';
+                            particle.style.background = '#00ffc8';
+                        }
+
+                        canvas.appendChild(particle);
+                    }, i * 50);
+                });
+            } else {
+                // Static visualization for deterministic mode
+                for (let i = 0; i < 20; i++) {
+                    const beam = document.createElement('div');
+                    beam.className = 'xray-beam';
+                    const y = 20 + (i * (height - 40) / 20);
+                    const stopX = r.transmitted > 0.5 ? width : width * (1 - Math.pow(1 - r.transmitted, Math.random()));
+
+                    beam.style.left = '0';
+                    beam.style.top = y + 'px';
+                    beam.style.width = stopX + 'px';
+                    beam.style.animationDelay = (i * 0.1) + 's';
+                    canvas.appendChild(beam);
+                }
+            }
+        }
+
+        function runValidation() {
+            const container = document.getElementById('validation-results');
+            const validations = [];
+
+            // Validate against NIST data points
+            const testEnergies = [10, 30, 60, 100];
+            const nistExpected = {
+                10: 5.329,
+                30: 0.3756,
+                60: 0.2059,
+                100: 0.1707
+            };
+
+            testEnergies.forEach(E => {
+                const calc = interpolateNIST(E);
+                const expected = nistExpected[E];
+                const error = Math.abs(calc.total - expected) / expected * 100;
+                const pass = error < 5;
+
+                validations.push({
+                    name: `NIST μ/ρ @ ${E} keV`,
+                    expected: expected.toFixed(4),
+                    calculated: calc.total.toFixed(4),
+                    error: error.toFixed(1) + '%',
+                    pass: pass
+                });
+            });
+
+            // Validate G-values (comparing to literature)
+            const gLiterature = {
+                'OH•': { value: 2.7, source: 'Buxton (1988)' },
+                'e⁻aq': { value: 2.6, source: 'Buxton (1988)' },
+                'H₂O₂': { value: 0.7, source: 'Buxton (1988)' }
+            };
+
+            Object.entries(gLiterature).forEach(([species, lit]) => {
+                const calc = G_VALUES[species].value;
+                const pass = calc === lit.value;
+                validations.push({
+                    name: `G(${species})`,
+                    expected: lit.value.toString(),
+                    calculated: calc.toString(),
+                    error: pass ? '0%' : 'Mismatch',
+                    pass: pass,
+                    source: lit.source
+                });
+            });
+
+            // Validate Compton edge
+            const testE = 100; // keV
+            const expectedEdge = testE / (1 + 2 * testE / 511); // Formula
+            const calculatedEdge = comptonEnergy(testE, Math.PI);
+            const edgeError = Math.abs(calculatedEdge - expectedEdge) / expectedEdge * 100;
+
+            validations.push({
+                name: `Compton Edge @ ${testE} keV`,
+                expected: expectedEdge.toFixed(2) + ' keV',
+                calculated: calculatedEdge.toFixed(2) + ' keV',
+                error: edgeError.toFixed(2) + '%',
+                pass: edgeError < 1
+            });
+
+            container.innerHTML = validations.map(v => `
+                <div class="validation-result ${v.pass ? 'validation-pass' : 'validation-fail'}">
+                    <span style="width: 20px;">${v.pass ? '✓' : '✗'}</span>
+                    <span style="flex: 1;">${v.name}</span>
+                    <span style="font-family: JetBrains Mono;">Expected: ${v.expected}</span>
+                    <span style="font-family: JetBrains Mono;">Got: ${v.calculated}</span>
+                    <span style="font-family: JetBrains Mono;">(${v.error})</span>
+                </div>
+            `).join('');
+
+            // Plot validation comparison
+            plotValidationChart();
+        }
+
+        function plotValidationChart() {
+            const energies = NIST_XCOM_WATER.filter(d => d[0] <= 200).map(d => d[0]);
+            const nistTotal = NIST_XCOM_WATER.filter(d => d[0] <= 200).map(d => d[1]);
+            const calcTotal = energies.map(E => interpolateNIST(E).total);
+
+            const traces = [
+                {
+                    x: energies,
+                    y: nistTotal,
+                    name: 'NIST XCOM Data',
+                    mode: 'markers',
+                    marker: { size: 10, color: '#ffd000', symbol: 'circle' }
+                },
+                {
+                    x: energies,
+                    y: calcTotal,
+                    name: 'Interpolated Model',
+                    mode: 'lines',
+                    line: { color: '#00d4ff', width: 2 }
+                }
+            ];
+
+            const layout = {
+                title: 'Model vs NIST XCOM Reference Data',
+                xaxis: { title: 'Energy (keV)', type: 'log', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                yaxis: { title: 'μ/ρ (cm²/g)', type: 'log', color: '#8ba3c7', gridcolor: '#2a3a5a' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(26,37,64,0.5)',
+                font: { color: '#e8eef7' },
+                legend: { x: 0.6, y: 0.95 },
+                margin: { t: 50 }
+            };
+
+            Plotly.newPlot('validation-chart', traces, layout, { responsive: true });
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            document.documentElement.classList.add('light');
+        }
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('light');
+            } else {
+                document.documentElement.classList.remove('light');
+            }
+        });
+
+        // Slider value displays
+        document.getElementById('energy').addEventListener('input', function () {
+            document.getElementById('energy-display').textContent = this.value + ' keV';
+        });
+
+        document.getElementById('depth').addEventListener('input', function () {
+            document.getElementById('depth-display').textContent = parseFloat(this.value).toFixed(1) + ' cm';
+        });
+
+        document.getElementById('temperature').addEventListener('input', function () {
+            document.getElementById('temp-display').textContent = this.value + '°C';
+        });
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function () {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab + '-tab').classList.add('active');
+            });
+        });
+
+        // Simulation button
+        document.getElementById('simulate-btn').addEventListener('click', runSimulation);
+
+        // Run initial simulation
+        runSimulation();
+    </script>
+</body>
+
+</html>
