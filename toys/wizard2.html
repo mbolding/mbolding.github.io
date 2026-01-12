@@ -1,106 +1,505 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wizard Duel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --mana-color: #3498db;
+            --health-color: #e74c3c;
+            --bg-color: #ecf0f1;
+            --card-bg: #ffffff;
+            --text-color: #2c3e50;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #f0f0f0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
         }
+
         .game-container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            max-width: 800px;
             width: 100%;
-        }
-        .wizard {
-            margin-bottom: 20px;
-        }
-        .spells {
+            max-width: 1000px;
+            padding: 20px;
             display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
+            flex-direction: column;
+            gap: 20px;
         }
-        .spells button {
-            padding: 5px 10px;
+
+        h1 {
+            text-align: center;
+            font-weight: 800;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            color: var(--primary-color);
+        }
+
+        .battle-area {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: stretch;
+        }
+
+        @media (max-width: 768px) {
+            .battle-area {
+                flex-direction: column;
+            }
+        }
+
+        .wizard-card {
+            background-color: var(--card-bg);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .wizard-card.active-turn {
+            border-color: var(--mana-color);
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .wizard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .wizard-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+
+        .status-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .bar-label {
+            width: 50px;
+        }
+
+        .bar-track {
             flex-grow: 1;
+            height: 12px;
+            background-color: #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
         }
-        #gameLog {
-            margin-top: 20px;
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .health-bar {
+            background-color: var(--health-color);
+        }
+
+        .mana-bar {
+            background-color: var(--mana-color);
+        }
+
+        .spells-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .spell-btn {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
             padding: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .spell-btn:hover:not(:disabled) {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+            border-color: #cbd5e0;
+        }
+
+        .spell-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .spell-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+
+        .spell-cost {
+            font-size: 0.7rem;
+            color: #666;
+            font-weight: 600;
+        }
+
+        #gameLog {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            border: 1px solid #eee;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-entry.turn-change {
+            color: #888;
+            font-style: italic;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #eee;
+        }
+
+        .log-entry.damage {
+            color: var(--health-color);
+        }
+
+        .log-entry.heal {
+            color: #27ae60;
+        }
+
+        .log-entry.mana {
+            color: var(--mana-color);
+        }
+
+        /* Tooltip Styles */
+        .tooltip-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        .spell-tooltip {
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            width: 160px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            visibility: hidden;
+        }
+
+        .tooltip-container:hover .spell-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .keyword-damage {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .keyword-heal {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+
+        .keyword-mana {
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        .keyword-effect {
+            color: #9b59b6;
+            font-weight: bold;
+        }
+
+        .keyword-chance {
+            color: #f1c40f;
+            font-weight: bold;
         }
     </style>
 </head>
+
 <body>
     <div class="game-container">
         <h1>Wizard Duel</h1>
-        <div class="wizard" id="wizard1">
-            <h2>Wizard 1</h2>
-            <p>Health: <span id="health1">20</span></p>
-            <p>Mana: <span id="mana1">10</span></p>
-            <div class="spells" id="spells1"></div>
+
+        <div class="battle-area">
+            <!-- Wizard 1 -->
+            <div class="wizard-card active-turn" id="wizard1">
+                <div class="wizard-header">
+                    <span class="wizard-name">Wizard 1</span>
+                </div>
+
+                <div class="status-bars">
+                    <div class="bar-container">
+                        <span class="bar-label">HP</span>
+                        <div class="bar-track">
+                            <div class="bar-fill health-bar" id="healthBar1" style="width: 100%;"></div>
+                        </div>
+                        <span id="healthText1">20</span>
+                    </div>
+                    <div class="bar-container">
+                        <span class="bar-label">MP</span>
+                        <div class="bar-track">
+                            <div class="bar-fill mana-bar" id="manaBar1" style="width: 100%;"></div>
+                        </div>
+                        <span id="manaText1">10</span>
+                    </div>
+                </div>
+
+                <div class="spells-grid" id="spells1"></div>
+            </div>
+
+            <!-- Wizard 2 -->
+            <div class="wizard-card" id="wizard2">
+                <div class="wizard-header">
+                    <span class="wizard-name">Wizard 2</span>
+                </div>
+
+                <div class="status-bars">
+                    <div class="bar-container">
+                        <span class="bar-label">HP</span>
+                        <div class="bar-track">
+                            <div class="bar-fill health-bar" id="healthBar2" style="width: 100%;"></div>
+                        </div>
+                        <span id="healthText2">20</span>
+                    </div>
+                    <div class="bar-container">
+                        <span class="bar-label">MP</span>
+                        <div class="bar-track">
+                            <div class="bar-fill mana-bar" id="manaBar2" style="width: 100%;"></div>
+                        </div>
+                        <span id="manaText2">10</span>
+                    </div>
+                </div>
+
+                <div class="spells-grid" id="spells2"></div>
+            </div>
         </div>
-        <div class="wizard" id="wizard2">
-            <h2>Wizard 2</h2>
-            <p>Health: <span id="health2">20</span></p>
-            <p>Mana: <span id="mana2">10</span></p>
-            <div class="spells" id="spells2"></div>
-        </div>
+
         <div id="gameLog"></div>
     </div>
 
     <script>
         const spells = [
-            { name: 'Fireball', manaCost: 3, effect: (caster, target) => dealDamage(target, 4) },
-            { name: 'Healing Light', manaCost: 2, effect: (caster, target) => heal(caster, 3) },
-            { name: 'Magic Shield', manaCost: 2, effect: (caster, target) => { shield[caster - 1] = true; log(`Wizard ${caster} is shielded from the next spell.`); } },
-            { name: 'Energy Drain', manaCost: 3, effect: (caster, target) => { dealDamage(target, 2); heal(caster, 2); } },
-            { name: 'Chaos Bolt', manaCost: 4, effect: (caster, target) => dealDamage(target, Math.floor(Math.random() * 6) + 1) },
-            { name: 'Mana Surge', manaCost: 0, effect: (caster, target) => { mana[caster - 1] += 3; log(`Wizard ${caster} gains 3 mana.`); } },
-            { name: 'Lightning Strike', manaCost: 5, effect: (caster, target) => dealDamage(target, 6) },
-            { name: 'Vampiric Touch', manaCost: 4, effect: (caster, target) => { const damage = Math.floor(Math.random() * 3) + 1; dealDamage(target, damage); heal(caster, damage); } },
-            { name: 'Arcane Missile', manaCost: 1, effect: (caster, target) => dealDamage(target, 2) },
-            { name: 'Mind Blast', manaCost: 3, effect: (caster, target) => { dealDamage(target, 3); mana[target - 1] = Math.max(0, mana[target - 1] - 2); log(`Wizard ${target} loses 2 mana.`); } }
+            {
+                name: 'Fireball',
+                manaCost: 3,
+                effect: (caster, target) => {
+                    dealDamage(target, 4);
+                    burnStatus[target - 1] = 2; // Apply Burn
+                },
+                details: "Deals <span class='keyword-damage'>4 Damage</span> and applies <span class='keyword-effect'>Burn</span> (1 dmg/turn for 2 turns).",
+                descriptions: {
+                    success: ["A roaring ball of flame erupts from your hands!", "The air crackles as fire consumes your target!", "Your fireball strikes true, singing eyebrows!"],
+                    failure: ["A puff of smoke coughs out.", "The fire fizzles into harmless sparks.", "You produce a tiny, warm ember."]
+                }
+            },
+            {
+                name: 'Healing Light',
+                manaCost: 2,
+                effect: (caster, target) => heal(caster, 3),
+                details: "Restores <span class='keyword-heal'>3 Health</span> to yourself.",
+                descriptions: {
+                    success: ["A warm glow embraces you.", "Divine energy knits your wounds.", "Light washes over you, soothing pain."],
+                    failure: ["The light flickers and dies.", "You feel a momentary warmth that quickly fades.", "Your prayer goes unanswered."]
+                }
+            },
+            {
+                name: 'Magic Shield',
+                manaCost: 2,
+                effect: (caster, target) => { shield[caster - 1] = true; log(`${wizardNames[caster - 1]} is shielded!`, 'info'); },
+                details: "<span class='keyword-effect'>Blocks</span> the next source of damage.",
+                descriptions: {
+                    success: ["A shimmering barrier appears around you.", "The air hardens into a protective shell.", "Runes of protection orbit your body."],
+                    failure: ["The barrier shatters before forming.", "Your shield dissipates like mist.", "You flinch, but no shield appears."]
+                }
+            },
+            {
+                name: 'Energy Drain',
+                manaCost: 3,
+                effect: (caster, target) => { dealDamage(target, 2); heal(caster, 2); },
+                details: "Deals <span class='keyword-damage'>2 Damage</span> and heals you for <span class='keyword-heal'>2 Health</span>.",
+                descriptions: {
+                    success: ["Red tendrils siphon life from your foe!", "You drink their vitality like wine.", "Their strength becomes yours!"],
+                    failure: ["The link breaks immediately.", "You fail to grasp their life force.", "The drain spell backfires harmlessly."]
+                }
+            },
+            {
+                name: 'Chaos Bolt',
+                manaCost: 4,
+                effect: (caster, target) => dealDamage(target, Math.floor(Math.random() * 6) + 1),
+                details: "Deals <span class='keyword-damage'>1-6 Random Damage</span>.",
+                descriptions: {
+                    success: ["Raw chaos energy blasts outward!", "A bolt of unstable magic strikes!", "Reality warps around the projectile!"],
+                    failure: ["The chaos energy spiral into nothingness.", "The bolt implodes mid-air.", "A rubber duck appears and vanishes."]
+                }
+            },
+            {
+                name: 'Mana Surge',
+                manaCost: 0,
+                effect: (caster, target) => { mana[caster - 1] += 3; log(`${wizardNames[caster - 1]} gains 3 mana.`, 'mana'); },
+                details: "Restores <span class='keyword-mana'>3 Mana</span> instantly.",
+                descriptions: {
+                    success: ["You channel the ley lines!", "Power rushes into your veins!", "Your mind expands with arcane potential!"],
+                    failure: ["You struggle to grasp the flow of magic.", "The headache is real, but the mana is not.", "Static electricity zaps you."]
+                }
+            },
+            {
+                name: 'Lightning Strike',
+                manaCost: 5,
+                effect: (caster, target) => dealDamage(target, 6),
+                details: "Deals <span class='keyword-damage'>6 Damage</span>. Powerful but expensive.",
+                descriptions: {
+                    success: ["THUNDERCRACK! Lightning smites your foe!", "The heavens answer your call with fury!", "Electricity arcs wildly to the target!"],
+                    failure: ["A small spark jumps from your finger.", "Distant thunder rumbles, but nothing strikes.", "Only static hair is achieved."]
+                }
+            },
+            {
+                name: 'Vampiric Touch',
+                manaCost: 4,
+                effect: (caster, target) => {
+                    const damage = Math.floor(Math.random() * 3) + 2; // Buffed: 2-4 damage
+                    dealDamage(target, damage);
+                    heal(caster, damage);
+                    manaRegenCooldown[caster - 1] = 2;
+                },
+                details: "Deals <span class='keyword-damage'>2-4 Damage</span> and heals for same amount. <span class='keyword-effect'>Halts Mana Regen</span> for 2 turns.",
+                descriptions: {
+                    success: ["Your touch withers, your body mends.", "Life flows from them to you.", "A cold grasp drains their essence."],
+                    failure: ["Your hand slips.", "They recoil before you can touch them.", "You feel cold, but gain nothing."]
+                }
+            },
+            {
+                name: 'Arcane Missile',
+                manaCost: 1,
+                effect: (caster, target) => dealDamage(target, 2, true), // pierce = true
+                details: "Deals <span class='keyword-damage'>2 Damage</span>. <span class='keyword-effect'>Pierces Shields</span>.",
+                descriptions: {
+                    success: ["A bolt of pure force strikes!", "Magic dart hits home!", "Simple but effective force impacts them."],
+                    failure: ["The missile veers off course.", "It dissolves before impact.", "You missed."]
+                }
+            },
+            {
+                name: 'Mind Blast',
+                manaCost: 3,
+                effect: (caster, target) => { dealDamage(target, 3); mana[target - 1] = Math.max(0, mana[target - 1] - 2); log(`${wizardNames[target - 1]} loses 2 mana.`, 'mana'); },
+                details: "Deals <span class='keyword-damage'>3 Damage</span> and removes <span class='keyword-mana'>2 Mana</span> from opponent.",
+                descriptions: {
+                    success: ["You assault their mind with psychic force!", "Their focus shatters under your will!", "Mental anguish overwhelms them!"],
+                    failure: ["Their mind is a fortress.", "Your psychic probe is reflected.", "You got a headache instead."]
+                }
+            }
         ];
 
         let currentTurn = 1;
+        const maxHealth = 20;
+        const maxMana = 15; // Cap mana to keep bar reasonable
         let health = [20, 20];
         let mana = [10, 10];
+
         let shield = [false, false];
+        let manaRegenCooldown = [0, 0];
+        let burnStatus = [0, 0];
+        let wizardNames = ["Wizard 1", "Wizard 2"];
+
+        const nameList = [
+            "Merlin", "Gandalf", "Saruman", "Dumbledore", "Voldemort",
+            "Morgana", "Circe", "Meditivh", "Jaina", "Khadgar",
+            "Mordenkainen", "Tasha", "Vecna", "Elminster", "Raistlin",
+            "Yennefer", "Triss", "Geralt", "Sypha", "Dr. Strange"
+        ];
 
         function initializeGame() {
+            // Assign Random Names
+            const shuffled = [...nameList].sort(() => 0.5 - Math.random());
+            wizardNames = [shuffled[0], shuffled[1]];
+            document.querySelector('#wizard1 .wizard-name').textContent = wizardNames[0];
+            document.querySelector('#wizard2 .wizard-name').textContent = wizardNames[1];
+
             for (let i = 1; i <= 2; i++) {
                 const spellContainer = document.getElementById(`spells${i}`);
                 spells.forEach(spell => {
+                    const container = document.createElement('div');
+                    container.className = 'tooltip-container';
+
                     const button = document.createElement('button');
-                    button.textContent = `${spell.name} (${spell.manaCost})`;
+                    button.className = 'spell-btn';
+                    button.innerHTML = `<span>${spell.name}</span><span class="spell-cost">${spell.manaCost} MP</span>`;
                     button.onclick = () => castSpell(i, spell);
-                    spellContainer.appendChild(button);
+
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'spell-tooltip';
+                    tooltip.innerHTML = spell.details;
+
+                    container.appendChild(button);
+                    container.appendChild(tooltip);
+                    spellContainer.appendChild(container);
                 });
             }
-            log('Game started! Wizard 1 goes first.');
+            log('Duel started! Wizard 1 goes first.', 'info');
+            updateUI();
         }
 
         function castSpell(wizard, spell) {
             if (wizard !== currentTurn) {
-                log(`It's not Wizard ${wizard}'s turn!`);
+                log(`Wait your turn, ${wizardNames[wizard - 1]}!`, 'info');
                 return;
             }
 
             if (mana[wizard - 1] < spell.manaCost) {
-                log(`Wizard ${wizard} doesn't have enough mana to cast ${spell.name}!`);
+                log(`Not enough mana for ${spell.name}!`, 'info');
                 return;
             }
 
@@ -109,59 +508,109 @@
             const roll = Math.floor(Math.random() * 6) + 1;
             const success = roll >= 4;
 
-            log(`Wizard ${wizard} casts ${spell.name}. Roll: ${roll} (${success ? 'Success' : 'Fail'})`);
+            // Flavor text selection
+            const flavorTexts = success ? spell.descriptions.success : spell.descriptions.failure;
+            const flavorText = flavorTexts[Math.floor(Math.random() * flavorTexts.length)];
+
+            // Log with flavor
+            log(`${wizardNames[wizard - 1]} casts ${spell.name} (Roll: ${roll})... ${success ? 'Success!' : 'Failed!'}`, 'info');
+            log(`"${flavorText}"`, success ? 'info' : 'turn-change'); // Using turn-change style for failure/grey text or just italic
 
             if (success) {
                 spell.effect(wizard, 3 - wizard);
             }
 
-            currentTurn = 3 - currentTurn; // Switch turns (1 -> 2, 2 -> 1)
-            updateStats();
-            
-            // Replenish 1 mana at the end of the turn
-            mana[wizard - 1] = Math.min(mana[wizard - 1] + 1, 10);
+            endTurn();
         }
 
-        function dealDamage(target, amount) {
-            if (shield[target - 1]) {
-                log(`Wizard ${target}'s shield blocks the spell!`);
+        function endTurn() {
+            currentTurn = 3 - currentTurn; // Swap 1 <-> 2
+
+            // Check mana regeneration cooldown
+            if (manaRegenCooldown[currentTurn - 1] > 0) {
+                manaRegenCooldown[currentTurn - 1]--;
+                log(`Wizard ${currentTurn} is exhausted from dark magic! No mana recovered.`, 'info');
+            } else {
+                // Replenish mana
+                mana[currentTurn - 1] = Math.min(mana[currentTurn - 1] + 1, maxMana);
+            }
+
+            updateUI();
+            log(`--- Wizard ${currentTurn}'s Turn ---`, 'turn-change');
+        }
+
+        function dealDamage(target, amount, pierce = false) {
+            if (shield[target - 1] && !pierce) {
+                log(`${wizardNames[target - 1]}'s Shield blocked the damage!`, 'info');
                 shield[target - 1] = false;
             } else {
                 health[target - 1] -= amount;
-                log(`Wizard ${target} takes ${amount} damage.`);
+                if (!pierce && shield[target - 1]) {
+                    log(`${wizardNames[target - 1]}'s Shield was pierced!`, 'damage');
+                    // Note: You might want to decide if shield stays or breaks on pierce. 
+                    // Usually pierce ignores shield but leaves it. Let's keep it simple: pierce ignores.
+                }
+
+                log(`${wizardNames[target - 1]} takes ${amount} damage.`, 'damage');
                 if (health[target - 1] <= 0) {
-                    log(`Wizard ${target} has been defeated! Wizard ${3 - target} wins!`);
-                    disableSpells();
+                    health[target - 1] = 0;
+                    log(`${wizardNames[target - 1]} defeated! ${wizardNames[3 - target - 1]} wins!`, 'damage');
+                    gameOver();
                 }
             }
         }
 
         function heal(wizard, amount) {
-            health[wizard - 1] = Math.min(health[wizard - 1] + amount, 20);
-            log(`Wizard ${wizard} heals ${amount} health.`);
+            health[wizard - 1] = Math.min(health[wizard - 1] + amount, maxHealth);
+            log(`${wizardNames[wizard - 1]} heals ${amount} health.`, 'heal');
         }
 
-        function updateStats() {
+        function updateUI() {
             for (let i = 1; i <= 2; i++) {
-                document.getElementById(`health${i}`).textContent = Math.max(health[i-1], 0);
-                document.getElementById(`mana${i}`).textContent = mana[i-1];
+                // Update text
+                document.getElementById(`healthText${i}`).textContent = health[i - 1];
+                document.getElementById(`manaText${i}`).textContent = mana[i - 1];
+
+                // Update bars
+                const hpPercent = (health[i - 1] / maxHealth) * 100;
+                const mpPercent = (mana[i - 1] / maxMana) * 100;
+                document.getElementById(`healthBar${i}`).style.width = `${hpPercent}%`;
+                document.getElementById(`manaBar${i}`).style.width = `${mpPercent}%`;
+
+                // Update turn highlight
+                const card = document.getElementById(`wizard${i}`);
+                if (i === currentTurn) {
+                    card.classList.add('active-turn');
+                    enableSpells(i, true);
+                } else {
+                    card.classList.remove('active-turn');
+                    enableSpells(i, false);
+                }
             }
         }
 
-        function log(message) {
-            const gameLog = document.getElementById('gameLog');
-            gameLog.innerHTML += message + '<br>';
-            gameLog.scrollTop = gameLog.scrollHeight;
+        function enableSpells(wizard, enabled) {
+            const buttons = document.querySelectorAll(`#spells${wizard} button`);
+            buttons.forEach(btn => btn.disabled = !enabled);
         }
 
-        function disableSpells() {
-            const buttons = document.querySelectorAll('.spells button');
-            buttons.forEach(button => button.disabled = true);
+        function gameOver() {
+            const buttons = document.querySelectorAll('.spell-btn');
+            buttons.forEach(btn => btn.disabled = true);
+            document.querySelectorAll('.wizard-card').forEach(c => c.classList.remove('active-turn'));
+        }
+
+        function log(message, type = 'info') {
+            const gameLog = document.getElementById('gameLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = message;
+            gameLog.appendChild(entry);
+            gameLog.scrollTop = gameLog.scrollHeight;
         }
 
         initializeGame();
     </script>
 </body>
+
 </html>
-
-
