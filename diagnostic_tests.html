@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- TODO: add a card for this to the main index.html file -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic Test Calculator</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8f5f1;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #eee9e2;
+            --text-primary: #1a1a1a;
+            --text-secondary: #5a5a5a;
+            --text-muted: #8a8a8a;
+            --accent: #c44536;
+            --accent-light: #e8685a;
+            --tp-color: #2d6a4f;
+            --tp-bg: #d8f3dc;
+            --fn-color: #9d4edd;
+            --fn-bg: #f0e6fa;
+            --fp-color: #e76f51;
+            --fp-bg: #fce4df;
+            --tn-color: #457b9d;
+            --tn-bg: #dbeaf3;
+            --border: #d4cfc7;
+            --shadow: rgba(0, 0, 0, 0.08);
+        }
+
+        .dark {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #a8b2bd;
+            --text-muted: #6e7681;
+            --accent: #ff6b5b;
+            --accent-light: #ff8a7d;
+            --tp-color: #56d364;
+            --tp-bg: #1a3d28;
+            --fn-color: #d2a8ff;
+            --fn-bg: #2d1f44;
+            --fp-color: #ffa07a;
+            --fp-bg: #3d2520;
+            --tn-color: #79c0ff;
+            --tn-bg: #1a2f44;
+            --border: #30363d;
+            --shadow: rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        h1 {
+            font-family: 'Fraunces', serif;
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        .input-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 20px var(--shadow);
+            animation: slideUp 0.5s ease 0.1s both;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 16px;
+            padding-right: 45px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 16px;
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        .input-suffix {
+            position: absolute;
+            right: 14px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        .population-row {
+            grid-column: 1 / -1;
+            max-width: 300px;
+        }
+
+        .results-section {
+            animation: slideUp 0.5s ease 0.2s both;
+        }
+
+        .matrix-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 20px var(--shadow);
+            margin-bottom: 28px;
+        }
+
+        .matrix-header {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .matrix-title {
+            font-family: 'Fraunces', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .confusion-matrix {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr;
+            gap: 6px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .matrix-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 8px;
+        }
+
+        .matrix-label.vertical {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+        }
+
+        .matrix-label.header {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .matrix-cell {
+            padding: 20px 16px;
+            border-radius: 12px;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .matrix-cell:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 20px var(--shadow);
+        }
+
+        .matrix-cell.tp {
+            background: var(--tp-bg);
+        }
+
+        .matrix-cell.fn {
+            background: var(--fn-bg);
+        }
+
+        .matrix-cell.fp {
+            background: var(--fp-bg);
+        }
+
+        .matrix-cell.tn {
+            background: var(--tn-bg);
+        }
+
+        .cell-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+
+        .tp .cell-label {
+            color: var(--tp-color);
+        }
+
+        .fn .cell-label {
+            color: var(--fn-color);
+        }
+
+        .fp .cell-label {
+            color: var(--fp-color);
+        }
+
+        .tn .cell-label {
+            color: var(--tn-color);
+        }
+
+        .cell-value {
+            font-family: 'Fraunces', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .tp .cell-value {
+            color: var(--tp-color);
+        }
+
+        .fn .cell-value {
+            color: var(--fn-color);
+        }
+
+        .fp .cell-value {
+            color: var(--fp-color);
+        }
+
+        .tn .cell-value {
+            color: var(--tn-color);
+        }
+
+        .cell-percent {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .correct-card {
+            background: var(--tp-bg);
+            border-color: var(--tp-color);
+        }
+
+        .correct-value {
+            color: var(--tp-color) !important;
+        }
+
+        .error-card {
+            background: var(--fp-bg);
+            border-color: var(--fp-color);
+        }
+
+        .error-value {
+            color: var(--fp-color) !important;
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-family: 'Fraunces', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .metric-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .formula-section {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 28px;
+            animation: slideUp 0.5s ease 0.3s both;
+        }
+
+        .formula-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .formula-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .formula-item {
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        .formula-item strong {
+            color: var(--text-primary);
+        }
+
+        .examples-section {
+            margin-bottom: 28px;
+            animation: slideUp 0.5s ease 0.05s both;
+        }
+
+        .examples-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .examples-title {
+            font-family: 'Fraunces', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .examples-hint {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .example-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 10px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .example-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--shadow);
+        }
+
+        .example-card:active {
+            transform: translateY(0);
+        }
+
+        .example-card.active {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+        }
+
+        .example-icon {
+            font-size: 1.5rem;
+            margin-bottom: 6px;
+        }
+
+        .example-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+
+        .example-stats {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .selected-example {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .selected-example.visible {
+            display: block;
+        }
+
+        .selected-example-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .selected-example-icon {
+            font-size: 1.3rem;
+        }
+
+        .selected-example-name {
+            font-family: 'Fraunces', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .selected-example-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .visual-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 20px var(--shadow);
+        }
+
+        .visual-header {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .visual-title {
+            font-family: 'Fraunces', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .circles-container {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr;
+            gap: 8px;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        .circles-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 8px;
+        }
+
+        .circles-label.vertical {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+        }
+
+        .circles-label.header {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .circle-cell {
+            position: relative;
+            aspect-ratio: 1;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .circle-cell.tp-cell {
+            background: var(--tp-bg);
+        }
+
+        .circle-cell.fn-cell {
+            background: var(--fn-bg);
+        }
+
+        .circle-cell.fp-cell {
+            background: var(--fp-bg);
+        }
+
+        .circle-cell.tn-cell {
+            background: var(--tn-bg);
+        }
+
+        .circle-svg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        .circle-tp {
+            fill: var(--tp-color);
+            opacity: 0.6;
+        }
+
+        .circle-fn {
+            fill: var(--fn-color);
+            opacity: 0.6;
+        }
+
+        .circle-fp {
+            fill: var(--fp-color);
+            opacity: 0.6;
+        }
+
+        .circle-tn {
+            fill: var(--tn-color);
+            opacity: 0.6;
+        }
+
+        .circle-info {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .circle-label {
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+
+        .tp-cell .circle-label {
+            color: var(--tp-color);
+        }
+
+        .fn-cell .circle-label {
+            color: var(--fn-color);
+        }
+
+        .fp-cell .circle-label {
+            color: var(--fp-color);
+        }
+
+        .tn-cell .circle-label {
+            color: var(--tn-color);
+        }
+
+        .circle-value {
+            font-family: 'Fraunces', serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .tp-cell .circle-value {
+            color: var(--tp-color);
+        }
+
+        .fn-cell .circle-value {
+            color: var(--fn-color);
+        }
+
+        .fp-cell .circle-value {
+            color: var(--fp-color);
+        }
+
+        .tn-cell .circle-value {
+            color: var(--tn-color);
+        }
+
+        .circle-percent {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .visual-legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.correct {
+            background: linear-gradient(135deg, var(--tp-color), var(--tn-color));
+        }
+
+        .legend-dot.incorrect {
+            background: linear-gradient(135deg, var(--fp-color), var(--fn-color));
+        }
+
+        @media (max-width: 500px) {
+            .circle-cell {
+                min-height: 100px;
+            }
+
+            .circle-value {
+                font-size: 1rem;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .confusion-matrix {
+                gap: 4px;
+            }
+
+            .matrix-cell {
+                padding: 14px 10px;
+            }
+
+            .cell-value {
+                font-size: 1.3rem;
+            }
+
+            .metric-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Diagnostic Test Calculator</h1>
+            <p class="subtitle">Calculate true/false positives & negatives from disease prevalence, sensitivity, and
+                specificity</p>
+        </header>
+
+        <section class="examples-section">
+            <div class="examples-header">
+                <span class="examples-title">Real-World Examples</span>
+                <span class="examples-hint">Click to load values</span>
+            </div>
+            <div class="examples-grid">
+                <button class="example-card" data-prevalence="5" data-sensitivity="98" data-specificity="99"
+                    data-name="COVID-19 PCR">
+                    <span class="example-icon">🧬</span>
+                    <span class="example-name">COVID-19 PCR</span>
+                    <span class="example-stats">Se: 98% · Sp: 99%</span>
+                </button>
+                <button class="example-card" data-prevalence="5" data-sensitivity="72" data-specificity="99"
+                    data-name="COVID-19 Rapid Antigen">
+                    <span class="example-icon">⚡</span>
+                    <span class="example-name">COVID-19 Rapid</span>
+                    <span class="example-stats">Se: 72% · Sp: 99%</span>
+                </button>
+                <button class="example-card" data-prevalence="0.4" data-sensitivity="87" data-specificity="89"
+                    data-name="Mammography">
+                    <span class="example-icon">🩻</span>
+                    <span class="example-name">Mammography</span>
+                    <span class="example-stats">Se: 87% · Sp: 89%</span>
+                </button>
+                <button class="example-card" data-prevalence="0.3" data-sensitivity="99.7" data-specificity="98.5"
+                    data-name="HIV ELISA">
+                    <span class="example-icon">🔬</span>
+                    <span class="example-name">HIV ELISA</span>
+                    <span class="example-stats">Se: 99.7% · Sp: 98.5%</span>
+                </button>
+                <button class="example-card" data-prevalence="15" data-sensitivity="86" data-specificity="95"
+                    data-name="Rapid Strep Test">
+                    <span class="example-icon">🦠</span>
+                    <span class="example-name">Rapid Strep</span>
+                    <span class="example-stats">Se: 86% · Sp: 95%</span>
+                </button>
+                <button class="example-card" data-prevalence="11" data-sensitivity="21" data-specificity="91"
+                    data-name="PSA (Prostate Cancer)">
+                    <span class="example-icon">🩸</span>
+                    <span class="example-name">PSA Screening</span>
+                    <span class="example-stats">Se: 21% · Sp: 91%</span>
+                </button>
+                <button class="example-card" data-prevalence="0.03" data-sensitivity="80" data-specificity="97"
+                    data-name="TB Skin Test (PPD)">
+                    <span class="example-icon">💉</span>
+                    <span class="example-name">TB Skin Test</span>
+                    <span class="example-stats">Se: 80% · Sp: 97%</span>
+                </button>
+                <button class="example-card" data-prevalence="10" data-sensitivity="99" data-specificity="99"
+                    data-name="Home Pregnancy Test">
+                    <span class="example-icon">🤰</span>
+                    <span class="example-name">Pregnancy Test</span>
+                    <span class="example-stats">Se: 99% · Sp: 99%</span>
+                </button>
+                <button class="example-card" data-prevalence="2" data-sensitivity="95" data-specificity="85"
+                    data-name="D-dimer (DVT/PE)">
+                    <span class="example-icon">🫀</span>
+                    <span class="example-name">D-dimer</span>
+                    <span class="example-stats">Se: 95% · Sp: 85%</span>
+                </button>
+                <button class="example-card" data-prevalence="1" data-sensitivity="90" data-specificity="85"
+                    data-name="Fecal Occult Blood">
+                    <span class="example-icon">🔍</span>
+                    <span class="example-name">FOBT (Colon)</span>
+                    <span class="example-stats">Se: 90% · Sp: 85%</span>
+                </button>
+            </div>
+        </section>
+
+        <div class="selected-example" id="selected-example">
+            <div class="selected-example-header">
+                <span class="selected-example-icon" id="selected-icon"></span>
+                <span class="selected-example-name" id="selected-name"></span>
+            </div>
+            <p class="selected-example-description" id="selected-description"></p>
+        </div>
+
+        <section class="input-section">
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>Prevalence</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="prevalence" value="5" min="0" max="100" step="0.1">
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Sensitivity</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="sensitivity" value="95" min="0" max="100" step="0.1">
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Specificity</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="specificity" value="90" min="0" max="100" step="0.1">
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+                <div class="input-group population-row">
+                    <label>Population Size</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="population" value="10000" min="1" step="1">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="results-section">
+            <div class="matrix-container">
+                <div class="matrix-header">
+                    <span class="matrix-title">Confusion Matrix</span>
+                </div>
+                <div class="confusion-matrix">
+                    <div class="matrix-label"></div>
+                    <div class="matrix-label header">Test Positive</div>
+                    <div class="matrix-label header">Test Negative</div>
+
+                    <div class="matrix-label vertical header">Has Disease</div>
+                    <div class="matrix-cell tp">
+                        <div class="cell-label">True Positive</div>
+                        <div class="cell-value" id="tp-value">475</div>
+                        <div class="cell-percent" id="tp-percent">4.75%</div>
+                    </div>
+                    <div class="matrix-cell fn">
+                        <div class="cell-label">False Negative</div>
+                        <div class="cell-value" id="fn-value">25</div>
+                        <div class="cell-percent" id="fn-percent">0.25%</div>
+                    </div>
+
+                    <div class="matrix-label vertical header">No Disease</div>
+                    <div class="matrix-cell fp">
+                        <div class="cell-label">False Positive</div>
+                        <div class="cell-value" id="fp-value">950</div>
+                        <div class="cell-percent" id="fp-percent">9.50%</div>
+                    </div>
+                    <div class="matrix-cell tn">
+                        <div class="cell-label">True Negative</div>
+                        <div class="cell-value" id="tn-value">8,550</div>
+                        <div class="cell-percent" id="tn-percent">85.50%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visual-section">
+                <div class="visual-header">
+                    <span class="visual-title">Proportional Area Visualization</span>
+                </div>
+                <div class="circles-container">
+                    <div class="circles-label"></div>
+                    <div class="circles-label header">Test Positive</div>
+                    <div class="circles-label header">Test Negative</div>
+
+                    <div class="circles-label vertical header">Has Disease</div>
+                    <div class="circle-cell tp-cell">
+                        <svg class="circle-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                            <circle id="circle-tp" class="circle-tp" cx="50" cy="50" r="0"></circle>
+                        </svg>
+                        <div class="circle-info">
+                            <div class="circle-label">True Pos</div>
+                            <div class="circle-value" id="circle-tp-value">475</div>
+                            <div class="circle-percent" id="circle-tp-percent">4.75%</div>
+                        </div>
+                    </div>
+                    <div class="circle-cell fn-cell">
+                        <svg class="circle-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                            <circle id="circle-fn" class="circle-fn" cx="50" cy="50" r="0"></circle>
+                        </svg>
+                        <div class="circle-info">
+                            <div class="circle-label">False Neg</div>
+                            <div class="circle-value" id="circle-fn-value">25</div>
+                            <div class="circle-percent" id="circle-fn-percent">0.25%</div>
+                        </div>
+                    </div>
+
+                    <div class="circles-label vertical header">No Disease</div>
+                    <div class="circle-cell fp-cell">
+                        <svg class="circle-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                            <circle id="circle-fp" class="circle-fp" cx="50" cy="50" r="0"></circle>
+                        </svg>
+                        <div class="circle-info">
+                            <div class="circle-label">False Pos</div>
+                            <div class="circle-value" id="circle-fp-value">950</div>
+                            <div class="circle-percent" id="circle-fp-percent">9.50%</div>
+                        </div>
+                    </div>
+                    <div class="circle-cell tn-cell">
+                        <svg class="circle-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                            <circle id="circle-tn" class="circle-tn" cx="50" cy="50" r="0"></circle>
+                        </svg>
+                        <div class="circle-info">
+                            <div class="circle-label">True Neg</div>
+                            <div class="circle-value" id="circle-tn-value">8,550</div>
+                            <div class="circle-percent" id="circle-tn-percent">85.50%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-legend">
+                    <div class="legend-item">
+                        <span class="legend-dot correct"></span>
+                        <span>Correct results (TP + TN)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot incorrect"></span>
+                        <span>Errors (FP + FN)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">PPV</div>
+                    <div class="metric-value" id="ppv">33.3%</div>
+                    <div class="metric-subtitle">Positive Predictive Value</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">NPV</div>
+                    <div class="metric-value" id="npv">99.7%</div>
+                    <div class="metric-subtitle">Negative Predictive Value</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Accuracy</div>
+                    <div class="metric-value" id="accuracy">90.3%</div>
+                    <div class="metric-subtitle">(TP + TN) / Total</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">LR+</div>
+                    <div class="metric-value" id="lr-positive">9.50</div>
+                    <div class="metric-subtitle">Positive Likelihood Ratio</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">LR−</div>
+                    <div class="metric-value" id="lr-negative">0.06</div>
+                    <div class="metric-subtitle">Negative Likelihood Ratio</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Disease+</div>
+                    <div class="metric-value" id="diseased">500</div>
+                    <div class="metric-subtitle">Total with Disease</div>
+                </div>
+                <div class="metric-card correct-card">
+                    <div class="metric-label">Correct</div>
+                    <div class="metric-value correct-value" id="correct">9,025</div>
+                    <div class="metric-subtitle">TP + TN</div>
+                </div>
+                <div class="metric-card error-card">
+                    <div class="metric-label">Errors</div>
+                    <div class="metric-value error-value" id="errors">975</div>
+                    <div class="metric-subtitle">FP + FN</div>
+                </div>
+            </div>
+
+            <div class="formula-section">
+                <div class="formula-title">Formulas Used</div>
+                <div class="formula-grid">
+                    <div class="formula-item"><strong>TP</strong> = Diseased × Sensitivity</div>
+                    <div class="formula-item"><strong>FN</strong> = Diseased × (1 − Sensitivity)</div>
+                    <div class="formula-item"><strong>FP</strong> = Healthy × (1 − Specificity)</div>
+                    <div class="formula-item"><strong>TN</strong> = Healthy × Specificity</div>
+                    <div class="formula-item"><strong>PPV</strong> = TP / (TP + FP)</div>
+                    <div class="formula-item"><strong>NPV</strong> = TN / (TN + FN)</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Format numbers with commas
+        function formatNumber(num) {
+            if (num >= 1000) {
+                return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            }
+            return num.toLocaleString('en-US', { maximumFractionDigits: 1 });
+        }
+
+        // Format percentage
+        function formatPercent(num) {
+            return num.toFixed(2) + '%';
+        }
+
+        // Calculate and update results
+        function calculate() {
+            const prevalence = parseFloat(document.getElementById('prevalence').value) / 100 || 0;
+            const sensitivity = parseFloat(document.getElementById('sensitivity').value) / 100 || 0;
+            const specificity = parseFloat(document.getElementById('specificity').value) / 100 || 0;
+            const population = parseInt(document.getElementById('population').value) || 0;
+
+            // Calculate base numbers
+            const diseased = population * prevalence;
+            const healthy = population * (1 - prevalence);
+
+            // Calculate confusion matrix values
+            const tp = diseased * sensitivity;
+            const fn = diseased * (1 - sensitivity);
+            const fp = healthy * (1 - specificity);
+            const tn = healthy * specificity;
+
+            // Calculate derived metrics
+            const ppv = (tp + fp) > 0 ? (tp / (tp + fp)) * 100 : 0;
+            const npv = (tn + fn) > 0 ? (tn / (tn + fn)) * 100 : 0;
+            const accuracy = population > 0 ? ((tp + tn) / population) * 100 : 0;
+            const lrPositive = (1 - specificity) > 0 ? sensitivity / (1 - specificity) : Infinity;
+            const lrNegative = specificity > 0 ? (1 - sensitivity) / specificity : Infinity;
+
+            // Update confusion matrix
+            document.getElementById('tp-value').textContent = formatNumber(Math.round(tp));
+            document.getElementById('fn-value').textContent = formatNumber(Math.round(fn));
+            document.getElementById('fp-value').textContent = formatNumber(Math.round(fp));
+            document.getElementById('tn-value').textContent = formatNumber(Math.round(tn));
+
+            // Update percentages
+            document.getElementById('tp-percent').textContent = formatPercent((tp / population) * 100 || 0);
+            document.getElementById('fn-percent').textContent = formatPercent((fn / population) * 100 || 0);
+            document.getElementById('fp-percent').textContent = formatPercent((fp / population) * 100 || 0);
+            document.getElementById('tn-percent').textContent = formatPercent((tn / population) * 100 || 0);
+
+            // Update metrics
+            document.getElementById('ppv').textContent = formatPercent(ppv);
+            document.getElementById('npv').textContent = formatPercent(npv);
+            document.getElementById('accuracy').textContent = formatPercent(accuracy);
+            document.getElementById('lr-positive').textContent = isFinite(lrPositive) ? lrPositive.toFixed(2) : '∞';
+            document.getElementById('lr-negative').textContent = isFinite(lrNegative) ? lrNegative.toFixed(2) : '0';
+            document.getElementById('diseased').textContent = formatNumber(Math.round(diseased));
+            document.getElementById('correct').textContent = formatNumber(Math.round(tp + tn));
+            document.getElementById('errors').textContent = formatNumber(Math.round(fp + fn));
+
+            // Update circle visualization
+            updateCircles(tp, fn, fp, tn, population);
+        }
+
+        // Store current radii for animation
+        const currentRadii = { tp: 0, fn: 0, fp: 0, tn: 0 };
+        let animationFrame = null;
+
+        // Update circle sizes based on values
+        function updateCircles(tp, fn, fp, tn, population) {
+            const maxValue = Math.max(tp, fn, fp, tn);
+            const minRadius = 3;
+            const maxRadius = 45;
+
+            // Calculate radius proportional to square root (so area is proportional to value)
+            function getRadius(value) {
+                if (maxValue === 0) return minRadius;
+                // Use square root for area-proportional sizing
+                const normalized = Math.sqrt(value / maxValue);
+                return minRadius + normalized * (maxRadius - minRadius);
+            }
+
+            const targetRadii = {
+                tp: getRadius(tp),
+                fn: getRadius(fn),
+                fp: getRadius(fp),
+                tn: getRadius(tn)
+            };
+
+            // Cancel any existing animation
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+
+            // Animate circles using requestAnimationFrame
+            const startRadii = { ...currentRadii };
+            const startTime = performance.now();
+            const duration = 400; // ms
+
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Easing function (ease-out cubic)
+                const eased = 1 - Math.pow(1 - progress, 3);
+
+                ['tp', 'fn', 'fp', 'tn'].forEach(type => {
+                    const newRadius = startRadii[type] + (targetRadii[type] - startRadii[type]) * eased;
+                    currentRadii[type] = newRadius;
+                    document.getElementById('circle-' + type).setAttribute('r', newRadius);
+                });
+
+                if (progress < 1) {
+                    animationFrame = requestAnimationFrame(animate);
+                }
+            }
+
+            animationFrame = requestAnimationFrame(animate);
+
+            // Update circle text values
+            document.getElementById('circle-tp-value').textContent = formatNumber(Math.round(tp));
+            document.getElementById('circle-fn-value').textContent = formatNumber(Math.round(fn));
+            document.getElementById('circle-fp-value').textContent = formatNumber(Math.round(fp));
+            document.getElementById('circle-tn-value').textContent = formatNumber(Math.round(tn));
+
+            // Update circle percentages
+            document.getElementById('circle-tp-percent').textContent = formatPercent((tp / population) * 100 || 0);
+            document.getElementById('circle-fn-percent').textContent = formatPercent((fn / population) * 100 || 0);
+            document.getElementById('circle-fp-percent').textContent = formatPercent((fp / population) * 100 || 0);
+            document.getElementById('circle-tn-percent').textContent = formatPercent((tn / population) * 100 || 0);
+        }
+
+        // Add event listeners
+        ['prevalence', 'sensitivity', 'specificity', 'population'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculate);
+        });
+
+        // Example descriptions
+        const exampleDescriptions = {
+            "COVID-19 PCR": "The gold standard for COVID-19 detection. PCR tests amplify viral genetic material, offering very high sensitivity (98%) and specificity (99%). Even with 5% prevalence, a positive test is highly reliable.",
+            "COVID-19 Rapid Antigen": "Faster and cheaper than PCR, but with lower sensitivity (72%). Best used when symptoms are present or viral load is high. Many false negatives can occur in early infection.",
+            "Mammography": "Breast cancer screening for women over 40. With low prevalence (0.4%), even good sensitivity (87%) means most positive results are false positives—illustrating why follow-up testing is essential.",
+            "HIV ELISA": "Initial HIV screening test with exceptional sensitivity (99.7%). Due to very low prevalence (0.3%), positive results require confirmation with Western blot testing to rule out false positives.",
+            "Rapid Strep Test": "Point-of-care test for strep throat. With 15% prevalence in symptomatic patients and 86% sensitivity, negative results in high-suspicion cases should be confirmed with throat culture.",
+            "PSA (Prostate Cancer)": "Prostate-specific antigen blood test. Notable for low sensitivity (21%)—missing many cancers—while moderate specificity (91%) means many false positives, leading to controversial screening guidelines.",
+            "TB Skin Test (PPD)": "Tuberculin skin test for TB exposure. Very low US prevalence (0.03%) means even with 97% specificity, most positive results are false positives, especially in BCG-vaccinated individuals.",
+            "Home Pregnancy Test": "Highly accurate when used correctly, with 99% sensitivity and specificity. The 10% prevalence assumes testing among women who suspect pregnancy. False negatives occur mainly with early testing.",
+            "D-dimer (DVT/PE)": "Blood test to rule out blood clots. Very high sensitivity (95%) makes it excellent for exclusion—a negative result reliably rules out DVT/PE. Lower specificity (85%) means positives need imaging confirmation.",
+            "Fecal Occult Blood": "Colorectal cancer screening detecting hidden blood in stool. With 1% cancer prevalence and 85% specificity, many positives are due to other causes (hemorrhoids, diet), requiring colonoscopy follow-up."
+        };
+
+        // Example card click handlers
+        document.querySelectorAll('.example-card').forEach(card => {
+            card.addEventListener('click', function () {
+                // Update active state
+                document.querySelectorAll('.example-card').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+
+                // Get data from card
+                const prevalence = this.dataset.prevalence;
+                const sensitivity = this.dataset.sensitivity;
+                const specificity = this.dataset.specificity;
+                const name = this.dataset.name;
+                const icon = this.querySelector('.example-icon').textContent;
+
+                // Update inputs
+                document.getElementById('prevalence').value = prevalence;
+                document.getElementById('sensitivity').value = sensitivity;
+                document.getElementById('specificity').value = specificity;
+
+                // Show selected example info
+                const selectedBox = document.getElementById('selected-example');
+                document.getElementById('selected-icon').textContent = icon;
+                document.getElementById('selected-name').textContent = name;
+                document.getElementById('selected-description').textContent = exampleDescriptions[name] || '';
+                selectedBox.classList.add('visible');
+
+                // Recalculate
+                calculate();
+
+                // Scroll to results on mobile
+                if (window.innerWidth < 600) {
+                    document.querySelector('.input-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Initial calculation
+        calculate();
+    </script>
+</body>
+
+</html>
