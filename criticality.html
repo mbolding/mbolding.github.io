@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Organized Criticality</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Source+Code+Pro:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fffff8;
+            --text: #111;
+            --text-muted: #555;
+            --text-light: #888;
+            --accent: #a00;
+            --sand-0: #fffff8;
+            --sand-1: #e8d4b8;
+            --sand-2: #c9a66b;
+            --sand-3: #8b5a2b;
+            --sand-4: #5c3317;
+            --grid-line: rgba(0, 0, 0, 0.06);
+            --avalanche: rgba(160, 0, 0, 0.4);
+        }
+
+        .dark {
+            --bg: #1a1a18;
+            --text: #d4d4c8;
+            --text-muted: #999;
+            --text-light: #666;
+            --accent: #c44;
+            --sand-0: #1a1a18;
+            --sand-1: #3d3225;
+            --sand-2: #5c4a32;
+            --sand-3: #7a6240;
+            --sand-4: #a08050;
+            --grid-line: rgba(255, 255, 255, 0.06);
+            --avalanche: rgba(200, 80, 80, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 18px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            min-height: 100%;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--grid-line);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.25rem;
+        }
+
+        .subtitle {
+            font-style: italic;
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+
+        .panel {
+            position: relative;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-light);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Sandpile Canvas */
+        .sandpile-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            background: var(--sand-0);
+        }
+
+        #sandpile {
+            width: 100%;
+            height: 100%;
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        /* Stats Panel */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat {
+            text-align: left;
+        }
+
+        .stat-value {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--text);
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+        }
+
+        /* Sparklines */
+        .sparkline-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .sparkline-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .sparkline-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+            width: 80px;
+            flex-shrink: 0;
+        }
+
+        .sparkline {
+            flex: 1;
+            height: 32px;
+            background: transparent;
+        }
+
+        /* Distribution Chart */
+        .distribution-container {
+            height: 200px;
+            position: relative;
+        }
+
+        #distribution {
+            width: 100%;
+            height: 100%;
+        }
+
+        .axis-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+            position: absolute;
+        }
+
+        .axis-label.x {
+            bottom: -1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .axis-label.y {
+            top: 50%;
+            left: -2rem;
+            transform: rotate(-90deg) translateX(-50%);
+            transform-origin: center;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 0.85rem;
+            padding: 0.5rem 1.25rem;
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.05em;
+        }
+
+        button:hover {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        button.active {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        /* Threshold Control */
+        .threshold-control {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+        }
+
+        .threshold-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+
+        .threshold-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100px;
+            height: 2px;
+            background: var(--text-light);
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .threshold-slider:hover {
+            opacity: 1;
+        }
+
+        .threshold-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--text);
+            cursor: pointer;
+            border: 2px solid var(--bg);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .threshold-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--text);
+            cursor: pointer;
+            border: 2px solid var(--bg);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .threshold-value {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 1rem;
+            font-weight: 500;
+            min-width: 1.5rem;
+            text-align: center;
+        }
+
+        .threshold-hint {
+            font-size: 0.65rem;
+            color: var(--text-light);
+            font-style: italic;
+        }
+
+        .tuning-indicator {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            font-style: italic;
+            margin-left: auto;
+        }
+
+        .tuning-indicator .dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-right: 0.5rem;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Annotation */
+        .annotation {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-style: italic;
+            line-height: 1.5;
+            max-width: 600px;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--grid-line);
+        }
+
+        .annotation em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        /* Critical Exponent Display */
+        .exponent-display {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .exponent-symbol {
+            font-style: italic;
+            font-size: 1.1rem;
+        }
+
+        .exponent-value {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .exponent-target {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--text-light);
+        }
+
+        .legend-swatch {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* Phase space indicator */
+        .phase-indicator {
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(to right,
+                    #4a90a4 0%,
+                    var(--accent) 50%,
+                    #a4904a 100%);
+            border-radius: 4px;
+            position: relative;
+            margin-top: 1rem;
+            opacity: 0.7;
+        }
+
+        .phase-marker {
+            position: absolute;
+            top: -4px;
+            width: 2px;
+            height: 16px;
+            background: var(--text);
+            transform: translateX(-50%);
+            transition: left 0.3s ease-out;
+        }
+
+        .phase-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Self-Organized Criticality</h1>
+            <p class="subtitle">A sandpile model demonstrating spontaneous tuning toward the critical state</p>
+        </header>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-title">Lattice State</div>
+                <div class="sandpile-container">
+                    <canvas id="sandpile"></canvas>
+                </div>
+                <div class="legend" id="legend">
+                    <!-- Legend items populated dynamically -->
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Power Law Distribution</div>
+                <div class="distribution-container">
+                    <canvas id="distribution"></canvas>
+                </div>
+                <div class="exponent-display">
+                    <span class="exponent-symbol">τ =</span>
+                    <span class="exponent-value" id="exponent">—</span>
+                    <span class="exponent-target" id="exponent-target">(power law slope)</span>
+                </div>
+                <div class="phase-indicator">
+                    <div class="phase-marker" id="phase-marker"></div>
+                </div>
+                <div class="phase-labels">
+                    <span>subcritical</span>
+                    <span>critical</span>
+                    <span>supercritical</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-value" id="total-grains">0</div>
+                <div class="stat-label">Total Grains</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="avalanches">0</div>
+                <div class="stat-label">Avalanches</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="largest">0</div>
+                <div class="stat-label">Largest Event</div>
+            </div>
+        </div>
+
+        <div class="sparkline-container">
+            <div class="sparkline-row">
+                <span class="sparkline-label">Avalanche</span>
+                <canvas class="sparkline" id="avalanche-spark"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="start-btn" class="active">Running</button>
+            <button id="reset-btn">Reset</button>
+            <button id="speed-btn">Speed: Normal</button>
+            <div class="threshold-control">
+                <span class="threshold-label">Topple at</span>
+                <input type="range" id="threshold-slider" class="threshold-slider" min="2" max="8" value="4">
+                <span class="threshold-value" id="threshold-value">4</span>
+                <span class="threshold-hint">grains</span>
+            </div>
+            <div class="threshold-control">
+                <span class="threshold-label">Max event</span>
+                <input type="range" id="max-event-slider" class="threshold-slider" min="1000" max="50000" step="1000"
+                    value="10000">
+                <span class="threshold-value" id="max-event-value">10k</span>
+            </div>
+            <div class="tuning-indicator">
+                <span class="dot"></span>
+                <span id="tuning-status">Self-tuning active</span>
+            </div>
+        </div>
+
+        <p class="annotation">
+            In 1987, Bak, Tang, and Wiesenfeld demonstrated that certain dynamical systems
+            naturally evolve toward a <em>critical state</em> without external tuning.
+            Grains of sand are dropped one at a time; when a cell accumulates four grains,
+            it topples, distributing grains to neighbors. The system self-organizes to produce
+            avalanches following a power law—the signature of criticality.
+        </p>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.classList.toggle('dark', event.matches);
+            updateColors();
+        });
+
+        // Configuration
+        const CONFIG = {
+            gridSize: 64,
+            criticalValue: 4,
+            dropRate: 5,
+            historyLength: 150,
+            maxAvalancheIterations: 10000  // Prevent runaway avalanches
+        };
+
+        // State
+        let grid = [];
+        let avalancheSites = new Set();
+        let running = true;
+        let speed = 1;
+        let totalGrains = 0;
+        let avalancheCount = 0;
+        let largestAvalanche = 0;
+        let currentAvalancheSize = 0;
+        let avalancheSizes = [];
+        let avalancheHistory = [];
+        let animationId = null;
+
+        // Colors
+        let colors = {};
+        function updateColors() {
+            const style = getComputedStyle(document.documentElement);
+            colors = {
+                sand: [
+                    style.getPropertyValue('--sand-0').trim(),
+                    style.getPropertyValue('--sand-1').trim(),
+                    style.getPropertyValue('--sand-2').trim(),
+                    style.getPropertyValue('--sand-3').trim(),
+                    style.getPropertyValue('--sand-4').trim()
+                ],
+                avalanche: style.getPropertyValue('--avalanche').trim(),
+                text: style.getPropertyValue('--text').trim(),
+                textLight: style.getPropertyValue('--text-light').trim(),
+                accent: style.getPropertyValue('--accent').trim(),
+                bg: style.getPropertyValue('--bg').trim()
+            };
+        }
+        updateColors();
+
+        // Canvas setup
+        const sandpileCanvas = document.getElementById('sandpile');
+        const sandpileCtx = sandpileCanvas.getContext('2d');
+        const distCanvas = document.getElementById('distribution');
+        const distCtx = distCanvas.getContext('2d');
+        const avalancheCanvas = document.getElementById('avalanche-spark');
+        const avalancheCtx = avalancheCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            const dpr = window.devicePixelRatio || 1;
+
+            const sandpileRect = sandpileCanvas.getBoundingClientRect();
+            sandpileCanvas.width = sandpileRect.width * dpr;
+            sandpileCanvas.height = sandpileRect.height * dpr;
+            sandpileCtx.scale(dpr, dpr);
+
+            const distRect = distCanvas.getBoundingClientRect();
+            distCanvas.width = distRect.width * dpr;
+            distCanvas.height = distRect.height * dpr;
+            distCtx.scale(dpr, dpr);
+
+            const avalancheRect = avalancheCanvas.getBoundingClientRect();
+            avalancheCanvas.width = avalancheRect.width * dpr;
+            avalancheCanvas.height = avalancheRect.height * dpr;
+            avalancheCtx.scale(dpr, dpr);
+        }
+
+        // Initialize grid
+        function initGrid() {
+            grid = [];
+            for (let i = 0; i < CONFIG.gridSize; i++) {
+                grid[i] = [];
+                for (let j = 0; j < CONFIG.gridSize; j++) {
+                    grid[i][j] = 0;
+                }
+            }
+            avalancheSites.clear();
+            totalGrains = 0;
+            avalancheCount = 0;
+            largestAvalanche = 0;
+            avalancheSizes = [];
+            avalancheHistory = [];
+        }
+
+        // Wrap coordinates for toroidal topology (periodic boundary conditions)
+        function wrap(coord) {
+            return ((coord % CONFIG.gridSize) + CONFIG.gridSize) % CONFIG.gridSize;
+        }
+
+        // Drop a grain at random position and return starting position for avalanche
+        function dropGrain() {
+            const x = Math.floor(Math.random() * CONFIG.gridSize);
+            const y = Math.floor(Math.random() * CONFIG.gridSize);
+            grid[x][y]++;
+            totalGrains++;
+            return { x, y };
+        }
+
+        // Efficient queue-based avalanche using a single pass
+        // Instead of scanning entire grid each iteration, track only affected cells
+        function runAvalanche(startX, startY) {
+            avalancheSites.clear();
+
+            // Use a queue of cells to check, starting with the drop site
+            // Use flat index for efficiency: index = x * gridSize + y
+            const queue = [];
+            const inQueue = new Uint8Array(CONFIG.gridSize * CONFIG.gridSize);
+            const gridSize = CONFIG.gridSize;
+
+            const toIndex = (x, y) => x * gridSize + y;
+
+            // Check if starting cell needs to topple
+            if (grid[startX][startY] >= CONFIG.criticalValue) {
+                queue.push(toIndex(startX, startY));
+                inQueue[toIndex(startX, startY)] = 1;
+            }
+
+            let totalTopples = 0;
+            let head = 0;
+
+            while (head < queue.length) {
+                // Safety valve
+                if (totalTopples > CONFIG.maxAvalancheIterations) {
+                    // Dissipate excess energy
+                    for (let i = 0; i < gridSize; i++) {
+                        for (let j = 0; j < gridSize; j++) {
+                            if (grid[i][j] >= CONFIG.criticalValue) {
+                                const excess = grid[i][j] - CONFIG.criticalValue + 1;
+                                grid[i][j] -= excess;
+                                totalGrains -= excess;
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                const idx = queue[head++];
+                const x = Math.floor(idx / gridSize);
+                const y = idx % gridSize;
+                inQueue[idx] = 0;
+
+                // Process all topples at this cell
+                while (grid[x][y] >= CONFIG.criticalValue) {
+                    grid[x][y] -= CONFIG.criticalValue;
+                    avalancheSites.add(idx);
+                    totalTopples++;
+
+                    // Get neighbors with toroidal wrapping
+                    const neighbors = [
+                        [wrap(x - 1), y],
+                        [wrap(x + 1), y],
+                        [x, wrap(y - 1)],
+                        [x, wrap(y + 1)]
+                    ];
+
+                    // Distribute grains (for threshold=4, one to each neighbor)
+                    if (CONFIG.criticalValue === 4) {
+                        // Fast path for standard threshold
+                        for (const [nx, ny] of neighbors) {
+                            grid[nx][ny]++;
+                            if (grid[nx][ny] >= CONFIG.criticalValue) {
+                                const nIdx = toIndex(nx, ny);
+                                if (!inQueue[nIdx]) {
+                                    queue.push(nIdx);
+                                    inQueue[nIdx] = 1;
+                                }
+                            }
+                        }
+                    } else {
+                        // General case for non-standard thresholds
+                        let grainsLeft = CONFIG.criticalValue;
+                        let nIdx = 0;
+                        while (grainsLeft > 0 && nIdx < 4) {
+                            const [nx, ny] = neighbors[nIdx];
+                            const give = Math.ceil(grainsLeft / (4 - nIdx));
+                            grid[nx][ny] += give;
+                            grainsLeft -= give;
+                            if (grid[nx][ny] >= CONFIG.criticalValue) {
+                                const neighborIdx = toIndex(nx, ny);
+                                if (!inQueue[neighborIdx]) {
+                                    queue.push(neighborIdx);
+                                    inQueue[neighborIdx] = 1;
+                                }
+                            }
+                            nIdx++;
+                        }
+                    }
+                }
+            }
+
+            if (totalTopples > 0) {
+                avalancheCount++;
+                avalancheSizes.push(totalTopples);
+                if (totalTopples > largestAvalanche) {
+                    largestAvalanche = totalTopples;
+                }
+            }
+
+            currentAvalancheSize = totalTopples;
+            return totalTopples;
+        }
+
+        // Draw sandpile
+        function drawSandpile() {
+            updateColors();
+            const rect = sandpileCanvas.getBoundingClientRect();
+            const cellWidth = rect.width / CONFIG.gridSize;
+            const cellHeight = rect.height / CONFIG.gridSize;
+
+            sandpileCtx.clearRect(0, 0, rect.width, rect.height);
+
+            // Calculate color based on value relative to critical threshold
+            const maxStableValue = CONFIG.criticalValue - 1;
+
+            for (let i = 0; i < CONFIG.gridSize; i++) {
+                for (let j = 0; j < CONFIG.gridSize; j++) {
+                    const value = grid[i][j];
+                    const isAvalanche = avalancheSites.has(i * CONFIG.gridSize + j);
+
+                    if (isAvalanche) {
+                        sandpileCtx.fillStyle = colors.avalanche;
+                    } else {
+                        // Map value to color index (0 to maxStableValue maps to colors.sand indices)
+                        const normalizedValue = Math.min(value, maxStableValue);
+                        // Interpolate color index based on how full the cell is
+                        const colorIndex = Math.round((normalizedValue / maxStableValue) * (colors.sand.length - 1));
+                        sandpileCtx.fillStyle = colors.sand[Math.min(colorIndex, colors.sand.length - 1)];
+                    }
+
+                    sandpileCtx.fillRect(
+                        i * cellWidth,
+                        j * cellHeight,
+                        cellWidth + 0.5,
+                        cellHeight + 0.5
+                    );
+                }
+            }
+        }
+
+        // Calculate power law exponent using linear regression on log-log data
+        // Returns { exponent, intercept } for drawing the fit line
+        function calculateFit() {
+            if (avalancheSizes.length < 50) return null;
+
+            // Bin the avalanche sizes
+            const bins = {};
+            for (const size of avalancheSizes) {
+                const bin = Math.floor(Math.log2(size + 1));
+                bins[bin] = (bins[bin] || 0) + 1;
+            }
+
+            const points = [];
+            for (const [bin, count] of Object.entries(bins)) {
+                if (count > 1) {
+                    points.push({
+                        x: Math.pow(2, parseInt(bin)),
+                        y: count / avalancheSizes.length
+                    });
+                }
+            }
+
+            if (points.length < 3) return null;
+
+            // Linear regression on log-log: log(y) = slope * log(x) + intercept
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            const n = points.length;
+
+            for (const p of points) {
+                const logX = Math.log10(p.x);
+                const logY = Math.log10(p.y);
+                sumX += logX;
+                sumY += logY;
+                sumXY += logX * logY;
+                sumX2 += logX * logX;
+            }
+
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            // For logarithmic binning, the bin counts scale as s^(-τ+1), not s^(-τ)
+            // So τ = 1 - slope (not -slope)
+            return { exponent: 1 - slope, slope, intercept };
+        }
+
+        // Wrapper for backwards compatibility
+        function calculateExponent() {
+            const fit = calculateFit();
+            return fit ? fit.exponent : null;
+        }
+
+        // Draw distribution (log-log plot)
+        function drawDistribution() {
+            updateColors();
+            const rect = distCanvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+            const padding = { left: 30, right: 10, top: 10, bottom: 25 };
+
+            distCtx.clearRect(0, 0, w, h);
+
+            if (avalancheSizes.length < 10) {
+                distCtx.fillStyle = colors.textLight;
+                distCtx.font = '12px "Cormorant Garamond", Georgia, serif';
+                distCtx.textAlign = 'center';
+                distCtx.fillText('Collecting data...', w / 2, h / 2);
+                return;
+            }
+
+            // Bin the data
+            const bins = {};
+            for (const size of avalancheSizes) {
+                const bin = Math.floor(Math.log2(size + 1));
+                bins[bin] = (bins[bin] || 0) + 1;
+            }
+
+            const points = [];
+            for (const [bin, count] of Object.entries(bins)) {
+                points.push({
+                    size: Math.pow(2, parseInt(bin)),
+                    freq: count / avalancheSizes.length
+                });
+            }
+
+            points.sort((a, b) => a.size - b.size);
+
+            if (points.length === 0) return;
+
+            const minSize = Math.log10(points[0].size);
+            const maxSize = Math.log10(points[points.length - 1].size);
+            const minFreq = Math.log10(Math.min(...points.map(p => p.freq)));
+            const maxFreq = Math.log10(Math.max(...points.map(p => p.freq)));
+
+            const scaleX = (v) => padding.left + (Math.log10(v) - minSize) / (maxSize - minSize || 1) * (w - padding.left - padding.right);
+            const scaleY = (v) => padding.top + (maxFreq - Math.log10(v)) / (maxFreq - minFreq || 1) * (h - padding.top - padding.bottom);
+
+            // Draw fitted regression line using calculated slope and intercept
+            const fit = calculateFit();
+            if (fit && points.length >= 3) {
+                distCtx.strokeStyle = colors.textLight;
+                distCtx.lineWidth = 1;
+                distCtx.setLineDash([3, 3]);
+                distCtx.beginPath();
+
+                // Line equation in log-log space: log(y) = slope * log(x) + intercept
+                // So y = 10^(slope * log(x) + intercept) = 10^intercept * x^slope
+                const xStart = points[0].size;
+                const xEnd = points[points.length - 1].size;
+
+                // Calculate y values from the fit
+                const yStart = Math.pow(10, fit.slope * Math.log10(xStart) + fit.intercept);
+                const yEnd = Math.pow(10, fit.slope * Math.log10(xEnd) + fit.intercept);
+
+                distCtx.moveTo(scaleX(xStart), scaleY(yStart));
+                distCtx.lineTo(scaleX(xEnd), scaleY(yEnd));
+                distCtx.stroke();
+                distCtx.setLineDash([]);
+            }
+
+            // Draw data points
+            distCtx.fillStyle = colors.accent;
+            for (const p of points) {
+                const x = scaleX(p.size);
+                const y = scaleY(p.freq);
+                distCtx.beginPath();
+                distCtx.arc(x, y, 3, 0, Math.PI * 2);
+                distCtx.fill();
+            }
+
+            // Axes
+            distCtx.strokeStyle = colors.textLight;
+            distCtx.lineWidth = 0.5;
+            distCtx.beginPath();
+            distCtx.moveTo(padding.left, padding.top);
+            distCtx.lineTo(padding.left, h - padding.bottom);
+            distCtx.lineTo(w - padding.right, h - padding.bottom);
+            distCtx.stroke();
+
+            // Labels
+            distCtx.fillStyle = colors.textLight;
+            distCtx.font = '10px "Source Code Pro", monospace';
+            distCtx.textAlign = 'center';
+            distCtx.fillText('log(size)', w / 2, h - 5);
+
+            distCtx.save();
+            distCtx.translate(10, h / 2);
+            distCtx.rotate(-Math.PI / 2);
+            distCtx.fillText('log(P)', 0, 0);
+            distCtx.restore();
+        }
+
+        // Draw sparkline
+        function drawSparkline(ctx, canvas, data, color) {
+            updateColors();
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+            const padding = 4;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (data.length < 2) return;
+
+            const max = Math.max(...data, 1);
+            const scaleX = (i) => padding + (i / (data.length - 1)) * (w - padding * 2);
+            const scaleY = (v) => h - padding - (v / max) * (h - padding * 2);
+
+            // Area fill
+            ctx.fillStyle = color.replace(')', ', 0.1)').replace('rgb', 'rgba');
+            ctx.beginPath();
+            ctx.moveTo(scaleX(0), h - padding);
+            for (let i = 0; i < data.length; i++) {
+                ctx.lineTo(scaleX(i), scaleY(data[i]));
+            }
+            ctx.lineTo(scaleX(data.length - 1), h - padding);
+            ctx.closePath();
+            ctx.fill();
+
+            // Line
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < data.length; i++) {
+                if (i === 0) ctx.moveTo(scaleX(i), scaleY(data[i]));
+                else ctx.lineTo(scaleX(i), scaleY(data[i]));
+            }
+            ctx.stroke();
+
+            // End point
+            if (data.length > 0) {
+                const lastX = scaleX(data.length - 1);
+                const lastY = scaleY(data[data.length - 1]);
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(lastX, lastY, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Update stats display
+        function updateStats() {
+            document.getElementById('total-grains').textContent = totalGrains.toLocaleString();
+            document.getElementById('avalanches').textContent = avalancheCount.toLocaleString();
+            document.getElementById('largest').textContent = largestAvalanche.toLocaleString();
+
+            const exponent = calculateExponent();
+            const exponentEl = document.getElementById('exponent');
+            const markerEl = document.getElementById('phase-marker');
+
+            if (exponent !== null) {
+                exponentEl.textContent = exponent.toFixed(3);
+                // Map exponent to phase indicator (0.5 to 2.0 range)
+                const normalizedPos = Math.max(0, Math.min(1, (exponent - 0.5) / 1.5));
+                // Center around 1.2 (critical point)
+                const criticalPos = 50; // 50% is critical
+                const deviation = (exponent - 1.2) / 1.2;
+                const markerPos = Math.max(5, Math.min(95, criticalPos + deviation * 40));
+                markerEl.style.left = `${markerPos}%`;
+            } else {
+                exponentEl.textContent = '—';
+                markerEl.style.left = '50%';
+            }
+        }
+
+        // Main animation loop
+        let frameCount = 0;
+        function animate() {
+            if (!running) {
+                animationId = requestAnimationFrame(animate);
+                return;
+            }
+
+            frameCount++;
+
+            // Drop grains based on speed
+            const drops = speed === 2 ? 10 : (speed === 0 ? 1 : CONFIG.dropRate);
+
+            if (speed === 0 && frameCount % 3 !== 0) {
+                animationId = requestAnimationFrame(animate);
+                drawSandpile();
+                return;
+            }
+
+            for (let i = 0; i < drops; i++) {
+                const { x, y } = dropGrain();
+                const avalancheSize = runAvalanche(x, y);
+
+                // Update history
+                avalancheHistory.push(avalancheSize);
+
+                if (avalancheHistory.length > CONFIG.historyLength) {
+                    avalancheHistory.shift();
+                }
+            }
+
+            // Limit avalanche sizes array
+            if (avalancheSizes.length > 5000) {
+                avalancheSizes = avalancheSizes.slice(-3000);
+            }
+
+            // Draw everything
+            drawSandpile();
+
+            if (frameCount % 5 === 0) {
+                drawDistribution();
+                drawSparkline(avalancheCtx, avalancheCanvas, avalancheHistory, colors.accent);
+                updateStats();
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Event handlers
+        document.getElementById('start-btn').addEventListener('click', function () {
+            running = !running;
+            this.textContent = running ? 'Running' : 'Paused';
+            this.classList.toggle('active', running);
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', function () {
+            initGrid();
+            drawSandpile();
+            drawDistribution();
+            updateStats();
+        });
+
+        document.getElementById('speed-btn').addEventListener('click', function () {
+            speed = (speed + 1) % 3;
+            const labels = ['Slow', 'Normal', 'Fast'];
+            this.textContent = `Speed: ${labels[speed]}`;
+        });
+
+        // Threshold slider
+        const thresholdSlider = document.getElementById('threshold-slider');
+        const thresholdValueEl = document.getElementById('threshold-value');
+
+        function updateLegend() {
+            const legendEl = document.getElementById('legend');
+            const maxStable = CONFIG.criticalValue - 1;
+
+            // Show a simplified legend: empty, stable range, and avalanche
+            let legendHtml = `
+                <div class="legend-item"><div class="legend-swatch" style="background: var(--sand-0)"></div>0</div>
+                <div class="legend-item"><div class="legend-swatch" style="background: linear-gradient(to right, var(--sand-1), var(--sand-4))"></div>1–${maxStable}</div>
+                <div class="legend-item"><div class="legend-swatch" style="background: var(--avalanche); border: 1px solid var(--accent)"></div>toppling</div>
+            `;
+
+            legendEl.innerHTML = legendHtml;
+        }
+
+        thresholdSlider.addEventListener('input', function () {
+            const newValue = parseInt(this.value);
+            CONFIG.criticalValue = newValue;
+            thresholdValueEl.textContent = newValue;
+
+            // Update legend to reflect new threshold
+            updateLegend();
+
+            // Update annotation text
+            updateAnnotation();
+        });
+
+        // Max event slider
+        const maxEventSlider = document.getElementById('max-event-slider');
+        const maxEventValueEl = document.getElementById('max-event-value');
+
+        function formatNumber(n) {
+            if (n >= 1000) return (n / 1000) + 'k';
+            return n.toString();
+        }
+
+        maxEventSlider.addEventListener('input', function () {
+            const newValue = parseInt(this.value);
+            CONFIG.maxAvalancheIterations = newValue;
+            maxEventValueEl.textContent = formatNumber(newValue);
+        });
+
+        function updateAnnotation() {
+            const annotationEl = document.querySelector('.annotation');
+            const grainWord = CONFIG.criticalValue === 1 ? 'grain' : 'grains';
+            annotationEl.innerHTML = `In 1987, Bak, Tang, and Wiesenfeld demonstrated that certain dynamical systems
+            naturally evolve toward a <em>critical state</em> without external tuning.
+            Grains of sand are dropped one at a time; when a cell accumulates <em>${CONFIG.criticalValue} ${grainWord}</em>,
+            it topples, distributing grains to neighbors. The system self-organizes to produce
+            avalanches following a power law—the signature of criticality.`;
+        }
+
+        // Initialize
+        window.addEventListener('resize', () => {
+            resizeCanvases();
+            drawSandpile();
+            drawDistribution();
+        });
+
+        resizeCanvases();
+        initGrid();
+        updateLegend();
+        updateAnnotation();
+        animate();
+    </script>
+</body>
+
+</html>
