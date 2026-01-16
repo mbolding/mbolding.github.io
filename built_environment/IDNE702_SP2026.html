@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuroengineering Research Center - Course Timeline</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --phase1: #2dd4bf;
+            --phase2: #a78bfa;
+            --phase3: #fb923c;
+            --phase4: #f472b6;
+            --phase5: #38bdf8;
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --neural-line: #d4d4d4;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --neural-line: #333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Neural network background pattern */
+        .neural-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0.4;
+            z-index: 0;
+        }
+
+        .neural-node {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: var(--neural-line);
+            border-radius: 50%;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: scale(1.5);
+                opacity: 0.6;
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        .course-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            line-height: 1.1;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--phase3);
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 1rem auto 0;
+        }
+
+        /* View Toggle */
+        .view-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.6rem 1.2rem;
+            font-family: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--text-muted);
+        }
+
+        .toggle-btn.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        /* Phase Overview */
+        .phase-overview {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 3rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        @media (max-width: 768px) {
+            .phase-overview {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .phase-overview {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .phase-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+
+        .phase-pill:hover {
+            transform: translateY(-2px);
+        }
+
+        .phase-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .phase-1 .phase-dot,
+        .week-card.phase-1 {
+            --accent: var(--phase1);
+        }
+
+        .phase-2 .phase-dot,
+        .week-card.phase-2 {
+            --accent: var(--phase2);
+        }
+
+        .phase-3 .phase-dot,
+        .week-card.phase-3 {
+            --accent: var(--phase3);
+        }
+
+        .phase-4 .phase-dot,
+        .week-card.phase-4 {
+            --accent: var(--phase4);
+        }
+
+        .phase-5 .phase-dot,
+        .week-card.phase-5 {
+            --accent: var(--phase5);
+        }
+
+        .phase-dot {
+            background: var(--accent);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom,
+                    var(--phase1) 0%, var(--phase1) 23%,
+                    var(--phase2) 23%, var(--phase2) 46%,
+                    var(--phase3) 46%, var(--phase3) 69%,
+                    var(--phase4) 69%, var(--phase4) 84%,
+                    var(--phase5) 84%, var(--phase5) 100%);
+            border-radius: 2px;
+        }
+
+        /* Week Cards */
+        .week-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .week-card::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 1.5rem;
+            width: 10px;
+            height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            border: 2px solid var(--bg-primary);
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        .week-card.milestone::after {
+            content: '★';
+            position: absolute;
+            left: -2rem;
+            top: 1.35rem;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            z-index: 2;
+        }
+
+        .week-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            border-left: 3px solid var(--accent);
+            transition: background 0.2s;
+        }
+
+        .week-header:hover {
+            background: var(--bg-secondary);
+        }
+
+        .week-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .week-number {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .week-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .milestone-badge {
+            font-size: 0.6rem;
+            background: var(--accent);
+            color: #000;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+
+        .expand-icon {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .week-card.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .week-content {
+            display: none;
+            padding: 0 1.25rem 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .week-card.expanded .week-content {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Content Sections */
+        .content-section {
+            margin-top: 1.25rem;
+        }
+
+        .section-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .task-list {
+            list-style: none;
+        }
+
+        .task-list li {
+            position: relative;
+            padding: 0.5rem 0 0.5rem 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .task-list li:last-child {
+            border-bottom: none;
+        }
+
+        .task-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+        }
+
+        .instructor-tasks li::before {
+            content: '◆';
+            font-size: 0.6rem;
+            top: 0.65rem;
+        }
+
+        /* Time Division Chart */
+        .time-chart {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .time-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #000;
+            transition: flex 0.3s;
+        }
+
+        .time-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        /* Neuroscience Principles Section */
+        .principles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .principle-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .principle-card h4 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+            color: var(--phase3);
+        }
+
+        .principle-card p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Progress indicator */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--phase1), var(--phase2), var(--phase3), var(--phase4), var(--phase5));
+            z-index: 1000;
+            transition: width 0.1s;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .timeline {
+                padding-left: 1.5rem;
+            }
+
+            .week-card::before {
+                left: -1.5rem;
+            }
+
+            .week-card.milestone::after {
+                left: -1.5rem;
+            }
+
+            .week-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.3rem;
+            }
+
+            .week-title {
+                font-size: 1rem;
+            }
+        }
+
+        /* Hidden class for filtering */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    <div class="neural-bg" id="neuralBg"></div>
+
+    <div class="container">
+        <div style="margin-bottom: 2rem;">
+            <a href="../index.html"
+                style="color: var(--text-muted); text-decoration: none; font-size: 0.8rem; border-bottom: 1px dotted var(--text-muted);">←
+                Back to Index</a>
+        </div>
+        <header>
+            <div class="course-tag">IDNE 702 Introduction to Neuroengineering</div>
+            <h1>Neuroengineering Research Center<br><em>Design Project Timeline</em></h1>
+            <p class="subtitle">A 13-week journey from discovery to proposal—designing a neuroscience-informed research
+                facility</p>
+        </header>
+
+        <div class="view-toggle">
+            <button class="toggle-btn active" data-view="all">All Weeks</button>
+            <button class="toggle-btn" data-view="student">Student Focus</button>
+            <button class="toggle-btn" data-view="instructor">Instructor Focus</button>
+            <button class="toggle-btn" data-view="milestones">Milestones Only</button>
+        </div>
+
+        <div class="phase-overview">
+            <div class="phase-pill phase-1" data-phase="1">
+                <div class="phase-dot"></div>
+                <span>Discovery (1-3)</span>
+            </div>
+            <div class="phase-pill phase-2" data-phase="2">
+                <div class="phase-dot"></div>
+                <span>Programming (4-6)</span>
+            </div>
+            <div class="phase-pill phase-3" data-phase="3">
+                <div class="phase-dot"></div>
+                <span>Concept (7-9)</span>
+            </div>
+            <div class="phase-pill phase-4" data-phase="4">
+                <div class="phase-dot"></div>
+                <span>Design (10-11)</span>
+            </div>
+            <div class="phase-pill phase-5" data-phase="5">
+                <div class="phase-dot"></div>
+                <span>Delivery (12-13)</span>
+            </div>
+        </div>
+
+        <div class="timeline" id="timeline">
+            <!-- Week 1 -->
+            <div class="week-card phase-1" data-week="1">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 1</span>
+                        <span class="week-title">Project Launch & Team Formation</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Form interdisciplinary team (4-6 students with diverse backgrounds)</li>
+                            <li>Begin literature review on neuroscience-informed design principles</li>
+                            <li>Research existing and past centers (e.g., MIT McGovern, Stanford Wu Tsai, Janelia, Allen
+                                Institute, Bell Labs, MIT Bulding 20, MIT Media Labs )
+                            </li>
+                            <li>Define team roles and communication protocols</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Deliver opening class on project scope and expectations</li>
+                            <li>Provide reading list on neuroscience-informed architecture</li>
+                            <li>Invite stakeholder (Nicole Bentley) for guest lecture</li>
+                            <li>Conduct team formation exercise and help class choose their project focus</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 40; background: var(--phase2);">40%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Team formation</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Literature research</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Project scoping</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 2 -->
+            <div class="week-card phase-1" data-week="2">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 2</span>
+                        <span class="week-title">Stakeholder Analysis & Site Research</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Identify all stakeholder groups (PIs, postdocs, grad students, technicians, clinicians,
+                                patients, admin)</li>
+                            <li>Create stakeholder personas with needs and pain points</li>
+                            <li>Research specific building/site constraints</li>
+                            <li>Develop interview questions for real stakeholders</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Arrange access to actual building plans/specs if available</li>
+                            <li>Connect students with 2-3 real PIs or researchers to interview</li>
+                            <li>Provide rubric for stakeholder analysis</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 30; background: var(--phase1);">30%</div>
+                            <div class="time-segment" style="flex: 40; background: var(--phase2);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Stakeholder mapping</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Site research</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Interview prep</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 3 -->
+            <div class="week-card phase-1 milestone" data-week="3">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 3</span>
+                        <span class="week-title">Benchmarking & Case Studies</span>
+                        <span class="milestone-badge">Milestone</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Complete deep-dive case studies of 3-4 existing centers</li>
+                            <li>Analyze what works and what doesn't in each</li>
+                            <li>Conduct stakeholder interviews</li>
+                            <li>Synthesize findings into initial insights document</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Facilitate a "lessons learned" discussion session</li>
+                            <li>Provide feedback on interview techniques</li>
+                            <li>Review stakeholder analysis and case study findings</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Case studies</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Interviews</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Synthesis</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 4 -->
+            <div class="week-card phase-2" data-week="4">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 4</span>
+                        <span class="week-title">Space Programming</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Define space types: wet labs, dry labs, computational, clinical areas</li>
+                            <li>Include shared equipment rooms (MRI, EEG, surgery suites)</li>
+                            <li>Estimate square footage requirements for each space</li>
+                            <li>Create adjacency diagrams (what needs to be near what?)</li>
+                            <li>Begin equipment inventory</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Invite a lab manager or facilities director as guest speaker</li>
+                            <li>Provide templates for space programming documents</li>
+                            <li>Discuss safety/regulatory requirements (BSL levels, clinical compliance)</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase1);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Space definition</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Adjacency analysis</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Equipment inventory</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 5 -->
+            <div class="week-card phase-2" data-week="5">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 5</span>
+                        <span class="week-title">Neuroscience-Informed Design Principles</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Deep dive: Attention & Focus → Quiet zones, visual complexity management</li>
+                            <li>Collaboration & Serendipity → Collision spaces, sightlines</li>
+                            <li>Circadian Health → Daylight access, tunable lighting</li>
+                            <li>Stress Reduction → Biophilic elements, prospect/refuge balance</li>
+                            <li>Wayfinding → Cognitive load, landmarks, intuitive flow</li>
+                            <li>Create "Design Principles" document specific to this center</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture on environmental neuroscience research</li>
+                            <li>Invite an architect with healthcare/research experience</li>
+                            <li>Facilitate cross-team sharing of insights</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase1);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Research & principles</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Application to program</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Team synthesis</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 6 -->
+            <div class="week-card phase-2 milestone" data-week="6">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 6</span>
+                        <span class="week-title">Constraints & Requirements Synthesis</span>
+                        <span class="milestone-badge">Major Milestone</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Compile all requirements into formal Program of Requirements (POR)</li>
+                            <li>Identify tensions and tradeoffs (open collaboration vs. quiet focus)</li>
+                            <li>Create preliminary budget framework</li>
+                            <li>Define success metrics for the design</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Review Program of Requirements in detail</li>
+                            <li>Provide feedback before design phase begins</li>
+                            <li>Discuss feasibility and scope adjustments if needed</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Documentation</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Tradeoff analysis</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Budget & metrics</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 7 -->
+            <div class="week-card phase-3" data-week="7">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 7</span>
+                        <span class="week-title">Concept Generation</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Generate 3-4 distinct floor plan concepts</li>
+                            <li>Use bubble diagrams before detailed layouts</li>
+                            <li>Each concept emphasizes different priorities (collaboration vs. flexibility vs.
+                                clinical)</li>
+                            <li>Focus on ideas, not polish—sketch-level work is fine</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Provide floor plan templates or base drawings</li>
+                            <li>Facilitate a "pin-up" critique session with all teams</li>
+                            <li>Encourage wild ideas—this is divergent thinking time</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 60; background: var(--phase1);">60%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase2);">20%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Concept generation</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Internal critique</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Documentation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 8 -->
+            <div class="week-card phase-3" data-week="8">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 8</span>
+                        <span class="week-title">Concept Evaluation</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Develop evaluation criteria based on design principles and requirements</li>
+                            <li>Score each concept against criteria</li>
+                            <li>Get feedback from peers and stakeholders</li>
+                            <li>Select 1-2 concepts to develop further</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Teach decision matrices and evaluation frameworks</li>
+                            <li>Arrange for real stakeholder feedback session (PIs, clinicians)</li>
+                            <li>Guide teams through difficult tradeoffs</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 30; background: var(--phase1);">30%</div>
+                            <div class="time-segment" style="flex: 40; background: var(--phase2);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Criteria development</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Evaluation & scoring</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Stakeholder feedback</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 9 -->
+            <div class="week-card phase-3 milestone" data-week="9">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 9</span>
+                        <span class="week-title">Hybrid Development</span>
+                        <span class="milestone-badge">Mid-Project Review</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Combine best elements from evaluated concepts</li>
+                            <li>Develop more detailed floor plans (to scale)</li>
+                            <li>Begin specifying key systems: HVAC, electrical, data infrastructure</li>
+                            <li>Specify specialty equipment placement</li>
+                            <li>Consider phasing and flexibility for future growth</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Conduct mid-project review and provide detailed feedback</li>
+                            <li>Invite an MEP (mechanical, electrical, plumbing) engineer if possible</li>
+                            <li>Discuss realistic constraints and course corrections</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase1);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Floor plan refinement</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Systems specification</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Phasing planning</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 10 -->
+            <div class="week-card phase-4" data-week="10">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 10</span>
+                        <span class="week-title">Detailed Design</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Finalize floor plans with furniture layouts</li>
+                            <li>Develop 3D visualizations or renderings (SketchUp, etc.)</li>
+                            <li>Detail 2-3 "signature" spaces (collaboration hub, flagship lab, clinical suite)</li>
+                            <li>Specify materials, finishes, and key equipment</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Provide visualization tools/resources</li>
+                            <li>Offer individual team consultations</li>
+                            <li>Connect with architecture students if available for rendering help</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase1);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Floor plan finalization</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Visualization</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Signature spaces</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 11 -->
+            <div class="week-card phase-4" data-week="11">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 11</span>
+                        <span class="week-title">Budget & Implementation Planning</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Develop rough cost estimates ($/SF for different space types)</li>
+                            <li>Create implementation timeline</li>
+                            <li>Identify risks and mitigation strategies</li>
+                            <li>Develop operational considerations (staffing, governance)</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Provide cost benchmarks for research space</li>
+                            <li>Discuss real-world implementation challenges</li>
+                            <li>Review budget assumptions with each team</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Budget development</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Timeline & phasing</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Risk & operations</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 12 -->
+            <div class="week-card phase-5" data-week="12">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 12</span>
+                        <span class="week-title">Proposal Document</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Compile all work into professional proposal document</li>
+                            <li>Include: Executive Summary, Vision, Space Program, Floor Plans, Budget, Timeline</li>
+                            <li>Peer review across teams</li>
+                            <li>Refine based on feedback</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Provide proposal template/structure</li>
+                            <li>Facilitate peer review process</li>
+                            <li>Office hours for final questions</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 60; background: var(--phase1);">60%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase2);">20%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Document compilation</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Peer review</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase3);"></span>Revision</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 13 -->
+            <div class="week-card phase-5 milestone" data-week="13">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 13</span>
+                        <span class="week-title">Final Presentations</span>
+                        <span class="milestone-badge">Final Milestone</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Prepare 15-20 minute presentation</li>
+                            <li>Practice and refine delivery</li>
+                            <li>Present to panel (stakeholders, administrators, external reviewers)</li>
+                            <li>Provide constructive feedback to peer teams</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Assemble review panel (Dean, PIs, facilities staff, external architects)</li>
+                            <li>Coordinate logistics for presentation day</li>
+                            <li>Lead reflection/debrief discussion</li>
+                            <li>Celebrate accomplishments! 🎉</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 60; background: var(--phase2);">60%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase1);"></span>Presentation prep</span>
+                            <span class="legend-item"><span class="legend-dot"
+                                    style="background: var(--phase2);"></span>Presentations & feedback</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Neuroscience Principles Reference -->
+        <div class="principles-grid">
+            <div class="principle-card">
+                <h4>Attention Networks</h4>
+                <p>Design quiet zones and manage visual complexity to support focused work and reduce cognitive load.
+                </p>
+            </div>
+            <div class="principle-card">
+                <h4>Default Mode Network</h4>
+                <p>Create informal spaces that allow for incubation, mind-wandering, and creative insights.</p>
+            </div>
+            <div class="principle-card">
+                <h4>Social Cognition</h4>
+                <p>Design collision spaces with visual transparency to foster serendipitous collaboration.</p>
+            </div>
+            <div class="principle-card">
+                <h4>Circadian Rhythms</h4>
+                <p>Maximize daylight access and use tunable artificial lighting to support healthy sleep-wake cycles.
+                </p>
+            </div>
+            <div class="principle-card">
+                <h4>Stress Response</h4>
+                <p>Incorporate biophilic design elements and balance prospect (open views) with refuge (protected
+                    spaces).</p>
+            </div>
+            <div class="principle-card">
+                <h4>Spatial Navigation</h4>
+                <p>Create intuitive wayfinding with clear landmarks and reduce cognitive load in circulation.</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>IDNE 702 Spring 2026 · Introduction to Neuroengineering · Research Center Design Project</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Create neural network background
+        function createNeuralBg() {
+            const container = document.getElementById('neuralBg');
+            const nodeCount = 15;
+
+            for (let i = 0; i < nodeCount; i++) {
+                const node = document.createElement('div');
+                node.className = 'neural-node';
+                node.style.left = Math.random() * 100 + '%';
+                node.style.top = Math.random() * 100 + '%';
+                node.style.animationDelay = Math.random() * 3 + 's';
+                container.appendChild(node);
+            }
+        }
+        createNeuralBg();
+
+        // Week card expansion
+        document.querySelectorAll('.week-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const card = header.parentElement;
+                card.classList.toggle('expanded');
+            });
+        });
+
+        // View toggle functionality
+        const toggleBtns = document.querySelectorAll('.toggle-btn');
+        const weekCards = document.querySelectorAll('.week-card');
+
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const view = btn.dataset.view;
+
+                weekCards.forEach(card => {
+                    // Reset visibility
+                    card.classList.remove('hidden');
+                    const studentContent = card.querySelector('.student-content');
+                    const instructorContent = card.querySelector('.instructor-content');
+
+                    if (studentContent) studentContent.classList.remove('hidden');
+                    if (instructorContent) instructorContent.classList.remove('hidden');
+
+                    if (view === 'student') {
+                        if (instructorContent) instructorContent.classList.add('hidden');
+                    } else if (view === 'instructor') {
+                        if (studentContent) studentContent.classList.add('hidden');
+                    } else if (view === 'milestones') {
+                        if (!card.classList.contains('milestone')) {
+                            card.classList.add('hidden');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Phase pill click to scroll
+        document.querySelectorAll('.phase-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                const phase = pill.dataset.phase;
+                const firstCard = document.querySelector(`.week-card.phase-${phase}`);
+                if (firstCard) {
+                    firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstCard.classList.add('expanded');
+                }
+            });
+        });
+
+        // Progress bar on scroll
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollPercent = (scrollTop / docHeight) * 100;
+            document.getElementById('progressBar').style.width = scrollPercent + '%';
+        });
+
+        // Expand first week by default
+        document.querySelector('.week-card').classList.add('expanded');
+    </script>
+</body>
+
+</html>
