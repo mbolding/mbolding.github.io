@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regularium — A Treatise on Pattern Matching</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --paper: #fdf6e3;
+            --ink: #073642;
+            --ink-light: #586e75;
+            --accent: #b58900;
+            --success: #2aa198;
+            --error: #dc322f;
+            --theorem-bg: #eee8d5;
+            --theorem-border: #93a1a1;
+            --highlight: rgba(181, 137, 0, 0.15);
+            --history-accent: #6c71c4;
+        }
+
+        .dark {
+            --paper: #002b36;
+            --ink: #fdf6e3;
+            --ink-light: #93a1a1;
+            --accent: #b58900;
+            --success: #2aa198;
+            --error: #dc322f;
+            --theorem-bg: #073642;
+            --theorem-border: #586e75;
+            --highlight: rgba(181, 137, 0, 0.2);
+            --history-accent: #839496;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Crimson Pro', Georgia, serif;
+            background: var(--paper);
+            color: var(--ink);
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 18px;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Title styling */
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--ink-light);
+        }
+
+        h1 {
+            font-size: clamp(2rem, 6vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.25rem;
+            font-variant: small-caps;
+        }
+
+        .subtitle {
+            font-style: italic;
+            color: var(--ink-light);
+            font-size: 1.1rem;
+        }
+
+        .author {
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            color: var(--ink-light);
+        }
+
+        /* Section styling */
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .section-number {
+            color: var(--accent);
+        }
+
+        /* Theorem box styling */
+        .theorem-box {
+            background: var(--theorem-bg);
+            border-left: 3px solid var(--accent);
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            position: relative;
+        }
+
+        .theorem-box::before {
+            content: attr(data-type);
+            font-weight: 700;
+            font-variant: small-caps;
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+        }
+
+        .theorem-box.definition {
+            border-left-color: var(--success);
+        }
+
+        .theorem-box.definition::before {
+            color: var(--success);
+        }
+
+        .theorem-box.history {
+            border-left-color: var(--history-accent);
+            font-size: 0.95rem;
+        }
+
+        .theorem-box.history::before {
+            color: var(--history-accent);
+        }
+
+        .theorem-box.theory {
+            border-left-color: var(--success);
+            font-size: 0.95rem;
+        }
+
+        .theorem-box.theory::before {
+            color: var(--success);
+        }
+
+        /* Level info */
+        .level-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .level-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            background: var(--accent);
+            color: var(--paper);
+            padding: 0.25rem 0.75rem;
+            border-radius: 2px;
+        }
+
+        .score-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--ink-light);
+        }
+
+        /* Challenge display */
+        .challenge-text {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            line-height: 1.7;
+        }
+
+        .level-title {
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 0.75rem;
+            color: var(--accent);
+        }
+
+        .string-lists {
+            display: grid;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        @media (min-width: 500px) {
+            .string-lists {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .string-group h4 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            color: var(--ink-light);
+        }
+
+        .string-group.match h4 {
+            color: var(--success);
+        }
+
+        .string-group.reject h4 {
+            color: var(--error);
+        }
+
+        .string-list {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .string-item {
+            padding: 0.4rem 0.75rem;
+            background: var(--paper);
+            border: 1px solid var(--theorem-border);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .string-item .indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--theorem-border);
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .string-item.matched .indicator {
+            background: var(--success);
+        }
+
+        .string-item.unmatched .indicator {
+            background: var(--error);
+        }
+
+        .string-item.correct .indicator {
+            background: var(--success);
+            box-shadow: 0 0 6px var(--success);
+        }
+
+        .string-item .text {
+            flex: 1;
+            word-break: break-all;
+        }
+
+        .string-item .text.empty {
+            color: var(--ink-light);
+            font-style: italic;
+        }
+
+        /* Input area */
+        .input-area {
+            margin: 1.5rem 0;
+        }
+
+        .input-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .regex-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .regex-delim {
+            font-size: 1.5rem;
+            color: var(--accent);
+            padding: 0.5rem;
+            background: var(--theorem-bg);
+            border: 2px solid var(--theorem-border);
+            line-height: 1;
+        }
+
+        .regex-delim:first-child {
+            border-right: none;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .regex-delim:last-child {
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+        }
+
+        #regex-input {
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            padding: 0.6rem 0.75rem;
+            border: 2px solid var(--theorem-border);
+            background: var(--paper);
+            color: var(--ink);
+            outline: none;
+            min-width: 0;
+        }
+
+        #regex-input:focus {
+            border-color: var(--accent);
+        }
+
+        #regex-input.error {
+            border-color: var(--error);
+            background: rgba(220, 50, 47, 0.05);
+        }
+
+        .error-message {
+            color: var(--error);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: block;
+        }
+
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1rem;
+            padding: 0.6rem 1.5rem;
+            border: 2px solid var(--ink);
+            background: transparent;
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: var(--ink);
+            color: var(--paper);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn:disabled:hover {
+            background: transparent;
+            color: var(--ink);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--paper);
+        }
+
+        .btn.primary:hover {
+            background: #996b00;
+            border-color: #996b00;
+        }
+
+        .btn.small {
+            font-size: 0.9rem;
+            padding: 0.4rem 1rem;
+        }
+
+        /* Success state */
+        .success-message {
+            background: var(--success);
+            color: var(--paper);
+            padding: 1rem 1.5rem;
+            text-align: center;
+            font-size: 1.2rem;
+            margin: 1rem 0;
+            border-radius: 2px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .success-message.visible {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Hint */
+        .hint-box {
+            background: var(--highlight);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 2px;
+            font-style: italic;
+            display: none;
+        }
+
+        .hint-box.visible {
+            display: block;
+        }
+
+        .hint-box strong {
+            font-style: normal;
+        }
+
+        /* History/Theory toggle boxes */
+        .collapsible-section {
+            margin: 1rem 0;
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 0.5rem 0;
+            color: var(--ink-light);
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .collapsible-header:hover {
+            color: var(--ink);
+        }
+
+        .collapsible-header .toggle-icon {
+            transition: transform 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .collapsible-header.open .toggle-icon {
+            transform: rotate(90deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .collapsible-content.visible {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Reference section */
+        .reference {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--theorem-border);
+        }
+
+        .reference h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            font-variant: small-caps;
+        }
+
+        .ref-grid {
+            display: grid;
+            gap: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        @media (min-width: 500px) {
+            .ref-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .ref-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.4rem;
+            background: var(--theorem-bg);
+        }
+
+        .ref-item code {
+            color: var(--accent);
+            min-width: 3rem;
+        }
+
+        .ref-item span {
+            color: var(--ink-light);
+            font-family: 'Crimson Pro', serif;
+        }
+
+        /* Progress bar */
+        .progress-section {
+            margin: 2rem 0;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: var(--ink-light);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--theorem-bg);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--theorem-border);
+            color: var(--ink-light);
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        /* Level select modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 1rem;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--paper);
+            padding: 2rem;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid var(--ink);
+        }
+
+        .modal h2 {
+            font-variant: small-caps;
+            margin-bottom: 1rem;
+        }
+
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .level-btn {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--theorem-border);
+            background: var(--theorem-bg);
+            color: var(--ink);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .level-btn:hover {
+            border-color: var(--accent);
+            background: var(--highlight);
+        }
+
+        .level-btn.completed {
+            border-color: var(--success);
+        }
+
+        .level-btn.completed::after {
+            content: '✓';
+            font-size: 0.8rem;
+            color: var(--success);
+        }
+
+        .level-btn.current {
+            border-color: var(--accent);
+            background: var(--highlight);
+        }
+
+        .modal-close {
+            margin-top: 1.5rem;
+            width: 100%;
+        }
+
+        /* Complete screen */
+        .complete-screen {
+            text-align: center;
+            padding: 3rem 1rem;
+            display: none;
+        }
+
+        .complete-screen.visible {
+            display: block;
+        }
+
+        .complete-screen h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .complete-screen .qed {
+            font-size: 3rem;
+            margin: 2rem 0;
+        }
+
+        .final-score {
+            font-size: 1.4rem;
+            color: var(--accent);
+            margin: 1.5rem 0;
+        }
+
+        /* Introduction screen */
+        .intro-screen {
+            text-align: center;
+        }
+
+        .intro-screen .theorem-box {
+            text-align: left;
+        }
+
+        .intro-screen h2 {
+            font-size: 1.5rem;
+            margin: 1.5rem 0 1rem;
+            font-variant: small-caps;
+        }
+
+        .intro-text {
+            text-align: left;
+            margin: 1rem 0;
+            line-height: 1.8;
+        }
+
+        .intro-text p {
+            margin-bottom: 1rem;
+        }
+
+        .famous-quote {
+            font-style: italic;
+            border-left: 3px solid var(--accent);
+            padding-left: 1rem;
+            margin: 1.5rem 0;
+            color: var(--ink-light);
+        }
+
+        .famous-quote cite {
+            display: block;
+            margin-top: 0.5rem;
+            font-style: normal;
+            font-size: 0.9rem;
+        }
+
+        .timeline {
+            text-align: left;
+            margin: 1.5rem 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px dashed var(--theorem-border);
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-year {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent);
+            min-width: 4rem;
+        }
+
+        .timeline-desc {
+            flex: 1;
+        }
+
+        .timeline-desc strong {
+            color: var(--ink);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Regularium</h1>
+            <p class="subtitle">A Treatise on the Art of Pattern Matching</p>
+            <p class="author">Being a Collection of Exercises in Regular Expressions</p>
+        </header>
+
+        <!-- Introduction Screen -->
+        <div id="intro-screen" class="intro-screen">
+            <div class="theorem-box history" data-type="Historical Preface">
+                <p>The theory of regular expressions finds its origins in the work of mathematician <strong>Stephen Cole
+                        Kleene</strong>, who in 1956 formalized the concept of "regular events" as part of his study of
+                    nerve nets and finite automata. What began as pure mathematics would transform into one of
+                    computing's most practical tools.</p>
+            </div>
+
+            <h2>§ A Brief Chronicle</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <span class="timeline-year">1943</span>
+                    <div class="timeline-desc"><strong>McCulloch & Pitts</strong> publish their seminal paper on neural
+                        networks, introducing the concept of finite automata that would later inspire regular
+                        expressions.</div>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-year">1956</span>
+                    <div class="timeline-desc"><strong>Stephen Kleene</strong> introduces "regular expressions" in his
+                        paper <em>"Representation of Events in Nerve Nets and Finite Automata"</em>, proving their
+                        equivalence to finite automata.</div>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-year">1968</span>
+                    <div class="timeline-desc"><strong>Ken Thompson</strong> implements regex in the QED text editor,
+                        later bringing it to ed and grep on Unix—the first practical application.</div>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-year">1986</span>
+                    <div class="timeline-desc"><strong>Henry Spencer</strong> writes a freely available regex library in
+                        C, enabling widespread adoption across programming languages.</div>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-year">1987</span>
+                    <div class="timeline-desc"><strong>Larry Wall</strong> creates Perl, whose powerful regex engine
+                        would become the de facto standard for "extended" regular expressions.</div>
+                </div>
+            </div>
+
+            <div class="famous-quote">
+                "Some people, when confronted with a problem, think 'I know, I'll use regular expressions.' Now they
+                have two problems."
+                <cite>— Jamie Zawinski, 1997</cite>
+            </div>
+
+            <div class="theorem-box theory" data-type="Theoretical Foundation">
+                <p>In formal language theory, regular expressions describe <strong>regular languages</strong>—the
+                    simplest class in the Chomsky hierarchy. A language is regular if and only if it can be recognized
+                    by a <em>deterministic finite automaton</em> (DFA). This equivalence, proved by Kleene, means every
+                    regex can be converted to a state machine, and vice versa.</p>
+                <p style="margin-top: 0.75rem;">The three fundamental operations are:</p>
+                <ul style="margin: 0.5rem 0 0 1.5rem;">
+                    <li><strong>Concatenation:</strong> <code>ab</code> — "a followed by b"</li>
+                    <li><strong>Alternation:</strong> <code>a|b</code> — "a or b"</li>
+                    <li><strong>Kleene star:</strong> <code>a*</code> — "zero or more a's"</li>
+                </ul>
+            </div>
+
+            <div class="intro-text">
+                <p>In this treatise, you shall master the art of pattern matching through a series of progressively
+                    challenging <em>propositions</em>. Each exercise teaches a fundamental concept while revealing the
+                    elegant theory beneath.</p>
+            </div>
+
+            <div class="btn-row" style="justify-content: center;">
+                <button class="btn primary" id="begin-btn">Begin the Study →</button>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-area" style="display: none;">
+            <div class="level-header">
+                <span class="level-badge" id="level-badge">Proposition I</span>
+                <span class="score-display">Score: <span id="score">0</span></span>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-label">
+                    <span>Progress</span>
+                    <span id="progress-text">1 / 12</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 8.33%"></div>
+                </div>
+            </div>
+
+            <div class="theorem-box" data-type="Problem">
+                <p class="level-title" id="level-title">Loading...</p>
+                <p class="challenge-text" id="challenge-text">Loading...</p>
+            </div>
+
+            <!-- Collapsible History Section -->
+            <div class="collapsible-section" id="history-section">
+                <div class="collapsible-header" id="history-toggle">
+                    <span class="toggle-icon">▶</span>
+                    <span>Historical Context</span>
+                </div>
+                <div class="collapsible-content" id="history-content">
+                    <div class="theorem-box history" data-type="Scholium" id="history-text"></div>
+                </div>
+            </div>
+
+            <!-- Collapsible Theory Section -->
+            <div class="collapsible-section" id="theory-section">
+                <div class="collapsible-header" id="theory-toggle">
+                    <span class="toggle-icon">▶</span>
+                    <span>Theoretical Note</span>
+                </div>
+                <div class="collapsible-content" id="theory-content">
+                    <div class="theorem-box theory" data-type="Theorem" id="theory-text"></div>
+                </div>
+            </div>
+
+            <div class="string-lists">
+                <div class="string-group match">
+                    <h4>Must Match (✓)</h4>
+                    <ul class="string-list" id="match-list"></ul>
+                </div>
+                <div class="string-group reject">
+                    <h4>Must Reject (✗)</h4>
+                    <ul class="string-list" id="reject-list"></ul>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <label class="input-label" for="regex-input">Your Regular Expression:</label>
+                <div class="regex-wrapper">
+                    <span class="regex-delim">/</span>
+                    <input type="text" id="regex-input" autocomplete="off" autocapitalize="off" spellcheck="false"
+                        placeholder="enter pattern...">
+                    <span class="regex-delim">/</span>
+                </div>
+                <p class="error-message" id="error-message"></p>
+            </div>
+
+            <div class="success-message" id="success-message">
+                ∎ Quod Erat Demonstrandum — Correct!
+            </div>
+
+            <div class="hint-box" id="hint-box">
+                <strong>Lemma:</strong> <span id="hint-text"></span>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn" id="hint-btn">Show Hint</button>
+                <button class="btn" id="levels-btn">Select Level</button>
+                <button class="btn primary" id="next-btn" disabled>Next Proposition →</button>
+            </div>
+        </div>
+
+        <!-- Complete Screen -->
+        <div class="complete-screen" id="complete-screen">
+            <h2>Finis Coronat Opus</h2>
+            <p class="subtitle">The End Crowns the Work</p>
+            <div class="qed">∎</div>
+            <p class="final-score">Final Score: <span id="final-score">0</span></p>
+
+            <div class="theorem-box history" data-type="Epilogue" style="text-align: left; margin: 2rem 0;">
+                <p>You have completed your study of regular expressions, joining a lineage of pattern-seekers stretching
+                    back to Kleene's foundational work. From theoretical curiosity to practical necessity, regex has
+                    become an indispensable tool for text processing, validation, parsing, and search.</p>
+                <p style="margin-top: 0.75rem;">Remember: while regular expressions are powerful, they have limits. As
+                    Chomsky showed, not all languages are regular—some patterns require more expressive formalisms. But
+                    for the vast realm of regular languages, you now possess the key.</p>
+            </div>
+
+            <div class="btn-row" style="justify-content: center;">
+                <button class="btn primary" id="restart-btn">Begin Anew</button>
+            </div>
+        </div>
+
+        <div class="reference">
+            <h3>Appendix: Reference of Symbols</h3>
+            <div class="ref-grid">
+                <div class="ref-item"><code>.</code><span>Any character</span></div>
+                <div class="ref-item"><code>*</code><span>Zero or more</span></div>
+                <div class="ref-item"><code>+</code><span>One or more</span></div>
+                <div class="ref-item"><code>?</code><span>Zero or one</span></div>
+                <div class="ref-item"><code>^</code><span>Start of string</span></div>
+                <div class="ref-item"><code>$</code><span>End of string</span></div>
+                <div class="ref-item"><code>[abc]</code><span>Character class</span></div>
+                <div class="ref-item"><code>[^abc]</code><span>Negated class</span></div>
+                <div class="ref-item"><code>\d</code><span>Any digit</span></div>
+                <div class="ref-item"><code>\w</code><span>Word character</span></div>
+                <div class="ref-item"><code>\s</code><span>Whitespace</span></div>
+                <div class="ref-item"><code>(a|b)</code><span>Alternation</span></div>
+                <div class="ref-item"><code>{n}</code><span>Exactly n times</span></div>
+                <div class="ref-item"><code>{n,m}</code><span>Between n and m</span></div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Composed with devotion to the craft of pattern recognition</p>
+        </footer>
+    </div>
+
+    <!-- Level Select Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2>Select Proposition</h2>
+            <div class="level-grid" id="level-grid"></div>
+            <button class="btn modal-close" id="modal-close">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Levels data with history and theory
+        const levels = [
+            {
+                title: "The Literal Match",
+                description: "Match strings that contain the word 'cat' exactly.",
+                match: ["cat", "category", "scatter", "bobcat"],
+                reject: ["dog", "car", "cut", "CAT"],
+                hint: "Simply type the exact characters you wish to find.",
+                history: "The simplest form of pattern matching—literal string search—predates computers entirely. Medieval scribes indexed manuscripts by key terms, and the first text search algorithms emerged with punch card systems in the 1890s.",
+                theory: "A literal match is the most basic regular expression: a sequence of symbols that matches itself. In automata theory, this corresponds to a linear chain of states, each transition consuming one character."
+            },
+            {
+                title: "The Anchor's Beginning",
+                description: "Match strings that start with 'The'.",
+                match: ["The quick", "Theory", "The end"],
+                reject: ["the quick", "In The", "THEOREM", "other"],
+                hint: "The caret (^) anchors to the beginning of a string.",
+                history: "Anchors were introduced by Ken Thompson in his 1968 implementation of regular expressions for the QED editor. The caret (^) and dollar ($) symbols were chosen for their visual suggestion of 'start' and 'end'.",
+                theory: "The ^ anchor is a zero-width assertion—it matches a position, not a character. In automata terms, it restricts the start state to only match at the beginning of input, eliminating the implicit '.*' prefix."
+            },
+            {
+                title: "The Anchor's End",
+                description: "Match strings that end with a digit.",
+                match: ["room101", "year2024", "agent007", "test9"],
+                reject: ["hello", "12pm", "room10!", "num:"],
+                hint: "Use \\d for digits and $ for the end anchor.",
+                history: "The $ symbol for end-of-line anchoring also came from Thompson's ed editor. In Unix tradition, $ continues to mean 'end'—in shell scripting, $() captures command output, conceptually reading 'to the end'.",
+                theory: "The \\d shorthand for [0-9] was popularized by Perl. Combined with $, it creates an assertion that the final character must be a digit—formally, the automaton's accepting state requires the last transition to be on a digit."
+            },
+            {
+                title: "The Wild Card",
+                description: "Match 3-letter words where the middle letter can be anything.",
+                match: ["cat", "cot", "cut", "c9t"],
+                reject: ["cart", "ct", "coat", "ca"],
+                hint: "The dot (.) matches any single character. Use anchors for exact length.",
+                history: "The dot as 'match any character' originated in Unix ed/grep. Ken Thompson chose it because it was available on teletypes and suggested 'something goes here'—similar to its use in mathematical notation.",
+                theory: "The dot represents the union of all characters in the alphabet Σ. In a DFA, it corresponds to having transitions on every possible input symbol from a single state—computationally expensive but semantically powerful."
+            },
+            {
+                title: "The Character Class",
+                description: "Match strings that start with a vowel (a, e, i, o, u).",
+                match: ["apple", "elephant", "igloo", "umbrella"],
+                reject: ["banana", "cherry", "APPLE", "1apple"],
+                hint: "Square brackets define a character class: [aeiou]",
+                history: "Character classes [abc] were part of Thompson's original 1968 design, inspired by mathematical set notation. The range syntax [a-z] came later, borrowing from ASCII's convenient ordering of letters.",
+                theory: "A character class defines a set of acceptable symbols for a single position. In the NFA, this becomes multiple ε-transitions or, in a DFA, a single state with transitions on each class member."
+            },
+            {
+                title: "The Kleene Star",
+                description: "Match strings consisting only of 'a' characters (including empty string).",
+                match: ["", "a", "aa", "aaaaaaa"],
+                reject: ["b", "ab", "ba", "aab"],
+                hint: "The asterisk (*) means 'zero or more' of the preceding element.",
+                history: "Named after Stephen Kleene who invented the notation, the 'Kleene star' (*) originally appeared in his 1956 paper. It remains the only regex operator named after its creator—a testament to his foundational contribution.",
+                theory: "The Kleene star is one of three operations (with union and concatenation) that define regular expressions. It creates a loop in the automaton, allowing any number of repetitions—formally, L* = {ε} ∪ L ∪ LL ∪ LLL ∪ ..."
+            },
+            {
+                title: "The Repetition",
+                description: "Match strings that contain two or more consecutive o's.",
+                match: ["cool", "booooom", "food", "voodoo"],
+                reject: ["cola", "done", "solo", "o"],
+                hint: "The plus (+) means one or more. Think about matching 'oo' first.",
+                history: "The + quantifier (one or more) was not in Kleene's original notation—it's syntactic sugar, since a+ equals aa*. It was added in extended regular expressions (ERE) for convenience and clarity.",
+                theory: "While * allows zero matches (accepting ε), + requires at least one. Formally, L+ = LL* = L ∪ LL ∪ LLL ∪ ... The difference is subtle but crucial: a* matches empty strings, a+ does not."
+            },
+            {
+                title: "The Optional",
+                description: "Match both 'color' and 'colour'.",
+                match: ["color", "colour"],
+                reject: ["colouur", "colr", "cooler", "colors"],
+                hint: "The question mark (?) makes the preceding character optional.",
+                history: "The ? quantifier emerged in extended regex to express 'zero or one'—equivalent to (a|ε) but more readable. Its adoption reflects the evolution from mathematical formalism to practical tool.",
+                theory: "The optional operator ? is equivalent to {0,1} or (x|ε). It creates a branch in the automaton: one path consuming the character, another bypassing it via an ε-transition."
+            },
+            {
+                title: "The Negation",
+                description: "Match words that don't start with a digit.",
+                match: ["hello", "world", "_test", "Abc"],
+                reject: ["1st", "2nd", "3rd", "42"],
+                hint: "A caret inside brackets [^...] negates the class.",
+                history: "The dual meaning of ^—anchor outside brackets, negation inside—has confused generations of programmers. This overloading dates to early Unix tools where keyboard symbols were scarce.",
+                theory: "Negated character classes [^abc] match the complement of a set. In automata, this is implemented by having transitions on all symbols except those in the class—the automaton accepts what the class rejects."
+            },
+            {
+                title: "The Alternation",
+                description: "Match file extensions: .jpg, .png, or .gif",
+                match: ["photo.jpg", "image.png", "anim.gif"],
+                reject: ["doc.pdf", "file.jpeg", "pic.PNG", "test"],
+                hint: "Parentheses group patterns, and pipe (|) means 'or'.",
+                history: "The pipe symbol | for alternation was chosen by Thompson because it visually suggests a fork or branch. In Unix, the same symbol would later mean 'pipe output'—a happy coincidence of notation.",
+                theory: "Alternation (union) is one of Kleene's three fundamental operations. Given NFAs for L₁ and L₂, the union L₁|L₂ is constructed by adding a new start state with ε-transitions to both original start states."
+            },
+            {
+                title: "The Grouping",
+                description: "Match strings that repeat 'ab' two or more times.",
+                match: ["abab", "ababab", "abababab"],
+                reject: ["ab", "aabb", "baba", "aba"],
+                hint: "Use parentheses to group 'ab', then apply a quantifier.",
+                history: "Capturing groups with parentheses () were extended by Perl to include backreferences (\\1, \\2), enabling patterns like (.)\\1 to match repeated characters—a feature that technically exceeds regular language power.",
+                theory: "Grouping with () allows quantifiers to apply to sequences rather than single characters. However, backreferences (referencing captured groups) make the language non-regular—they require memory that finite automata lack."
+            },
+            {
+                title: "The Grand Finale",
+                description: "Match valid simple email patterns: word@word.word",
+                match: ["a@b.co", "user@mail.org", "test123@site.net"],
+                reject: ["@bad.com", "no@dots", "missing@.", "double@@at.com"],
+                hint: "Combine \\w+ for word characters with literal @ and \\.",
+                history: "Email validation via regex is notoriously complex—the full RFC 5322 specification requires a regex of over 6,000 characters! Practical implementations use simplified patterns, accepting the trade-off between precision and comprehensibility.",
+                theory: "This exercise combines multiple concepts: anchors ensure full-string matching, \\w+ requires one or more word characters, literal . must be escaped (\\.), and the overall structure enforces the email format through concatenation."
+            }
+        ];
+
+        // Game state
+        let currentLevel = 0;
+        let score = 0;
+        let completedLevels = new Set();
+        let hintsUsed = new Set();
+
+        // DOM elements
+        const introScreen = document.getElementById('intro-screen');
+        const beginBtn = document.getElementById('begin-btn');
+        const gameArea = document.getElementById('game-area');
+        const levelBadge = document.getElementById('level-badge');
+        const scoreDisplay = document.getElementById('score');
+        const progressText = document.getElementById('progress-text');
+        const progressFill = document.getElementById('progress-fill');
+        const levelTitle = document.getElementById('level-title');
+        const challengeText = document.getElementById('challenge-text');
+        const matchList = document.getElementById('match-list');
+        const rejectList = document.getElementById('reject-list');
+        const regexInput = document.getElementById('regex-input');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+        const hintBox = document.getElementById('hint-box');
+        const hintText = document.getElementById('hint-text');
+        const hintBtn = document.getElementById('hint-btn');
+        const levelsBtn = document.getElementById('levels-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const levelGrid = document.getElementById('level-grid');
+        const modalClose = document.getElementById('modal-close');
+        const completeScreen = document.getElementById('complete-screen');
+        const finalScore = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // History/Theory toggles
+        const historyToggle = document.getElementById('history-toggle');
+        const historyContent = document.getElementById('history-content');
+        const historyText = document.getElementById('history-text');
+        const theoryToggle = document.getElementById('theory-toggle');
+        const theoryContent = document.getElementById('theory-content');
+        const theoryText = document.getElementById('theory-text');
+
+        // Roman numerals helper
+        function toRoman(num) {
+            const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+                'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+            return roman[num] || num + 1;
+        }
+
+        // Load a level
+        function loadLevel(index) {
+            currentLevel = index;
+            const level = levels[index];
+
+            levelBadge.textContent = `Proposition ${toRoman(index)}`;
+            levelTitle.textContent = level.title;
+            challengeText.textContent = level.description;
+            progressText.textContent = `${index + 1} / ${levels.length}`;
+            progressFill.style.width = `${((index + 1) / levels.length) * 100}%`;
+
+            // Set history and theory content
+            historyText.textContent = level.history;
+            theoryText.textContent = level.theory;
+
+            // Reset collapsible sections
+            historyToggle.classList.remove('open');
+            historyContent.classList.remove('visible');
+            theoryToggle.classList.remove('open');
+            theoryContent.classList.remove('visible');
+
+            // Populate string lists
+            matchList.innerHTML = level.match.map(s => `
+                <li class="string-item" data-string="${escapeAttr(s)}" data-should="match">
+                    <span class="indicator"></span>
+                    <span class="text${s === '' ? ' empty' : ''}">${s === '' ? '(empty string)' : escapeHtml(s)}</span>
+                </li>
+            `).join('');
+
+            rejectList.innerHTML = level.reject.map(s => `
+                <li class="string-item" data-string="${escapeAttr(s)}" data-should="reject">
+                    <span class="indicator"></span>
+                    <span class="text${s === '' ? ' empty' : ''}">${s === '' ? '(empty string)' : escapeHtml(s)}</span>
+                </li>
+            `).join('');
+
+            // Reset input
+            regexInput.value = '';
+            regexInput.classList.remove('error');
+            errorMessage.classList.remove('visible');
+            successMessage.classList.remove('visible');
+            hintBox.classList.remove('visible');
+            hintText.textContent = level.hint;
+            nextBtn.disabled = true;
+
+            // Update hint button
+            if (hintsUsed.has(index)) {
+                hintBox.classList.add('visible');
+                hintBtn.textContent = 'Hint Shown';
+                hintBtn.disabled = true;
+            } else {
+                hintBtn.textContent = 'Show Hint';
+                hintBtn.disabled = false;
+            }
+
+            regexInput.focus();
+            updateDisplay();
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Escape for attributes
+        function escapeAttr(text) {
+            return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // Test regex against strings
+        function testRegex(pattern) {
+            try {
+                const regex = new RegExp(pattern);
+                return { valid: true, regex };
+            } catch (e) {
+                return { valid: false, error: e.message };
+            }
+        }
+
+        // Update display based on current input
+        function updateDisplay() {
+            const pattern = regexInput.value;
+
+            if (pattern === '') {
+                // Reset all indicators
+                document.querySelectorAll('.string-item').forEach(item => {
+                    item.classList.remove('matched', 'unmatched', 'correct');
+                });
+                regexInput.classList.remove('error');
+                errorMessage.classList.remove('visible');
+                return;
+            }
+
+            const result = testRegex(pattern);
+
+            if (!result.valid) {
+                regexInput.classList.add('error');
+                errorMessage.textContent = result.error;
+                errorMessage.classList.add('visible');
+                document.querySelectorAll('.string-item').forEach(item => {
+                    item.classList.remove('matched', 'unmatched', 'correct');
+                });
+                return;
+            }
+
+            regexInput.classList.remove('error');
+            errorMessage.classList.remove('visible');
+
+            let allCorrect = true;
+
+            // Test match strings
+            document.querySelectorAll('#match-list .string-item').forEach(item => {
+                const str = item.dataset.string;
+                const matches = result.regex.test(str);
+                item.classList.toggle('matched', matches);
+                item.classList.toggle('unmatched', !matches);
+                item.classList.toggle('correct', matches);
+                if (!matches) allCorrect = false;
+            });
+
+            // Test reject strings
+            document.querySelectorAll('#reject-list .string-item').forEach(item => {
+                const str = item.dataset.string;
+                const matches = result.regex.test(str);
+                item.classList.toggle('matched', matches);
+                item.classList.toggle('unmatched', !matches);
+                item.classList.toggle('correct', !matches);
+                if (matches) allCorrect = false;
+            });
+
+            // Check for success
+            if (allCorrect && pattern.length > 0) {
+                if (!completedLevels.has(currentLevel)) {
+                    completedLevels.add(currentLevel);
+                    const bonus = hintsUsed.has(currentLevel) ? 5 : 10;
+                    score += bonus;
+                    scoreDisplay.textContent = score;
+                }
+                successMessage.classList.add('visible');
+                nextBtn.disabled = false;
+            } else {
+                successMessage.classList.remove('visible');
+                nextBtn.disabled = true;
+            }
+        }
+
+        // Toggle collapsible section
+        function setupCollapsible(toggle, content) {
+            toggle.addEventListener('click', () => {
+                toggle.classList.toggle('open');
+                content.classList.toggle('visible');
+            });
+        }
+
+        // Event listeners
+        beginBtn.addEventListener('click', () => {
+            introScreen.style.display = 'none';
+            gameArea.style.display = 'block';
+            loadLevel(0);
+        });
+
+        regexInput.addEventListener('input', updateDisplay);
+
+        hintBtn.addEventListener('click', () => {
+            hintsUsed.add(currentLevel);
+            hintBox.classList.add('visible');
+            hintBtn.textContent = 'Hint Shown';
+            hintBtn.disabled = true;
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentLevel < levels.length - 1) {
+                loadLevel(currentLevel + 1);
+            } else {
+                // Game complete
+                gameArea.style.display = 'none';
+                completeScreen.classList.add('visible');
+                finalScore.textContent = score;
+            }
+        });
+
+        levelsBtn.addEventListener('click', () => {
+            // Build level grid
+            levelGrid.innerHTML = levels.map((level, i) => `
+                <button class="level-btn ${completedLevels.has(i) ? 'completed' : ''} ${i === currentLevel ? 'current' : ''}" data-level="${i}" title="${level.title}">
+                    ${toRoman(i)}
+                </button>
+            `).join('');
+            modalOverlay.classList.add('visible');
+        });
+
+        levelGrid.addEventListener('click', (e) => {
+            const btn = e.target.closest('.level-btn');
+            if (btn) {
+                const level = parseInt(btn.dataset.level, 10);
+                loadLevel(level);
+                modalOverlay.classList.remove('visible');
+            }
+        });
+
+        modalClose.addEventListener('click', () => {
+            modalOverlay.classList.remove('visible');
+        });
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.classList.remove('visible');
+            }
+        });
+
+        restartBtn.addEventListener('click', () => {
+            currentLevel = 0;
+            score = 0;
+            completedLevels.clear();
+            hintsUsed.clear();
+            scoreDisplay.textContent = '0';
+            completeScreen.classList.remove('visible');
+            introScreen.style.display = 'block';
+            gameArea.style.display = 'none';
+        });
+
+        // Setup collapsible sections
+        setupCollapsible(historyToggle, historyContent);
+        setupCollapsible(theoryToggle, theoryContent);
+    </script>
+</body>
+
+</html>

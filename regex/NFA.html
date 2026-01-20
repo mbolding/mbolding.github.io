@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regular Expression State Machine</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #fdfbf7;
+            --bg-secondary: #f8f4eb;
+            --text-primary: #2c2416;
+            --text-secondary: #5c4a32;
+            --accent: #8b0000;
+            --border: #d4c8b0;
+            --state-fill: #fffef9;
+            --state-stroke: #2c2416;
+        }
+
+        .dark {
+            --bg-primary: #1a1812;
+            --bg-secondary: #252118;
+            --text-primary: #e8e4d9;
+            --text-secondary: #b8a88a;
+            --accent: #d4726a;
+            --border: #4a4030;
+            --state-fill: #252118;
+            --state-stroke: #e8e4d9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'EB Garamond', 'Times New Roman', serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            font-family: 'Libre Baskerville', serif;
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-style: italic;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        h2 {
+            font-family: 'Libre Baskerville', serif;
+            font-size: 1.35rem;
+            font-weight: 400;
+            margin: 2rem 0 1rem 0;
+            color: var(--text-primary);
+        }
+
+        h3 {
+            font-family: 'Libre Baskerville', serif;
+            font-size: 1.1rem;
+            font-weight: 400;
+            font-style: italic;
+            margin: 1.5rem 0 0.75rem 0;
+            color: var(--text-primary);
+        }
+
+        .section-number {
+            color: var(--accent);
+            margin-right: 0.5rem;
+        }
+
+        p {
+            margin-bottom: 1rem;
+            text-align: justify;
+            hyphens: auto;
+        }
+
+        .input-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        label {
+            font-style: italic;
+            font-size: 1.1rem;
+            white-space: nowrap;
+        }
+
+        .regex-input {
+            flex: 1;
+            min-width: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-radius: 2px;
+        }
+
+        .regex-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            font-family: 'EB Garamond', serif;
+            font-size: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.85;
+        }
+
+        .examples {
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .examples span {
+            font-style: italic;
+        }
+
+        .example-btn {
+            font-family: 'Courier New', monospace;
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 0.95rem;
+            margin: 0 0.25rem;
+        }
+
+        .example-btn:hover {
+            opacity: 0.7;
+        }
+
+        .diagram-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            min-height: 300px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .diagram-title {
+            font-style: italic;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        #automaton-svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+
+        .legend {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-symbol {
+            width: 24px;
+            height: 24px;
+        }
+
+        .theory-section {
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .definition {
+            background: var(--bg-secondary);
+            padding: 1.25rem 1.5rem;
+            border-left: 3px solid var(--accent);
+            margin: 1.25rem 0;
+        }
+
+        .definition-title {
+            font-weight: 600;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+        }
+
+        .math {
+            font-family: 'EB Garamond', serif;
+            font-style: italic;
+        }
+
+        .mono {
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            background: var(--bg-secondary);
+            padding: 0.15rem 0.35rem;
+            border-radius: 2px;
+        }
+
+        .grammar {
+            background: var(--bg-secondary);
+            padding: 1rem 1.5rem;
+            border-left: 3px solid var(--accent);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .grammar-line {
+            white-space: nowrap;
+        }
+
+        .grammar-symbol {
+            color: var(--accent);
+        }
+
+        .theorem {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(139, 0, 0, 0.05) 100%);
+            padding: 1.25rem 1.5rem;
+            border: 1px solid var(--border);
+            margin: 1.5rem 0;
+            position: relative;
+        }
+
+        .theorem::before {
+            content: "◆";
+            position: absolute;
+            left: -0.6rem;
+            top: 1.2rem;
+            color: var(--accent);
+            font-size: 0.8rem;
+        }
+
+        .theorem-title {
+            font-family: 'Libre Baskerville', serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .glossary {
+            display: grid;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .glossary-item {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px dotted var(--border);
+        }
+
+        .glossary-term {
+            font-style: italic;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .construction-steps {
+            counter-reset: step;
+            list-style: none;
+            margin: 1rem 0;
+        }
+
+        .construction-steps li {
+            position: relative;
+            padding-left: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .construction-steps li::before {
+            counter-increment: step;
+            content: counter(step) ".";
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-weight: 600;
+            font-style: italic;
+        }
+
+        .mini-diagram {
+            display: inline-block;
+            vertical-align: middle;
+            margin: 0 0.25rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-secondary);
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        .error-msg {
+            color: var(--accent);
+            font-style: italic;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .placeholder {
+            color: var(--text-secondary);
+            font-style: italic;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .toc {
+            background: var(--bg-secondary);
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            border: 1px solid var(--border);
+        }
+
+        .toc-title {
+            font-family: 'Libre Baskerville', serif;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .toc-list {
+            list-style: none;
+            columns: 2;
+            column-gap: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .toc-list li {
+            margin-bottom: 0.35rem;
+        }
+
+        .toc-list a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .toc-list a:hover {
+            color: var(--accent);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .regex-input {
+                min-width: 100%;
+            }
+
+            .legend {
+                gap: 1rem;
+            }
+
+            .glossary-item {
+                grid-template-columns: 1fr;
+                gap: 0.25rem;
+            }
+
+            .toc-list {
+                columns: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Finite Automaton Visualization</h1>
+            <p class="subtitle">Thompson's Construction for Regular Expressions</p>
+        </header>
+
+        <nav class="toc">
+            <div class="toc-title">Contents</div>
+            <ol class="toc-list">
+                <li><a href="javascript:void(0)" onclick="scrollToSection('interactive')">§1 Interactive Visualizer</a>
+                </li>
+                <li><a href="javascript:void(0)" onclick="scrollToSection('introduction')">§2 Introduction</a></li>
+                <li><a href="javascript:void(0)" onclick="scrollToSection('regex')">§3 Regular Expressions</a></li>
+                <li><a href="javascript:void(0)" onclick="scrollToSection('automata')">§4 Finite Automata</a></li>
+                <li><a href="javascript:void(0)" onclick="scrollToSection('thompson')">§5 Thompson's Construction</a>
+                </li>
+                <li><a href="javascript:void(0)" onclick="scrollToSection('glossary')">§6 Glossary of Terms</a></li>
+            </ol>
+        </nav>
+
+        <section id="interactive">
+            <h2><span class="section-number">§1</span>Interactive Visualizer</h2>
+            <p>Enter a regular expression below to visualize its corresponding non-deterministic finite automaton. The
+                automaton is constructed using Thompson's algorithm, which produces an NFA with exactly one start state
+                and one accept state.</p>
+
+            <div class="input-section">
+                <div class="input-group">
+                    <label>Regular Expression:</label>
+                    <input type="text" id="regex-input" class="regex-input" placeholder="(a|b)*abb" value="(a|b)*abb">
+                    <button class="btn" onclick="buildAutomaton()">Construct</button>
+                </div>
+                <div class="examples">
+                    <span>Examples:</span>
+                    <button class="example-btn" onclick="setExample('a*b')">a*b</button>
+                    <button class="example-btn" onclick="setExample('(a|b)*')">(a|b)*</button>
+                    <button class="example-btn" onclick="setExample('(a|b)*abb')">(a|b)*abb</button>
+                    <button class="example-btn" onclick="setExample('ab(c|d)+')">ab(c|d)+</button>
+                    <button class="example-btn" onclick="setExample('a?b+c*')">a?b+c*</button>
+                </div>
+            </div>
+
+            <div class="diagram-section">
+                <div class="diagram-title">Figure 1. Non-deterministic Finite Automaton (NFA)</div>
+                <div id="diagram-container">
+                    <p class="placeholder">Enter a regular expression and click "Construct" to visualize the automaton.
+                    </p>
+                </div>
+                <div class="legend" id="legend" style="display: none;">
+                    <div class="legend-item">
+                        <svg class="legend-symbol" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="8" fill="none" stroke="var(--state-stroke)" stroke-width="1.5" />
+                            <polygon points="2,12 6,9 6,15" fill="var(--state-stroke)" />
+                        </svg>
+                        <span>Initial state</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-symbol" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="8" fill="none" stroke="var(--state-stroke)" stroke-width="1.5" />
+                            <circle cx="12" cy="12" r="5" fill="none" stroke="var(--state-stroke)" stroke-width="1.5" />
+                        </svg>
+                        <span>Accepting state</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-symbol" viewBox="0 0 24 24">
+                            <line x1="4" y1="12" x2="20" y2="12" stroke="var(--state-stroke)" stroke-width="1.5"
+                                stroke-dasharray="3,2" />
+                        </svg>
+                        <span>ε-transition</span>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Supported Syntax</h3>
+            <div class="grammar">
+                <div class="grammar-line"><span class="grammar-symbol">a-z, A-Z, 0-9</span> — Literal characters</div>
+                <div class="grammar-line"><span class="grammar-symbol">.</span> — Any single character</div>
+                <div class="grammar-line"><span class="grammar-symbol">|</span> — Alternation (union)</div>
+                <div class="grammar-line"><span class="grammar-symbol">*</span> — Kleene star (zero or more)</div>
+                <div class="grammar-line"><span class="grammar-symbol">+</span> — Kleene plus (one or more)</div>
+                <div class="grammar-line"><span class="grammar-symbol">?</span> — Optional (zero or one)</div>
+                <div class="grammar-line"><span class="grammar-symbol">( )</span> — Grouping</div>
+                <div class="grammar-line"><span class="grammar-symbol">\</span> — Escape special characters</div>
+            </div>
+        </section>
+
+        <section id="introduction" class="theory-section">
+            <h2><span class="section-number">§2</span>Introduction</h2>
+            <p>Regular expressions and finite automata are two of the most fundamental concepts in theoretical computer
+                science. Though they appear quite different—one a concise textual notation, the other a graphical state
+                machine—they possess <em>equivalent computational power</em>. Any pattern that can be described by a
+                regular expression can also be recognized by a finite automaton, and vice versa.</p>
+
+            <p>This equivalence is not merely theoretical; it underlies the implementation of regular expression engines
+                in programming languages, text editors, and compilers. When you use a regex in Python or JavaScript, the
+                engine often converts your pattern into an automaton behind the scenes to perform efficient matching.
+            </p>
+
+            <div class="theorem">
+                <div class="theorem-title">Kleene's Theorem (1956)</div>
+                <p>A language is <em>regular</em> if and only if it can be recognized by a finite automaton.
+                    Equivalently, a language is regular if and only if it can be described by a regular expression. The
+                    class of regular languages is closed under union, concatenation, and Kleene star.</p>
+            </div>
+        </section>
+
+        <section id="regex" class="theory-section">
+            <h2><span class="section-number">§3</span>Regular Expressions</h2>
+            <p>A <em>regular expression</em> (often abbreviated <em>regex</em> or <em>regexp</em>) is a sequence of
+                characters that defines a search pattern. Regular expressions were first formalized by mathematician
+                Stephen Cole Kleene in 1951 as a notation for describing <em>regular languages</em>—the simplest class
+                of formal languages in the Chomsky hierarchy.</p>
+
+            <div class="definition">
+                <div class="definition-title">Definition: Regular Expression</div>
+                <p>A regular expression over an alphabet Σ is defined inductively:</p>
+                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li><span class="math">∅</span> is a regex denoting the empty language</li>
+                    <li><span class="math">ε</span> is a regex denoting the language {ε} containing only the empty
+                        string</li>
+                    <li>For each <span class="math">a ∈ Σ</span>, the symbol <span class="math">a</span> is a regex
+                        denoting {a}</li>
+                    <li>If <span class="math">R</span> and <span class="math">S</span> are regexes, then <span
+                            class="math">(R|S)</span>, <span class="math">(RS)</span>, and <span
+                            class="math">(R*)</span> are regexes</li>
+                </ul>
+            </div>
+
+            <h3>Operators and Their Meanings</h3>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Operator</th>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="mono">|</span></td>
+                            <td>Alternation (Union)</td>
+                            <td>Matches either the left or right operand</td>
+                            <td><span class="mono">a|b</span> matches "a" or "b"</td>
+                        </tr>
+                        <tr>
+                            <td><span class="mono">·</span> (implicit)</td>
+                            <td>Concatenation</td>
+                            <td>Matches the left operand followed by the right</td>
+                            <td><span class="mono">ab</span> matches "ab"</td>
+                        </tr>
+                        <tr>
+                            <td><span class="mono">*</span></td>
+                            <td>Kleene Star</td>
+                            <td>Matches zero or more repetitions</td>
+                            <td><span class="mono">a*</span> matches "", "a", "aa", ...</td>
+                        </tr>
+                        <tr>
+                            <td><span class="mono">+</span></td>
+                            <td>Kleene Plus</td>
+                            <td>Matches one or more repetitions</td>
+                            <td><span class="mono">a+</span> matches "a", "aa", "aaa", ...</td>
+                        </tr>
+                        <tr>
+                            <td><span class="mono">?</span></td>
+                            <td>Optional</td>
+                            <td>Matches zero or one occurrence</td>
+                            <td><span class="mono">a?</span> matches "" or "a"</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;"><em>Note:</em> The operators
+                <span class="mono">+</span> and <span class="mono">?</span> are syntactic sugar: <span class="math">R+ ≡
+                    RR*</span> and <span class="math">R? ≡ (R|ε)</span>.
+            </p>
+        </section>
+
+        <section id="automata" class="theory-section">
+            <h2><span class="section-number">§4</span>Finite Automata</h2>
+            <p>A <em>finite automaton</em> (plural: <em>automata</em>) is an abstract machine that can be in exactly one
+                of a finite number of <em>states</em> at any given time. The automaton reads an input string symbol by
+                symbol, transitioning between states according to a <em>transition function</em>. If, after reading the
+                entire input, the machine is in an <em>accepting state</em>, the string is said to be <em>accepted</em>
+                by the automaton.</p>
+
+            <div class="definition">
+                <div class="definition-title">Definition: Non-deterministic Finite Automaton (NFA)</div>
+                <p>An NFA is a 5-tuple <span class="math">(Q, Σ, δ, q₀, F)</span> where:</p>
+                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li><span class="math">Q</span> is a finite set of states</li>
+                    <li><span class="math">Σ</span> is a finite alphabet of input symbols</li>
+                    <li><span class="math">δ: Q × (Σ ∪ {ε}) → P(Q)</span> is the transition function</li>
+                    <li><span class="math">q₀ ∈ Q</span> is the initial (start) state</li>
+                    <li><span class="math">F ⊆ Q</span> is the set of accepting (final) states</li>
+                </ul>
+            </div>
+
+            <h3>NFA vs. DFA</h3>
+            <p>There are two main types of finite automata:</p>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
+                <li><strong>Deterministic Finite Automaton (DFA):</strong> For each state and input symbol, there is
+                    exactly one transition. No ε-transitions are allowed.</li>
+                <li><strong>Non-deterministic Finite Automaton (NFA):</strong> For each state and input symbol, there
+                    may be zero, one, or multiple transitions. ε-transitions (transitions that consume no input) are
+                    permitted.</li>
+            </ul>
+            <p>Despite their differences, NFAs and DFAs recognize exactly the same class of languages—the regular
+                languages. Any NFA can be converted to an equivalent DFA (via the <em>subset construction</em>), though
+                the DFA may have exponentially more states.</p>
+
+            <h3>The Epsilon Transition</h3>
+            <p>The symbol <span class="math">ε</span> (epsilon) represents the <em>empty string</em>—a string of length
+                zero. An <em>ε-transition</em> allows the automaton to change states without consuming any input symbol.
+                This non-deterministic feature makes NFAs more compact and easier to construct algorithmically, though
+                it requires special handling during simulation (computing the <em>ε-closure</em> of states).</p>
+        </section>
+
+        <section id="thompson" class="theory-section">
+            <h2><span class="section-number">§5</span>Thompson's Construction</h2>
+            <p>Thompson's construction, developed by Ken Thompson in 1968, is an algorithm for converting a regular
+                expression into an equivalent NFA. The algorithm is <em>syntax-directed</em>: it recursively builds NFAs
+                for subexpressions and combines them according to the regex operators.</p>
+
+            <div class="theorem">
+                <div class="theorem-title">Properties of Thompson's NFAs</div>
+                <p>The NFA produced by Thompson's construction has several elegant properties:</p>
+                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li>Exactly <strong>one start state</strong> with no incoming transitions</li>
+                    <li>Exactly <strong>one accepting state</strong> with no outgoing transitions</li>
+                    <li>At most <strong>2n states</strong> for a regex of length n</li>
+                    <li>At most <strong>4n transitions</strong></li>
+                    <li>Each state has at most <strong>two outgoing transitions</strong></li>
+                </ul>
+            </div>
+
+            <h3>Construction Rules</h3>
+            <p>Thompson's algorithm defines NFA fragments for base cases and shows how to combine them:</p>
+
+            <ol class="construction-steps">
+                <li>
+                    <strong>Symbol <span class="math">a</span>:</strong> Create two states connected by a transition
+                    labeled <span class="math">a</span>. The first state is the start; the second is the accept state.
+                </li>
+                <li>
+                    <strong>Concatenation <span class="math">RS</span>:</strong> Connect the accept state of NFA(<span
+                        class="math">R</span>) to the start state of NFA(<span class="math">S</span>) by merging them.
+                    The start state of NFA(<span class="math">R</span>) becomes the new start; the accept state of
+                    NFA(<span class="math">S</span>) becomes the new accept.
+                </li>
+                <li>
+                    <strong>Alternation <span class="math">R|S</span>:</strong> Create a new start state with
+                    ε-transitions to the start states of both NFA(<span class="math">R</span>) and NFA(<span
+                        class="math">S</span>). Create a new accept state with ε-transitions from the accept states of
+                    both NFAs.
+                </li>
+                <li>
+                    <strong>Kleene Star <span class="math">R*</span>:</strong> Create new start and accept states. Add
+                    ε-transitions: (1) from new start to NFA(<span class="math">R</span>)'s start, (2) from new start to
+                    new accept, (3) from NFA(<span class="math">R</span>)'s accept back to NFA(<span
+                        class="math">R</span>)'s start, and (4) from NFA(<span class="math">R</span>)'s accept to new
+                    accept.
+                </li>
+            </ol>
+
+            <h3>Why Thompson's Construction?</h3>
+            <p>While there are other algorithms for regex-to-NFA conversion, Thompson's construction is favored for
+                several reasons:</p>
+            <ul style="margin-left: 1.5rem;">
+                <li><strong>Simplicity:</strong> The rules are straightforward and easy to implement</li>
+                <li><strong>Linear size:</strong> The resulting NFA is at most linear in the size of the regex</li>
+                <li><strong>Composability:</strong> NFA fragments can be combined without modification</li>
+                <li><strong>Historical significance:</strong> It was used in the original implementation of <span
+                        class="mono">grep</span></li>
+            </ul>
+        </section>
+
+        <section id="glossary" class="theory-section">
+            <h2><span class="section-number">§6</span>Glossary of Terms</h2>
+            <div class="glossary">
+                <div class="glossary-item">
+                    <span class="glossary-term">Alphabet (Σ)</span>
+                    <span>A finite, non-empty set of symbols from which strings are formed. For example, {a, b} or {0,
+                        1}.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">String</span>
+                    <span>A finite sequence of symbols from an alphabet. Also called a <em>word</em>. The length of
+                        string <span class="math">w</span> is denoted <span class="math">|w|</span>.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Empty String (ε)</span>
+                    <span>The unique string of length zero, containing no symbols. Also written as λ in some
+                        texts.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Language</span>
+                    <span>A (possibly infinite) set of strings over an alphabet. A language <span class="math">L ⊆
+                            Σ*</span>.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Regular Language</span>
+                    <span>A language that can be expressed by a regular expression, or equivalently, recognized by a
+                        finite automaton.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">State</span>
+                    <span>A configuration of the automaton. Represented as a node (circle) in the state diagram.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Initial State</span>
+                    <span>The state in which the automaton begins processing input. Denoted by an incoming arrow with no
+                        source.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Accepting State</span>
+                    <span>A state indicating that the input read so far forms a valid string in the language. Denoted by
+                        a double circle.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Transition</span>
+                    <span>A directed edge between states, labeled with a symbol. Represents the automaton's response to
+                        reading that symbol.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">ε-Transition</span>
+                    <span>A transition that occurs without consuming any input symbol. Enables non-determinism.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">ε-Closure</span>
+                    <span>The set of all states reachable from a given state via zero or more ε-transitions.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Non-determinism</span>
+                    <span>The property of having multiple possible transitions for a given state and input, or having
+                        ε-transitions.</span>
+                </div>
+                <div class="glossary-item">
+                    <span class="glossary-term">Kleene Star (*)</span>
+                    <span>An operation producing zero or more concatenations of a language with itself: <span
+                            class="math">L* = {ε} ∪ L ∪ LL ∪ LLL ∪ ...</span></span>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            Constructed via Thompson's algorithm &middot; A tool for exploring automata theory
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // NFA State and Transition classes
+        let stateCounter = 0;
+
+        class State {
+            constructor() {
+                this.id = stateCounter++;
+                this.transitions = [];
+                this.isAccept = false;
+            }
+            addTransition(symbol, target) {
+                this.transitions.push({ symbol, target });
+            }
+        }
+
+        class NFA {
+            constructor(start, accept) {
+                this.start = start;
+                this.accept = accept;
+            }
+        }
+
+        // Tokenizer
+        function tokenize(regex) {
+            const tokens = [];
+            let i = 0;
+            while (i < regex.length) {
+                const c = regex[i];
+                if (c === '\\' && i + 1 < regex.length) {
+                    tokens.push({ type: 'CHAR', value: regex[i + 1] });
+                    i += 2;
+                } else if (c === '(') {
+                    tokens.push({ type: 'LPAREN' });
+                    i++;
+                } else if (c === ')') {
+                    tokens.push({ type: 'RPAREN' });
+                    i++;
+                } else if (c === '|') {
+                    tokens.push({ type: 'ALT' });
+                    i++;
+                } else if (c === '*') {
+                    tokens.push({ type: 'STAR' });
+                    i++;
+                } else if (c === '+') {
+                    tokens.push({ type: 'PLUS' });
+                    i++;
+                } else if (c === '?') {
+                    tokens.push({ type: 'QUESTION' });
+                    i++;
+                } else {
+                    tokens.push({ type: 'CHAR', value: c });
+                    i++;
+                }
+            }
+            return tokens;
+        }
+
+        // Parser using recursive descent
+        class Parser {
+            constructor(tokens) {
+                this.tokens = tokens;
+                this.pos = 0;
+            }
+
+            peek() {
+                return this.tokens[this.pos];
+            }
+
+            consume() {
+                return this.tokens[this.pos++];
+            }
+
+            parse() {
+                if (this.tokens.length === 0) {
+                    const s = new State();
+                    const a = new State();
+                    a.isAccept = true;
+                    s.addTransition('ε', a);
+                    return new NFA(s, a);
+                }
+                const nfa = this.parseExpr();
+                nfa.accept.isAccept = true;
+                return nfa;
+            }
+
+            parseExpr() {
+                let left = this.parseTerm();
+                while (this.peek() && this.peek().type === 'ALT') {
+                    this.consume();
+                    const right = this.parseTerm();
+                    left = this.alternate(left, right);
+                }
+                return left;
+            }
+
+            parseTerm() {
+                let factors = [];
+                while (this.peek() &&
+                    this.peek().type !== 'ALT' &&
+                    this.peek().type !== 'RPAREN') {
+                    factors.push(this.parseFactor());
+                }
+                if (factors.length === 0) {
+                    const s = new State();
+                    const a = new State();
+                    s.addTransition('ε', a);
+                    return new NFA(s, a);
+                }
+                let result = factors[0];
+                for (let i = 1; i < factors.length; i++) {
+                    result = this.concatenate(result, factors[i]);
+                }
+                return result;
+            }
+
+            parseFactor() {
+                let base = this.parseBase();
+                while (this.peek() &&
+                    (this.peek().type === 'STAR' ||
+                        this.peek().type === 'PLUS' ||
+                        this.peek().type === 'QUESTION')) {
+                    const op = this.consume();
+                    if (op.type === 'STAR') {
+                        base = this.kleeneStar(base);
+                    } else if (op.type === 'PLUS') {
+                        base = this.kleenePlus(base);
+                    } else if (op.type === 'QUESTION') {
+                        base = this.optional(base);
+                    }
+                }
+                return base;
+            }
+
+            parseBase() {
+                const token = this.peek();
+                if (!token) {
+                    throw new Error('Unexpected end of expression');
+                }
+                if (token.type === 'CHAR') {
+                    this.consume();
+                    return this.createChar(token.value);
+                } else if (token.type === 'LPAREN') {
+                    this.consume();
+                    const nfa = this.parseExpr();
+                    if (!this.peek() || this.peek().type !== 'RPAREN') {
+                        throw new Error('Missing closing parenthesis');
+                    }
+                    this.consume();
+                    return nfa;
+                } else {
+                    throw new Error('Unexpected token: ' + token.type);
+                }
+            }
+
+            createChar(c) {
+                const start = new State();
+                const accept = new State();
+                start.addTransition(c, accept);
+                return new NFA(start, accept);
+            }
+
+            concatenate(nfa1, nfa2) {
+                nfa1.accept.transitions = nfa1.accept.transitions.concat(nfa2.start.transitions);
+                return new NFA(nfa1.start, nfa2.accept);
+            }
+
+            alternate(nfa1, nfa2) {
+                const start = new State();
+                const accept = new State();
+                start.addTransition('ε', nfa1.start);
+                start.addTransition('ε', nfa2.start);
+                nfa1.accept.addTransition('ε', accept);
+                nfa2.accept.addTransition('ε', accept);
+                return new NFA(start, accept);
+            }
+
+            kleeneStar(nfa) {
+                const start = new State();
+                const accept = new State();
+                start.addTransition('ε', nfa.start);
+                start.addTransition('ε', accept);
+                nfa.accept.addTransition('ε', nfa.start);
+                nfa.accept.addTransition('ε', accept);
+                return new NFA(start, accept);
+            }
+
+            kleenePlus(nfa) {
+                const start = new State();
+                const accept = new State();
+                start.addTransition('ε', nfa.start);
+                nfa.accept.addTransition('ε', nfa.start);
+                nfa.accept.addTransition('ε', accept);
+                return new NFA(start, accept);
+            }
+
+            optional(nfa) {
+                const start = new State();
+                const accept = new State();
+                start.addTransition('ε', nfa.start);
+                start.addTransition('ε', accept);
+                nfa.accept.addTransition('ε', accept);
+                return new NFA(start, accept);
+            }
+        }
+
+        // Collect all states from NFA
+        function collectStates(nfa) {
+            const states = [];
+            const visited = new Set();
+            const queue = [nfa.start];
+
+            while (queue.length > 0) {
+                const state = queue.shift();
+                if (visited.has(state.id)) continue;
+                visited.add(state.id);
+                states.push(state);
+
+                for (const t of state.transitions) {
+                    if (!visited.has(t.target.id)) {
+                        queue.push(t.target);
+                    }
+                }
+            }
+            return states;
+        }
+
+        // Layout states using layered approach
+        function layoutStates(states, nfa) {
+            const positions = new Map();
+            const layers = [];
+            const visited = new Set();
+
+            // BFS to assign layers
+            let queue = [{ state: nfa.start, layer: 0 }];
+            visited.add(nfa.start.id);
+
+            while (queue.length > 0) {
+                const { state, layer } = queue.shift();
+
+                if (!layers[layer]) layers[layer] = [];
+                layers[layer].push(state);
+
+                for (const t of state.transitions) {
+                    if (!visited.has(t.target.id)) {
+                        visited.add(t.target.id);
+                        queue.push({ state: t.target, layer: layer + 1 });
+                    }
+                }
+            }
+
+            const layerWidth = 120;
+            const layerHeight = 80;
+            const topMargin = 60; // Space for self-loops and labels
+            const bottomMargin = 60;
+
+            // First pass: Calculate relative Y positions centered around 0
+            let minY = Infinity;
+            let maxY = -Infinity;
+
+            layers.forEach((layerStates, layerIdx) => {
+                const layerHeightTotal = (layerStates.length - 1) * layerHeight;
+                const startY = -layerHeightTotal / 2;
+
+                layerStates.forEach((state, idx) => {
+                    const y = startY + idx * layerHeight;
+                    positions.set(state.id, {
+                        x: 80 + layerIdx * layerWidth,
+                        y: y
+                    });
+
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                });
+            });
+
+            // If empty or single state
+            if (minY === Infinity) { minY = 0; maxY = 0; }
+
+            // Calculate total height needed
+            const contentHeight = maxY - minY;
+            const totalHeight = Math.max(250, contentHeight + topMargin + bottomMargin);
+
+            // Second pass: Shift Y positions to fit in totalHeight
+            // Center the content vertically
+            const centerY = totalHeight / 2;
+            const shiftY = centerY - (minY + contentHeight / 2);
+
+            positions.forEach(pos => {
+                pos.y += shiftY;
+                // Ensure integer positions for crisper rendering
+                pos.y = Math.round(pos.y);
+            });
+
+            return {
+                positions,
+                width: 80 + layers.length * layerWidth + 40,
+                height: totalHeight
+            };
+        }
+
+        // Render SVG
+        function renderSVG(nfa, states) {
+            const { positions, width, height } = layoutStates(states, nfa);
+            const nodeRadius = 25;
+
+            // Get CSS variable values
+            const style = getComputedStyle(document.documentElement);
+            const stateFill = style.getPropertyValue('--state-fill').trim();
+            const stateStroke = style.getPropertyValue('--state-stroke').trim();
+
+            let svg = `<svg id="automaton-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">`;
+
+            // Defs for arrowheads
+            svg += `
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="${stateStroke}"/>
+          </marker>
+          <marker id="arrowhead-epsilon" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="${stateStroke}"/>
+          </marker>
+        </defs>
+      `;
+
+            // Draw transitions
+            const drawnEdges = new Map();
+
+            for (const state of states) {
+                const pos1 = positions.get(state.id);
+
+                for (const t of state.transitions) {
+                    const pos2 = positions.get(t.target.id);
+                    if (!pos2) continue;
+
+                    const edgeKey = `${state.id}-${t.target.id}`;
+                    const edgeCount = drawnEdges.get(edgeKey) || 0;
+                    drawnEdges.set(edgeKey, edgeCount + 1);
+
+                    const isEpsilon = t.symbol === 'ε';
+                    const dashArray = isEpsilon ? 'stroke-dasharray="4,3"' : '';
+
+                    if (state.id === t.target.id) {
+                        // Self-loop
+                        const loopRadius = 20;
+                        svg += `<path d="M ${pos1.x} ${pos1.y - nodeRadius}
+                           C ${pos1.x - loopRadius} ${pos1.y - nodeRadius - 40},
+                             ${pos1.x + loopRadius} ${pos1.y - nodeRadius - 40},
+                             ${pos1.x} ${pos1.y - nodeRadius}"
+                          fill="none" stroke="${stateStroke}" stroke-width="1.5" ${dashArray}
+                          marker-end="url(#arrowhead${isEpsilon ? '-epsilon' : ''})"/>`;
+                        svg += `<text x="${pos1.x}" y="${pos1.y - nodeRadius - 30}"
+                          text-anchor="middle" font-family="'EB Garamond', serif"
+                          font-size="14" font-style="italic" fill="${stateStroke}">${t.symbol}</text>`;
+                    } else {
+                        const dx = pos2.x - pos1.x;
+                        const dy = pos2.y - pos1.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const ndx = dx / dist;
+                        const ndy = dy / dist;
+
+                        // Check for bidirectional edge
+                        const hasBidir = states.some(s =>
+                            s.id === t.target.id &&
+                            s.transitions.some(tr => tr.target.id === state.id)
+                        );
+
+                        let curve = 0;
+                        if (hasBidir) curve = 25;
+                        if (edgeCount > 0) curve = 15 * (edgeCount + 1);
+
+                        const midX = (pos1.x + pos2.x) / 2;
+                        const midY = (pos1.y + pos2.y) / 2;
+                        const perpX = -ndy * curve;
+                        const perpY = ndx * curve;
+
+                        const startX = pos1.x + ndx * nodeRadius;
+                        const startY = pos1.y + ndy * nodeRadius;
+                        const endX = pos2.x - ndx * (nodeRadius + 5);
+                        const endY = pos2.y - ndy * (nodeRadius + 5);
+
+                        if (curve === 0) {
+                            svg += `<line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}"
+                            stroke="${stateStroke}" stroke-width="1.5" ${dashArray}
+                            marker-end="url(#arrowhead${isEpsilon ? '-epsilon' : ''})"/>`;
+                        } else {
+                            svg += `<path d="M ${startX} ${startY} Q ${midX + perpX} ${midY + perpY} ${endX} ${endY}"
+                            fill="none" stroke="${stateStroke}" stroke-width="1.5" ${dashArray}
+                            marker-end="url(#arrowhead${isEpsilon ? '-epsilon' : ''})"/>`;
+                        }
+
+                        // Label
+                        const labelX = midX + perpX * 0.6;
+                        const labelY = midY + perpY * 0.6 - 5;
+                        svg += `<text x="${labelX}" y="${labelY}"
+                          text-anchor="middle" font-family="'EB Garamond', serif"
+                          font-size="14" font-style="italic" fill="${stateStroke}">${t.symbol}</text>`;
+                    }
+                }
+            }
+
+            // Draw states
+            for (const state of states) {
+                const pos = positions.get(state.id);
+
+                // State circle
+                svg += `<circle cx="${pos.x}" cy="${pos.y}" r="${nodeRadius}"
+                        fill="${stateFill}" stroke="${stateStroke}" stroke-width="1.5"/>`;
+
+                // Accept state (double circle)
+                if (state.isAccept) {
+                    svg += `<circle cx="${pos.x}" cy="${pos.y}" r="${nodeRadius - 5}"
+                          fill="none" stroke="${stateStroke}" stroke-width="1.5"/>`;
+                }
+
+                // State label
+                svg += `<text x="${pos.x}" y="${pos.y + 5}" text-anchor="middle"
+                      font-family="'EB Garamond', serif" font-size="14"
+                      fill="${stateStroke}">q<tspan baseline-shift="sub" font-size="10">${state.id}</tspan></text>`;
+
+                // Start arrow
+                if (state === nfa.start) {
+                    svg += `<line x1="${pos.x - nodeRadius - 30}" y1="${pos.y}"
+                        x2="${pos.x - nodeRadius - 5}" y2="${pos.y}"
+                        stroke="${stateStroke}" stroke-width="1.5" marker-end="url(#arrowhead)"/>`;
+                    svg += `<text x="${pos.x - nodeRadius - 35}" y="${pos.y - 8}"
+                        text-anchor="end" font-family="'EB Garamond', serif"
+                        font-size="12" font-style="italic" fill="${stateStroke}">start</text>`;
+                }
+            }
+
+            svg += '</svg>';
+            return svg;
+        }
+
+        function buildAutomaton() {
+            const input = document.getElementById('regex-input').value.trim();
+            const container = document.getElementById('diagram-container');
+            const legend = document.getElementById('legend');
+
+            try {
+                stateCounter = 0;
+                const tokens = tokenize(input);
+                const parser = new Parser(tokens);
+                const nfa = parser.parse();
+                const states = collectStates(nfa);
+
+                const svg = renderSVG(nfa, states);
+                container.innerHTML = svg;
+                legend.style.display = 'flex';
+            } catch (e) {
+                container.innerHTML = `<p class="error-msg">Error: ${e.message}</p>`;
+                legend.style.display = 'none';
+            }
+        }
+
+        function setExample(regex) {
+            document.getElementById('regex-input').value = regex;
+            buildAutomaton();
+        }
+
+        // Scroll to section (for TOC navigation)
+        function scrollToSection(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Build initial example
+        document.addEventListener('DOMContentLoaded', buildAutomaton);
+
+        // Allow Enter key to trigger build
+        document.getElementById('regex-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') buildAutomaton();
+        });
+    </script>
+</body>
+
+</html>
