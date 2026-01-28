@@ -452,6 +452,51 @@
             justify-content: center;
         }
 
+        /* Radio Widget */
+        #radio-window {
+            top: 450px;
+            left: 30px;
+            width: 280px;
+        }
+
+        .radio-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .station-select {
+            width: 100%;
+            padding: 8px;
+            font-family: 'Nunito', sans-serif;
+            background: var(--bg-secondary);
+            border: 2px solid var(--pixel-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .station-select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px var(--accent-1);
+        }
+
+        audio {
+            width: 100%;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .radio-status {
+            font-family: 'VT323', monospace;
+            color: var(--accent-2);
+            font-size: 1.1rem;
+            text-align: center;
+            min-height: 1.2em;
+        }
+
         .lap-times {
             max-height: 100px;
             overflow-y: auto;
@@ -588,18 +633,75 @@
             }
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-primary);
-        }
-
         ::-webkit-scrollbar-thumb {
             background: var(--accent-3);
             border-radius: 4px;
+        }
+
+        /* Start Menu */
+        .start-menu {
+            position: fixed;
+            bottom: 60px;
+            left: 10px;
+            width: 200px;
+            background: var(--bg-secondary);
+            border: 3px solid var(--pixel-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 2000;
+            animation: slideUp 0.2s ease-out;
+        }
+
+        .start-menu.show {
+            display: flex;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .menu-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.1s;
+        }
+
+        .menu-item:hover {
+            background: var(--accent-3);
+            transform: translateX(4px);
+        }
+
+        .menu-item i {
+            width: 20px;
+            text-align: center;
+            color: var(--accent-2);
+        }
+
+        .menu-divider {
+            height: 2px;
+            background: var(--pixel-border);
+            margin: 4px 0;
+            opacity: 0.2;
         }
     </style>
 </head>
@@ -763,9 +865,54 @@
         </div>
     </div>
 
+    <!-- Radio Window -->
+    <div class="window" id="radio-window" data-name="Radio">
+        <div class="window-header">
+            <div class="window-buttons">
+                <div class="window-btn btn-close" onclick="closeWindow('radio-window')"></div>
+                <div class="window-btn btn-minimize" onclick="minimizeWindow('radio-window')"></div>
+                <div class="window-btn btn-maximize"></div>
+            </div>
+            <span class="window-title">📻 Radio</span>
+        </div>
+        <div class="window-content">
+            <div class="radio-controls">
+                <div class="radio-status" id="radio-status">Select a Station...</div>
+                <select class="station-select" id="station-select" onchange="changeStation(this.value)">
+                    <option value="">-- Select Station --</option>
+                    <option value="https://ice1.somafm.com/groovesalad-128-mp3">Groove Salad</option>
+                    <option value="https://ice1.somafm.com/dronezone-128-mp3">Drone Zone</option>
+                    <option value="https://ice1.somafm.com/secretagent-128-mp3">Secret Agent</option>
+                    <option value="https://ice1.somafm.com/deepspaceone-128-mp3">Deep Space One</option>
+                    <option value="https://ice1.somafm.com/synphaera-128-mp3">Synphaera</option>
+                    <option value="https://ice1.somafm.com/defcon-128-mp3">DEF CON Radio</option>
+                    <option value="https://ice1.somafm.com/vaporwaves-128-mp3">Vaporwaves</option>
+                </select>
+                <audio id="radio-player" controls preload="none">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div class="start-menu" id="start-menu">
+        <div class="menu-item" onclick="showAllWindows(); toggleStartMenu()">
+            <i class="fas fa-layer-group"></i> Show All
+        </div>
+        <div class="menu-item" onclick="minimizeAllWindows(); toggleStartMenu()">
+            <i class="fas fa-compress-alt"></i> Minimize All
+        </div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="resetDesktop()">
+            <i class="fas fa-trash-alt"></i> Reset Desktop
+        </div>
+    </div>
+
     <!-- Taskbar -->
     <div class="taskbar">
-        <button class="start-button" onclick="showAllWindows()">
+        <button class="start-button" onclick="toggleStartMenu()">
             <i class="fas fa-star"></i> Cozy
         </button>
         <div class="taskbar-items" id="taskbar-items"></div>
@@ -1137,7 +1284,147 @@
             updateStopwatchDisplay();
         }
 
-        // Initialize
+        // Persistence
+        function saveDesktopState() {
+            const state = {
+                windows: {},
+                scratchpad: document.getElementById('scratchpad').value
+            };
+
+            document.querySelectorAll('.window').forEach(win => {
+                state.windows[win.id] = {
+                    left: win.style.left,
+                    top: win.style.top,
+                    hidden: win.classList.contains('hidden'),
+                    zIndex: win.style.zIndex
+                };
+            });
+
+            localStorage.setItem('cozy_desktop_state', JSON.stringify(state));
+        }
+
+        function loadDesktopState() {
+            const saved = localStorage.getItem('cozy_desktop_state');
+            if (saved) {
+                const state = JSON.parse(saved);
+
+                // Restore text
+                if (state.scratchpad) {
+                    document.getElementById('scratchpad').value = state.scratchpad;
+                }
+
+                // Restore windows
+                if (state.windows) {
+                    Object.keys(state.windows).forEach(id => {
+                        const win = document.getElementById(id);
+                        const winState = state.windows[id];
+                        if (win && winState) {
+                            if (winState.left) win.style.left = winState.left;
+                            if (winState.top) win.style.top = winState.top;
+
+                            // Restore visibility
+                            if (winState.hidden) {
+                                win.classList.add('hidden');
+                            } else {
+                                win.classList.remove('hidden');
+                            }
+
+                            // Restore z-index
+                            if (winState.zIndex) {
+                                win.style.zIndex = winState.zIndex;
+                                // Keep track of highest Z to avoid overlaps
+                                highestZ = Math.max(highestZ, parseInt(winState.zIndex) || 10);
+                            }
+                        }
+                    });
+                }
+            }
+            updateTaskbar();
+        }
+
+        // Add auto-save listeners
+        document.getElementById('scratchpad').addEventListener('input', saveDesktopState);
+
+        // Wrap existing functions to trigger save
+        const originalClose = closeWindow;
+        closeWindow = function (id) {
+            originalClose(id);
+            saveDesktopState();
+        };
+
+        const originalMinimize = minimizeWindow;
+        minimizeWindow = function (id) {
+            originalMinimize(id);
+            saveDesktopState();
+        };
+
+        const originalShow = showWindow;
+        showWindow = function (id) {
+            originalShow(id);
+            saveDesktopState();
+        };
+
+        const originalShowAll = showAllWindows;
+        showAllWindows = function () {
+            originalShowAll();
+            saveDesktopState();
+        };
+
+        const originalStopDrag = stopDrag;
+        stopDrag = function () {
+            originalStopDrag();
+            saveDesktopState();
+        };
+
+        // Radio
+        function changeStation(url) {
+            const player = document.getElementById('radio-player');
+            const status = document.getElementById('radio-status');
+            const select = document.getElementById('station-select');
+
+            if (url) {
+                player.src = url;
+                player.play().catch(e => console.log('Auto-play prevented:', e));
+                status.textContent = 'Streaming: ' + select.options[select.selectedIndex].text;
+            } else {
+                player.pause();
+                player.src = '';
+                status.textContent = 'Select a Station...';
+            }
+        }
+
+        // Start Menu
+        function toggleStartMenu() {
+            const menu = document.getElementById('start-menu');
+            menu.classList.toggle('show');
+        }
+
+        function minimizeAllWindows() {
+            document.querySelectorAll('.window').forEach(win => {
+                win.classList.add('hidden');
+            });
+            saveDesktopState();
+            updateTaskbar();
+        }
+
+        function resetDesktop() {
+            if (confirm('Are you sure you want to reset your desktop layout and notes?')) {
+                localStorage.removeItem('cozy_desktop_state');
+                location.reload();
+            }
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('start-menu');
+            const btn = document.querySelector('.start-button');
+            if (!menu.contains(e.target) && !btn.contains(e.target) && menu.classList.contains('show')) {
+                menu.classList.remove('show');
+            }
+        });
+
+        // Initialize with saved state
+        loadDesktopState();
         updateTaskbar();
     </script>
 </body>
