@@ -506,6 +506,74 @@
             color: var(--text-secondary);
         }
 
+        /* Calculator Widget */
+        #calculator-window {
+            top: 250px;
+            right: 320px;
+            width: 240px;
+        }
+
+        .calc-display {
+            width: 100%;
+            height: 40px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--pixel-border);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-family: 'VT323', monospace;
+            font-size: 1.5rem;
+            text-align: right;
+            padding: 4px 8px;
+            color: var(--text-primary);
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .calc-btn {
+            aspect-ratio: 1;
+            border: 2px solid var(--pixel-border);
+            border-radius: 6px;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .calc-btn:hover {
+            transform: translateY(-2px);
+            background: var(--accent-3);
+        }
+
+        .calc-btn:active {
+            transform: translateY(0);
+        }
+
+        .calc-btn.op {
+            background: var(--accent-1);
+        }
+
+        .calc-btn.equals {
+            background: var(--accent-4);
+            color: white;
+        }
+
+        .calc-btn.clear {
+            background: var(--accent-2);
+            color: var(--text-primary);
+            grid-column: span 4;
+            height: 36px;
+        }
+
         .lap-time {
             display: flex;
             justify-content: space-between;
@@ -862,6 +930,44 @@
                     </button>
                 </div>
                 <div class="lap-times" id="lap-times"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calculator Window -->
+    <div class="window" id="calculator-window" data-name="Calculator">
+        <div class="window-header">
+            <div class="window-buttons">
+                <div class="window-btn btn-close" onclick="closeWindow('calculator-window')"></div>
+                <div class="window-btn btn-minimize" onclick="minimizeWindow('calculator-window')"></div>
+                <div class="window-btn btn-maximize"></div>
+            </div>
+            <span class="window-title">🧮 Calculator</span>
+        </div>
+        <div class="window-content">
+            <input type="text" class="calc-display" id="calc-display" readonly value="0">
+            <div class="calc-grid">
+                <button class="calc-btn clear" onclick="clearCalc()">C</button>
+
+                <button class="calc-btn" onclick="appendNum('7')">7</button>
+                <button class="calc-btn" onclick="appendNum('8')">8</button>
+                <button class="calc-btn" onclick="appendNum('9')">9</button>
+                <button class="calc-btn op" onclick="chooseOp('/')">/</button>
+
+                <button class="calc-btn" onclick="appendNum('4')">4</button>
+                <button class="calc-btn" onclick="appendNum('5')">5</button>
+                <button class="calc-btn" onclick="appendNum('6')">6</button>
+                <button class="calc-btn op" onclick="chooseOp('*')">×</button>
+
+                <button class="calc-btn" onclick="appendNum('1')">1</button>
+                <button class="calc-btn" onclick="appendNum('2')">2</button>
+                <button class="calc-btn" onclick="appendNum('3')">3</button>
+                <button class="calc-btn op" onclick="chooseOp('-')">-</button>
+
+                <button class="calc-btn" onclick="appendNum('0')">0</button>
+                <button class="calc-btn" onclick="appendNum('.')">.</button>
+                <button class="calc-btn equals" onclick="compute()">=</button>
+                <button class="calc-btn op" onclick="chooseOp('+')">+</button>
             </div>
         </div>
     </div>
@@ -1392,6 +1498,80 @@
                 player.src = '';
                 status.textContent = 'Select a Station...';
             }
+        }
+
+        // Calculator
+        let calcState = {
+            current: '0',
+            previous: '',
+            operation: undefined,
+            shouldReset: false
+        };
+
+        function updateCalcDisplay() {
+            document.getElementById('calc-display').value = calcState.current;
+        }
+
+        function appendNum(num) {
+            if (calcState.shouldReset) {
+                calcState.current = '';
+                calcState.shouldReset = false;
+            }
+            if (num === '.' && calcState.current.includes('.')) return;
+            if (calcState.current === '0' && num !== '.') {
+                calcState.current = num;
+            } else {
+                calcState.current = calcState.current.toString() + num;
+            }
+            updateCalcDisplay();
+            saveDesktopState(); // Save state (if we saved calc content, which we're not explicitly doing but saves 'typing' feels)
+        }
+
+        function chooseOp(op) {
+            if (calcState.current === '') return;
+            if (calcState.previous !== '') {
+                compute();
+            }
+            calcState.operation = op;
+            calcState.previous = calcState.current;
+            calcState.current = '';
+            calcState.shouldReset = false;
+        }
+
+        function compute() {
+            let computation;
+            const prev = parseFloat(calcState.previous);
+            const current = parseFloat(calcState.current);
+            if (isNaN(prev) || isNaN(current)) return;
+            switch (calcState.operation) {
+                case '+':
+                    computation = prev + current;
+                    break;
+                case '-':
+                    computation = prev - current;
+                    break;
+                case '*':
+                    computation = prev * current;
+                    break;
+                case '/':
+                    computation = prev / current;
+                    break;
+                default:
+                    return;
+            }
+            calcState.current = computation;
+            calcState.operation = undefined;
+            calcState.previous = '';
+            calcState.shouldReset = true;
+            updateCalcDisplay();
+        }
+
+        function clearCalc() {
+            calcState.current = '0';
+            calcState.previous = '';
+            calcState.operation = undefined;
+            calcState.shouldReset = false;
+            updateCalcDisplay();
         }
 
         // Start Menu
