@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lessons Learned - IDNE 702</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #2563eb;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --success: #dcfce7;
+            --success-text: #166534;
+            --error: #fee2e2;
+            --error-text: #991b1b;
+            --warn: #fef9c3;
+            --warn-text: #854d0e;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #60a5fa;
+            --input-bg: #1a1a1e;
+            --success: #064e3b;
+            --success-text: #dcfce7;
+            --error: #7f1d1d;
+            --error-text: #fee2e2;
+            --warn: #713f12;
+            --warn-text: #fef9c3;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding-bottom: 4rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            border-bottom: 1px dotted var(--text-muted);
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        h1 em {
+            color: var(--accent);
+            font-style: italic;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        section {
+            margin-bottom: 3rem;
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.75rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            font-family: 'Space Mono', monospace;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        @media (max-width: 800px) {
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .retro-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .retro-header {
+            font-size: 0.9rem;
+            font-weight: 700;
+            padding: 0.5rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .col-good .retro-header {
+            background: var(--success);
+            color: var(--success-text);
+        }
+
+        .col-bad .retro-header {
+            background: var(--error);
+            color: var(--error-text);
+        }
+
+        .col-confusing .retro-header {
+            background: var(--warn);
+            color: var(--warn-text);
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        @media print {
+
+            .back-link,
+            .actions,
+            .subtitle {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            section {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="IDNE702_SP2026.html" class="back-link" aria-label="Return to course timeline">← Back to Timeline</a>
+
+        <header>
+            <h1>Project Retrospective &<br><em>Lessons Learned</em></h1>
+            <p class="subtitle">A facilitation guide for conducting team retrospectives after key milestones to improve
+                process and design outcomes.</p>
+        </header>
+
+        <form id="retroForm">
+            <section>
+                <h2>01. Session Context</h2>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="milestone">Milestone / Focus</label>
+                        <input type="text" id="milestone" name="milestone"
+                            placeholder="e.g., Week 3 Benchmarking Review">
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" id="date" name="date">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="attendees">Attendees</label>
+                    <input type="text" id="attendees" name="attendees" placeholder="List team members present...">
+                </div>
+            </section>
+
+            <section>
+                <h2>02. The "Retro" Board</h2>
+                <div class="grid-3">
+                    <div class="retro-column col-good">
+                        <div class="retro-header">What Worked? (Keep)</div>
+                        <textarea id="good" name="good" rows="8"
+                            placeholder="• Effective collaboration...&#10;• Good interview questions...&#10;• Clear roles..."></textarea>
+                    </div>
+                    <div class="retro-column col-bad">
+                        <div class="retro-header">What Didn't Work? (Fix)</div>
+                        <textarea id="bad" name="bad" rows="8"
+                            placeholder="• Missed deadines...&#10;• Confusing requirements...&#10;• Tech issues..."></textarea>
+                    </div>
+                    <div class="retro-column col-confusing">
+                        <div class="retro-header">Questions / Hazards</div>
+                        <textarea id="confusing" name="confusing" rows="8"
+                            placeholder="• Unclear on grading...&#10;• Need access to plans...&#10;• Need more time..."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>03. Action Plan</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 2rem;">
+                    Decide on specific behavioral changes for the next sprint.
+                </p>
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label for="start">Start Doing</label>
+                        <textarea id="start" name="start" rows="4" placeholder="New habits to adopt..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="stop">Stop Doing</label>
+                        <textarea id="stop" name="stop" rows="4" placeholder="Bad habits to drop..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="continue">Continue Doing</label>
+                        <textarea id="continue" name="continue" rows="4"
+                            placeholder="Core strengths to maintain..."></textarea>
+                    </div>
+                </div>
+            </section>
+        </form>
+
+        <div class="actions">
+            <button class="btn-primary" onclick="window.print()" aria-label="Print retrospective or save as PDF">Print /
+                Save PDF</button>
+            <button class="btn-secondary" onclick="exportMarkdown()"
+                aria-label="Export retrospective as Markdown file">Export as Markdown</button>
+            <button class="btn-secondary" onclick="clearForm()" aria-label="Clear all form data"
+                style="color: var(--accent); border-color: var(--accent);">Clear Form</button>
+        </div>
+
+        <footer>
+            <p>IDNE 702 · Spring 2026 · Built Environment Resources</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Local Storage Persistence
+        const form = document.getElementById('retroForm');
+
+        function saveToStorage() {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            localStorage.setItem('idne702_lessons_learned', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('idne702_lessons_learned');
+            if (saved) {
+                const data = JSON.parse(saved);
+                Object.keys(data).forEach(key => {
+                    const el = form.elements[key];
+                    if (el) {
+                        el.value = data[key];
+                    }
+                });
+            } else {
+                // Set default date to today
+                document.getElementById('date').valueAsDate = new Date();
+            }
+        }
+
+        form.addEventListener('input', saveToStorage);
+        document.addEventListener('DOMContentLoaded', loadFromStorage);
+
+        function clearForm() {
+            if (confirm('Are you sure you want to clear all data? This will erase your current notes.')) {
+                form.reset();
+                localStorage.removeItem('idne702_lessons_learned');
+                document.getElementById('date').valueAsDate = new Date();
+            }
+        }
+
+        function exportMarkdown() {
+            const data = new FormData(form);
+            const milestone = data.get('milestone') || 'Retrospective';
+            const date = data.get('date') || new Date().toISOString().split('T')[0];
+
+            let md = `# Project Retrospective: ${milestone}\n`;
+            md += `**Date:** ${date}\n`;
+            md += `**Attendees:** ${data.get('attendees') || 'Not listed'}\n\n`;
+
+            md += `## 01. The Retro Board\n`;
+            md += `### What Worked? (Keep)\n${data.get('good') || '(None)'}\n\n`;
+            md += `### What Didn't Work? (Fix)\n${data.get('bad') || '(None)'}\n\n`;
+            md += `### Questions / Hazards\n${data.get('confusing') || '(None)'}\n\n`;
+
+            md += `## 02. Action Plan\n`;
+            md += `**Start Doing:**\n${data.get('start') || '(Nothing)'}\n\n`;
+            md += `**Stop Doing:**\n${data.get('stop') || '(Nothing)'}\n\n`;
+            md += `**Continue Doing:**\n${data.get('continue') || '(Nothing)'}\n`;
+
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `retrospective_${date}_${milestone.replace(/\s+/g, '_').toLowerCase()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>
