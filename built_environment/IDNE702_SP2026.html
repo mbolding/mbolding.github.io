@@ -176,6 +176,12 @@
             background: var(--bg-secondary);
             border-radius: 8px;
             border: 1px solid var(--border);
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(8px);
+            opacity: 0.95;
         }
 
         @media (max-width: 768px) {
@@ -567,12 +573,81 @@
             font-size: 0.7rem;
             color: var(--text-muted);
         }
+
+        /* Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.2s;
+            z-index: 900;
+            box-shadow: var(--shadow);
+            border: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-3px);
+        }
+
+        /* Print Styles */
+        @media print {
+
+            .neural-bg,
+            .progress-bar,
+            .view-toggle,
+            .back-to-top,
+            .expand-icon {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .week-content {
+                display: block !important;
+                border-top: 1px solid #ccc;
+            }
+
+            .week-card {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+
+            .phase-overview {
+                display: none;
+            }
+        }
     </style>
 </head>
 
 <body>
     <div class="progress-bar" id="progressBar"></div>
     <div class="neural-bg" id="neuralBg"></div>
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
 
     <div class="container">
         <div style="margin-bottom: 2rem;">
@@ -595,6 +670,9 @@
                 Focus</button>
             <button class="toggle-btn" data-view="milestones" aria-label="Show milestone weeks only">Milestones
                 Only</button>
+            <div style="width: 1px; background: var(--border); margin: 0 0.5rem;" aria-hidden="true"></div>
+            <button class="toggle-btn" id="expandAllBtn" aria-label="Expand all week details">Expand All</button>
+            <button class="toggle-btn" id="collapseAllBtn" aria-label="Collapse all week details">Collapse All</button>
         </div>
 
         <div class="phase-overview">
@@ -1407,7 +1485,7 @@
         });
 
         // View toggle functionality
-        const toggleBtns = document.querySelectorAll('.toggle-btn');
+        const toggleBtns = document.querySelectorAll('.toggle-btn[data-view]');
         const weekCards = document.querySelectorAll('.week-card');
 
         toggleBtns.forEach(btn => {
@@ -1439,16 +1517,79 @@
             });
         });
 
+        // Expand/Collapse All functionality
+        document.getElementById('expandAllBtn').addEventListener('click', () => {
+            document.querySelectorAll('.week-card').forEach(card => {
+                if (!card.classList.contains('hidden')) {
+                    card.classList.add('expanded');
+                }
+            });
+        });
+
+        document.getElementById('collapseAllBtn').addEventListener('click', () => {
+            document.querySelectorAll('.week-card').forEach(card => {
+                card.classList.remove('expanded');
+            });
+        });
+
         // Phase pill click to scroll
         document.querySelectorAll('.phase-pill').forEach(pill => {
-            pill.addEventListener('click', () => {
+            const activatePill = () => {
                 const phase = pill.dataset.phase;
                 const firstCard = document.querySelector(`.week-card.phase-${phase}`);
                 if (firstCard) {
-                    firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const yOffset = -180; // Offset for sticky header
+                    const y = firstCard.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
                     firstCard.classList.add('expanded');
                 }
+            };
+
+            pill.addEventListener('click', activatePill);
+            pill.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    activatePill();
+                }
             });
+        });
+
+        // Add keyboard accessibility to week headers
+        document.querySelectorAll('.week-header').forEach(header => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            header.setAttribute('aria-expanded', 'false');
+
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const card = header.parentElement;
+                    card.classList.toggle('expanded');
+                    const isExpanded = card.classList.contains('expanded');
+                    header.setAttribute('aria-expanded', isExpanded);
+                }
+            });
+
+            // Update click listener to toggle aria-expanded
+            header.addEventListener('click', () => {
+                const isExpanded = header.parentElement.classList.contains('expanded');
+                header.setAttribute('aria-expanded', isExpanded); // The class toggle happens in the other listener, logic overlap here is fine but order matters if we were stricter.
+            });
+        });
+
+        // Back to Top functionality
+        const backToTopBtn = document.getElementById('backToTop');
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
 
         // Progress bar on scroll
