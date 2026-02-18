@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preliminary Budget Framework - IDNE 702</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #10b981;
+            /* Emerald for money */
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #34d399;
+            --input-bg: #1a1a1e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding-bottom: 4rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            border-bottom: 1px dotted var(--text-muted);
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        h1 em {
+            color: var(--accent);
+            font-style: italic;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        section {
+            margin-bottom: 3rem;
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.75rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        h2 .section-total {
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            color: var(--accent);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+            align-items: end;
+            margin-bottom: 1rem;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .helper-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            text-transform: none;
+            display: block;
+            margin-top: 0.2rem;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            font-family: 'Space Mono', monospace;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"] {
+            text-align: right;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Summary Card */
+        .summary-card {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 2rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #a1a1aa;
+        }
+
+        .summary-row.total {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #404040;
+            color: var(--bg-primary);
+            /* In dark mode this needs contrast */
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .dark .summary-row.total {
+            color: white;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        @media print {
+
+            .back-link,
+            .actions,
+            .subtitle {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            section,
+            .summary-card {
+                box-shadow: none;
+                border: 1px solid #000;
+                break-inside: avoid;
+                background: white;
+                color: black;
+            }
+
+            .summary-card {
+                background: #f5f5f5;
+                color: black;
+                border: 1px solid #000;
+            }
+
+            .summary-row,
+            .summary-row.total {
+                color: black;
+            }
+
+            input,
+            select {
+                border: none;
+                background: transparent;
+                padding: 0;
+                text-align: left;
+            }
+
+            input[type="number"] {
+                text-align: right;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="IDNE702_SP2026.html" class="back-link" aria-label="Return to course timeline">← Back to Timeline</a>
+
+        <header>
+            <h1>Preliminary<br><em>Budget Framework</em></h1>
+            <p class="subtitle">A simplified estimation tool for IDNE 702. Costs are estimates only and intended for
+                academic scenario planning.</p>
+        </header>
+
+        <form id="budgetForm">
+            <!-- 1. Scope -->
+            <section>
+                <h2>01. Scope & Hard Costs <span id="hardTotal" class="section-total">$0</span></h2>
+                <div class="row">
+                    <div>
+                        <label>Total Square Footage (GSF)</label>
+                        <span class="helper-text">Estimated area of your facility</span>
+                    </div>
+                    <input type="number" id="sqft" name="sqft" value="0" min="0" oninput="calculate()">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Construction Cost per SQFT</label>
+                        <span class="helper-text">New Lab: $400-600 | Renovation: $250-400 | Office: $150-250</span>
+                    </div>
+                    <input type="number" id="costPerSqft" name="costPerSqft" value="0" min="0" oninput="calculate()">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Specialty Shielding / M.E.P. Upgrades</label>
+                        <span class="helper-text">Add lump sum for RF shielding (MRI) or vibration isolation</span>
+                    </div>
+                    <input type="number" id="specialtyConstruction" name="specialtyConstruction" value="0" min="0"
+                        oninput="calculate()">
+                </div>
+            </section>
+
+            <!-- 2. Equipment -->
+            <section>
+                <h2>02. Major Equipment <span id="equipTotal" class="section-total">$0</span></h2>
+                <div class="row">
+                    <div>
+                        <label>Imaging / scanners (MRI, CT, PET)</label>
+                        <span class="helper-text">Human 3T: ~$1.5-3M | 7T: ~$7-9M | Animal: ~$500k-1M</span>
+                    </div>
+                    <input type="number" class="equip-cost" name="equip1" value="0" min="0" oninput="calculate()">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Microscopy & Optics</label>
+                        <span class="helper-text">2-Photon: ~$300-500k | Confocal: ~$200-400k</span>
+                    </div>
+                    <input type="number" class="equip-cost" name="equip2" value="0" min="0" oninput="calculate()">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Behavioral Rigs / Ephys</label>
+                        <span class="helper-text">Setup per rig: ~$20-50k</span>
+                    </div>
+                    <input type="number" class="equip-cost" name="equip3" value="0" min="0" oninput="calculate()">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Computing / Server Infrastructure</label>
+                        <span class="helper-text">Data storage cluster, analysis workstations</span>
+                    </div>
+                    <input type="number" class="equip-cost" name="equip4" value="0" min="0" oninput="calculate()">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Other Furniture & Equipment (FF&E)</label>
+                        <span class="helper-text">Benches, desks, chairs (~10% of construction cost)</span>
+                    </div>
+                    <input type="number" class="equip-cost" name="equip5" value="0" min="0" oninput="calculate()">
+                </div>
+            </section>
+
+            <!-- 3. Soft Costs -->
+            <section>
+                <h2>03. Soft Costs <span id="softTotal" class="section-total">$0</span></h2>
+                <div class="row">
+                    <div>
+                        <label>Design & Engineering Fees</label>
+                        <span class="helper-text">Typically 10-15% of hard construction costs</span>
+                    </div>
+                    <input type="number" id="designFees" name="designFees" value="0" disabled
+                        style="background: var(--bg-primary); opacity: 0.7;">
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Contingency Fund</label>
+                        <select id="contingencyRate" name="contingencyRate" oninput="calculate()"
+                            style="margin-bottom: 0.5rem; width: 100%;">
+                            <option value="0.10">10% (Confident)</option>
+                            <option value="0.20" selected>20% (Standard)</option>
+                            <option value="0.30">30% (High Risk/Unknowns)</option>
+                        </select>
+                        <input type="number" id="contingencyCost" name="contingencyCost" value="0" disabled
+                            style="background: var(--bg-primary); opacity: 0.7;">
+                    </div>
+                </div>
+            </section>
+        </form>
+
+        <div class="summary-card">
+            <div class="summary-row">
+                <span>Hard Construction</span>
+                <span id="summaryHard">$0</span>
+            </div>
+            <div class="summary-row">
+                <span>Equipment & FF&E</span>
+                <span id="summaryEquip">$0</span>
+            </div>
+            <div class="summary-row">
+                <span>Soft Costs & Contingency</span>
+                <span id="summarySoft">$0</span>
+            </div>
+            <div class="summary-row total">
+                <span>Total Project Budget</span>
+                <span id="grandTotal">$0</span>
+            </div>
+            <div style="font-size: 0.7rem; color: #71717a; margin-top: 1rem; text-align: center;">
+                *This figure represents Day 1 Capital Expenditure only.
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn-primary" onclick="window.print()">Print / Save PDF</button>
+            <button class="btn-secondary" onclick="exportMarkdown()">Export as Markdown</button>
+            <button class="btn-secondary" onclick="clearForm()"
+                style="color: var(--accent); border-color: var(--accent);">Reset</button>
+        </div>
+
+        <footer>
+            <p>IDNE 702 · Spring 2026 · Built Environment Resources</p>
+        </footer>
+    </div>
+
+    <script>
+        // Formatter
+        const formatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0
+        });
+
+        function calculate() {
+            // 1. Hard Costs
+            const sqft = parseFloat(document.getElementById('sqft').value) || 0;
+            const costPer = parseFloat(document.getElementById('costPerSqft').value) || 0;
+            const specialty = parseFloat(document.getElementById('specialtyConstruction').value) || 0;
+
+            const baseConstruction = sqft * costPer;
+            const totalHard = baseConstruction + specialty;
+
+            document.getElementById('hardTotal').innerText = formatter.format(totalHard);
+
+            // 2. Equipment
+            let totalEquip = 0;
+            document.querySelectorAll('.equip-cost').forEach(input => {
+                totalEquip += parseFloat(input.value) || 0;
+            });
+            document.getElementById('equipTotal').innerText = formatter.format(totalEquip);
+
+            // 3. Soft Costs (Design Fee = 12% of Hard, Contingency = % of Hard)
+            // Simplified: Soft costs usually apply to construction, not equipment, though FF&E is tricky.
+            // We'll calculate Design on construction only.
+            // Contingency on Construction + Design.
+
+            const designFeeRate = 0.12;
+            const designFees = totalHard * designFeeRate;
+            document.getElementById('designFees').value = Math.round(designFees);
+
+            const contingencyRate = parseFloat(document.getElementById('contingencyRate').value) || 0;
+            // Contingency usually covers unknown construction issues, so applied to Hard costs often.
+            const contingency = totalHard * contingencyRate;
+            document.getElementById('contingencyCost').value = Math.round(contingency);
+
+            const totalSoft = designFees + contingency;
+            document.getElementById('softTotal').innerText = formatter.format(totalSoft);
+
+            // Summary
+            document.getElementById('summaryHard').innerText = formatter.format(totalHard);
+            document.getElementById('summaryEquip').innerText = formatter.format(totalEquip);
+            document.getElementById('summarySoft').innerText = formatter.format(totalSoft);
+            document.getElementById('grandTotal').innerText = formatter.format(totalHard + totalEquip + totalSoft);
+        }
+
+        // Local Storage
+        const form = document.getElementById('budgetForm');
+
+        function saveToStorage() {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            localStorage.setItem('idne702_budget', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('idne702_budget');
+            if (saved) {
+                const data = JSON.parse(saved);
+                Object.keys(data).forEach(key => {
+                    const el = form.elements[key];
+                    if (el && !el.disabled) { // Don't overwrite calculated fields directly, let calc handle it
+                        el.value = data[key];
+                    }
+                });
+                calculate(); // Run calc to populate totals and disabled fields
+            }
+        }
+
+        form.addEventListener('input', () => {
+            calculate();
+            saveToStorage();
+        });
+
+        document.addEventListener('DOMContentLoaded', loadFromStorage);
+
+        function clearForm() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                form.reset();
+                calculate();
+                localStorage.removeItem('idne702_budget');
+            }
+        }
+
+        function exportMarkdown() {
+            const grandTotal = document.getElementById('grandTotal').innerText;
+            let md = `# Preliminary Budget Framework\n\n`;
+            md += `**Total Estimated Project Cost:** ${grandTotal}\n\n`;
+
+            md += `## Hard Costs\n`;
+            md += `- Base Construction: ${document.getElementById('sqft').value} sqft @ $${document.getElementById('costPerSqft').value}/sf\n`;
+            md += `- Specialty Construction: $${document.getElementById('specialtyConstruction').value}\n`;
+            md += `**Subtotal: ${document.getElementById('hardTotal').innerText}**\n\n`;
+
+            md += `## Equipment Costs\n`;
+            md += `**Subtotal: ${document.getElementById('equipTotal').innerText}**\n\n`;
+
+            md += `## Soft Costs\n`;
+            md += `- Design Fees (~12%): $${document.getElementById('designFees').value}\n`;
+            md += `- Contingency: $${document.getElementById('contingencyCost').value}\n`;
+            md += `**Subtotal: ${document.getElementById('softTotal').innerText}**\n`;
+
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `budget_framework.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+</body>
+
+</html>

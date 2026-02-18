@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tensions & Tradeoffs - IDNE 702</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #d946ef;
+            /* Fuchsia for tension */
+            --collab: #2dd4bf;
+            /* Teal */
+            --focus: #8b5cf6;
+            /* Violet */
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #f0abfc;
+            --collab: #5eead4;
+            --focus: #a78bfa;
+            --input-bg: #1a1a1e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding-bottom: 4rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            border-bottom: 1px dotted var(--text-muted);
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        h1 em {
+            color: var(--accent);
+            font-style: italic;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        section {
+            margin-bottom: 3rem;
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--border);
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+
+        section:nth-child(odd)::before {
+            background: var(--collab);
+        }
+
+        section:nth-child(even)::before {
+            background: var(--focus);
+        }
+
+        h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.75rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 1rem;
+            font-family: 'Space Mono', monospace;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Spectrum Slider */
+        .spectrum-container {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+        }
+
+        .spectrum-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .spectrum-range {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--collab), var(--focus));
+            outline: none;
+            opacity: 0.8;
+            transition: opacity .2s;
+        }
+
+        .spectrum-range:hover {
+            opacity: 1;
+        }
+
+        .spectrum-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            cursor: pointer;
+            border: 2px solid var(--bg-card);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .spectrum-range::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            cursor: pointer;
+            border: 2px solid var(--bg-card);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .spectrum-value {
+            text-align: center;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            min-height: 1.5em;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        @media print {
+
+            .back-link,
+            .actions,
+            .subtitle {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            section {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="IDNE702_SP2026.html" class="back-link" aria-label="Return to course timeline">← Back to Timeline</a>
+
+        <header>
+            <h1>Tensions &<br><em>Tradeoffs</em></h1>
+            <p class="subtitle">Neuroscience-informed design often involves balancing competing needs. Use this
+                worksheet to analyze the "Open Collaboration vs. Quiet Focus" tension for your specific stakeholders.
+            </p>
+        </header>
+
+        <form id="tensionsForm">
+            <section>
+                <h2>01. The Biological Conflict</h2>
+                <div class="form-group">
+                    <label>Arousal vs. Performance (Yerkes-Dodson)</label>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        <strong>High collaboration</strong> increases social arousal and dopamine, good for
+                        brainstorming and divergent thinking.
+                        <br><strong>Deep focus</strong> requires lower arousal and norepinephrine stability, good for
+                        execution and convergent thinking.
+                    </p>
+                    <label for="conflict_analysis">How does this conflict manifest for your users?</label>
+                    <textarea id="conflict_analysis" name="conflict_analysis" rows="4"
+                        placeholder="e.g., Postdocs need quiet for data analysis, but also need to overhear lab chatter to prevent errors..."></textarea>
+                </div>
+            </section>
+
+            <section>
+                <h2>02. The Spectrum</h2>
+                <div class="form-group">
+                    <label>Where should your facility land?</label>
+                    <div class="spectrum-container">
+                        <div class="spectrum-labels">
+                            <span style="color: var(--collab)">Max Collaboration</span>
+                            <span style="color: var(--focus)">Max Focus</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="50" class="spectrum-range" id="balance_slider"
+                            name="balance_slider">
+                        <div class="spectrum-value" id="slider_value_text">Balanced Approach (50/50)</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="balance_rationale">Justify your position based on stakeholder data:</label>
+                    <textarea id="balance_rationale" name="balance_rationale" rows="3"
+                        placeholder="Why did you choose this point on the spectrum?"></textarea>
+                </div>
+            </section>
+
+            <section>
+                <h2>03. Spatial Solutions</h2>
+                <div class="form-group">
+                    <label for="solution_zoning">Zoning Strategy</label>
+                    <textarea id="solution_zoning" name="solution_zoning" rows="3"
+                        placeholder="How will you separate these behaviors spatially? (e.g., Vertical separation, acoustic buffering, time-based usage)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="solution_cues">Sensory Cues</label>
+                    <textarea id="solution_cues" name="solution_cues" rows="3"
+                        placeholder="What visual/auditory cues will signal 'Collaboration Mode' vs 'Focus Mode'?"></textarea>
+                </div>
+            </section>
+        </form>
+
+        <div class="actions">
+            <button class="btn-primary" onclick="window.print()">Print / Save PDF</button>
+            <button class="btn-secondary" onclick="exportMarkdown()">Export as Markdown</button>
+            <button class="btn-secondary" onclick="clearForm()"
+                style="color: var(--accent); border-color: var(--accent);">Clear Form</button>
+        </div>
+
+        <footer>
+            <p>IDNE 702 · Spring 2026 · Built Environment Resources</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+
+        // Slider Logic
+        const slider = document.getElementById('balance_slider');
+        const output = document.getElementById('slider_value_text');
+
+        slider.oninput = function () {
+            let val = parseInt(this.value);
+            let text = "";
+            if (val < 20) text = "Highly Collaborative / 'Buzz' Environment";
+            else if (val < 40) text = "Collaboration-Leaning with Focus Nooks";
+            else if (val > 80) text = "Library-Like Silence / Deep Work Priority";
+            else if (val > 60) text = "Focus-Leaning with Breakout Areas";
+            else text = "Balanced / Hybrid Approach";
+
+            output.innerHTML = `${text} (${100 - val}% Collab / ${val}% Focus)`;
+        }
+
+        // Local Storage Persistence
+        const form = document.getElementById('tensionsForm');
+
+        function saveToStorage() {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            localStorage.setItem('idne702_tensions', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('idne702_tensions');
+            if (saved) {
+                const data = JSON.parse(saved);
+                Object.keys(data).forEach(key => {
+                    const el = form.elements[key];
+                    if (el) {
+                        el.value = data[key];
+                        // Trigger slider update if it's the slider
+                        if (key === 'balance_slider') slider.oninput();
+                    }
+                });
+            }
+        }
+
+        form.addEventListener('input', saveToStorage);
+        document.addEventListener('DOMContentLoaded', loadFromStorage);
+
+        function clearForm() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                form.reset();
+                slider.value = 50;
+                slider.oninput();
+                localStorage.removeItem('idne702_tensions');
+            }
+        }
+
+        function exportMarkdown() {
+            const data = new FormData(form);
+            let md = `# Tensions & Tradeoffs: Collaboration vs Focus\n\n`;
+
+            md += `## 01. The Biological Conflict\n`;
+            md += `${data.get('conflict_analysis') || '(No analysis provided)'}\n\n`;
+
+            md += `## 02. The Spectrum\n`;
+            md += `**Position:** ${document.getElementById('slider_value_text').textContent}\n`;
+            md += `**Rationale:** ${data.get('balance_rationale') || '(No rationale provided)'}\n\n`;
+
+            md += `## 03. Spatial Solutions\n`;
+            md += `**Zoning Strategy:**\n${data.get('solution_zoning') || '(None)'}\n\n`;
+            md += `**Sensory Cues:**\n${data.get('solution_cues') || '(None)'}\n`;
+
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tensions_tradeoffs_worksheet.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>

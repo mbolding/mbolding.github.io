@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POR Rubric - IDNE 702</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #ef4444;
+            /* Red for critique/grading */
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #f87171;
+            --input-bg: #1a1a1e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding-bottom: 4rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            border-bottom: 1px dotted var(--text-muted);
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        h1 em {
+            color: var(--accent);
+            font-style: italic;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        /* Rubric Table */
+        .rubric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .rubric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .rubric-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.4rem;
+            color: var(--text-primary);
+        }
+
+        .rubric-score {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+
+        .criteria-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .score-selector {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .score-btn {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .score-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .score-btn.active {
+            background: var(--accent);
+            color: white;
+            /* Contrast for light accent */
+            border-color: var(--accent);
+        }
+
+        .dark .score-btn.active {
+            color: #000;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            font-family: 'Space Mono', monospace;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Total Score */
+        .total-score-card {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .total-label {
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+        }
+
+        .total-value {
+            font-family: 'Instrument Serif', serif;
+            font-size: 4rem;
+            line-height: 1;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        @media print {
+
+            .back-link,
+            .actions,
+            .subtitle {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .rubric-card,
+            .total-score-card {
+                box-shadow: none;
+                border: 1px solid #000;
+                break-inside: avoid;
+                color: black;
+                background: white;
+            }
+
+            .total-score-card {
+                background: #eee;
+                color: black;
+            }
+
+            .score-btn {
+                border: 1px solid #ccc;
+            }
+
+            .score-btn.active {
+                background: #ccc;
+                color: black;
+                font-weight: bold;
+                border: 2px solid black;
+            }
+
+            textarea {
+                border: 1px solid #ccc;
+                resize: none;
+                overflow: visible;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="IDNE702_SP2026.html" class="back-link" aria-label="Return to course timeline">← Back to Timeline</a>
+
+        <header>
+            <h1>Program of Requirements<br><em>Review Rubric</em></h1>
+            <p class="subtitle">Use this tool to evaluate the thoroughness and scientific validity of the Facility
+                Program of Requirements (POR).</p>
+        </header>
+
+        <form id="rubricForm">
+            <!-- Criterion 1 -->
+            <div class="rubric-card">
+                <div class="rubric-header">
+                    <span class="rubric-title">01. Completeness</span>
+                    <span class="rubric-score" id="score_1_display">0/5</span>
+                </div>
+                <p class="criteria-desc">Does the POR include all necessary room types, clear square footage estimates,
+                    and adjacency requirements? are all stakeholder groups represented?</p>
+                <div class="score-selector" data-criterion="1">
+                    <div class="score-btn" data-value="1">1<br>Incomplete</div>
+                    <div class="score-btn" data-value="2">2<br>Major Gaps</div>
+                    <div class="score-btn" data-value="3">3<br>Adequate</div>
+                    <div class="score-btn" data-value="4">4<br>Strong</div>
+                    <div class="score-btn" data-value="5">5<br>Exemplary</div>
+                </div>
+                <input type="hidden" name="score_1" id="score_1" value="0">
+                <textarea name="feedback_1" rows="2" placeholder="Specific feedback on completeness..."></textarea>
+            </div>
+
+            <!-- Criterion 2 -->
+            <div class="rubric-card">
+                <div class="rubric-header">
+                    <span class="rubric-title">02. Neuroscience Integration</span>
+                    <span class="rubric-score" id="score_2_display">0/5</span>
+                </div>
+                <p class="criteria-desc">Are design requirements explicitly linked to neuroscientific principles (e.g.,
+                    circadian lighting, wayfinding cues, acoustic stress reduction)?</p>
+                <div class="score-selector" data-criterion="2">
+                    <div class="score-btn" data-value="1">1<br>Missing</div>
+                    <div class="score-btn" data-value="2">2<br>Weak Link</div>
+                    <div class="score-btn" data-value="3">3<br>Present</div>
+                    <div class="score-btn" data-value="4">4<br>Well Cited</div>
+                    <div class="score-btn" data-value="5">5<br>Integrated</div>
+                </div>
+                <input type="hidden" name="score_2" id="score_2" value="0">
+                <textarea name="feedback_2" rows="2" placeholder="Feedback on scientific justification..."></textarea>
+            </div>
+
+            <!-- Criterion 3 -->
+            <div class="rubric-card">
+                <div class="rubric-header">
+                    <span class="rubric-title">03. Technical Feasibility</span>
+                    <span class="rubric-score" id="score_3_display">0/5</span>
+                </div>
+                <p class="criteria-desc">Are the technical requirements (power, shielding, vibration, airflow) realistic
+                    for the equipment specified?</p>
+                <div class="score-selector" data-criterion="3">
+                    <div class="score-btn" data-value="1">1<br>Unrealistic</div>
+                    <div class="score-btn" data-value="2">2<br>Concerns</div>
+                    <div class="score-btn" data-value="3">3<br>Plausible</div>
+                    <div class="score-btn" data-value="4">4<br>Solid</div>
+                    <div class="score-btn" data-value="5">5<br>Professional</div>
+                </div>
+                <input type="hidden" name="score_3" id="score_3" value="0">
+                <textarea name="feedback_3" rows="2" placeholder="Feedback on technical feasibility..."></textarea>
+            </div>
+
+            <!-- Criterion 4 -->
+            <div class="rubric-card">
+                <div class="rubric-header">
+                    <span class="rubric-title">04. Clarity & Organization</span>
+                    <span class="rubric-score" id="score_4_display">0/5</span>
+                </div>
+                <p class="criteria-desc">Is the document easy to read? Is data presented in clear tables/charts?</p>
+                <div class="score-selector" data-criterion="4">
+                    <div class="score-btn" data-value="1">1<br>Confusing</div>
+                    <div class="score-btn" data-value="2">2<br>Disorganized</div>
+                    <div class="score-btn" data-value="3">3<br>Clean</div>
+                    <div class="score-btn" data-value="4">4<br>Very Clear</div>
+                    <div class="score-btn" data-value="5">5<br>Beautiful</div>
+                </div>
+                <input type="hidden" name="score_4" id="score_4" value="0">
+                <textarea name="feedback_4" rows="2" placeholder="Feedback on presentation..."></textarea>
+            </div>
+
+            <div class="form-group" style="margin-top: 2rem;">
+                <label style="display:block; margin-bottom:0.5rem; font-weight:700;">General Comments</label>
+                <textarea name="general_feedback" rows="4" placeholder="Overall summary of the review..."></textarea>
+            </div>
+
+        </form>
+
+        <div class="total-score-card">
+            <div class="total-label">Total Score</div>
+            <div class="total-value" id="totalScore">0 / 20</div>
+        </div>
+
+        <div class="actions">
+            <button class="btn-primary" onclick="window.print()">Print Evaluation</button>
+            <button class="btn-secondary" onclick="exportMarkdown()">Export Report</button>
+            <button class="btn-secondary" onclick="clearForm()"
+                style="color: var(--accent); border-color: var(--accent);">Reset</button>
+        </div>
+
+        <footer>
+            <p>IDNE 702 · Spring 2026 · Built Environment Resources</p>
+        </footer>
+    </div>
+
+    <script>
+        // Scoring Logic
+        document.querySelectorAll('.score-selector').forEach(selector => {
+            selector.addEventListener('click', (e) => {
+                const btn = e.target.closest('.score-btn');
+                if (!btn) return;
+
+                // Remove active class from siblings
+                selector.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
+
+                // Add active to clicked
+                btn.classList.add('active');
+
+                // Update hidden input
+                const val = btn.dataset.value;
+                const id = selector.dataset.criterion;
+                document.getElementById(`score_${id}`).value = val;
+
+                // Update display
+                document.getElementById(`score_${id}_display`).innerText = `${val}/5`;
+
+                calculateTotal();
+                saveToStorage();
+            });
+        });
+
+        function calculateTotal() {
+            let total = 0;
+            for (let i = 1; i <= 4; i++) {
+                total += parseInt(document.getElementById(`score_${i}`).value) || 0;
+            }
+            document.getElementById('totalScore').innerText = `${total} / 20`;
+        }
+
+        // Local Storage
+        const form = document.getElementById('rubricForm');
+
+        function saveToStorage() {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            localStorage.setItem('idne702_rubric', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('idne702_rubric');
+            if (saved) {
+                const data = JSON.parse(saved);
+
+                // Restore text areas
+                Object.keys(data).forEach(key => {
+                    if (key.startsWith('feedback') || key === 'general_feedback') {
+                        const el = form.elements[key];
+                        if (el) el.value = data[key];
+                    }
+                });
+
+                // Restore scores
+                for (let i = 1; i <= 4; i++) {
+                    const val = data[`score_${i}`];
+                    if (val) {
+                        const selector = document.querySelector(`.score-selector[data-criterion="${i}"]`);
+                        const btn = selector.querySelector(`.score-btn[data-value="${val}"]`);
+                        if (btn) btn.click(); // Simulate click to trigger UI update
+                    }
+                }
+            }
+        }
+
+        form.addEventListener('input', saveToStorage);
+        document.addEventListener('DOMContentLoaded', loadFromStorage);
+
+        function clearForm() {
+            if (confirm('Create new evaluation? This will clear current data.')) {
+                form.reset();
+                document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
+
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById(`score_${i}`).value = 0;
+                    document.getElementById(`score_${i}_display`).innerText = "0/5";
+                }
+
+                calculateTotal();
+                localStorage.removeItem('idne702_rubric');
+            }
+        }
+
+        function exportMarkdown() {
+            const data = new FormData(form);
+            let md = `# POR Evaluation Report\n\n`;
+            md += `**Total Score:** ${document.getElementById('totalScore').innerText}\n\n`;
+
+            const criteria = [
+                "Completeness", "Neuroscience Integration", "Technical Feasibility", "Clarity & Organization"
+            ];
+
+            for (let i = 1; i <= 4; i++) {
+                md += `### ${i}. ${criteria[i - 1]}\n`;
+                md += `**Score:** ${data.get(`score_${i}`)}/5\n`;
+                md += `**Feedback:** ${data.get(`feedback_${i}`) || '(No comments)'}\n\n`;
+            }
+
+            md += `### General Comments\n`;
+            md += `${data.get('general_feedback') || '(None)'}\n`;
+
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `por_review.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+</body>
+
+</html>
