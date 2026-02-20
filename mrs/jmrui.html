@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jMRUI (AMARES) - MRS Data Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #007bff;
+            --grid-gap: 24px;
+            --card-bg: #f5f5f5;
+            --card-hover: #e0e0e0;
+            --code-font: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--secondary-text);
+            text-decoration: none;
+            font-size: 0.9rem;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .back-link:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .key-concept {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .key-concept h3 {
+            margin-top: 0;
+            color: var(--text-color);
+            font-size: 1.1rem;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        strong {
+            color: var(--text-color);
+        }
+
+        code {
+            font-family: var(--code-font);
+            background: #eee;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+
+        .workflow-step {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .step-number {
+            background: var(--text-color);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex-grow: 1;
+        }
+
+        .step-content h3 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-content p {
+            margin-top: 0;
+            color: var(--secondary-text);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to MRS Resources</a>
+
+        <header>
+            <h1>jMRUI & AMARES</h1>
+            <p class="subtitle">Time-domain fitting software widely used for multi-nuclear (X-nuclei) and short-TE
+                proton Magnetic Resonance Spectroscopy.</p>
+        </header>
+
+        <section>
+            <h2>What is jMRUI?</h2>
+            <div class="key-concept">
+                <p style="margin-top: 0;"><strong>jMRUI (Java-based Magnetic Resonance User Interface)</strong> is a
+                    comprehensive software package designed specifically for processing, analyzing, and quantifying MRS
+                    data. While many tools operate in the frequency domain (fitting peaks in a spectrum), jMRUI
+                    fundamentally operates in the <strong>time domain</strong> (fitting the Free Induction Decay, or
+                    FID, directly).</p>
+            </div>
+
+            <p><strong>Why Time Domain?</strong> Fitting the FID directly is often preferred for X-nuclei (like
+                <sup>31</sup>P or <sup>23</sup>Na) or very short echo-time <sup>1</sup>H scans. These scans often
+                feature very fast signal decay (short T2*), leading to broad lineshapes and overlapping peaks in the
+                frequency domain. Furthermore, early time points in the FID often contain artifacts from the RF pulse or
+                hardware. Time domain fitting allows for easily truncating these first few points without causing
+                complex baseline distortions in the frequency domain.
+            </p>
+        </section>
+
+        <section>
+            <h2>The AMARES Algorithm</h2>
+            <p><strong>AMARES</strong> (Advanced Method for Accurate, Robust and Efficient Spectral fitting) is the
+                flagship fitting algorithm within jMRUI. It models the FID as a sum of exponentially damped sinusoids.
+            </p>
+
+            <div class="key-concept" style="border-left-color: #28a745;">
+                <h3>The Power of Prior Knowledge</h3>
+                <p>AMARES excels because it allows the user to inject robust <strong>Prior Knowledge</strong> into the
+                    fitting process. If you know certain physical properties of the molecules you are scanning, you can
+                    constrain the algorithm to produce biologically realistic results, preventing it from fitting noise.
+                </p>
+                <ul style="margin-bottom:0;">
+                    <li><strong>Frequency Constraints:</strong> Peak A is always X Hz away from Peak B (e.g., the
+                        J-coupling multiplets of ATP).</li>
+                    <li><strong>Amplitude Constraints:</strong> Peak A should always be twice as large as Peak B (e.g.,
+                        the alpha vs. gamma peaks of ATP).</li>
+                    <li><strong>Linewidth (Damping) Constraints:</strong> Setting lower and upper bounds on peak widths
+                        based on expected T2* relaxation times.</li>
+                    <li><strong>Phase Constraints:</strong> Forcing specific peaks to have the same phase.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <h2>Typical jMRUI Workflow</h2>
+
+            <div class="workflow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Data Import & Pre-processing</h3>
+                    <p>Load the raw spectrometer data. Perform necessary preprocessing steps such as zero-filling,
+                        apodization (e.g., applying a Gaussian or Exponential filter to improve SNR at the expense of
+                        resolution), and phase correction (zero-order and first-order) so the real part of the spectrum
+                        is purely absorptive.</p>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>HLSVD Water/Lipid Removal (If needed)</h3>
+                    <p>For <sup>1</sup>H MRS, the water signal is often massive and overlaps with metabolites.
+                        <strong>HLSVD</strong> (Hankel Lanczos Singular Value Decomposition) is a non-interactive
+                        time-domain method used specifically to model and subtract dominant nuisance signals (like water
+                        or fat) before the main fitting occurs.
+                    </p>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Peak Picking</h3>
+                    <p>Switch to the frequency-domain view to visually identify the peaks of interest. Manually select
+                        starting estimates for the frequency and amplitude of the metabolites you wish to quantify.</p>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Configure Prior Knowledge in AMARES</h3>
+                    <p>Open the AMARES dialogue. Group peaks together (e.g., grouping the three ATP resonances) and
+                        apply constraints. Define the lineshape model (usually Lorentzian, Gaussian, or Voigt) based on
+                        the expected decay profile.</p>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h3>Fit and Evaluate</h3>
+                    <p>Run the AMARES algorithm. Evaluate the results by examining the <strong>Residual</strong>
+                        (Original Signal minus the Fitted Model). A good fit will leave a residual that looks like pure
+                        random noise without any structured peaks remaining.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Specific Workflow: <sup>13</sup>C Analysis</h2>
+            <p>Analyzing Carbon-13 data in jMRUI presents unique challenges, primarily due to low natural abundance and
+                complex J-coupling patterns. Here is a specialized approach for <sup>13</sup>C:</p>
+
+            <div class="workflow-step">
+                <div class="step-number" style="background-color: #28a745;">A</div>
+                <div class="step-content">
+                    <h3>Handle Proton Decoupling (If Applicable)</h3>
+                    <p>If the acquisition used <sup>1</sup>H decoupling (e.g., WALTZ-16), ensure that the Nuclear
+                        Overhauser Effect (NOE) enhancement is accounted for during final quantification, as it
+                        artificially increases the <sup>13</sup>C signal.</p>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <div class="step-number" style="background-color: #28a745;">B</div>
+                <div class="step-content">
+                    <h3>Dealing with Broad Lines & Low SNR</h3>
+                    <p><sup>13</sup>C spectra, especially muscle/liver glycogen, often suffer from low Signal-to-Noise
+                        Ratio (SNR) and broad lineshapes. Strong apodization (e.g., a heavy exponential filter) is often
+                        required during pre-processing to stabilize the AMARES fit, even though it sacrifices spectral
+                        resolution.</p>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <div class="step-number" style="background-color: #28a745;">C</div>
+                <div class="step-content">
+                    <h3>Extensive Prior Knowledge for Multiplets</h3>
+                    <p>Because <sup>13</sup>C nuclei couple with adjacent protons (if undecoupled) or other
+                        <sup>13</sup>C nuclei (in enriched studies), peaks often split into multiplets (doublets,
+                        triplets). In AMARES, you must build robust prior knowledge:</p>
+                    <ul style="margin-top: 0.5rem;">
+                        <li><strong>Constrain Multiplet Splitting:</strong> Lock the frequency difference between
+                            multiplet peaks to the known J-coupling constant (e.g., ~125 Hz for one-bond C-H coupling).
+                        </li>
+                        <li><strong>Constrain Amplitudes:</strong> Enforce theoretical amplitude ratios (e.g., 1:1 for a
+                            doublet, 1:2:1 for a triplet).</li>
+                        <li><strong>Shared Damping:</strong> Force all peaks within a multiplet to have the exact same
+                            linewidth (damping constraint) to prevent AMARES from flattening one peak to fit baseline
+                            rolling.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</body>
+
+</html>
