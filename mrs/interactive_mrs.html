@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive MRS Data Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --surface-color: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --info-bg: #e0f2fe;
+            --info-text: #0369a1;
+            --accent-primary: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --font-main: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .navbar {
+            background-color: var(--surface-color);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .navbar a:hover {
+            color: var(--accent-primary);
+        }
+
+        .navbar h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #1e293b 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--surface-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .controls-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .controls-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .controls-header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .control-value {
+            font-family: var(--font-mono);
+            color: var(--accent-primary);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 8px 0;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--surface-color);
+            border: 2px solid var(--accent-primary);
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        input[type=range]:active::-webkit-slider-thumb {
+            transform: scale(0.95);
+        }
+
+        .btn {
+            appearance: none;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.9rem;
+            width: 100%;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Toggles */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Select Input */
+        select.form-select {
+            display: block;
+            width: 100%;
+            padding: 0.5rem;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+
+        /* Accordion Info Boxes */
+        .info-box {
+            background-color: var(--info-bg);
+            border-left: 3px solid var(--info-text);
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.8rem;
+            color: var(--info-text);
+            display: none;
+            /* Hidden by default */
+        }
+
+        .info-toggle {
+            font-size: 0.75rem;
+            color: var(--accent-primary);
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        .chart-title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        .math {
+            font-style: italic;
+            font-family: serif;
+        }
+
+        @media (max-width: 1100px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <h1>Interactive MRS Analysis</h1>
+        <a href="index.html">← Back to Resources</a>
+    </nav>
+
+    <div class="container">
+        <!-- Controls Panel -->
+        <aside class="panel">
+            <div class="controls-header">
+                <h2>Analysis Pipeline</h2>
+                <p>Adjust parameters to see their effect on the Free Induction Decay (FID) and the resulting Spectrum.
+                </p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Noise Level</span>
+                    <span class="control-value" id="val-noise">0.5</span>
+                </div>
+                <input type="range" id="noise" min="0" max="5" step="0.1" value="0.5">
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Simulates thermal noise
+                    from the coil.</p>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+            <div class="control-group">
+                <div class="toggle-container">
+                    <span style="font-size: 0.9rem; font-weight: 500;">Add Broad Baseline</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-baseline">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="info-toggle" onclick="toggleInfo('info-baseline')">What is this?</div>
+                <div id="info-baseline" class="info-box">
+                    Simulates signals from macro-molecules or lipids that decay very fast in the time domain (short T2*)
+                    and thus appear as very wide, rolling "humps" under the sharp metabolite peaks in the frequency
+                    spectrum.
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="toggle-container">
+                    <span style="font-size: 0.9rem; font-weight: 500;">Dominant Water Peak</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-water">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group" id="water-suppression-group"
+                style="display: none; margin-left: 1rem; border-left: 2px solid var(--accent-primary); padding-left: 1rem;">
+                <div class="toggle-container">
+                    <span style="font-size: 0.9rem; font-weight: 500; color: var(--accent-primary);">Apply Water
+                        Suppression Filter</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-water-suppression">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="info-toggle" onclick="toggleInfo('info-water')">Why do we need this?</div>
+                <div id="info-water" class="info-box">
+                    Because water concentration in tissue is roughly <strong>10,000 times higher</strong> than
+                    metabolites. Without suppressing or mathematically filtering the massive water peak, the tiny
+                    signals from NAA or Choline are completely dwarfed and cannot be analyzed properly. This filter
+                    subtracts a modeled water peak from the FID.
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Line Broadening (Hz)</span>
+                    <span class="control-value" id="val-lb">2.0</span>
+                </div>
+                <input type="range" id="lb" min="0" max="20" step="0.5" value="2.0">
+                <div class="info-toggle" onclick="toggleInfo('info-lb')">Why Apodization?</div>
+                <div id="info-lb" class="info-box">
+                    <strong>Apodization</strong> (multiplying the FID by a decaying exponential <span
+                        class="math">e<sup>-t·&pi;·LB</sup></span>) artificially increases T2* decay. This heavily
+                    suppresses the noisy tail of the FID, improving <strong>Signal-to-Noise Ratio (SNR)</strong> in the
+                    spectrum, but at the cost of making the spectral peaks lower and <strong>broader</strong>
+                    (decreasing spectral resolution).
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label style="display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.5rem;">Zero-Filling
+                    (Interpolation)</label>
+                <select id="zero-fill" class="form-select">
+                    <option value="1">1x (2048 pts)</option>
+                    <option value="2">2x (4096 pts)</option>
+                    <option value="4" selected>4x (8192 pts)</option>
+                    <option value="8">8x (16384 pts)</option>
+                </select>
+                <div class="info-toggle" onclick="toggleInfo('info-zf')">What does padding zeros do?</div>
+                <div id="info-zf" class="info-box">
+                    <strong>Zero-Filling</strong> entails padding the end of the time-domain FID with zeros. When we
+                    apply the <strong>FFT (Fast Fourier Transform)</strong> to this longer array, it effectively
+                    interpolates the data points in the frequency domain. It doesn't add new information to the spectrum
+                    or improve true resolution, but it makes the peaks look curvier and easier to fit.
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Zero-Order Phase (&phi;<sub>0</sub>)</span>
+                    <span class="control-value" id="val-p0">0&deg;</span>
+                </div>
+                <input type="range" id="p0" min="-180" max="180" step="1" value="0">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>First-Order Phase (&phi;<sub>1</sub>)</span>
+                    <span class="control-value" id="val-p1">0&deg;</span>
+                </div>
+                <input type="range" id="p1" min="-360" max="360" step="5" value="0">
+                <div class="info-toggle" onclick="toggleInfo('info-phase')">Why Phase Correction?</div>
+                <div id="info-phase" class="info-box">
+                    Due to hardware delays (acoustic delay) or starting phase offsets, the raw FFT outputs a mix of
+                    <strong>absorptive</strong> (positive hill) and <strong>dispersive</strong> (S-curve) lineshapes. We
+                    desire purely absorptive peaks to accurately calculate the area under the curve (Metabolite
+                    Concentration). <br><br><strong>(&phi;<sub>0</sub>)</strong> rotates phase uniformly across all
+                    frequencies.<br><strong>(&phi;<sub>1</sub>)</strong> rotates phase linearly with frequency to fix
+                    frequency-dependent delays.
+                </div>
+            </div>
+
+            <button class="btn" id="btn-simulate" style="margin-top: 1rem;">Generate New FID</button>
+        </aside>
+
+        <!-- Charts Panel -->
+        <main class="charts-container">
+            <div class="panel">
+                <div class="chart-wrapper">
+                    <div class="chart-title">Time Domain: Free Induction Decay (Real Part)</div>
+                    <canvas id="fidChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="chart-wrapper">
+                    <div class="chart-title">Frequency Domain: MRS Spectrum (Real Part)</div>
+                    <canvas id="spectrumChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- MRS Simulation & Processing Logic ---
+
+        let N = 2048;              // Base number of points
+        const SW = 2000;           // Spectral Width in Hz
+        const dt = 1.0 / SW;       // Dwell time
+        const larmorFreqRaw = 123.2; // roughly 123.2 MHz / Tesla at 3T (used to convert Hz to ppm)
+
+        // These will be dynamically resized based on zero filling
+        let rawFidRe = new Float64Array(N);
+        let rawFidIm = new Float64Array(N);
+        let noiseRe = new Float64Array(N);
+        let noiseIm = new Float64Array(N);
+        let waterFidRe = new Float64Array(N);
+        let waterFidIm = new Float64Array(N);
+
+        let fidChart, spectrumChart;
+
+        // Base peaks (Metabolites) [freq (Hz offset from carrier), Amplitude, T2* (s), Phase (rad)]
+        // At 3T, 1 ppm = ~123.2 Hz. Let's make NAA (2.0 ppm) our reference frequency 0 Hz.
+        // Water is at 4.7 ppm -> 2.7 ppm diff = 2.7 * 123.2 = ~332 Hz.
+        // Creatine is at 3.0 ppm -> 1.0 ppm diff = 1.0 * 123.2 = ~123 Hz.
+        // Choline is at 3.2 ppm -> 1.2 ppm diff = 1.2 * 123.2 = ~148 Hz.
+        // Myo-inositol is at 3.5 ppm -> 1.5 ppm diff = 1.5 * 123.2 = ~185 Hz.
+        const metabolites = [
+            { name: "Water", freq: 332.6, amp: 1500.0, t2star: 0.1, phase: 0, isWater: true },
+            { name: "Baseline", freq: 0, amp: 80.0, t2star: 0.002, phase: 0, isBaseline: true }, // Very short T2* = very broad line
+            { name: "NAA", freq: 0, amp: 10.0, t2star: 0.08, phase: 0 },
+            { name: "Creatine", freq: 123.2, amp: 6.0, t2star: 0.06, phase: 0 },
+            { name: "Choline", freq: 147.8, amp: 3.5, t2star: 0.06, phase: 0 },
+            { name: "Myo-inositol", freq: 184.8, amp: 2.0, t2star: 0.05, phase: 0 },
+            { name: "Glutamate", freq: 40.0, amp: 2.5, t2star: 0.04, phase: 0 } // simplified
+        ];
+
+        // Normal distribution for noise
+        function randn_bm() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        function generateRawFID() {
+            // Apply a random base phase offset to require the user to use phase correction
+            const basePhase = (Math.random() - 0.5) * Math.PI; // -90 to 90 degrees offset
+
+            const addWater = document.getElementById('toggle-water').checked;
+            const addBaseline = document.getElementById('toggle-baseline').checked;
+
+            for (let i = 0; i < N; i++) {
+                let t = i * dt;
+                rawFidRe[i] = 0;
+                rawFidIm[i] = 0;
+                waterFidRe[i] = 0;
+                waterFidIm[i] = 0;
+
+                for (let m of metabolites) {
+                    if (m.isWater && !addWater) continue;
+                    if (m.isBaseline && !addBaseline) continue;
+
+                    let envelope = m.amp * Math.exp(-t / m.t2star);
+                    // 2*pi*f*t + phase
+                    let arg = 2.0 * Math.PI * m.freq * t + m.phase + basePhase;
+
+                    let re = envelope * Math.cos(arg);
+                    let im = envelope * Math.sin(arg);
+
+                    rawFidRe[i] += re;
+                    rawFidIm[i] += im;
+
+                    // Specifically isolate water for suppression simulation
+                    if (m.isWater) {
+                        waterFidRe[i] = re;
+                        waterFidIm[i] = im;
+                    }
+                }
+
+                // Pre-generate noise for this acquisition
+                noiseRe[i] = randn_bm();
+                noiseIm[i] = randn_bm();
+            }
+        }
+
+        // Radix-2 recursive FFT (in-place)
+        // Since N is 2048, recursive is fast enough in modern JS engines.
+        function bitReverse(n, bits) {
+            let reversed = 0;
+            for (let i = 0; i < bits; i++) {
+                reversed = (reversed << 1) | (n & 1);
+                n >>= 1;
+            }
+            return reversed;
+        }
+
+        function fft(re, im) {
+            const n = re.length;
+            const bits = Math.log2(n);
+
+            // Bit-reverse copy
+            for (let i = 0; i < n; i++) {
+                const j = bitReverse(i, bits);
+                if (i < j) {
+                    let tempRe = re[i], tempIm = im[i];
+                    re[i] = re[j]; im[i] = im[j];
+                    re[j] = tempRe; im[j] = tempIm;
+                }
+            }
+
+            // Cooley-Tukey
+            for (let s = 1; s <= bits; s++) {
+                const m = 1 << s;
+                const halfM = m >> 1;
+                const wmRe = Math.cos(-2 * Math.PI / m);
+                const wmIm = Math.sin(-2 * Math.PI / m);
+
+                for (let k = 0; k < n; k += m) {
+                    let wRe = 1;
+                    let wIm = 0;
+                    for (let j = 0; j < halfM; j++) {
+                        const idx1 = k + j;
+                        const idx2 = k + j + halfM;
+
+                        const tRe = wRe * re[idx2] - wIm * im[idx2];
+                        const tIm = wRe * im[idx2] + wIm * re[idx2];
+
+                        re[idx2] = re[idx1] - tRe;
+                        im[idx2] = im[idx1] - tIm;
+                        re[idx1] += tRe;
+                        im[idx1] += tIm;
+
+                        // w = w * wm
+                        const nextWRe = wRe * wmRe - wIm * wmIm;
+                        const nextWIm = wRe * wmIm + wIm * wmRe;
+                        wRe = nextWRe;
+                        wIm = nextWIm;
+                    }
+                }
+            }
+        }
+
+        function processAndPlot() {
+            const noiseLevel = parseFloat(document.getElementById('noise').value);
+            const lb = parseFloat(document.getElementById('lb').value);
+            const p0_deg = parseFloat(document.getElementById('p0').value);
+            const p1_deg = parseFloat(document.getElementById('p1').value);
+            const zfFactor = parseInt(document.getElementById('zero-fill').value);
+            const suppressWater = document.getElementById('toggle-water-suppression').checked;
+            const hasWater = document.getElementById('toggle-water').checked;
+
+            // Total points after zero filling
+            const N_zf = N * zfFactor;
+
+            const p0 = p0_deg * Math.PI / 180.0;
+            const p1 = p1_deg * Math.PI / 180.0;
+
+            let procRe = new Float64Array(N_zf);
+            let procIm = new Float64Array(N_zf);
+
+            // 1. Add noise and Apply Apodization (Line Broadening)
+            let plotFidRe = [];
+            let timeAxis = [];
+
+            for (let i = 0; i < N; i++) {
+                let t = i * dt;
+
+                // Base Signal + Noise
+                let valRe = rawFidRe[i] + noiseRe[i] * noiseLevel;
+                let valIm = rawFidIm[i] + noiseIm[i] * noiseLevel;
+
+                // Subtract exact water peak if "filtered"
+                if (hasWater && suppressWater) {
+                    valRe -= waterFidRe[i];
+                    valIm -= waterFidIm[i];
+                }
+
+                // Apodization exp(-pi * LB * t)
+                let apod = Math.exp(-Math.PI * lb * t);
+                procRe[i] = valRe * apod;
+                procIm[i] = valIm * apod;
+
+                // Save for plotting (first 1024 points to see it clearly)
+                if (i < 1024) {
+                    plotFidRe.push(procRe[i]);
+                    timeAxis.push((t * 1000).toFixed(1)); // ms
+                }
+            }
+
+            // The rest of procRe / procIm up to N_zf is naturally 0.0 (Zero-filled)
+
+            // 2. Perform FFT on zero-filled array
+            fft(procRe, procIm);
+
+            // 3. Phase Correction & Shift
+            // The FFT of standard data produces frequencies [0, SW/2] then [-SW/2, 0].
+            // We want to fftshift and apply phase
+            let specRe = [];
+            let freqAxis = [];
+
+            for (let i = 0; i < N_zf; i++) {
+                // fftshift trick
+                let shiftIdx = (i + N_zf / 2) % N_zf;
+                let valRe = procRe[shiftIdx];
+                let valIm = procIm[shiftIdx];
+
+                // Frequency mapped from -SW/2 to SW/2
+                let freqHz = (i - N_zf / 2) * (SW / N_zf);
+                let ppm = 2.0 + (freqHz / larmorFreqRaw); // NAA (0Hz) is 2.0 ppm
+
+                // Phase rotation angle = p0 + p1 * ((i - N_zf/2) / N_zf)
+                let angle = p0 + p1 * ((i - N_zf / 2) / N_zf);
+
+                // Apply phase: (Re + i*Im) * exp(i * angle)
+                let corrRe = valRe * Math.cos(angle) - valIm * Math.sin(angle);
+
+                specRe.push(corrRe);
+                // In MR literature, the x-axis is inverted (water is on the left at 4.7, NAA on the right at 2.0)
+                // We'll pass the labels as 'ppm (Hz)'
+                freqAxis.push(`${ppm.toFixed(2)} ppm (${freqHz.toFixed(1)} Hz)`);
+            }
+
+            // 4. Update Charts
+            // To render chemical shift conventionally (ppm decreasing left to right),
+            // we should reverse the arrays before handing to Chart.js
+            specRe.reverse();
+            freqAxis.reverse();
+
+            updateCharts(timeAxis, plotFidRe, freqAxis, specRe);
+        }
+
+        // UI Helpers
+        function toggleInfo(id) {
+            const el = document.getElementById(id);
+            if (el.style.display === 'block') {
+                el.style.display = 'none';
+            } else {
+                el.style.display = 'block';
+            }
+        }
+
+        // --- UI & Charting ---
+
+        function initCharts() {
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = "#64748b";
+
+            const fidCtx = document.getElementById('fidChart').getContext('2d');
+            fidChart = new Chart(fidCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'FID (Real)',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (ms)' },
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 10 }
+                        },
+                        y: {
+                            title: { display: true, text: 'Amplitude' },
+                            grid: { color: '#e2e8f0' }
+                        }
+                    },
+                    animation: false
+                }
+            });
+
+            const specCtx = document.getElementById('spectrumChart').getContext('2d');
+            spectrumChart = new Chart(specCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Spectrum (Real)',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Chemical Shift (ppm) / Frequency (Hz)' },
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 12 },
+                            reverse: true // Ensures ppm decreases from left to right conventionally
+                        },
+                        y: {
+                            title: { display: true, text: 'Intensity' },
+                            grid: { color: '#e2e8f0' }
+                        }
+                    },
+                    animation: false
+                }
+            });
+        }
+
+        function updateCharts(timeAxis, fidData, freqAxis, specData) {
+            fidChart.data.labels = timeAxis;
+            fidChart.data.datasets[0].data = fidData;
+            fidChart.update();
+
+            spectrumChart.data.labels = freqAxis;
+            spectrumChart.data.datasets[0].data = specData;
+            // Adjust y-axis to look reasonable based on the peak (ignore edges to prevent noise spikes dominating)
+            // But for simplicity, let chart.js scale. Just set animation false.
+            spectrumChart.update();
+        }
+
+        // --- Event Listeners ---
+        function attachListeners() {
+            const inputs = ['noise', 'lb', 'p0', 'p1'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                const valEl = document.getElementById('val-' + id);
+                el.addEventListener('input', (e) => {
+                    let text = e.target.value;
+                    if (id === 'p0' || id === 'p1') text += '&deg;';
+                    valEl.innerHTML = text;
+                    processAndPlot();
+                });
+            });
+
+            document.getElementById('zero-fill').addEventListener('change', () => {
+                processAndPlot();
+            });
+
+            document.getElementById('toggle-baseline').addEventListener('change', () => {
+                generateRawFID();
+                processAndPlot();
+            });
+
+            document.getElementById('toggle-water').addEventListener('change', (e) => {
+                const suppressionGroup = document.getElementById('water-suppression-group');
+                if (e.target.checked) {
+                    suppressionGroup.style.display = 'block';
+                } else {
+                    suppressionGroup.style.display = 'none';
+                    document.getElementById('toggle-water-suppression').checked = false;
+                }
+                generateRawFID();
+                processAndPlot();
+            });
+
+            document.getElementById('toggle-water-suppression').addEventListener('change', () => {
+                processAndPlot();
+            });
+
+            document.getElementById('btn-simulate').addEventListener('click', () => {
+                generateRawFID();
+                processAndPlot();
+            });
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            initCharts();
+            attachListeners();
+            generateRawFID();
+            processAndPlot();
+        };
+
+    </script>
+</body>
+
+</html>
