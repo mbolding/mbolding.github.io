@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ernst Angle Calculator</title>
+
+    <!-- Swiss Design Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --card-bg: #f5f5f5;
+            --border-color: #e5e5e5;
+            --grid-gap: 24px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Header Styling */
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 12px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            margin: 0;
+        }
+
+        /* Input Section */
+        .input-section {
+            background-color: var(--card-bg);
+            padding: 40px;
+            margin-bottom: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            color: var(--secondary-text);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .unit {
+            font-size: 20px;
+            font-weight: 300;
+            position: absolute;
+            right: 16px;
+            pointer-events: none;
+            color: var(--secondary-text);
+        }
+
+        input[type="number"] {
+            width: 100%;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 32px;
+            font-weight: 400;
+            padding: 8px 60px 8px 16px;
+            border: none;
+            border-bottom: 2px solid var(--text-color);
+            background: transparent;
+            color: var(--text-color);
+            border-radius: 0;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input[type="number"]:focus {
+            border-bottom-color: var(--accent-color);
+        }
+
+        input[type="number"]::placeholder {
+            color: #cccccc;
+        }
+
+        /* Results Display */
+        .result-panel {
+            background: var(--text-color);
+            color: white;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .result-label {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            margin-bottom: 16px;
+        }
+
+        .result-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 72px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        
+        .result-unit {
+            font-size: 32px;
+            font-weight: 300;
+            color: #ccc;
+            margin-left: 8px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 60px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            font-size: 12px;
+            color: var(--secondary-text);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-color);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .result-value {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="../index.html" class="nav-link">← Back to Index</a>
+
+        <header>
+            <h1>Ernst Angle</h1>
+            <p class="subtitle">Calculate optimal flip angle for a given TR and T1.</p>
+        </header>
+
+        <section class="input-section">
+            <div class="input-group">
+                <label for="tr">Repetition Time (TR)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="tr" step="1" min="0" placeholder="0" oninput="calculateAngle()" autofocus>
+                    <span class="unit">ms</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="t1">Longitudinal Relaxation Time (T1)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="t1" step="1" min="0" placeholder="0" oninput="calculateAngle()">
+                    <span class="unit">ms</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="result-panel">
+            <div class="result-label">Ernst Angle</div>
+            <div>
+                <span class="result-value" id="angle">0.0</span><span class="result-unit">°</span>
+            </div>
+        </section>
+
+        <div class="footer">
+            Enter TR and T1 to calculate automatically. Both should be in the same units (e.g. ms).
+        </div>
+    </div>
+
+    <script>
+        function calculateAngle() {
+            const trInput = document.getElementById('tr').value;
+            const t1Input = document.getElementById('t1').value;
+            const tr = parseFloat(trInput);
+            const t1 = parseFloat(t1Input);
+            
+            const resultEl = document.getElementById('angle');
+
+            if (!isNaN(tr) && !isNaN(t1) && tr >= 0 && t1 > 0) {
+                // Ernst angle formula in radians
+                const angleRad = Math.acos(Math.exp(-tr / t1));
+                // Convert to degrees
+                const angleDeg = angleRad * 180 / Math.PI;
+                resultEl.textContent = angleDeg.toFixed(1);
+            } else {
+                resultEl.textContent = "0.0";
+            }
+        }
+    </script>
+</body>
+
+</html>
