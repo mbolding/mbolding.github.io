@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouldering</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --wall-color: #f4efeb;
+            --wall-texture: #e8dfd8;
+            --text-color: #333;
+            --primary-color: #d35400; /* Chalky orange */
+            --stamina-full: #2ecc71;
+            --stamina-low: #e74c3c;
+            --hold-color-1: #7f8c8d; /* Gray rock */
+            --hold-color-2: #bdc3c7; /* Light gray rock */
+            --hold-color-3: #95a5a6; /* Slate rock */
+            --climber-skin: #f1c40f;
+            --climber-clothes: #2980b9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--wall-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            background-image: radial-gradient(var(--wall-texture) 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            max-height: 1200px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background-color: var(--wall-color);
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.8);
+        }
+
+        .stamina-container {
+            width: 200px;
+            height: 20px;
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        #stamina-bar {
+            width: 100%;
+            height: 100%;
+            background-color: var(--stamina-full);
+            transition: width 0.1s linear, background-color 0.3s;
+        }
+        
+        .stamina-label {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: rgba(0,0,0,0.6);
+        }
+
+        #overlays {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(244, 239, 235, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none !important;
+        }
+
+        .title {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: var(--text-color);
+            text-align: center;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            color: #666;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            box-shadow: 0 4px 0px rgba(0,0,0,0.2);
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0px 0px rgba(0,0,0,0.2);
+        }
+        
+        .instructions {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #777;
+            text-align: center;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+        
+        #game-over-text {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div class="header">
+                <h1>Climb</h1>
+                <div class="stamina-container">
+                    <div id="stamina-bar"></div>
+                    <div class="stamina-label">STAMINA</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="overlays">
+            <div id="start-screen">
+                <div class="title">Bouldering</div>
+                <div class="subtitle">Reach the top hold. Manage your stamina.</div>
+                <button class="btn" id="start-btn">Start Climb</button>
+                <div class="instructions">
+                    Click on a limb to select it, then click on a hold to move.<br><br>
+                    Long reaches and poor positioning drain stamina faster.
+                </div>
+            </div>
+            <div id="game-over-screen" style="display: none; text-align: center;">
+                <div id="game-over-text">PUMPED OUT!</div>
+                <div class="subtitle" id="game-over-sub">You fell off the wall.</div>
+                <button class="btn" id="restart-btn">Try Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlays = document.getElementById('overlays');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const gameOverText = document.getElementById('game-over-text');
+        const gameOverSub = document.getElementById('game-over-sub');
+        const staminaBar = document.getElementById('stamina-bar');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Game State
+        let gameState = 'start'; // start, playing, gameover, win
+        let lastTime = 0;
+        
+        // Resize canvas
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- Math & Utils ---
+        function dist(x1, y1, x2, y2) {
+            return Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+        }
+
+        // --- Core Classes ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 50;
+                this.vy = (Math.random() - 0.5) * 50 - 20;
+                this.life = 1.0;
+                this.size = Math.random() * 3 + 1;
+            }
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt * 2;
+            }
+            draw(ctx) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.life * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Hold {
+            constructor(x, y, type, size) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 0: Start, 1: Normal, 2: Finish
+                this.size = size;
+                
+                // Colors for natural rock
+                const rockColors = ['#7f8c8d', '#95a5a6', '#5d6d7e', '#808b96', '#877c72'];
+                this.color = rockColors[Math.floor(Math.random() * rockColors.length)];
+                
+                // Visual variation
+                this.rotation = Math.random() * Math.PI * 2;
+                this.points = [];
+                const numPoints = 5 + Math.floor(Math.random() * 4);
+                
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    const r = this.size * (0.6 + Math.random() * 0.6);
+                    this.points.push({
+                        x: Math.cos(angle) * r,
+                        y: Math.sin(angle) * r
+                    });
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                ctx.beginPath();
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+                for (let i = 1; i < this.points.length; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                ctx.closePath();
+
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                // Highlight edge for depth
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+                for (let i = 1; i < this.points.length / 2; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                ctx.stroke();
+
+                // Inner shadow
+                ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                ctx.beginPath();
+                for (let i = Math.floor(this.points.length / 2); i < this.points.length; i++) {
+                    if (i === Math.floor(this.points.length / 2)) ctx.moveTo(this.points[i].x, this.points[i].y);
+                    else ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                ctx.stroke();
+                
+                ctx.restore();
+                
+                // Indicators for start/finish (Tape markings)
+                if (this.type === 0) { // Start tape (V)
+                    ctx.strokeStyle = '#2ecc71';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - 15, this.y + this.size + 10);
+                    ctx.lineTo(this.x, this.y + this.size + 25);
+                    ctx.lineTo(this.x + 15, this.y + this.size + 10);
+                    ctx.stroke();
+                } else if (this.type === 2) { // Finish tape (Both hands)
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - 20, this.y + this.size + 15);
+                    ctx.lineTo(this.x + 20, this.y + this.size + 15);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - 20, this.y + this.size + 25);
+                    ctx.lineTo(this.x + 20, this.y + this.size + 25);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        class Climber {
+            constructor(startX, startY) {
+                this.body = { x: startX, y: startY, vx: 0, vy: 0 };
+                this.limbs = {
+                    leftHand: { x: startX - 25, y: startY - 40, hold: null, moving: false, target: null, type: 'hand' },
+                    rightHand: { x: startX + 25, y: startY - 40, hold: null, moving: false, target: null, type: 'hand' },
+                    leftFoot: { x: startX - 25, y: startY + 40, hold: null, moving: false, target: null, type: 'foot' },
+                    rightFoot: { x: startX + 25, y: startY + 40, hold: null, moving: false, target: null, type: 'foot' }
+                };
+                this.selectedLimb = null;
+                this.moveSpeed = 300; 
+            }
+
+            attachInitial(holds) {
+                const starts = holds.filter(h => h.type === 0);
+                if (starts.length >= 3) {
+                    this.limbs.leftFoot.hold = starts[0];
+                    this.limbs.leftFoot.x = starts[0].x;
+                    this.limbs.leftFoot.y = starts[0].y;
+                    
+                    this.limbs.rightFoot.hold = starts[1];
+                    this.limbs.rightFoot.x = starts[1].x;
+                    this.limbs.rightFoot.y = starts[1].y;
+                    
+                    this.limbs.leftHand.hold = starts[2];
+                    this.limbs.leftHand.x = starts[2].x - 10;
+                    this.limbs.leftHand.y = starts[2].y;
+                    
+                    this.limbs.rightHand.hold = starts[2];
+                    this.limbs.rightHand.x = starts[2].x + 10;
+                    this.limbs.rightHand.y = starts[2].y;
+                    
+                    this.body.x = (starts[0].x + starts[1].x) / 2;
+                    this.body.y = starts[0].y - 60;
+                }
+            }
+
+            update(dt, game) {
+                for (const key in this.limbs) {
+                    const limb = this.limbs[key];
+                    if (limb.moving && limb.target) {
+                        const dx = limb.target.x - limb.x;
+                        const dy = limb.target.y - limb.y;
+                        const d = dist(limb.x, limb.y, limb.target.x, limb.target.y);
+                        if (d < this.moveSpeed * dt) {
+                            limb.x = limb.target.x;
+                            limb.y = limb.target.y;
+                            limb.hold = limb.target;
+                            limb.moving = false;
+                            limb.target = null;
+                            // Chalk puff
+                            if (game && game.particles) {
+                                for(let i=0; i<8; i++) game.particles.push(new Particle(limb.x, limb.y));
+                            }
+                        } else {
+                            limb.x += (dx / d) * this.moveSpeed * dt;
+                            limb.y += (dy / d) * this.moveSpeed * dt;
+                        }
+                    } else if (!limb.hold && !limb.moving) {
+                        limb.y += 400 * dt;
+                    }
+                }
+
+                this.body.vy += 800 * dt; // Gravity
+                
+                let numAttached = 0;
+                let tx = 0, ty = 0;
+                
+                for (const key in this.limbs) {
+                    const limb = this.limbs[key];
+                    if (limb.hold || limb.moving) {
+                        numAttached++;
+                        tx += limb.x;
+                        ty += Math.min(limb.y, this.body.y + 100); 
+                        
+                        const dx = limb.x - this.body.x;
+                        const dy = limb.y - this.body.y;
+                        
+                        const desiredDist = limb.type === 'hand' ? 50 : 60;
+                        const d = Math.max(1, dist(limb.x, limb.y, this.body.x, this.body.y));
+                        
+                        if (d > desiredDist) {
+                            const force = (d - desiredDist) * 15;
+                            this.body.vx += (dx / d) * force * dt;
+                            this.body.vy += (dy / d) * force * dt;
+                        }
+                    }
+                }
+                
+                this.body.vx *= Math.pow(0.01, dt);
+                this.body.vy *= Math.pow(0.01, dt);
+                
+                this.body.x += this.body.vx * dt;
+                this.body.y += this.body.vy * dt;
+                
+                if (numAttached > 0) {
+                    const avgX = tx / numAttached;
+                    const avgY = ty / numAttached;
+                    this.body.vx += (avgX - this.body.x) * 15 * dt;
+                    this.body.vy += (avgY + 30 - this.body.y) * 10 * dt;
+                }
+            }
+
+            draw(ctx) {
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#2980b9'; 
+
+                // Legs
+                this.drawLimb(ctx, this.body.x, this.body.y + 15, this.limbs.leftFoot.x, this.limbs.leftFoot.y);
+                this.drawLimb(ctx, this.body.x, this.body.y + 15, this.limbs.rightFoot.x, this.limbs.rightFoot.y);
+                
+                // Arms (skin color)
+                ctx.strokeStyle = '#f1c40f'; 
+                this.drawLimb(ctx, this.body.x, this.body.y - 15, this.limbs.leftHand.x, this.limbs.leftHand.y);
+                this.drawLimb(ctx, this.body.x, this.body.y - 15, this.limbs.rightHand.x, this.limbs.rightHand.y);
+                
+                // Body
+                ctx.fillStyle = '#2980b9';
+                ctx.beginPath();
+                ctx.ellipse(this.body.x, this.body.y, 22, 35, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Head
+                ctx.fillStyle = '#f1c40f'; 
+                ctx.beginPath();
+                ctx.arc(this.body.x, this.body.y - 40, 14, 0, Math.PI * 2);
+                ctx.fill();
+                
+                for (const key in this.limbs) {
+                    const limb = this.limbs[key];
+                    if (this.selectedLimb === key) {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.arc(limb.x, limb.y, 20, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            drawLimb(ctx, sx, sy, ex, ey) {
+                const d = dist(sx, sy, ex, ey);
+                const midX = (sx + ex) / 2 + (sy - ey) * 0.2; // slight bend
+                const midY = (sy + ey) / 2 + (ex - sx) * 0.2;
+                
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.quadraticCurveTo(midX, midY, ex, ey);
+                ctx.stroke();
+                
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.beginPath();
+                ctx.arc(ex, ey, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        class Game {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                this.stamina = 100;
+                this.maxStamina = 100;
+                this.holds = [];
+                this.particles = [];
+                this.cameraY = 0;
+                this.targetCameraY = 0;
+                this.climber = null; 
+                
+                if (canvas.width === 0) resizeCanvas();
+                this.generateWall();
+                
+                this.climber = new Climber(canvas.width / 2, canvas.height);
+                this.climber.attachInitial(this.holds);
+                this.targetCameraY = this.climber.body.y - canvas.height / 2;
+                this.cameraY = this.targetCameraY;
+            }
+            
+            generateWall() {
+                const wallWidth = canvas.width;
+                const wallHeight = canvas.height * 2.5; 
+                const marginX = 100;
+                const marginY = 100;
+                
+                const startY = wallHeight - marginY;
+                this.holds.push(new Hold(canvas.width / 2 - 40, startY, 0, 20));
+                this.holds.push(new Hold(canvas.width / 2 + 40, startY, 0, 20));
+                this.holds.push(new Hold(canvas.width / 2, startY - 60, 0, 25)); 
+
+                const numHolds = 80;
+                let currentY = startY - 100;
+                
+                for (let i = 0; i < numHolds; i++) {
+                    const x = marginX + Math.random() * (wallWidth - marginX * 2);
+                    const y = currentY;
+                    const size = 15 + Math.random() * 20;
+                    
+                    let tooClose = false;
+                    for (const h of this.holds) {
+                        if (dist(x, y, h.x, h.y) < (size + h.size + 10)) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!tooClose) {
+                        this.holds.push(new Hold(x, y, 1, size));
+                    } else {
+                        i--; 
+                        continue;
+                    }
+                    
+                    currentY -= 20 + Math.random() * 40;
+                    if (currentY < marginY + 100) break; 
+                }
+                
+                this.holds.push(new Hold(canvas.width / 2, marginY, 2, 40));
+            }
+            
+            update(dt) {
+                if (gameState !== 'playing') return;
+                
+                this.climber.update(dt, this);
+                
+                for(let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update(dt);
+                    if(this.particles[i].life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+                
+                this.targetCameraY = this.climber.body.y - canvas.height * 0.6;
+                if (this.holds.length > 0 && this.targetCameraY > this.holds[0].y - canvas.height + 200) {
+                    this.targetCameraY = this.holds[0].y - canvas.height + 200;
+                }
+                
+                this.cameraY += (this.targetCameraY - this.cameraY) * 5 * dt;
+                
+                // Stamina Drain and Recovery
+                let exertion = 0; 
+                let numAttached = 0;
+                let isMoving = false;
+                
+                for (const key in this.climber.limbs) {
+                    const limb = this.climber.limbs[key];
+                    if (limb.hold) numAttached++;
+                    if (limb.moving) isMoving = true;
+                    
+                    if ((limb.hold || limb.moving) && dist(limb.x, limb.y, this.climber.body.x, this.climber.body.y) > 70) {
+                        exertion += 4; 
+                    }
+                }
+                
+                if (isMoving) {
+                    exertion += 15;
+                } else {
+                    if (numAttached === 4) exertion -= 15; // Recover fast if resting on all 4
+                    else if (numAttached === 3) exertion -= 5; // Recover slow if 3
+                    else if (numAttached < 3) exertion += 10; // Drain if holding on by 1 or 2
+                }
+                
+                this.stamina -= exertion * dt;
+                if (this.stamina > this.maxStamina) this.stamina = this.maxStamina;
+                
+                if (this.stamina <= 0) {
+                    this.stamina = 0;
+                    triggerGameOver(false);
+                }
+                
+                staminaBar.style.width = `${(this.stamina / this.maxStamina) * 100}%`;
+                if (this.stamina < 30) {
+                    staminaBar.style.backgroundColor = 'var(--stamina-low)';
+                } else {
+                    staminaBar.style.backgroundColor = 'var(--stamina-full)';
+                }
+                
+                // Fall
+                if (numAttached < 2 || this.climber.body.y > this.cameraY + canvas.height + 50) {
+                    triggerGameOver(false);
+                }
+                
+                // Win
+                if (this.climber.limbs.leftHand.hold?.type === 2 && this.climber.limbs.rightHand.hold?.type === 2) {
+                    triggerGameOver(true);
+                }
+            }
+            
+            draw(ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.save();
+                ctx.translate(0, -this.cameraY);
+                
+                for (const hold of this.holds) {
+                    hold.draw(ctx);
+                }
+                
+                for (const p of this.particles) {
+                    p.draw(ctx);
+                }
+                
+                if (this.climber) {
+                    this.climber.draw(ctx);
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        const game = new Game();
+
+        // --- Input Handling ---
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState !== 'playing') return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top + game.cameraY;
+            
+            if (game.climber.selectedLimb) {
+                let clickedHold = null;
+                for (const hold of game.holds) {
+                    if (dist(x, y, hold.x, hold.y) < hold.size + 15) {
+                        clickedHold = hold;
+                        break;
+                    }
+                }
+                
+                if (clickedHold) {
+                    const distToHold = dist(clickedHold.x, clickedHold.y, game.climber.body.x, game.climber.body.y);
+                    // Prevent grabbing holds that are too far away
+                    if (distToHold < 250) { // Increased reach
+                        const limb = game.climber.limbs[game.climber.selectedLimb];
+                        limb.target = clickedHold;
+                        limb.moving = true;
+                        limb.hold = null;
+                    }
+                }
+                
+                game.climber.selectedLimb = null; 
+            } else {
+                for (const key in game.climber.limbs) {
+                    const limb = game.climber.limbs[key];
+                    if (dist(x, y, limb.x, limb.y) < 30) {
+                        game.climber.selectedLimb = key;
+                        break;
+                    }
+                }
+            }
+        });
+
+        // --- Game Loop ---
+        function gameLoop(timestamp) {
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            game.update(dt > 0.1 ? 0.1 : dt); 
+            game.draw(ctx);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- UI Interactions ---
+        function startGame() {
+            gameState = 'playing';
+            overlays.classList.add('hidden');
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            game.reset();
+        }
+
+        function triggerGameOver(win) {
+            gameState = win ? 'win' : 'gameover';
+            overlays.classList.remove('hidden');
+            gameOverScreen.style.display = 'block';
+            
+            if (win) {
+                gameOverText.innerText = 'TOPPED OUT!';
+                gameOverText.style.color = '#2ecc71';
+                gameOverSub.innerText = 'Great send!';
+            } else {
+                gameOverText.innerText = 'PUMPED OUT!';
+                gameOverText.style.color = '#e74c3c';
+                gameOverSub.innerText = 'You fell off the wall.';
+            }
+            gameOverText.style.display = 'block';
+        }
+
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>

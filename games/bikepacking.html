@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bikepacking Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #87CEEB; /* Sky blue */
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlays */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            pointer-events: auto; /* Catch clicks on screens */
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            color: #FFD700;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-family: inherit;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2em;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        .bar-container {
+            width: 200px;
+            height: 20px;
+            background-color: rgba(0,0,0,0.5);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .bar {
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.1s;
+        }
+
+        #energy-bar { background-color: #FFC107; }
+        #water-bar { background-color: #2196F3; }
+
+        .stat-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .item-slot {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(0,0,0,0.5);
+            border: 2px solid #fff;
+            margin-right: 5px;
+            text-align: center;
+            line-height: 40px;
+            font-size: 1.5em;
+            cursor: pointer;
+            user-select: none;
+            pointer-events: auto;
+        }
+        
+        .item-slot.active {
+            border-color: #FFD700;
+            background-color: rgba(255, 215, 0, 0.2);
+        }
+
+        /* Packing Screen */
+        #packing-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .pack-item {
+            background-color: #333;
+            border: 2px solid #666;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .pack-item:hover {
+            border-color: #FFD700;
+            transform: translateY(-2px);
+        }
+        
+        .pack-item.selected {
+            background-color: #4CAF50;
+            border-color: #fff;
+        }
+
+        .pack-item .icon {
+            font-size: 2em;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .pack-stats {
+            font-size: 0.8em;
+            color: #aaa;
+        }
+
+        #weight-display {
+            font-size: 1.5em;
+            margin: 20px 0;
+            color: #FFD700;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="ui-layer">
+        
+        <!-- Heads Up Display -->
+        <div id="hud" class="hidden">
+            <div class="stat-group">
+                <div>Energy</div>
+                <div class="bar-container"><div id="energy-bar" class="bar" style="width: 100%"></div></div>
+                <div>Water</div>
+                <div class="bar-container"><div id="water-bar" class="bar" style="width: 100%"></div></div>
+                <div style="margin-top: 10px;">
+                    <div>Inventory (Click to use)</div>
+                    <div id="inventory-slots">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-group" style="text-align: right;">
+                <div id="dist-display">Distance: 0km / 100km</div>
+                <div id="speed-display">Speed: 0 km/h</div>
+                <div id="weight-hud">Weight: 0kg</div>
+            </div>
+        </div>
+
+        <!-- Start/Packing Screen -->
+        <div id="start-screen" class="screen">
+            <h1>Bikepacking Adventure</h1>
+            <p>Select gear for your 100km journey. Watch your weight!</p>
+            
+            <div id="weight-display">Current Weight: <span id="current-weight">10</span>/30 kg</div>
+            <div style="font-size: 0.9em; color: #aaa; margin-bottom: 20px;">(Base bike + rider weight: 10kg)</div>
+
+            <div id="packing-grid">
+                <!-- Items generated by JS -->
+            </div>
+
+            <button id="start-btn">Hit the Trail</button>
+        </div>
+
+        <!-- Game Over / Victory Screen -->
+        <div id="end-screen" class="screen hidden">
+            <h1 id="end-title">Game Over</h1>
+            <p id="end-message">You ran out of energy.</p>
+            <p id="end-stats">Distance: 45km | Weight: 25kg</p>
+            <button id="restart-btn">Try Again</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // --- Constants & Config ---
+    const CANVAS_WIDTH = 800;
+    const CANVAS_HEIGHT = 600;
+    const GOAL_DISTANCE = 100000; // 100km in meters (game units)
+    const BASE_WEIGHT = 10;
+    const MAX_WEIGHT = 30;
+
+    // Item Dictionary
+    const ITEMS = [
+        { id: 'water', name: 'Water Bottle', icon: '💧', weight: 1.5, type: 'consumable', value: 30, desc: 'Restores 30% Water', max: 4 },
+        { id: 'snack', name: 'Energy Bar', icon: '🍫', weight: 0.5, type: 'consumable', value: 25, desc: 'Restores 25% Energy', max: 6 },
+        { id: 'tent', name: 'Tent', icon: '🏕️', weight: 3.5, type: 'gear', desc: 'Slower drain at night' },
+        { id: 'bag', name: 'Sleeping Bag', icon: '🛏️', weight: 2.0, type: 'gear', desc: 'Rest well' },
+        { id: 'tools', name: 'Repair Kit', icon: '🔧', weight: 1.0, type: 'gear', desc: 'Fix flats' },
+        { id: 'stove', name: 'Camp Stove', icon: '🔥', weight: 1.5, type: 'gear', desc: 'Hot meals' }
+    ];
+
+    // --- State Management ---
+    const state = {
+        screen: 'start', // 'start', 'play', 'end'
+        lastTime: 0,
+        
+        // Packing State
+        inventoryCounts: {},
+        totalWeight: BASE_WEIGHT,
+        inventory: [], // Array of consumable instances
+        
+        // Player/Bike State
+        player: {
+            x: 100,
+            y: 0, // Set later based on terrain
+            speed: 0,
+            maxSpeed: 15,
+            acceleration: 4,
+            deceleration: 1, // Coasting friction
+            braking: 10,
+            energy: 100,
+            water: 100,
+            distance: 0
+        },
+        
+        // Input
+        keys: {
+            ArrowRight: false,
+            ArrowLeft: false
+        },
+        
+        // World Generation
+        terrainPoints: [],
+        cameraX: 0
+    };
+
+    // --- References ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const screens = {
+        start: document.getElementById('start-screen'),
+        play: document.getElementById('hud'),
+        end: document.getElementById('end-screen')
+    };
+
+    // --- Initialization ---
+    function init() {
+        // Init inventory counts
+        ITEMS.forEach(item => {
+            state.inventoryCounts[item.id] = 0;
+        });
+        
+        buildPackingUI();
+        setupEventListeners();
+        
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    }
+
+    // --- Setup Functions ---
+    function buildPackingUI() {
+        const grid = document.getElementById('packing-grid');
+        grid.innerHTML = '';
+        
+        ITEMS.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'pack-item';
+            el.dataset.id = item.id;
+            
+            const maxText = item.max ? `(Max ${item.max})` : '(Max 1)';
+            
+            el.innerHTML = `
+                <span class="icon">${item.icon}</span>
+                <strong>${item.name}</strong><br>
+                <span class="pack-stats">${item.weight}kg</span><br>
+                <span style="font-size: 0.7em;">${maxText}</span>
+                <div class="count" style="margin-top: 5px; font-weight: bold;">
+                    x<span id="count-${item.id}">0</span>
+                </div>
+            `;
+            
+            el.addEventListener('click', () => toggleItem(item.id));
+            grid.appendChild(el);
+        });
+        
+        updateWeightDisplay();
+    }
+
+    function toggleItem(id) {
+        const item = ITEMS.find(i => i.id === id);
+        const max = item.max || 1;
+        let current = state.inventoryCounts[id];
+        
+        // If we have max, reset to 0
+        if (current >= max) {
+            state.inventoryCounts[id] = 0;
+            state.totalWeight -= (item.weight * current);
+        } else {
+            // Check weight limit
+            if (state.totalWeight + item.weight <= MAX_WEIGHT) {
+                state.inventoryCounts[id]++;
+                state.totalWeight += item.weight;
+            } else {
+                // Shake effect or feedback for overweight (TODO)
+                return;
+            }
+        }
+        
+        // Update UI
+        document.getElementById(`count-${id}`).innerText = state.inventoryCounts[id];
+        const el = document.querySelector(`.pack-item[data-id="${id}"]`);
+        if (state.inventoryCounts[id] > 0) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
+        
+        updateWeightDisplay();
+    }
+
+    function updateWeightDisplay() {
+        document.getElementById('current-weight').innerText = state.totalWeight.toFixed(1);
+    }
+
+    function startGame() {
+        if(state.totalWeight === BASE_WEIGHT) {
+            alert("You need to pack something! You won't make it without water.");
+            return;
+        }
+
+        // Generate flat inventory array for consumables
+        state.inventory = [];
+        ITEMS.filter(i => i.type === 'consumable').forEach(item => {
+            for(let i=0; i<state.inventoryCounts[item.id]; i++) {
+                state.inventory.push({...item});
+            }
+        });
+        
+        buildInventoryHUD();
+
+        // Reset player state
+        state.player.distance = 0;
+        state.player.speed = 0;
+        state.player.energy = 100;
+        state.player.water = 100;
+        state.cameraX = 0;
+        
+        // Generate Terrain
+        generateTerrain();
+
+        switchScreen('play');
+        state.lastTime = performance.now();
+    }
+
+    function buildInventoryHUD() {
+        const container = document.getElementById('inventory-slots');
+        container.innerHTML = '';
+        state.inventory.forEach((item, index) => {
+            const slot = document.createElement('div');
+            slot.className = 'item-slot';
+            slot.innerText = item.icon;
+            slot.title = `${item.name}: ${item.desc}`;
+            slot.addEventListener('click', () => useItem(index));
+            container.appendChild(slot);
+        });
+        document.getElementById('weight-hud').innerText = `Weight: ${state.totalWeight.toFixed(1)}kg`;
+    }
+
+    function switchScreen(newScreen) {
+        state.screen = newScreen;
+        Object.keys(screens).forEach(k => screens[k].classList.add('hidden'));
+        screens[newScreen].classList.remove('hidden');
+    }
+
+    // --- Input Handling ---
+    function setupEventListeners() {
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', () => switchScreen('start'));
+
+        window.addEventListener('keydown', (e) => {
+            if (state.keys.hasOwnProperty(e.code)) {
+                state.keys[e.code] = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (state.keys.hasOwnProperty(e.code)) {
+                state.keys[e.code] = false;
+            }
+        });
+    }
+
+    // --- Game Logic ---
+    function useItem(index) {
+        if(state.screen !== 'play') return;
+        const item = state.inventory[index];
+        if(!item) return;
+
+        if (item.id === 'water') {
+            state.player.water = Math.min(100, state.player.water + item.value);
+        } else if (item.id === 'snack') {
+            state.player.energy = Math.min(100, state.player.energy + item.value);
+        }
+
+        // Remove item and update weight
+        state.inventory.splice(index, 1);
+        state.totalWeight -= item.weight;
+        buildInventoryHUD();
+    }
+
+    function generateTerrain() {
+        // Simple sine wave generation
+        state.terrainPoints = [];
+        const segmentWidth = 100;
+        const numSegments = Math.ceil(GOAL_DISTANCE / segmentWidth) + 10;
+        
+        let y = CANVAS_HEIGHT / 2 + 100; // Baseline
+        
+        for(let i=0; i<numSegments; i++) {
+            const x = i * segmentWidth;
+            // Mix frequencies for hills
+            const heightVariation = Math.sin(i * 0.1) * 50 + Math.sin(i * 0.03) * 100;
+            state.terrainPoints.push({x: x, y: y + heightVariation});
+        }
+    }
+
+    function getTerrainY(xPos) {
+        if (state.terrainPoints.length === 0) return CANVAS_HEIGHT / 2;
+        
+        const segmentWidth = 100;
+        const index = Math.floor(xPos / segmentWidth);
+        const remainder = xPos % segmentWidth;
+        const ratio = remainder / segmentWidth;
+        
+        if (index < 0) return state.terrainPoints[0].y;
+        if (index >= state.terrainPoints.length - 1) return state.terrainPoints[state.terrainPoints.length-1].y;
+
+        const p1 = state.terrainPoints[index];
+        const p2 = state.terrainPoints[index + 1];
+        
+        // Linear interpolation
+        return p1.y + (p2.y - p1.y) * ratio;
+    }
+
+    function update(dt) {
+        if (state.screen !== 'play') return;
+
+        const dtSec = dt / 1000;
+        const p = state.player;
+
+        // Weight penalty factor (heavier = slower acceleration, harder to climb)
+        // Weight goes from 10 to 30. Penalty mult from 1.0 to 1.5
+        const weightMult = 1.0 + (state.totalWeight - BASE_WEIGHT) * (0.5 / 20); 
+
+        // Get current and next terrain height to determine slope
+        const currentY = getTerrainY(p.distance);
+        const nextY = getTerrainY(p.distance + 1);
+        const slope = nextY - currentY; // negative is uphill in canvas coords
+
+        p.y = currentY;
+
+        // Gravity/Slope effect
+        const slopeForce = slope * 20 * dtSec;
+        // slope < 0 means going uphill (nextY is smaller than currentY)
+        // slope > 0 means going downhill (nextY is larger than currentY)
+        
+        // Add speed if downhill, subtract if uphill
+        p.speed += slopeForce * (slope < 0 ? 1/weightMult : weightMult); 
+
+        // Pedaling
+        if (state.keys.ArrowRight && p.energy > 0) {
+            p.speed += p.acceleration * dtSec / weightMult;
+            
+            // Energy drain depends on weight and slope
+            let drain = 5 * dtSec * weightMult;
+            if (slope < 0) drain *= 1.5; // harder uphill
+            p.energy -= drain;
+            
+            // Constant water drain while pedaling
+            p.water -= 1 * dtSec;
+        } else if (state.keys.ArrowLeft) {
+            // Braking
+            p.speed -= p.braking * dtSec;
+        } else {
+            // Coasting friction
+            p.speed -= p.deceleration * dtSec;
+            // Very slow energy regen while coasting
+            p.energy = Math.min(100, p.energy + 0.5 * dtSec);
+        }
+
+        // Clamp speed
+        p.speed = Math.max(0, p.speed);
+        if(!state.keys.ArrowRight && p.speed > p.maxSpeed * 1.5) {
+            // Can exceed max speed downhill, gradually slows to normal max on flat
+            p.speed *= 0.99;
+        } else if (state.keys.ArrowRight) {
+             p.speed = Math.min(p.speed, p.maxSpeed);
+        }
+
+        // Apply movement
+        const distanceTraveled = p.speed * dtSec * 50; // Scale speed to game units
+        p.distance += distanceTraveled;
+        
+        // Passive water drain
+        p.water -= 0.2 * dtSec;
+
+        // Check loss condition
+        if (p.energy <= 0 || p.water <= 0) {
+            endGame(false);
+            return;
+        }
+
+        // Check win condition
+        if (p.distance >= GOAL_DISTANCE) {
+            endGame(true);
+            return;
+        }
+
+        // Update Camera
+        // Keep player at 30% of screen
+        state.cameraX = p.distance - (CANVAS_WIDTH * 0.3);
+
+        updateHUD();
+    }
+
+    function updateHUD() {
+        document.getElementById('energy-bar').style.width = Math.max(0, state.player.energy) + '%';
+        // Color based on level
+        document.getElementById('energy-bar').style.backgroundColor = state.player.energy < 20 ? 'red' : '#FFC107';
+        
+        document.getElementById('water-bar').style.width = Math.max(0, state.player.water) + '%';
+        document.getElementById('water-bar').style.backgroundColor = state.player.water < 20 ? 'red' : '#2196F3';
+
+        document.getElementById('dist-display').innerText = `Distance: ${(state.player.distance/1000).toFixed(1)}km / ${(GOAL_DISTANCE/1000).toFixed(0)}km`;
+        
+        // Convert internal speed to roughly km/h for display
+        const displaySpeed = state.player.speed * 2.5; 
+        document.getElementById('speed-display').innerText = `Speed: ${displaySpeed.toFixed(1)} km/h`;
+    }
+
+    function endGame(won) {
+        state.screen = 'end';
+        switchScreen('end');
+        
+        const title = document.getElementById('end-title');
+        const msg = document.getElementById('end-message');
+        const stats = document.getElementById('end-stats');
+
+        if (won) {
+            title.innerText = "You Made It!";
+            title.style.color = "#4CAF50";
+            msg.innerText = "You successfully reached the campsite.";
+        } else {
+            title.innerText = "Game Over";
+            title.style.color = "#F44336";
+            if (state.player.water <= 0) {
+                msg.innerText = "You ran out of water and collapsed from dehydration.";
+            } else {
+                msg.innerText = "You ran out of energy and couldn't pedal another meter.";
+            }
+        }
+        
+        stats.innerText = `Distance: ${(state.player.distance/1000).toFixed(1)}km | Weight: ${state.totalWeight.toFixed(1)}kg | Items Left: ${state.inventory.length}`;
+    }
+
+    // --- Rendering ---
+    function draw() {
+        // Clear screen
+        ctx.fillStyle = '#87CEEB'; // Sky
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (state.screen === 'start') return;
+
+        // Draw Mountains (Parallax layer 1)
+        ctx.fillStyle = '#78909c';
+        ctx.beginPath();
+        for(let i=-2; i<10; i++) {
+            const x = (i * 300) - (state.cameraX * 0.2) % 300;
+            ctx.moveTo(x, CANVAS_HEIGHT);
+            ctx.lineTo(x + 150, CANVAS_HEIGHT - 200 - Math.sin(i)*50);
+            ctx.lineTo(x + 300, CANVAS_HEIGHT);
+        }
+        ctx.fill();
+
+        // Draw Hills (Parallax layer 2)
+        ctx.fillStyle = '#81c784';
+        ctx.beginPath();
+        for(let i=-2; i<10; i++) {
+            const x = (i * 200) - (state.cameraX * 0.5) % 200;
+            ctx.arc(x + 100, CANVAS_HEIGHT, 150, Math.PI, 0);
+        }
+        ctx.fill();
+
+        // Draw Terrain (Main layer)
+        ctx.fillStyle = '#4CAF50';
+        ctx.beginPath();
+        ctx.moveTo(0, CANVAS_HEIGHT);
+        
+        // Only draw visible segments
+        const startX = state.cameraX;
+        const endX = state.cameraX + CANVAS_WIDTH;
+        
+        let started = false;
+        
+        // We draw the terrain points relative to the camera
+        for(let i=0; i<state.terrainPoints.length; i++) {
+            const p = state.terrainPoints[i];
+            
+            // Draw slightly outside viewport to prevent popping
+            if (p.x >= startX - 200 && p.x <= endX + 200) {
+                const screenX = p.x - state.cameraX;
+                if (!started) {
+                    ctx.lineTo(screenX, p.y);
+                    started = true;
+                } else {
+                    ctx.lineTo(screenX, p.y);
+                }
+            } else if (p.x > endX + 200) {
+                break; // Optimization
+            }
+        }
+        
+        ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw dirt under grass
+        ctx.strokeStyle = '#795548';
+        ctx.lineWidth = 20;
+        ctx.stroke();
+
+        // Draw Player (Bike)
+        drawPlayer();
+    }
+
+    function drawPlayer() {
+        const p = state.player;
+        const screenX = CANVAS_WIDTH * 0.3; // Fixed screen position
+        const screenY = p.y;
+        
+        // Need next point to calculate rotation
+        const nextY = getTerrainY(p.distance + 10);
+        const angle = Math.atan2(nextY - p.y, 10);
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(angle);
+
+        // Bike frame relative to center bottom (wheels touching ground)
+        ctx.translate(0, -20); // Move up from wheels
+
+        // Simplified Bike Drawing
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 3;
+        
+        // Wheels
+        ctx.beginPath();
+        ctx.arc(-20, 10, 10, 0, Math.PI*2); // Rear
+        ctx.arc(20, 10, 10, 0, Math.PI*2);  // Front
+        ctx.stroke();
+
+        // Frame
+        ctx.beginPath();
+        ctx.moveTo(-20, 10); // Rear hub
+        ctx.lineTo(-10, -10); // Seat tube bottom
+        ctx.lineTo(15, -10);  // Top tube start
+        ctx.lineTo(20, 10);   // Front hub
+        ctx.moveTo(-10, -10); // Seat tube bottom
+        ctx.lineTo(0, -20);   // Seat post
+        ctx.lineTo(15, -10);  // Top tube start
+        ctx.lineTo(-20, 10); // Down tube (approx)
+        ctx.stroke();
+
+        // Handlebars
+        ctx.beginPath();
+        ctx.moveTo(15, -10);
+        ctx.lineTo(12, -25);
+        ctx.lineTo(18, -25);
+        ctx.stroke();
+
+        // Bags (visual indication of weight)
+        ctx.fillStyle = '#795548'; // Brown bags
+        // Frame bag
+        ctx.fillRect(-5, -5, 10, 10);
+        
+        // Handlebar/saddle bags if heavy
+        if (state.totalWeight > 15) {
+            ctx.fillStyle = '#607D8B';
+            ctx.beginPath();
+            ctx.arc(-10, -15, 6, 0, Math.PI*2); // Saddle bag
+            ctx.fill();
+        }
+        if (state.totalWeight > 20) {
+            ctx.fillStyle = '#FF9800';
+            ctx.fillRect(15, -15, 8, 10); // Handlebar bag
+        }
+
+        // Rider (Very abstracted)
+        ctx.fillStyle = '#2196F3'; // Blue shirt
+        ctx.beginPath();
+        ctx.ellipse(0, -30, 8, 12, angle > 0 ? 0.2 : 0.5, 0, Math.PI*2); // Torso leaned forward
+        ctx.fill();
+        
+        ctx.fillStyle = '#FFCCBC'; // Head
+        ctx.beginPath();
+        ctx.arc(10, -42, 5, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#333'; // Helmet
+        ctx.beginPath();
+        ctx.arc(10, -42, 6, Math.PI, 0);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // --- Main Loop ---
+    function gameLoop(timestamp) {
+        let dt = timestamp - state.lastTime;
+        // Cap dt to prevent huge jumps if tab is inactive
+        if (dt > 100) dt = 16; 
+        state.lastTime = timestamp;
+
+        update(dt);
+        draw();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>
