@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Dive: Affordances - IDNE 702</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #38bdf8;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #38bdf8;
+            --input-bg: #1a1a1e;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Space Mono', monospace; background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; padding-bottom: 4rem; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+        header { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+        .back-link { display: inline-block; margin-bottom: 2rem; color: var(--text-muted); text-decoration: none; font-size: 0.8rem; border-bottom: 1px dotted var(--text-muted); }
+        h1 { font-family: 'Instrument Serif', serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 400; line-height: 1.1; margin-bottom: 1rem; }
+        h1 em { color: var(--accent); font-style: italic; }
+        .subtitle { font-size: 1rem; color: var(--text-secondary); max-width: 600px; }
+        section { margin-bottom: 3rem; background: var(--bg-card); padding: 2rem; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        h2 { font-family: 'Instrument Serif', serif; font-size: 1.75rem; font-weight: 400; margin-bottom: 1.5rem; color: var(--text-primary); }
+        ul, ol { padding-left: 2rem; margin-bottom: 1.5rem; }
+        li { margin-bottom: 0.5rem; }
+        
+        .interactive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .flip-card {
+            background-color: transparent;
+            height: 200px;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: var(--shadow);
+            border-radius: 8px;
+        }
+
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .flip-card-front {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .flip-card-back {
+            background-color: var(--accent);
+            color: #000;
+            transform: rotateY(180deg);
+        }
+
+        .flip-card-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .quiz-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .quiz-question {
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .quiz-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+
+        .quiz-option:hover:not(:disabled) {
+            border-color: var(--accent);
+        }
+
+        .quiz-option.correct {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: var(--success);
+        }
+
+        .quiz-option.incorrect {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+        }
+
+        .quiz-feedback {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .quiz-feedback.visible {
+            display: block;
+        }
+
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .checklist li {
+            position: relative;
+            padding-left: 2rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .checklist li::before {
+            content: '□';
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-size: 1.5rem;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        @media print {
+            .back-link,
+            .subtitle {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            section {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                break-inside: avoid;
+            }
+
+            .flip-card-inner {
+                transform: none !important;
+            }
+            .flip-card-back {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="IDNE702_SP2026.html" class="back-link" aria-label="Return to course timeline">← Back to Timeline</a>
+
+        <header>
+            <h1>Deep Dive <br><em>Affordances in Design</em></h1>
+            <p class="subtitle">Understanding how the physical properties of an environment naturally suggest and enable specific human behaviors without the need for instructions.</p>
+        </header>
+
+        <section>
+            <h2>01. The Theory of Affordances</h2>
+            <p>Coined by perceptual psychologist James J. Gibson and refined for design by Don Norman, an <strong>affordance</strong> is a relationship between the physical properties of an object and the capabilities of the user. In the built environment, affordances are the spatial cues that tell occupants how to behave.</p>
+            <p>A well-designed space doesn't need signs to tell people where to sit, how to move, or when to be quiet. The environment itself <em>affords</em> those behaviors.</p>
+        </section>
+
+        <section>
+            <h2>02. Interactive Examples: Form Follows Function</h2>
+            <p>Click the cards below to see how common architectural elements provide behavioral cues.</p>
+            
+            <div class="interactive-grid">
+                <div class="flip-card" onclick="this.classList.toggle('flipped')" tabindex="0" role="button" aria-label="Toggle affordance example">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front">
+                            <h3 class="flip-card-title">Glass Door + Metal Plate</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary);">What does this afford?</p>
+                        </div>
+                        <div class="flip-card-back">
+                            <h3 class="flip-card-title">Pushing</h3>
+                            <p style="font-size: 0.85rem;">A flat plate offers no grip, subtly forcing the user to push. Contrasts with a vertical handle which affords pulling.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flip-card" onclick="this.classList.toggle('flipped')" tabindex="0" role="button" aria-label="Toggle affordance example">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front">
+                            <h3 class="flip-card-title">Wide Grand Staircase</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary);">What does this afford?</p>
+                        </div>
+                        <div class="flip-card-back">
+                            <h3 class="flip-card-title">Gathering</h3>
+                            <p style="font-size: 0.85rem;">Beyond vertical transit, the width and depth invite sitting, serendipitous conversation, and observation.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flip-card" onclick="this.classList.toggle('flipped')" tabindex="0" role="button" aria-label="Toggle affordance example">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front">
+                            <h3 class="flip-card-title">Low Ceiling + Carpet</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary);">What does this afford?</p>
+                        </div>
+                        <div class="flip-card-back">
+                            <h3 class="flip-card-title">Quiet Focus</h3>
+                            <p style="font-size: 0.85rem;">Acoustic dampening and compressed vertical space signal intimacy, prompting users to lower their voices.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>03. The Neuroscience Behind Affordances</h2>
+            <p>From a neuroengineering perspective, affordances are about reducing <strong>cognitive load</strong>. When an environment provides clear, unambiguous affordances, the brain's "System 1" (fast, automatic, intuitive thinking) takes over. The occupant can navigate and use the space without conscious effort.</p>
+            <p>When affordances are poor, misleading, or absent, the brain is forced into "System 2" processing (slow, deliberate, analytical thinking). Over time, environments that demand high System 2 engagement for basic spatial navigation lead to cognitive fatigue. This strips away the mental energy researchers need for their actual scientific work.</p>
+        </section>
+
+        <section>
+            <h2>04. Neuro-inclusive Affordances</h2>
+            <p>Not all brains perceive affordances the same way. An obvious spatial cue to a neurotypical individual might be overwhelming or completely invisible to someone with a different neurological profile.</p>
+            <ul>
+                <li><strong>Sensory Overload:</strong> A brightly lit, highly reverberant open space may smoothly afford "collaboration" to some, but afford "overwhelm and retreat" to an individual with sensory processing sensitivities.</li>
+                <li><strong>Clear Boundaries:</strong> Providing explicit visual or textural transitions between zones (e.g., changing flooring material from a corridor to a focus suite) creates reliable affordances. This helps neurodivergent individuals confidently predict the behavioral expectations of a space.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>05. Affordance Audit Checklist</h2>
+            <p>When reviewing your 3D models and final floor plans in IDNE 702, ask your team:</p>
+            <ul class="checklist">
+                <li><strong>Is the intended action immediately obvious?</strong> (Are signifiers clear without needing text labels?)</li>
+                <li><strong>Are there any false affordances?</strong> (e.g., Design elements that look like seating but cannot support weight, or doors that must be pulled but have push plates).</li>
+                <li><strong>Does the furniture afford the intended posture?</strong> (Upright, stiff chairs afford alertness; lounge seating affords relaxation and casual discourse).</li>
+                <li><strong>Have we accounted for diverse physical and cognitive capabilities?</strong> (Will a wheelchair user or someone with low vision perceive the same affordances?)</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>06. Test Your Intuition</h2>
+            <p>Evaluate the following design scenarios critically.</p>
+            
+            <div class="quiz-container">
+                <p class="quiz-question">Scenario 1: You are designing a high-throughput neuroimaging suite. You want researchers to quickly secure cables out of the way to prevent tripping, but without permanently locking them down. Which solution provides the best affordance?</p>
+                
+                <button class="quiz-option" onclick="checkAnswer(this, 1, false)">
+                    A. Provide a locked cabinet with coiled cables inside, requiring a key.
+                </button>
+                <button class="quiz-option" onclick="checkAnswer(this, 1, true)">
+                    B. Install open, J-shaped hooks along the wall at waist height.
+                </button>
+                <button class="quiz-option" onclick="checkAnswer(this, 1, false)">
+                    C. Place a prominent sign reading "Please secure cables with zip-ties after use."
+                </button>
+
+                <div id="quiz-feedback-1" class="quiz-feedback"></div>
+            </div>
+
+            <div class="quiz-container">
+                <p class="quiz-question">Scenario 2: Your team wants an open atrium to act as a spontaneous collaboration hub, but in early tests, people merely walk quickly straight through it. How can you change the space's affordances to encourage lingering?</p>
+                
+                <button class="quiz-option" onclick="checkAnswer(this, 2, false)">
+                    A. Post rules near the entrance encouraging people to talk and mingle.
+                </button>
+                <button class="quiz-option" onclick="checkAnswer(this, 2, false)">
+                    B. Remove all furniture so people have plenty of room to stand in groups.
+                </button>
+                <button class="quiz-option" onclick="checkAnswer(this, 2, true)">
+                    C. Add a coffee station and "eddy" spaces with high-top tables just off the main circulation path.
+                </button>
+
+                <div id="quiz-feedback-2" class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <footer style="margin-top: 3rem; font-size: 0.8rem; color: var(--text-muted);">
+            <p>IDNE 702 · Spring 2026 · Built Environment Resources</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Quiz Logic
+        function checkAnswer(button, quizIndex, isCorrect) {
+            const container = button.parentElement;
+            const buttons = container.querySelectorAll('.quiz-option');
+            const feedback = container.querySelector('#quiz-feedback-' + quizIndex);
+
+            // Reset buttons
+            buttons.forEach(btn => {
+                btn.classList.remove('correct', 'incorrect');
+                btn.disabled = true; // Disable after one guess
+            });
+
+            if (isCorrect) {
+                button.classList.add('correct');
+                if (quizIndex === 1) {
+                    feedback.innerHTML = "<strong>Correct!</strong> J-hooks provide a highly perceptible affordance for draping or hanging cables. It requires no thought, keys, or reading, naturally encouraging the desired behavior.";
+                } else {
+                    feedback.innerHTML = "<strong>Correct!</strong> The coffee station provides a compelling reason to stop, while the high-top tables afford resting without committing to totally unpacking your bags, perfect for spontaneous 'eddy' conversations.";
+                }
+                feedback.style.backgroundColor = "rgba(34, 197, 94, 0.1)";
+                feedback.style.border = "1px solid var(--success)";
+            } else {
+                button.classList.add('incorrect');
+                if (quizIndex === 1) {
+                    feedback.innerHTML = "<strong>Incorrect.</strong> Remember that good affordances don't rely on signage (C) and should reduce friction, not increase it like a locked cabinet (A). Option B naturally affords hanging.";
+                } else {
+                    feedback.innerHTML = "<strong>Incorrect.</strong> Relying on signs (A) ignores spatial affordances entirely. Removing furniture (B) actually removes the affordances for lingering; an empty room affords transit. The coffee station and high-tops (C) naturally afford pausing and gathering.";
+                }
+                feedback.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                feedback.style.border = "1px solid var(--error)";
+                
+                // Highlight the correct one
+                const correctIndices = { 1: 1, 2: 2 }; // Index of the correct button in the NodeList
+                buttons[correctIndices[quizIndex]].classList.add('correct');
+            }
+            feedback.classList.add('visible');
+        }
+    </script>
+</body>
+
+</html>
