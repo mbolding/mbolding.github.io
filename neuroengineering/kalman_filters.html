@@ -3,20 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuroengineering Placeholder</title>
+    <title>Kalman Filters in BCI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; text-align: center; padding: 100px 20px; color: #111; }
-        h1 { font-size: 48px; margin-bottom: 20px; }
-        a { color: #ff3300; text-decoration: none; border-bottom: 1px dotted #ff3300; }
-        a:hover { border-bottom-style: solid; }
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --code-font: 'JetBrains Mono', monospace;
+            --border-color: #e5e5e5;
+            --card-bg: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        .breadcrumb {
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topic-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .topic-item {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            border-left: 2px solid #eee;
+            transition: border-color 0.2s;
+        }
+
+        .topic-item:hover {
+            border-left-color: var(--accent-color);
+        }
+
+        .topic-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            display: block;
+            color: var(--text-color);
+        }
+
+        .topic-desc {
+            color: var(--secondary-text);
+            font-size: 0.95rem;
+        }
+
+        .details-list {
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            list-style-type: disc;
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+        }
+
+        .details-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        .info-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .math-block {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: var(--code-font);
+            margin: 10px 0;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>🚧 Under Construction 🚧</h1>
-    <p>This section is currently being developed.</p>
-    <p style="margin-top:40px;"><a href="index.html">← Back to Neuroengineering Base</a></p>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / Kalman Filters
+        </div>
+
+        <header>
+            <h1>Kalman Filters in BCI</h1>
+            <p class="subtitle">The foundational workhorse decoding algorithm for continuous, real-time closed-loop neural control.</p>
+        </header>
+
+        <div class="info-box">
+            <strong>Key takeaway:</strong> Continuous BCI tasks (like steering a cursor or a robotic arm) require predicting "hidden" physical states (intended velocity) from noisy measurements (binned neural spike counts). The Kalman Filter brilliantly solves this by constantly balancing a mathematical <em>prediction</em> based on kinematics with an observational <em>correction</em> from the neural data.
+        </div>
+
+        <section>
+            <h2>The Two-Step Mechanism</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">1. The State Prediction (Time Update)</span>
+                    <span class="topic-desc">Where physics expects the arm to be.</span>
+                    <ul class="details-list">
+                        <li>The filter utilizes a transition model: if the robotic arm was moving smoothly to the right at 10 cm/s in the previous millisecond, physics dictates it will likely continue moving to the right in the next millisecond.</li>
+                        <li>It calculates this prior estimate alongside a predicted uncertainty (covariance). The faster or more erratically the arm moves, the higher the uncertainty grows.</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">2. The Measurement Correction</span>
+                    <span class="topic-desc">What the neurons are actually saying.</span>
+                    <ul class="details-list">
+                        <li>Simultaneously, the algorithm takes a new chunk (bin) of neural data—how many times did each neuron fire in the last 20ms?</li>
+                        <li>Using an observation model (trained previously to know how the firing rate of Neuron X correlates to upward movement), it translates the spikes into an intended velocity.</li>
+                        <li><strong>The Kalman Gain:</strong> The algorithm mathematically fuses the physics prediction and the neural observation. If the neural signal is extremely noisy, it trusts the physics more (smoothing the movement). If the neural signal is crystal clear, it updates the trajectory sharply.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Mathematical Formulation</h2>
+            <p style="color:var(--secondary-text);">The BCI Kalman framework relies on linear generative models linking intent to neural activity:</p>
+            
+            <div class="math-block">
+                x<sub>k</sub> = A x<sub>k-1</sub> + w<sub>k</sub> <br><span style="font-size:0.85rem; color:#666;">(State equation: Current kinematics depend linearly on past kinematics + noise)</span>
+            </div>
+            
+            <div class="math-block">
+                z<sub>k</sub> = H x<sub>k</sub> + q<sub>k</sub> <br><span style="font-size:0.85rem; color:#666;">(Observation equation: Neural spikes are generated linearly from kinematics + noise)</span>
+            </div>
+            
+            <ul class="topic-list" style="margin-top: 2rem;">
+                <li class="topic-item">
+                    <span class="topic-title">Variables in BCI</span>
+                    <ul class="details-list">
+                        <li><strong>x<sub>k</sub></strong>: The hidden "state" vector (e.g., [X-position, Y-position, X-velocity, Y-velocity]).</li>
+                        <li><strong>z<sub>k</sub></strong>: The measurement vector (a list containing the spike counts for all 100 recorded neurons).</li>
+                        <li><strong>A</strong>: The state transition matrix (physics/kinematics).</li>
+                        <li><strong>H</strong>: The observation matrix (the "tuning curve" map of the neurons).</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Innovations in BCI Kalman Filtering</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">The Re-FIT Kalman Filter</span>
+                    <span class="topic-desc">A paradigm shift by Gilja and Shenoy (2012).</span>
+                    <ul class="details-list">
+                        <li>Early BCIs trained the <strong>H</strong> matrix by having a monkey watch a cursor move to a target and recording its neurons. But passive observation isn't identical to active control.</li>
+                        <li>The Re-FIT (Recalibrated Feedback Intention-Trained) approach runs a standard Kalman filter first, then <em>reassumes</em> the user's true intended velocity was always pointing straight toward the target (regardless of where the wobbly cursor actually went), and retrains the filter.</li>
+                        <li>This massive innovation doubled typing speeds in monkeys and humans, allowing cursors to stop crisply on targets (acting as an intended "click").</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">Computational Efficiency</span>
+                    <span class="topic-desc">Why linear models survived so long.</span>
+                    <ul class="details-list">
+                        <li>While deep neural networks (RNNs/CNNs) often achieve lower absolute error rates in offline decoding, the Kalman filter essentially involves multiplying a few small matrices. It can run in sub-milliseconds on ultra-low-power microcontrollers, making it ideal for fully implanted battery-operated systems.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+    </div>
 </body>
 </html>
