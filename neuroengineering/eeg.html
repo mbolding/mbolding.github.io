@@ -137,6 +137,81 @@
             margin-bottom: 2rem;
         }
 
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #111;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 3rem 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
+            text-align: center;
+        }
+
+        .sim-controls {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        
+        .radio-group label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .action-btn {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background-color: #00aaff;
+            border-color: #00aaff;
+        }
+        
+        .sim-legend {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 40px 20px;
@@ -228,6 +303,199 @@
                 </li>
             </ul>
         </section>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive EEG Trace Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:650px; margin: 0 auto 20px auto;">
+                Simulate raw electrical potential differences from the scalp. Select a dominant brain state or inject common clinical artifacts.
+            </p>
+            
+            <div class="sim-controls">
+                <div class="control-group">
+                    <label style="font-weight:600; color:#eee;">Dominant Brain State (Frequency Band):</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="eegState" value="delta" checked> Deep Sleep (Delta 1-4 Hz)</label>
+                        <label><input type="radio" name="eegState" value="theta"> Drowsy (Theta 4-8 Hz)</label>
+                        <label><input type="radio" name="eegState" value="alpha"> Relaxed, eyes closed (Alpha 8-13 Hz)</label>
+                        <label><input type="radio" name="eegState" value="beta"> Focused, active (Beta 13-30 Hz)</label>
+                        <label><input type="radio" name="eegState" value="gamma"> High cognition (Gamma 30+ Hz)</label>
+                    </div>
+                </div>
+                
+                <div style="border-top:1px solid #444; margin: 5px 0;"></div>
+
+                <div class="control-group" style="flex-direction: row; gap: 15px;">
+                    <button class="action-btn" id="btnBlink">Simulate Eye Blink (EOG Artifact)</button>
+                    <button class="action-btn" id="btnJaw">Simulate Jaw Clench (EMG Artifact)</button>
+                </div>
+            </div>
+
+            <canvas id="eegCanvas" width="800" height="300" style="background:#0a0a0a; border: 1px solid #333; border-radius: 4px; display: block; margin: 0 auto; width: 100%;"></canvas>
+            
+            <div class="sim-legend">
+                <span><span style="color:#00ffcc;">―</span> Fp1 (Frontal Pole - near eyes)</span>
+                <span><span style="color:#ffcc00;">―</span> Cz (Central - top of head)</span>
+                <span><span style="color:#ff3366;">―</span> O1 (Occipital - visual cortex)</span>
+            </div>
+        </div>
     </div>
+
+    <script>
+        const canvas = document.getElementById('eegCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        // Setup channels
+        const numChannels = 3;
+        const channelHeight = height / numChannels;
+        
+        const channels = [
+            { name: "Fp1", color: "#00ffcc", yOffset: channelHeight * 0.5, data: [] },
+            { name: "Cz",  color: "#ffcc00", yOffset: channelHeight * 1.5, data: [] },
+            { name: "O1",  color: "#ff3366", yOffset: channelHeight * 2.5, data: [] }
+        ];
+
+        // Fill initial data
+        const maxDataPoints = 400;
+        for (let c of channels) {
+            for (let i = 0; i < maxDataPoints; i++) {
+                c.data.push(0);
+            }
+        }
+
+        let timeIdx = 0;
+        let artifactBlink = 0;
+        let artifactJaw = 0;
+
+        // Bands
+        const bands = {
+            delta: { freq: 2, amp: 40 },
+            theta: { freq: 6, amp: 25 },
+            alpha: { freq: 10, amp: 30 },
+            beta:  { freq: 20, amp: 15 },
+            gamma: { freq: 40, amp: 10 }
+        };
+
+        function getCurrentState() {
+            const radios = document.getElementsByName('eegState');
+            for(let i = 0; i < radios.length; i++){
+                if(radios[i].checked){
+                    return bands[radios[i].value];
+                }
+            }
+            return bands.delta;
+        }
+
+        document.getElementById('btnBlink').addEventListener('click', () => { artifactBlink = 1.0; });
+        document.getElementById('btnJaw').addEventListener('click', () => { artifactJaw = 1.0; });
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            
+            // Vertical grid lines
+            for (let x = 0; x < width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            // Horizontal channel separators
+            for (let y = channelHeight; y < height; y += channelHeight) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+        }
+
+        function updateSimulation() {
+            const state = getCurrentState();
+            timeIdx += 0.05;
+
+            // Decay artifacts
+            if (artifactBlink > 0) artifactBlink -= 0.03;
+            if (artifactBlink < 0) artifactBlink = 0;
+            
+            if (artifactJaw > 0) artifactJaw -= 0.02;
+            if (artifactJaw < 0) artifactJaw = 0;
+
+            for (let i = 0; i < channels.length; i++) {
+                const ch = channels[i];
+                
+                // Base physiological signal
+                let baseWave = Math.sin(timeIdx * state.freq) * state.amp;
+                
+                // Add natural noise
+                let noise = (Math.random() - 0.5) * 10;
+                if (state.freq > 15) { noise += (Math.random() - 0.5) * 15; } // More stochasticity in high bands
+                
+                // Alpha blocking simulation: if alpha is selected, Occipital (O1) shows the strongest alpha waves
+                if (state.freq === 10) {
+                    if (ch.name === "O1") baseWave *= 1.5; 
+                    if (ch.name === "Fp1") baseWave *= 0.4;
+                }
+
+                let finalVal = baseWave + noise;
+
+                // Add Blink Artifact (massive slow wave, primarily Frontal Fp1)
+                if (artifactBlink > 0) {
+                    let blinkCurve = Math.sin(artifactBlink * Math.PI) * 120; // huge spike
+                    if (ch.name === "Fp1") {
+                        finalVal += blinkCurve;
+                    } else {
+                        // Volume conduction to other channels
+                        finalVal += blinkCurve * 0.15;
+                    }
+                }
+
+                // Add Jaw Clench EMG Artifact (massive high frequency noise globally, but stronger front-central)
+                if (artifactJaw > 0) {
+                    let jawNoise = (Math.random() - 0.5) * 80 * artifactJaw;
+                    if (ch.name === "O1") jawNoise *= 0.3; // Less in occipital
+                    finalVal += jawNoise;
+                }
+
+                ch.data.push(finalVal);
+                if (ch.data.length > maxDataPoints) {
+                    ch.data.shift();
+                }
+            }
+        }
+
+        function drawTraces() {
+            for (let i = 0; i < channels.length; i++) {
+                const ch = channels[i];
+                ctx.beginPath();
+                ctx.strokeStyle = ch.color;
+                ctx.lineWidth = 1.5;
+                
+                for (let x = 0; x < ch.data.length; x++) {
+                    let px = (x / maxDataPoints) * width;
+                    let py = ch.yOffset - ch.data[x];
+                    
+                    if (x === 0) {
+                        ctx.moveTo(px, py);
+                    } else {
+                        ctx.lineTo(px, py);
+                    }
+                }
+                ctx.stroke();
+            }
+        }
+
+        function animate() {
+            updateSimulation();
+            drawGrid();
+            drawTraces();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>

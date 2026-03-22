@@ -3,20 +3,492 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuroengineering Placeholder</title>
+    <title>Functional Magnetic Resonance Imaging (fMRI)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; text-align: center; padding: 100px 20px; color: #111; }
-        h1 { font-size: 48px; margin-bottom: 20px; }
-        a { color: #ff3300; text-decoration: none; border-bottom: 1px dotted #ff3300; }
-        a:hover { border-bottom-style: solid; }
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --code-font: 'JetBrains Mono', monospace;
+            --border-color: #e5e5e5;
+            --card-bg: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        .breadcrumb {
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topic-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .topic-item {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            border-left: 2px solid #eee;
+            transition: border-color 0.2s;
+        }
+
+        .topic-item:hover {
+            border-left-color: var(--accent-color);
+        }
+
+        .topic-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            display: block;
+            color: var(--text-color);
+        }
+
+        .topic-desc {
+            color: var(--secondary-text);
+            font-size: 0.95rem;
+        }
+
+        .details-list {
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            list-style-type: disc;
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+        }
+
+        .details-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        .info-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #222;
+            color: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .sim-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #ccc;
+        }
+        
+        .brain-display {
+            width: 150px;
+            height: 150px;
+            background-color: #444;
+            border-radius: 50%;
+            position: relative;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: inset 0px 0px 20px rgba(0,0,0,0.5);
+        }
+
+        .brain-display::before {
+            content: "Cortex View";
+            color: #666;
+            font-size: 12px;
+            position: absolute;
+            top: 20px;
+        }
+
+        .activation-blob {
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, rgba(255,200,0,1) 0%, rgba(255,50,0,0.8) 40%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            position: absolute;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+            transform: scale(0.5);
+        }
+
+        .glowing {
+            animation: pulse-glow 15s ease-out forwards;
+        }
+
+        @keyframes pulse-glow {
+            0% { opacity: 0; transform: scale(0.5); }
+            10% { opacity: 0; transform: scale(0.5); } /* Initial dip lag */
+            40% { opacity: 1; transform: scale(1.5); } /* Peak BOLD signal around 5s */
+            80% { opacity: 0.2; transform: scale(0.8); } /* Undershoot */
+            100% { opacity: 0; transform: scale(0.5); } /* Return to baseline */
+        }
+
+        .chart-container {
+            width: 100%;
+            max-width: 600px;
+            height: 200px;
+            background-color: #111;
+            border: 1px solid #444;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .stimulus-button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s;
+        }
+
+        .stimulus-button:hover {
+            background-color: #cc2900;
+        }
+
+        .stimulus-button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>🚧 Under Construction 🚧</h1>
-    <p>This section is currently being developed.</p>
-    <p style="margin-top:40px;"><a href="index.html">← Back to Neuroengineering Base</a></p>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / fMRI
+        </div>
+
+        <header>
+            <h1>Functional Magnetic Resonance Imaging (fMRI)</h1>
+            <p class="subtitle">Non-invasive, whole-brain mapping of neural activity utilizing the magnetic properties of oxygenated and deoxygenated blood.</p>
+        </header>
+
+        <div class="info-box">
+            <strong>Key takeaway:</strong> fMRI does <em>not</em> measure electrical action potentials directly. Because neurons consume massive amounts of oxygen when they fire, the brain compensatorily floods the active area with oxygen-rich blood a few seconds later. Since deoxygenated hemoglobin is paramagnetic and oxygenated hemoglobin is diamagnetic, the MRI scanner can detect this rush of fresh blood. This is known as the <strong>Blood Oxygen Level-Dependent (BOLD) contrast</strong>.
+        </div>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive BOLD Signal (HRF) Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:600px; margin-top:0;">
+                Click the button below to simulate a 1-second visual stimulus. Watch how the actual electrical neural activity happens instantly, while the BOLD Hemodynamic Response Function (HRF) slowly peaks 5 seconds later.
+            </p>
+            
+            <div class="brain-display">
+                <div class="activation-blob" id="blob"></div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="hrfCanvas" width="600" height="200"></canvas>
+            </div>
+
+            <button class="stimulus-button" id="stimBtn" onclick="triggerStimulus()">Trigger Visual Stimulus</button>
+        </div>
+
+        <section>
+            <h2>The Spatiotemporal Tradeoff</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">Incredible Spatial Resolution</span>
+                    <span class="topic-desc">Millimeter precision anywhere in the brain.</span>
+                    <ul class="details-list">
+                        <li>Unlike EEG (which blurs electrical signals across the skull) or MEG (which decays exponentially with depth), fMRI can image the entire 3-dimensional volume of the brain simultaneously.</li>
+                        <li>High-field scanners (like 7 Tesla MRI) can achieve sub-millimeter isotropic voxels, allowing researchers to see activity differences between specific cortical layers in the visual cortex.</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">Sluggish Temporal Resolution</span>
+                    <span class="topic-desc">The hemodynamic lag.</span>
+                    <ul class="details-list">
+                        <li>While an electrical spike occurs in 1 millisecond, the cardiovascular system is slow. The BOLD HRF takes about 5 to 6 seconds to reach its peak amplitude after a neural event, and another 10+ seconds to return to baseline (see simulator above).</li>
+                        <li>This means fMRI is effectively a massive low-pass filter in the time domain. It is excellent at showing <em>where</em> activity happened, but quite poor at showing <em>exactly when</em> it happened.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Clinical & Research Frameworks</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">Task-Based fMRI</span>
+                    <span class="topic-desc">The cognitive subtraction method.</span>
+                    <ul class="details-list">
+                        <li>The patient lies in the scanner and performs a task (e.g., tapping their fingers for 30 seconds, then resting for 30 seconds, repeated).</li>
+                        <li>By statistically subtracting the brain scans during the "rest" blocks from the scans during the "tapping" blocks, neurologists can perfectly map out the patient's individual motor cortex. This is routinely used for pre-surgical planning to avoid cutting the eloquent cortex when removing tumors.</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">Resting-State Functional Connectivity (rs-fMRI)</span>
+                    <span class="topic-desc">Mapping the networks of the wandering mind.</span>
+                    <ul class="details-list">
+                        <li>Even when doing absolutely nothing, the brain's BOLD signals fluctuate spontaneously.</li>
+                        <li>Researchers found that regions that work together frequently (like the left and right motor cortices, or the nodes of the Default Mode Network) have highly correlated BOLD fluctuations even at rest. By correlating these slow waves across all brain regions, researchers can map the underlying structural layout of human cognition.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <!-- Simulator Script -->
+    <script>
+        const canvas = document.getElementById('hrfCanvas');
+        const ctx = canvas.getContext('2d');
+        const blob = document.getElementById('blob');
+        const stimBtn = document.getElementById('stimBtn');
+
+        let isRunning = false;
+        let time = 0;
+        let animationId;
+        
+        const duration = 20; // seconds total
+        const TR = 1.0; // Repetition time in seconds
+        const fps = 60;
+        const totalFrames = duration * fps;
+        const dataPoints = [];
+        const stimPoints = [];
+
+        function drawBackground() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let x=0; x<=canvas.width; x+= (canvas.width/(duration/TR))) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+            }
+            for(let y=0; y<=canvas.height; y+= (canvas.height/4)) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
+
+            // Draw Baseline
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.7);
+            ctx.lineTo(canvas.width, canvas.height * 0.7);
+            ctx.stroke();
+
+            // Axis labels
+            ctx.fillStyle = '#888';
+            ctx.font = '12px Courier New';
+            ctx.fillText('0s', 5, canvas.height - 5);
+            ctx.fillText('5s', (5/duration)*canvas.width - 10, canvas.height - 5);
+            ctx.fillText(duration + 's', canvas.width - 25, canvas.height - 5);
+            ctx.fillText('BOLD Signal %', 5, 15);
+        }
+
+        function triggerStimulus() {
+            if (isRunning) return;
+            isRunning = true;
+            stimBtn.disabled = true;
+            stimBtn.innerText = "Scanning...";
+            
+            // Trigger CSS animation for the brain blob
+            blob.classList.remove('glowing');
+            void blob.offsetWidth; // trigger reflow
+            blob.classList.add('glowing');
+
+            time = 0;
+            dataPoints.length = 0;
+            stimPoints.length = 0;
+
+            // Precompute noisy HRF sampled at TR intervals
+            for (let t = 0; t <= duration; t += TR) {
+                let hrf = 0;
+                if (t > 0) {
+                    const peak = Math.pow(t/5, 5) * Math.exp(5 * (1 - t/5));
+                    const undershoot = 0.2 * Math.pow(t/12, 12) * Math.exp(12 * (1 - t/12));
+                    hrf = (peak - undershoot) * 1.5;
+                }
+                const noise = (Math.random() - 0.5) * 0.3;
+                const finalVal = hrf + noise;
+                
+                const x = (t / duration) * canvas.width;
+                const y = canvas.height * 0.7 - (finalVal * 40);
+                
+                dataPoints.push({x, y, t});
+            }
+
+            // Precompute high-res stimulus spikes
+            for(let f = 0; f <= totalFrames; f += 1) {
+                const t = f / fps;
+                const isStim = t >= 0 && t <= 1;
+                const x = (t / duration) * canvas.width;
+                const y = isStim ? canvas.height * 0.2 : canvas.height * 0.7;
+                stimPoints.push({x, y});
+            }
+
+            animate();
+        }
+
+        function animate() {
+            const currentT = time / fps;
+            
+            drawBackground();
+
+            // Draw Stimulus trace (Neural Activity)
+            ctx.strokeStyle = '#00aaff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let drewStim = false;
+            for(let i=0; i<stimPoints.length; i++) {
+                const t = i / fps;
+                if (t <= currentT) {
+                    if (!drewStim) {
+                        ctx.moveTo(stimPoints[i].x, stimPoints[i].y);
+                        drewStim = true;
+                    } else {
+                        ctx.lineTo(stimPoints[i].x, stimPoints[i].y);
+                    }
+                }
+            }
+            ctx.stroke();
+
+            // Draw sampled BOLD trace (connecting the dots)
+            ctx.strokeStyle = '#ff3300';
+            ctx.fillStyle = '#ff3300';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let first = true;
+            for(let i=0; i<dataPoints.length; i++) {
+                if (dataPoints[i].t <= currentT) {
+                    const pt = dataPoints[i];
+                    if (first) {
+                        ctx.moveTo(pt.x, pt.y);
+                        first = false;
+                    } else {
+                        ctx.lineTo(pt.x, pt.y);
+                    }
+                }
+            }
+            ctx.stroke();
+
+            // Draw dots at TR samples
+            for(let i=0; i<dataPoints.length; i++) {
+                if (dataPoints[i].t <= currentT) {
+                    const pt = dataPoints[i];
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Legend
+            ctx.fillStyle = '#00aaff';
+            ctx.fillText('Neural Spikes (Fast)', canvas.width - 150, 30);
+            ctx.fillStyle = '#ff3300';
+            ctx.fillText('Sampled BOLD (TR=' + TR + 's)', canvas.width - 170, 50);
+
+            time += 2; // speed multiplier
+
+            if (time <= totalFrames) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                isRunning = false;
+                stimBtn.disabled = false;
+                stimBtn.innerText = "Trigger Visual Stimulus";
+            }
+        }
+
+        // Initial draw
+        drawBackground();
+    </script>
 </body>
 </html>

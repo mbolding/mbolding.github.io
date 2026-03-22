@@ -3,20 +3,392 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuroengineering Placeholder</title>
+    <title>Diffusion Tensor Imaging (DTI)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; text-align: center; padding: 100px 20px; color: #111; }
-        h1 { font-size: 48px; margin-bottom: 20px; }
-        a { color: #ff3300; text-decoration: none; border-bottom: 1px dotted #ff3300; }
-        a:hover { border-bottom-style: solid; }
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --code-font: 'JetBrains Mono', monospace;
+            --border-color: #e5e5e5;
+            --card-bg: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        .breadcrumb {
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topic-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .topic-item {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            border-left: 2px solid #eee;
+            transition: border-color 0.2s;
+        }
+
+        .topic-item:hover {
+            border-left-color: var(--accent-color);
+        }
+
+        .topic-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            display: block;
+            color: var(--text-color);
+        }
+
+        .topic-desc {
+            color: var(--secondary-text);
+            font-size: 0.95rem;
+        }
+
+        .details-list {
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            list-style-type: disc;
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+        }
+
+        .details-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        .info-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+        }
+
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #1a1a1a;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
+        }
+
+        .canvas-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            background-color: #0d0d0d;
+            border-radius: 8px;
+            border: 1px solid #333;
+            overflow: hidden;
+            padding: 20px 0;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            background-color: #2a2a2a;
+            padding: 15px 25px;
+            border-radius: 30px;
+            border: 1px solid #444;
+        }
+
+        #faSlider {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #faSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 51, 0, 0.5);
+        }
     </style>
 </head>
 <body>
-    <h1>🚧 Under Construction 🚧</h1>
-    <p>This section is currently being developed.</p>
-    <p style="margin-top:40px;"><a href="index.html">← Back to Neuroengineering Base</a></p>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / Diffusion Tensor Imaging
+        </div>
+
+        <header>
+            <h1>Diffusion Tensor Imaging (DTI)</h1>
+            <p class="subtitle">A specialized MRI technique that maps the brain's 3D structural wiring by tracking the restricted microscopic diffusion of water molecules.</p>
+        </header>
+
+        <div class="info-box">
+            <strong>Key takeaway:</strong> While functional MRI (fMRI) maps the <em>grey matter</em> (the processors) by measuring blood oxygen, DTI maps the <em>white matter</em> (the cables) connecting them. DTI works by taking advantage of Brownian motion: water molecules randomly jiggle around at microscopic scales. In open fluid, water diffuses equally in all directions (isotropic). But inside the brain's dense white matter, water strongly prefers to diffuse <em>parallel</em> to the thickly insulated axonal fibers rather than crossing them (anisotropic). By mathematically tracking this directional preference, researchers can literally trace the wiring of the brain.
+        </div>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive Fractional Anisotropy (FA) Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:650px; margin-top:0;">
+                Adjust the FA slider below. At FA = 0, water molecules (blue dots) diffuse equally in all directions, tracing out an isotropic sphere. As FA approaches 1, diffusion becomes highly restricted to a single axis, mapping out a perfectly anisotropic axon fiber.
+            </p>
+            
+            <div class="canvas-container">
+                <canvas id="faCanvas" width="500" height="200"></canvas>
+            </div>
+            
+            <div class="controls">
+                <label for="faSlider" style="margin-right: 15px; font-weight: bold; color: #ff3300;">FA: <span id="faValueDisplay">0.50</span></label>
+                <input type="range" id="faSlider" min="0" max="0.95" step="0.01" value="0.5" style="width: 250px;">
+            </div>
+            <p id="faDescription" style="text-align:center; font-size:14px; color:#aaa; font-style:italic; margin-top:15px; height:20px;">
+                Moderate diffusion directionality.
+            </p>
+        </div>
+
+        <section>
+            <h2>The Core Mathematics</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">Fractional Anisotropy (FA)</span>
+                    <span class="topic-desc">Quantifying white matter integrity.</span>
+                    <ul class="details-list">
+                        <li>The MRI scanner applies magnetic gradients in multiple directions to measure how freely water diffuses across an entire 3D voxel. This diffusion pattern is modeled mathematically as a 3D ellipsoid (a tensor).</li>
+                        <li><strong>Fractional Anisotropy (FA)</strong> is a score from 0 to 1 indicating how "directional" the diffusion is. A score of 0 (a perfect sphere) means water diffuses freely everywhere, as seen in cerebrospinal fluid (CSF). A score approaching 1 (a sharp cigar shape) means water diffuses strictly along a single axis, indicating a thick, healthy bundle of myelinated axons (like the Corpus Callosum or the Corticospinal Tract).</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Tractography & Connectomics</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">Fiber Tracking algorithms</span>
+                    <span class="topic-desc">Tracing the path.</span>
+                    <ul class="details-list">
+                        <li>By calculating the primary axis (the principal eigenvector) of the diffusion tensor in every single voxel, computer software can "connect the dots" algorithmically.</li>
+                        <li>This process is called <strong>Tractography</strong>. It visually reconstructions massive fiber bundles in 3D, creating the iconic, colorful brain wiring diagrams often seen in modern neuroimaging (where Red usually indicates Left-Right crossing, Green indicates Anterior-Posterior fibers, and Blue indicates Superior-Inferior descending tracts).</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">The Human Connectome Project</span>
+                    <span class="topic-desc">Mapping the structural network.</span>
+                    <ul class="details-list">
+                        <li>Researchers use ultra-high-resolution DTI to build structural connectivity matrices—essentially a massive mathematical graph identifying the physical "bandwidth" connecting any two regions of the cortex. This forms the foundation of modern Connectomics.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Clinical Utilities</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">Surgical Planning</span>
+                    <span class="topic-desc">Avoiding the catastrophic cut.</span>
+                    <ul class="details-list">
+                        <li>If a surgeon needs to remove a deep tumor, they must access it without severing the patient's critical motor or speech tracts. DTI is the only non-invasive way to map out the exact position of the patient's motor pathways so the surgeon can navigate around them.</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">Mild Traumatic Brain Injury (mTBI)</span>
+                    <span class="topic-desc">Detecting invisible damage.</span>
+                    <ul class="details-list">
+                        <li>Standard anatomical MRI scans often look completely normal in patients with concussions. However, the sheer rotational forces of a concussion can cause microscopic "diffuse axonal injury." DTI can detect these micro-tears as a sudden drop in Fractional Anisotropy (FA), offering one of the only objective biomarkers for studying long-term brain trauma.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+    </div>
+
+    <!-- Simulator Script -->
+    <script>
+        const canvas = document.getElementById('faCanvas');
+        const ctx = canvas.getContext('2d');
+        const faSlider = document.getElementById('faSlider');
+        const faValueDisplay = document.getElementById('faValueDisplay');
+        const faDescription = document.getElementById('faDescription');
+
+        const particles = [];
+        const numParticles = 800;
+        
+        // Initialize particles
+        for(let i=0; i<numParticles; i++) {
+            particles.push({
+                x: canvas.width / 2,
+                y: canvas.height / 2
+            });
+        }
+
+        function updateSimulation() {
+            const fa = parseFloat(faSlider.value);
+            faValueDisplay.innerText = fa.toFixed(2);
+            
+            if (fa < 0.2) {
+                faDescription.innerText = "Isotropic Diffusion (FA ~ 0): Water diffuses equally, forming a sphere. Characteristic of CSF.";
+            } else if (fa < 0.7) {
+                faDescription.innerText = "Moderate Anisotropy (FA ~ " + fa.toFixed(2) + "): Directional preference emerges. Crossing fibers or damaged white matter.";
+            } else {
+                faDescription.innerText = "High Anisotropy (FA ~ " + fa.toFixed(2) + "): Water is highly restricted. Thick, healthy bundles of intact myelinated axons.";
+            }
+
+            // Calculate bounding ellipsoid
+            const spreadX = 80 + (fa * 150); 
+            const spreadY = 80 - (fa * 75);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw implicit Axon myelin bounds (fades in as FA increases)
+            ctx.globalAlpha = Math.pow(fa, 1.5);
+            ctx.fillStyle = "rgba(40, 40, 40, 0.5)";
+            ctx.fillRect(0, canvas.height/2 - spreadY - 8, canvas.width, (spreadY + 8)*2);
+            
+            ctx.strokeStyle = "rgba(100, 100, 100, 0.8)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height/2 - spreadY - 8);
+            ctx.lineTo(canvas.width, canvas.height/2 - spreadY - 8);
+            ctx.moveTo(0, canvas.height/2 + spreadY + 8);
+            ctx.lineTo(canvas.width, canvas.height/2 + spreadY + 8);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+
+            // Draw the defining Tensor Ellipsoid
+            ctx.strokeStyle = "rgba(255, 51, 0, 0.5)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.ellipse(canvas.width/2, canvas.height/2, spreadX, Math.max(spreadY, 2), 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Simulate Brownian motion
+            ctx.fillStyle = "rgba(0, 150, 255, 0.4)";
+            
+            for(let i=0; i<numParticles; i++) {
+                let p = particles[i];
+                
+                // Random walk
+                p.x += (Math.random() - 0.5) * 12 * (spreadX / 80);
+                p.y += (Math.random() - 0.5) * 12 * (spreadY / 80);
+                
+                // Repel/reset if outside the boundary ellipsoid
+                const dx = p.x - canvas.width/2;
+                const dy = p.y - canvas.height/2;
+                const inside = ((dx*dx) / (spreadX*spreadX)) + ((dy*dy) / (Math.max(spreadY, 2)*Math.max(spreadY, 2)));
+                
+                if (inside > 1) {
+                    p.x = canvas.width/2 + (Math.random() - 0.5) * spreadX;
+                    p.y = canvas.height/2 + (Math.random() - 0.5) * spreadY;
+                }
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            requestAnimationFrame(updateSimulation);
+        }
+
+        updateSimulation();
+    </script>
 </body>
 </html>

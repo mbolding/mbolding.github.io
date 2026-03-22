@@ -3,20 +3,515 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuroengineering Placeholder</title>
+    <title>The Hodgkin-Huxley Model</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; text-align: center; padding: 100px 20px; color: #111; }
-        h1 { font-size: 48px; margin-bottom: 20px; }
-        a { color: #ff3300; text-decoration: none; border-bottom: 1px dotted #ff3300; }
-        a:hover { border-bottom-style: solid; }
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --code-font: 'JetBrains Mono', monospace;
+            --border-color: #e5e5e5;
+            --card-bg: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        .breadcrumb {
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topic-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .topic-item {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            border-left: 2px solid #eee;
+            transition: border-color 0.2s;
+        }
+
+        .topic-item:hover {
+            border-left-color: var(--accent-color);
+        }
+
+        .topic-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            display: block;
+            color: var(--text-color);
+        }
+
+        .topic-desc {
+            color: var(--secondary-text);
+            font-size: 0.95rem;
+        }
+
+        .details-list {
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            list-style-type: disc;
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+        }
+
+        .details-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        .info-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .math-box {
+            background-color: var(--card-bg);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 1.1rem;
+        }
+
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #1a1a1a;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #eaeaea;
+        }
+        
+        .sim-grid {
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .canvas-container {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+        }
+        
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #222;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slider-group label {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .slider-group input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #00aaff;
+        }
+
+        .btn-inject {
+            background-color: #ff3300;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: background-color 0.1s, transform 0.1s;
+            margin-top: 10px;
+        }
+
+        .btn-inject:active {
+            transform: scale(0.95);
+            background-color: #cc2900;
+        }
+
+        .btn-inject.injecting {
+            background-color: #00aaff;
+            box-shadow: 0 0 15px #00aaff;
+        }
+
+        .v-axis-label {
+            position: absolute;
+            left: 5px;
+            top: 5px;
+            color: #ff3300;
+            font-size: 12px;
+            font-family: var(--code-font);
+        }
+        .time-axis-label {
+            position: absolute;
+            right: 5px;
+            bottom: 5px;
+            color: #666;
+            font-size: 12px;
+            font-family: var(--code-font);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+            .sim-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>🚧 Under Construction 🚧</h1>
-    <p>This section is currently being developed.</p>
-    <p style="margin-top:40px;"><a href="index.html">← Back to Neuroengineering Base</a></p>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / Hodgkin-Huxley
+        </div>
+
+        <header>
+            <h1>The Hodgkin-Huxley Model</h1>
+            <p class="subtitle">The Nobel Prize-winning mathematical framework that perfectly explains how a biological neuron fires an action potential.</p>
+        </header>
+
+        <div class="info-box">
+            <strong>Key takeaway:</strong> In 1952, Alan Hodgkin and Andrew Huxley shoved a glass capillary electrode inside the massive axon of a squid. By utilizing a "voltage-clamp" technique, they discovered that the action potential is entirely driven by the physical flow of Sodium (Na⁺) and Potassium (K⁺) ions through microscopic channels in the cell membrane. They elegantly modeled this biological membrane as a basic electrical circuit using Ohm's law, capacitors, and resistors.
+        </div>
+
+        <section>
+            <h2>The Equivalent Electrical Circuit</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">Biology as Electricity</span>
+                    <span class="topic-desc">Mapping cells to circuits.</span>
+                    <ul class="details-list">
+                        <li><strong>The Capacitor ($C_m$):</strong> The lipid bilayer of the cell membrane acts as a perfect electrical insulator between the conductive salty fluids on the inside and outside of the cell. This means it physically stores electrical charge exactly like a capacitor.</li>
+                        <li><strong>The Resistors ($g_{Na}, g_{K}$):</strong> The ion channels embedded in the membrane act as variable resistors (or conductances, $g$). Because they open and close depending on the voltage, they are physically acting as voltage-dependent potentiometers.</li>
+                        <li><strong>The Batteries ($E_{Na}, E_{K}$):</strong> The concentration gradients of the ions (pumped by the Na/K ATPase) act as individual batteries driving the current.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div class="math-box">
+                $$ I = C_m \frac{dV_m}{dt} + I_{Na} + I_K + I_L $$
+                <br>
+                $$ I = C_m \frac{dV_m}{dt} + g_{Na}m^3h(V_m - E_{Na}) + g_K n^4(V_m - E_{K}) + g_L(V_m - E_L) $$
+            </div>
+
+            <p style="color: var(--secondary-text); font-size: 0.95rem;">
+                The total current $I$ injected into the cell splits into two paths: it either charges the membrane capacitor $C_m$, or it flows outwards through the specific ion channels (Sodium, Potassium, and Leak). The variables $m, h,$ and $n$ are the "gating variables"—probabilities between 0 and 1 that dictate exactly what percentage of the ion channels are physically swung open at any given millisecond.
+            </p>
+        </section>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Hodgkin-Huxley Action Potential Simulator</div>
+            
+            <div class="sim-grid">
+                <div class="canvas-container">
+                    <span class="v-axis-label">Vm (mV)</span>
+                    <span class="time-axis-label">Time &rarr;</span>
+                    <canvas id="hhCanvas" width="550" height="300"></canvas>
+                </div>
+                
+                <div class="controls-panel">
+                    <div class="slider-group">
+                        <label>Max Na+ Conductance ($g_{Na}$)<span id="val_gNa">120</span></label>
+                        <input type="range" id="gNa_slider" min="0" max="200" value="120" step="1">
+                    </div>
+                    
+                    <div class="slider-group">
+                        <label>Max K+ Conductance ($g_{K}$)<span id="val_gK">36</span></label>
+                        <input type="range" id="gK_slider" min="0" max="100" value="36" step="1">
+                    </div>
+
+                    <div class="slider-group">
+                        <label>Injection Current ($\mu A/cm^2$)<span id="val_Iapp">10</span></label>
+                        <input type="range" id="Iapp_slider" min="1" max="50" value="10" step="1">
+                    </div>
+                    
+                    <button class="btn-inject" id="injectBtn">Inject Current</button>
+                    
+                    <p style="font-size: 11px; color:#888; margin-top:0;">
+                        Click "Inject Current" to depolarize the membrane. Try dropping the Sodium conductance to 0 to simulate Tetrodotoxin (Pufferfish poison), which blocks Na+ channels and paralyzes the squid!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Simulator Script -->
+    <script>
+        const canvas = document.getElementById('hhCanvas');
+        const ctx = canvas.getContext('2d');
+        const injectBtn = document.getElementById('injectBtn');
+        
+        // Sliders
+        const gNa_slider = document.getElementById('gNa_slider');
+        const gK_slider = document.getElementById('gK_slider');
+        const Iapp_slider = document.getElementById('Iapp_slider');
+        const val_gNa = document.getElementById('val_gNa');
+        const val_gK = document.getElementById('val_gK');
+        const val_Iapp = document.getElementById('val_Iapp');
+
+        // HH Constants
+        const C_m = 1.0; // uF/cm^2
+        const E_Na = 50.0; // mV
+        const E_K = -77.0; // mV
+        const E_L = -54.387; // mV
+        const g_L = 0.3; // mS/cm^2
+        
+        // State variables
+        let V = -65.0; // mV
+        
+        // Gating functions
+        const alpha_m = (v) => 0.1 * (v + 40) / (1 - Math.exp(-(v + 40) / 10));
+        const beta_m  = (v) => 4.0 * Math.exp(-(v + 65) / 18);
+        
+        const alpha_h = (v) => 0.07 * Math.exp(-(v + 65) / 20);
+        const beta_h  = (v) => 1.0 / (1 + Math.exp(-(v + 35) / 10));
+        
+        const alpha_n = (v) => 0.01 * (v + 55) / (1 - Math.exp(-(v + 55) / 10));
+        const beta_n  = (v) => 0.125 * Math.exp(-(v + 65) / 80);
+
+        // Intial Gating variables
+        let m = alpha_m(V) / (alpha_m(V) + beta_m(V));
+        let h = alpha_h(V) / (alpha_h(V) + beta_h(V));
+        let n = alpha_n(V) / (alpha_n(V) + beta_n(V));
+
+        // Integration parameters
+        const dt = 0.02; // ms
+        let I_inject = 0.0;
+        let isInjecting = false;
+
+        // Plotting history
+        const maxHistory = 400; // number of points to draw
+        let vHistory = new Array(maxHistory).fill(-65.0);
+
+        // Listeners
+        gNa_slider.oninput = () => val_gNa.innerText = gNa_slider.value;
+        gK_slider.oninput = () => val_gK.innerText = gK_slider.value;
+        Iapp_slider.oninput = () => val_Iapp.innerText = Iapp_slider.value;
+
+        injectBtn.addEventListener('mousedown', () => {
+            isInjecting = true;
+            injectBtn.classList.add('injecting');
+        });
+        injectBtn.addEventListener('mouseup', () => {
+            isInjecting = false;
+            injectBtn.classList.remove('injecting');
+        });
+        injectBtn.addEventListener('mouseleave', () => {
+            isInjecting = false;
+            injectBtn.classList.remove('injecting');
+        });
+
+        // Euler Integration Step
+        function step() {
+            // Apply current if button is held
+            if (isInjecting) {
+                I_inject = parseFloat(Iapp_slider.value);
+            } else {
+                I_inject = 0;
+            }
+
+            const g_Na = parseFloat(gNa_slider.value);
+            const g_K = parseFloat(gK_slider.value);
+
+            // Channel currents
+            const I_Na = g_Na * Math.pow(m, 3) * h * (V - E_Na);
+            const I_Ku = g_K * Math.pow(n, 4) * (V - E_K);
+            const I_Lu = g_L * (V - E_L);
+
+            // Membrane voltage derivative
+            const dV = (I_inject - I_Na - I_Ku - I_Lu) / C_m;
+
+            // Gating variable derivatives
+            const dm = alpha_m(V) * (1 - m) - beta_m(V) * m;
+            const dh = alpha_h(V) * (1 - h) - beta_h(V) * h;
+            const dn = alpha_n(V) * (1 - n) - beta_n(V) * n;
+
+            // Update state
+            V += dV * dt;
+            m += dm * dt;
+            h += dh * dt;
+            n += dn * dt;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // 0 mV line
+            const zeroY = mapVToY(0);
+            ctx.moveTo(0, zeroY);
+            ctx.lineTo(canvas.width, zeroY);
+            // -65 mV line (resting)
+            const restY = mapVToY(-65);
+            ctx.moveTo(0, restY);
+            ctx.lineTo(canvas.width, restY);
+            ctx.stroke();
+
+            // Draw Voltage Trace
+            ctx.strokeStyle = '#ff3300';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            
+            for (let i = 0; i < maxHistory; i++) {
+                const x = (i / maxHistory) * canvas.width;
+                const y = mapVToY(vHistory[i]);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // Map voltage domain [-90, +60] to Canvas height
+        function mapVToY(v) {
+            const minV = -90;
+            const maxV = 60;
+            const range = maxV - minV;
+            // Invert Y axis for drawing
+            return canvas.height - ((v - minV) / range) * canvas.height;
+        }
+
+        // Main Loop (runs multiple physics steps per visual frame to speed up time)
+        function loop() {
+            const stepsPerFrame = 25; // Speed multiplier
+            for (let i = 0; i < stepsPerFrame; i++) {
+                step();
+            }
+            
+            // Push new V to history, remove oldest
+            vHistory.shift();
+            vHistory.push(V);
+
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Start
+        loop();
+
+    </script>
 </body>
 </html>

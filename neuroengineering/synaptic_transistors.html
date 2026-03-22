@@ -3,20 +3,399 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuroengineering Placeholder</title>
+    <title>Synaptic Transistors & Memristors</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; text-align: center; padding: 100px 20px; color: #111; }
-        h1 { font-size: 48px; margin-bottom: 20px; }
-        a { color: #ff3300; text-decoration: none; border-bottom: 1px dotted #ff3300; }
-        a:hover { border-bottom-style: solid; }
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #ff3300;
+            --code-font: 'JetBrains Mono', monospace;
+            --border-color: #e5e5e5;
+            --card-bg: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        .breadcrumb {
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topic-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .topic-item {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            border-left: 2px solid #eee;
+            transition: border-color 0.2s;
+        }
+
+        .topic-item:hover {
+            border-left-color: var(--accent-color);
+        }
+
+        .topic-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            display: block;
+            color: var(--text-color);
+        }
+
+        .topic-desc {
+            color: var(--secondary-text);
+            font-size: 0.95rem;
+        }
+
+        .details-list {
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            list-style-type: disc;
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+        }
+
+        .details-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        .info-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #1a1a1a;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
+        }
+
+        .circuit-diagram {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .node {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background-color 0.1s, transform 0.1s;
+        }
+
+        .pre-syn {
+            background-color: #222;
+            border: 3px solid #00aaff;
+            color: #00aaff;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .pre-syn:active {
+            background-color: #00aaff;
+            color: #fff;
+            transform: scale(0.95);
+        }
+
+        .post-syn {
+            background-color: #222;
+            border: 3px solid #444;
+            color: #666;
+        }
+
+        .post-syn.firing {
+            background-color: #ff3300;
+            border-color: #ff3300;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 51, 0, 0.8);
+        }
+
+        .memristor-bridge {
+            width: 150px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #555;
+        }
+
+        .conductance-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00aaff, #ff3300);
+            width: 10%; /* Initial conductance */
+            transition: width 0.1s;
+        }
+
+        .stats-panel {
+            display: flex;
+            gap: 30px;
+            background-color: #0d0d0d;
+            padding: 15px 30px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .stat-value {
+            font-family: var(--code-font);
+            color: #fff;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>🚧 Under Construction 🚧</h1>
-    <p>This section is currently being developed.</p>
-    <p style="margin-top:40px;"><a href="index.html">← Back to Neuroengineering Base</a></p>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / Synaptic Transistors
+        </div>
+
+        <header>
+            <h1>Synaptic Transistors & Memristors</h1>
+            <p class="subtitle">Hardware materials engineered to artificially "learn" like biological synapses by physically changing their own electrical resistance in real-time.</p>
+        </header>
+
+        <div class="info-box">
+            <strong>Key takeaway:</strong> Standard computer architecture is fundamentally flawed compared to the brain. In a PC, the CPU (where math happens) and the RAM (where memory is stored) are physically separate. Shuttling data back and forth between them creates a massive bottleneck that burns immense amounts of electricity. The brain doesn't do this. A biological synapse is an analog interface that both <em>computes</em> and <em>stores memory</em> simultaneously in the exact same physical location. Neuromorphic engineers replicate this using <strong>Memristors</strong> (Memory Resistors).
+        </div>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive Memristor (LTP) Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:650px; margin-top:0;">
+                Click the "Pre-synaptic Spike" button rapidly to pump voltage into the Memristor. Notice how the internal <em>Conductance</em> (Synaptic Weight) physically increases and <strong>stays up</strong> (simulating biological Long-Term Potentiation, LTP). If you stop clicking, the conductance slowly leaks backwards to baseline over time.
+            </p>
+            
+            <div class="circuit-diagram">
+                <div class="node pre-syn" id="spikeBtn">SPIKE</div>
+                <div class="memristor-bridge">
+                    <div class="conductance-fill" id="weightBar"></div>
+                </div>
+                <div class="node post-syn" id="postNeuron">POST</div>
+            </div>
+
+            <div class="stats-panel">
+                <div>Synaptic Weight: <span class="stat-value" id="weightDisplay">0.10</span> w</div>
+                <div>Post-Neuron Voltage: <span class="stat-value" id="voltageDisplay">0.0</span> mV</div>
+            </div>
+        </div>
+
+        <section>
+            <h2>The Physics of Artificial Placticity</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">What is a Memristor?</span>
+                    <span class="topic-desc">The 4th fundamental circuit element.</span>
+                    <ul class="details-list">
+                        <li>Theorized in 1971 but only physically created in 2008 by HP Labs, a memristor's electrical resistance is not fixed. Its resistance permanently changes depending on how much voltage has flowed through it in the past.</li>
+                        <li>When you apply a high voltage across a Titanium Dioxide (TiO₂) memristor, oxygen vacancies inside the crystal lattice physically migrate, creating microscopic conductive filaments bridging the two ends. The more voltage you pulse, the thicker the titanium filament gets, and the stronger the connection becomes. When the power is turned off, the filament stays exactly where it is—maintaining a physical "memory" of the data without needing battery power.</li>
+                    </ul>
+                </li>
+                <li class="topic-item">
+                    <span class="topic-title">Synaptic Transistors (OECTs)</span>
+                    <span class="topic-desc">Organic electrochemical transistors.</span>
+                    <ul class="details-list">
+                        <li>While traditional transistors use an electric field across a rigid semiconductor to switch perfectly between 1 and 0, Synaptic Transistors use soft conductive polymers (like PEDOT:PSS) suspended in an electrolyte fluid.</li>
+                        <li>By applying a voltage, engineers can physically inject specific amounts of ions directly into the polymer's 3D volume, permanently raising or lowering its analog conductivity level. This flawlessly mirrors how a biological synapse adjusts its synaptic weight by modifying the number of neurotransmitter receptors on the postsynaptic membrane.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Overcoming the von Neumann Bottleneck</h2>
+            <ul class="topic-list">
+                <li class="topic-item">
+                    <span class="topic-title">In-Memory Computing</span>
+                    <span class="topic-desc">Math at the speed of physics.</span>
+                    <ul class="details-list">
+                        <li>Because memristors perform computation at the exact same physical location where the data is stored, they completely eliminate the von Neumann bottleneck. Massive artificial neural networks (Matrix Vector Multiplications) can be run instantaneously across physical grid crossbar arrays in pure hardware.</li>
+                        <li>This means an AI model that requires thousands of massive data-center GPUs running on megawatts of power could theoretically be reduced to a tiny, passive memristor chip operating on just a few milliwatts, paving the way for advanced machine learning directly inside implantable Brain-Computer Interfaces.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+    </div>
+
+    <!-- Simulator Script -->
+    <script>
+        const spikeBtn = document.getElementById('spikeBtn');
+        const weightBar = document.getElementById('weightBar');
+        const weightDisplay = document.getElementById('weightDisplay');
+        const voltageDisplay = document.getElementById('voltageDisplay');
+        const postNeuron = document.getElementById('postNeuron');
+
+        // Memristor state variables
+        let synapticWeight = 0.10; // Max 1.0
+        let postVoltage = 0.0;
+        let lastSpikeTime = Date.now();
+        
+        // Spike triggered
+        spikeBtn.addEventListener('mousedown', () => {
+            const now = Date.now();
+            
+            // LTP rule: Increase weight on pre-spike. Fast successive spikes increase it hugely.
+            const timeSince = now - lastSpikeTime;
+            lastSpikeTime = now;
+            
+            let increase = 0.05;
+            if (timeSince < 300) {
+                // High frequency burst! Heavy potentiation.
+                increase = 0.15;
+            }
+
+            synapticWeight = Math.min(1.0, synapticWeight + increase);
+            
+            // Calculate voltage spike transferred to post-synaptic neuron
+            // V = I * R. The higher the weight (conductance), the bigger the spike.
+            const spikeAmplitude = synapticWeight * 100; // max 100mV
+            postVoltage += spikeAmplitude;
+
+            // Flash Post-Neuron if it hits action potential threshold (e.g., 60mV)
+            if (postVoltage >= 60) {
+                postNeuron.classList.add('firing');
+                postNeuron.innerText = "FIRE!";
+                setTimeout(() => {
+                    postNeuron.classList.remove('firing');
+                    postNeuron.innerText = "POST";
+                    postVoltage = 0; // Reset after firing
+                }, 150);
+            }
+
+            updateUI();
+        });
+
+        // Continuous Decay Loop (LTD / Leak)
+        setInterval(() => {
+            // Decay synaptic weight slowly back down to baseline over time (forgetting curve)
+            if (synapticWeight > 0.10) {
+                synapticWeight -= 0.005; 
+            }
+            if (synapticWeight < 0.10) synapticWeight = 0.10;
+
+            // Decay post-synaptic membrane voltage quickly (RC leak)
+            if (postVoltage > 0) {
+                postVoltage *= 0.8; // exponentially decay
+                if (postVoltage < 1) postVoltage = 0;
+            }
+
+            updateUI();
+        }, 100);
+
+        function updateUI() {
+            weightBar.style.width = (synapticWeight * 100) + '%';
+            weightDisplay.innerText = synapticWeight.toFixed(2);
+            voltageDisplay.innerText = postVoltage.toFixed(1);
+        }
+
+    </script>
 </body>
 </html>

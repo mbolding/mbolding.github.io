@@ -14,3 +14,37 @@ things to add to the neuroengineering section:
   - [x] Sensory Restoration
   - [x] DBS
   - [x] tDCS / tACS
+  - [x] TMS
+  - [x] Focused Ultrasound (FUS)
+  - [x] Functional MRI (fMRI) -- add some interactive elements to this page
+  - [x] Diffusion Tensor Imaging (DTI)
+  - [x] fNIRS
+  - [x] Conductive polymers
+  - [x] Hydrogels and encapsulation
+  - [x] Coatings and packaging for electrodes
+  - [x] Scaffolds
+  - [x] Stem cell therapies
+  - [x] Stretchable, conformal electrode arrays
+  - [x] Micromotion artifacts
+  - [x] Neuromorphic sensors
+  - [x] Artificial sensory skin
+  - [x] Synaptic transistors
+  - [x] Hodgkin-Huxley formulations -- make this an interactive model with equations and graphs
+  - [x] Large-scale brain network models
+  - [x] The Story of Cochlear Implants
+  - [x] iBCI & Speech Decoding
+  - [x] Neuroethics -- make this an interactive page
+- [x] Add BCI Pioneers to the major players page. https://bcipioneers.org/
+- [x] Add a page about the current state of neurotechnology and what is commercially available.
+- [x] Add a deep dive into spinal cord repair. 
+- [ ] Add interactive elements to the following pages:
+  - [x] EEG -- simulation of traces
+  - [x] MEG -- simulation of squid gradiometers
+  - [ ] LFP
+  - [ ] SUA/MUA
+  - [ ] Kalman Filters
+  - [x] Functional MRI (fMRI)
+  - [x] Diffusion Tensor Imaging (DTI)
+  - [ ] fNIRS
+  - [x] Synaptic transistors
+  - [ ] The Story of Cochlear Implants
