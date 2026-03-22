@@ -137,14 +137,63 @@
             margin-bottom: 2rem;
         }
 
-        .math-block {
-            background-color: #f0f0f0;
-            padding: 15px;
-            border-radius: 6px;
-            font-family: var(--code-font);
-            margin: 10px 0;
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #111;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 3rem 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
             text-align: center;
-            font-size: 1.1rem;
+        }
+
+        .sim-controls {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 300px;
+        }
+
+        .slider-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #eee;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #00ff00;
+        }
+
+        .sim-legend {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
         }
 
         @media (max-width: 768px) {
@@ -242,6 +291,152 @@
                 </li>
             </ul>
         </section>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box" style="margin-top:2rem;">
+            <div class="sim-title">Interactive Kalman Filter Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:750px; margin: 0 auto 20px auto;">
+                A BCI neural decoder outputs a patient's intended velocity (red), but the raw spike data is incredibly noisy and jumpy. The Kalman Filter mathematically fuses this raw data with its internal physics model to output a smooth commanding signal (green) for a robotic arm or cursor. Adjust the confidence sliders below to see the math in real-time.
+            </p>
+            
+            <div class="sim-controls">
+                <div class="slider-group">
+                    <label>Process Noise Q <span style="color:#888;font-weight:normal;">(Confidence in Physics Model)</span></label>
+                    <input type="range" id="sliderQ" min="0" max="100" step="1" value="50">
+                    <div style="font-size:12px; color:#777; display:flex; justify-content:space-between;"><span>Trust Physics More</span><span>Trust Physics Less</span></div>
+                </div>
+                <div class="slider-group">
+                    <label>Measurement Noise R <span style="color:#888;font-weight:normal;">(Confidence in Neural Data)</span></label>
+                    <input type="range" id="sliderR" min="0" max="100" step="1" value="50">
+                    <div style="font-size:12px; color:#777; display:flex; justify-content:space-between;"><span>Trust Neurons More</span><span>Trust Neurons Less</span></div>
+                </div>
+            </div>
+
+            <canvas id="kfCanvas" width="800" height="350" style="background:#0a0a0a; border: 1px solid #333; border-radius: 4px; display: block; margin: 0 auto; width: 100%;"></canvas>
+            
+            <div class="sim-legend">
+                <span><span style="color:#00aaff;">―</span> True Intended Velocity</span>
+                <span><span style="color:#ff3366;">―</span> Raw Neural Decoder (Noisy)</span>
+                <span><span style="color:#00ff00;">―</span> Kalman Filter Output</span>
+            </div>
+        </div>
     </div>
+
+    <script>
+        const canvas = document.getElementById('kfCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const maxPoints = 800; // 1 pixel per time step
+
+        // Traces
+        const traceTrue = new Array(maxPoints).fill(0);
+        const traceMeas = new Array(maxPoints).fill(0);
+        const traceKF = new Array(maxPoints).fill(0);
+
+        // Kalman Filter persistent state (1D)
+        let x_est = 0; // State estimate (velocity)
+        let P = 1.0;   // Estimate covariance
+        
+        let timeIdx = 0;
+
+        function randomGaussian() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random(); 
+            while(v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            
+            // X-axis zero line
+            ctx.beginPath();
+            ctx.moveTo(0, height/2);
+            ctx.lineTo(width, height/2);
+            ctx.stroke();
+        }
+
+        function updateSimulation() {
+            timeIdx += 1.5;
+
+            // 1. True Underlying State (A nice smooth intended sine wave velocity)
+            let true_v = Math.sin(timeIdx * 0.02) * 80;
+
+            // 2. The Noisy Neural Measurement (fixed raw underlying noise)
+            let actual_noise = randomGaussian() * 40; 
+            let measured_z = true_v + actual_noise;
+
+            // 3. User Parameters for the Kalman Filter (Log Scaled for better control)
+            let qVal = parseFloat(document.getElementById('sliderQ').value);
+            let rVal = parseFloat(document.getElementById('sliderR').value);
+            
+            // Map 0-100 to exponential (10^-3 to 10^2)
+            let Q = Math.pow(10, -3 + (qVal / 100) * 5); 
+            // Map 0-100 to exponential (10^0 to 10^4)
+            let R = Math.pow(10, 0 + (rVal / 100) * 4); 
+
+            // 4. Kalman Filter Step (1D, A=1, H=1)
+            // --- Predict Stage ---
+            let x_pred = x_est; // Model expects us to maintain velocity
+            let P_pred = P + Q;
+            
+            // --- Update Stage ---
+            let K = P_pred / (P_pred + R); // Kalman Gain
+            x_est = x_pred + K * (measured_z - x_pred);
+            P = (1 - K) * P_pred;
+
+            // Shift and record traces
+            traceTrue.shift(); traceTrue.push(true_v);
+            traceMeas.shift(); traceMeas.push(measured_z);
+            traceKF.shift();   traceKF.push(x_est);
+        }
+
+        function drawTrace(data, color, lineWidth) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            
+            for (let x = 0; x < data.length; x++) {
+                let py = (height/2) - data[x]; 
+                if (x === 0) ctx.moveTo(x, py);
+                else ctx.lineTo(x, py);
+            }
+            ctx.stroke();
+        }
+
+        function animate() {
+            updateSimulation();
+            drawGrid();
+
+            // Draw traces in order of importance
+            drawTrace(traceMeas, 'rgba(255, 51, 102, 0.5)', 1.5); // Red Noisy
+            drawTrace(traceTrue, 'rgba(0, 170, 255, 0.7)', 3);    // Blue True
+            drawTrace(traceKF, '#00ff00', 3);                   // Green Kalman Output
+
+            // Info text inside canvas
+            let qVal = parseFloat(document.getElementById('sliderQ').value);
+            let rVal = parseFloat(document.getElementById('sliderR').value);
+            let Q = Math.pow(10, -3 + (qVal / 100) * 5); 
+            let R = Math.pow(10, 0 + (rVal / 100) * 4); 
+            
+            let currentK = (P + Q) / ((P + Q) + R);
+
+            ctx.fillStyle = "#aaa";
+            ctx.font = "12px 'JetBrains Mono', monospace";
+            ctx.fillText(`Kalman Gain (K): ${currentK.toFixed(3)}`, 15, 25);
+            if (currentK > 0.5) ctx.fillText("Over-trusting Neural Noise -> Output is jerky", 15, 45);
+            else if (currentK < 0.02) ctx.fillText("Over-trusting Physics -> Output is lagging behind", 15, 45);
+            else ctx.fillText("Optimal Tracking Range", 15, 45);
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>

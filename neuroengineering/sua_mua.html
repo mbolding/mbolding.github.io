@@ -137,6 +137,62 @@
             margin-bottom: 2rem;
         }
 
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #111;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 3rem 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
+            text-align: center;
+        }
+
+        .sim-controls {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .action-btn {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background-color: #00aaff;
+            border-color: #00aaff;
+        }
+
+        .sim-legend {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 40px 20px;
@@ -220,6 +276,247 @@
                 </li>
             </ul>
         </section>
+
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive Spike Sorting (MUA to SUA)</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:700px; margin: 0 auto 20px auto;">
+                A single microelectrode often records the noisy chorus of several local neurons (Multi-Unit Activity). By extracting each spike's unique waveform signature (Amplitude vs Width), algorithms can cluster them into distinct single-neuron sources (Single-Unit Activity).
+            </p>
+            
+            <div class="sim-controls">
+                <button class="action-btn" id="btnSort">Run K-Means Spike Sorting</button>
+            </div>
+
+            <canvas id="spikeCanvas" width="800" height="400" style="background:#0a0a0a; border: 1px solid #333; border-radius: 4px; display: block; margin: 0 auto; width: 100%;"></canvas>
+            
+            <div class="sim-legend">
+                <span><span style="color:#ff3366;">●</span> Neuron 1 (Close / Large)</span>
+                <span><span style="color:#00aaff;">●</span> Neuron 2 (Far / Negative)</span>
+                <span><span style="color:#00ffcc;">●</span> Neuron 3 (Medium / Wide)</span>
+            </div>
+        </div>
+
     </div>
+
+    <script>
+        const canvas = document.getElementById('spikeCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = canvas.width;
+        let height = canvas.height;
+        let timeIdx = 0;
+        let isSorted = false;
+
+        document.getElementById('btnSort').addEventListener('click', () => { 
+            isSorted = true; 
+            document.getElementById('btnSort').innerText = "Sorting Active!";
+            document.getElementById('btnSort').style.backgroundColor = "#00aaff";
+        });
+
+        const maxPoints = 800; // 1 pixel per time step
+        const trace = new Array(maxPoints).fill(0);
+        
+        // Spike Templates (Width represented by duration of sine wave)
+        function createTemplate(amp, freq) {
+            let temp = [];
+            for (let i = 0; i < Math.PI * 2 / freq; i++) {
+                temp.push(Math.sin(i * freq) * amp * Math.exp(-i * freq * 0.3)); // Damped sine
+            }
+            return temp;
+        }
+
+        const neurons = [
+            { id: 1, color: '#ff3366', template: createTemplate(80, 0.4), fireProb: 0.012, ampFeature: 80, widthFeature: 15 }, 
+            { id: 2, color: '#00aaff', template: createTemplate(-60, 0.25), fireProb: 0.008, ampFeature: -60, widthFeature: 25 }, 
+            { id: 3, color: '#00ffcc', template: createTemplate(45, 0.15), fireProb: 0.005, ampFeature: 45, widthFeature: 40 } 
+        ];
+
+        let activeSpikes = [];
+        let extractedFeatures = []; // { amp, width, id }
+        let raster1 = [], raster2 = [], raster3 = [];
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Divider Top/Bottom
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 200); ctx.lineTo(width, 200); ctx.stroke();
+
+            // Divider Bottom Left/Right
+            ctx.beginPath(); ctx.moveTo(400, 200); ctx.lineTo(400, height); ctx.stroke();
+
+            // Labels
+            ctx.fillStyle = "#888";
+            ctx.font = "12px sans-serif";
+            ctx.fillText("Raw MUA Trace (Microelectrode Voltage)", 10, 20);
+            ctx.fillText("Feature Space (Amp vs Spike Width)", 10, 220);
+            ctx.fillText("Sorted Single-Unit Activity (Raster Plot)", 410, 220);
+
+            // X-Y Axes for Scatter
+            ctx.strokeStyle = '#444';
+            ctx.beginPath(); ctx.moveTo(50, 380); ctx.lineTo(50, 240); ctx.stroke(); // Y
+            ctx.beginPath(); ctx.moveTo(50, 310); ctx.lineTo(380, 310); ctx.stroke(); // X (Zero line)
+
+            // Raster bounds
+            ctx.strokeStyle = '#222';
+            ctx.beginPath(); ctx.moveTo(400, 280); ctx.lineTo(800, 280); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(400, 340); ctx.lineTo(800, 340); ctx.stroke();
+
+            // Scan lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(timeIdx % width, 0); ctx.lineTo(timeIdx % width, 200); ctx.stroke(); // Top
+            
+            if (isSorted) {
+                ctx.beginPath(); ctx.moveTo(400 + ((timeIdx % width) % 400), 240); ctx.lineTo(400 + ((timeIdx % width) % 400), 400); ctx.stroke(); // Raster
+            }
+        }
+
+        function updateSimulation() {
+            timeIdx += 2;
+
+            // Shift trace
+            trace.shift(); trace.shift();
+            trace.push(0); trace.push(0);
+
+            // Prune rasters and scatter (prevent memory leak)
+            raster1 = raster1.filter(t => t > timeIdx - 800);
+            raster2 = raster2.filter(t => t > timeIdx - 800);
+            raster3 = raster3.filter(t => t > timeIdx - 800);
+            if (extractedFeatures.length > 300) extractedFeatures.shift();
+
+            // Random firing
+            for (let n of neurons) {
+                if (Math.random() < n.fireProb) {
+                    activeSpikes.push({ neuron: n, progress: 0 });
+                    
+                    let noiseA = (Math.random() - 0.5) * 15;
+                    let noiseW = (Math.random() - 0.5) * 6;
+                    extractedFeatures.push({ 
+                        amp: n.ampFeature + noiseA, 
+                        width: n.widthFeature + noiseW, 
+                        id: n.id 
+                    });
+
+                    if (n.id === 1) raster1.push(timeIdx);
+                    if (n.id === 2) raster2.push(timeIdx);
+                    if (n.id === 3) raster3.push(timeIdx);
+                }
+            }
+
+            // Write active spikes onto the trace
+            let currentVoltage = (Math.random() - 0.5) * 8; // Hash noise
+
+            for (let i = activeSpikes.length - 1; i >= 0; i--) {
+                let s = activeSpikes[i];
+                let val = s.neuron.template[Math.floor(s.progress)];
+                if (val !== undefined) {
+                    currentVoltage += val;
+                    s.progress += 0.8;
+                } else {
+                    activeSpikes.splice(i, 1);
+                }
+            }
+            
+            trace[maxPoints - 1] = currentVoltage;
+            trace[maxPoints - 2] = currentVoltage; // cheap interpolation for 2 speed
+        }
+
+        function drawTrace() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#aaaaaa';
+            if (isSorted) ctx.strokeStyle = '#555555'; // Dim raw trace to highlight sorting
+            ctx.lineWidth = 1.5;
+            
+            for (let x = 0; x < trace.length; x++) {
+                let py = 100 - trace[x]; 
+                if (x === 0) ctx.moveTo(x, py);
+                else ctx.lineTo(x, py);
+            }
+            ctx.stroke();
+        }
+
+        function drawScatter() {
+            for (let f of extractedFeatures) {
+                let sx = 50 + (f.width * 5); 
+                let sy = 310 - (f.amp * 0.7); 
+
+                ctx.beginPath();
+                ctx.arc(sx, sy, 3, 0, Math.PI*2);
+                
+                if (isSorted) {
+                    if (f.id === 1) ctx.fillStyle = neurons[0].color;
+                    else if (f.id === 2) ctx.fillStyle = neurons[1].color;
+                    else if (f.id === 3) ctx.fillStyle = neurons[2].color;
+                    ctx.globalAlpha = 0.8;
+                } else {
+                    ctx.fillStyle = 'rgba(150, 150, 150, 0.4)';
+                }
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+
+            if (isSorted) {
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+                
+                ctx.strokeStyle = neurons[0].color;
+                ctx.beginPath(); ctx.ellipse(50 + 15*5, 310 - 80*0.7, 30, 20, 0, 0, Math.PI*2); ctx.stroke();
+                
+                ctx.strokeStyle = neurons[1].color;
+                ctx.beginPath(); ctx.ellipse(50 + 25*5, 310 - (-60)*0.7, 30, 20, 0, 0, Math.PI*2); ctx.stroke();
+
+                ctx.strokeStyle = neurons[2].color;
+                ctx.beginPath(); ctx.ellipse(50 + 40*5, 310 - 45*0.7, 35, 20, 0, 0, Math.PI*2); ctx.stroke();
+
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawRaster() {
+            if (!isSorted) {
+                ctx.fillStyle = '#444';
+                ctx.font = "italic 14px sans-serif";
+                ctx.fillText("Awaiting spike sorting...", 530, 310);
+                return;
+            }
+
+            ctx.lineWidth = 2;
+            
+            // Raster 1
+            ctx.strokeStyle = neurons[0].color;
+            for (let t of raster1) {
+                let rx = 400 + ((t % width) % 400); // map time to 400px window dynamically
+                ctx.beginPath(); ctx.moveTo(rx, 250); ctx.lineTo(rx, 270); ctx.stroke();
+            }
+            
+            // Raster 2
+            ctx.strokeStyle = neurons[1].color;
+            for (let t of raster2) {
+                let rx = 400 + ((t % width) % 400);
+                ctx.beginPath(); ctx.moveTo(rx, 300); ctx.lineTo(rx, 320); ctx.stroke();
+            }
+
+            // Raster 3
+            ctx.strokeStyle = neurons[2].color;
+            for (let t of raster3) {
+                let rx = 400 + ((t % width) % 400);
+                ctx.beginPath(); ctx.moveTo(rx, 360); ctx.lineTo(rx, 380); ctx.stroke();
+            }
+        }
+
+        function animate() {
+            updateSimulation();
+            drawGrid();
+            drawTrace();
+            drawScatter();
+            drawRaster();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>

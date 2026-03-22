@@ -40,11 +40,11 @@ things to add to the neuroengineering section:
 - [ ] Add interactive elements to the following pages:
   - [x] EEG -- simulation of traces
   - [x] MEG -- simulation of squid gradiometers
-  - [ ] LFP
-  - [ ] SUA/MUA
-  - [ ] Kalman Filters
+  - [x] LFP
+  - [x] SUA/MUA
+  - [x] Kalman Filters
   - [x] Functional MRI (fMRI)
   - [x] Diffusion Tensor Imaging (DTI)
-  - [ ] fNIRS
+  - [x] fNIRS
   - [x] Synaptic transistors
   - [ ] The Story of Cochlear Implants

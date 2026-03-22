@@ -137,6 +137,68 @@
             margin-bottom: 2rem;
         }
 
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #111;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 3rem 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
+            text-align: center;
+        }
+
+        .sim-controls {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .action-btn {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background-color: #00aaff;
+            border-color: #00aaff;
+        }
+        
+        .action-btn.active {
+            background-color: #00aaff;
+            border-color: #00aaff;
+        }
+
+        .sim-legend {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 40px 20px;
@@ -207,6 +269,247 @@
             </ul>
         </section>
 
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive LFP Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:650px; margin: 0 auto 20px auto;">
+                An electrode placed deeply inside the brain records the summed extracellular fields of thousands of nearby neurons. Watch how the firing pattern of the local population drastically alters the shape and amplitude of the recorded Local Field Potential.
+            </p>
+            
+            <div class="sim-controls">
+                <button class="action-btn active" id="btnAsync">Asynchronous Firing (Healthy Baseline)</button>
+                <button class="action-btn" id="btnSync">Synchronous Oscillations (e.g. Gamma Band)</button>
+                <button class="action-btn" style="background-color: #4a2222; border-color: #aa3333;" id="btnPath">Pathological Hypersynchrony (e.g. Seizure)</button>
+            </div>
+
+            <canvas id="lfpCanvas" width="800" height="400" style="background:#0a0a0a; border: 1px solid #333; border-radius: 4px; display: block; margin: 0 auto; width: 100%;"></canvas>
+            
+            <div class="sim-legend">
+                <span><span style="color:#ffcc00;">●</span> Point Source (Neuron Firing)</span>
+                <span><span style="color:#00aaff;">―</span> Summed Extracellular LFP Trace</span>
+            </div>
+        </div>
+
     </div>
+
+    <script>
+        const canvas = document.getElementById('lfpCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        // State
+        let popState = 'async'; // 'async', 'sync', 'path'
+        let timeIdx = 0;
+
+        // UI Buttons
+        const btnAsync = document.getElementById('btnAsync');
+        const btnSync = document.getElementById('btnSync');
+        const btnPath = document.getElementById('btnPath');
+
+        function setBtnActive(btn) {
+            btnAsync.classList.remove('active');
+            btnSync.classList.remove('active');
+            btnPath.classList.remove('active');
+            btn.classList.add('active');
+        }
+
+        btnAsync.addEventListener('click', () => { popState = 'async'; setBtnActive(btnAsync); });
+        btnSync.addEventListener('click', () => { popState = 'sync'; setBtnActive(btnSync); });
+        btnPath.addEventListener('click', () => { popState = 'path'; setBtnActive(btnPath); });
+
+        // Neurons
+        const numNeurons = 150;
+        const neurons = [];
+        const topH = 200; // Height of the tissue visualization
+
+        for (let i = 0; i < numNeurons; i++) {
+            // Randomly scatter neurons around the center electrode
+            let angle = Math.random() * Math.PI * 2;
+            let radius = Math.random() * (width / 2.5);
+            let cx = (width / 2) + Math.cos(angle) * radius;
+            let cy = (topH / 2) + Math.sin(angle) * radius * 0.4; // oval spread
+            
+            neurons.push({ x: cx, y: cy, firing: 0, distance: radius });
+        }
+
+        // Trace
+        const maxPoints = 800;
+        const trace = [];
+        for (let i = 0; i < maxPoints; i++) trace.push(0);
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Tissue Background
+            ctx.fillStyle = "#0c0f12"; // slightly blue-ish dark tissue
+            ctx.fillRect(0, 0, width, topH);
+
+            // Divider
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, topH);
+            ctx.lineTo(width, topH);
+            ctx.stroke();
+
+            // Trace Grid
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+
+            // Horizontal grid lines for bottom half
+            for (let y = topH + 20; y < height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Vertical scan line for trace
+            ctx.beginPath();
+            ctx.moveTo(timeIdx % width, topH);
+            ctx.lineTo(timeIdx % width, height);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.stroke();
+        }
+
+        function drawTissue() {
+            // Draw Electrode
+            ctx.fillStyle = "#777";
+            ctx.fillRect(width/2 - 4, 0, 8, topH/2); // shaft
+            
+            // Electrode recording field visualization (glow)
+            ctx.beginPath();
+            ctx.arc(width/2, topH/2, 100, 0, Math.PI*2);
+            let gradient = ctx.createRadialGradient(width/2, topH/2, 10, width/2, topH/2, 100);
+            gradient.addColorStop(0, 'rgba(0, 170, 255, 0.1)');
+            gradient.addColorStop(1, 'rgba(0, 170, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Tip
+            ctx.fillStyle = "#ffcc00"; // gold tip
+            ctx.beginPath();
+            ctx.moveTo(width/2 - 6, topH/2);
+            ctx.lineTo(width/2 + 6, topH/2);
+            ctx.lineTo(width/2, topH/2 + 10);
+            ctx.fill();
+
+            // Draw Neurons
+            for (let n of neurons) {
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, 2.5, 0, Math.PI*2);
+                
+                if (n.firing > 0) {
+                    // Bright flash
+                    ctx.fillStyle = `rgba(255, 204, 0, ${n.firing})`;
+                    n.firing -= 0.1; // decay
+                    if (n.firing < 0) n.firing = 0;
+                } else {
+                    ctx.fillStyle = `rgba(80, 80, 80, 0.5)`;
+                }
+                ctx.fill();
+            }
+        }
+
+        function updateSimulation() {
+            timeIdx += 3;
+
+            let summedLFP = 0;
+
+            // Determine population drive based on state
+            let globalDrive = 0;
+            if (popState === 'sync') {
+                globalDrive = Math.sin(timeIdx * 0.05); // ~ oscillatory wave
+            } else if (popState === 'path') {
+                // sharper, violent bursting (like epileptic spike-wave)
+                let wave = Math.sin(timeIdx * 0.08);
+                if (wave > 0.8) globalDrive = 1.0; 
+                else if (wave < -0.6) globalDrive = -1.0;
+                else globalDrive = 0;
+            }
+
+            for (let n of neurons) {
+                // Determine if this neuron fires this frame
+                let fires = false;
+
+                if (popState === 'async') {
+                    // Constant low chance to fire randomly
+                    if (Math.random() < 0.015) fires = true;
+                } else if (popState === 'sync') {
+                    // Driven by global wave + some noise
+                    if (globalDrive > 0.6 && Math.random() < 0.2) fires = true;
+                } else if (popState === 'path') {
+                    // Violent sync
+                    if (globalDrive > 0.5 && Math.random() < 0.6) fires = true;
+                }
+
+                if (fires) n.firing = 1.0;
+
+                // Contribution to LFP (inverse distance dropoff)
+                if (n.firing > 0 && n.distance < 150) {
+                    let impact = (1.0 - (n.distance / 150)) * n.firing;
+                    summedLFP += impact;
+                }
+            }
+
+            // Dynamic DC offset (high-pass filter) to keep trace perfectly centered
+            if (typeof window.lfpDC === 'undefined') window.lfpDC = summedLFP;
+            window.lfpDC = window.lfpDC * 0.95 + summedLFP * 0.05;
+            let centeredLFP = summedLFP - window.lfpDC;
+
+            // Scale the trace for visualization
+            let finalTrace = 0;
+            if (popState === 'async') {
+                finalTrace = centeredLFP * 12; // amplify the tiny hash
+            } else if (popState === 'sync') {
+                finalTrace = centeredLFP * 4; // smooth wave (reduced multiplier to prevent clipping)
+            } else if (popState === 'path') {
+                finalTrace = centeredLFP * 6; // massive synchronous spikes
+            }
+            
+            // Add tiny thermal noise
+            finalTrace += (Math.random() - 0.5) * 2;
+
+            trace.push(finalTrace);
+            if (trace.length > maxPoints) trace.shift();
+        }
+
+        function drawTrace() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#00aaff';
+            ctx.lineWidth = 2;
+            
+            const traceCenterY = topH + (height - topH)/2;
+
+            for (let x = 0; x < trace.length; x++) {
+                let px = (x / maxPoints) * width;
+                let py = traceCenterY - trace[x]; // negative goes up
+                
+                // Clamp to keep it inside the trace window
+                if (py < topH + 5) py = topH + 5;
+                if (py > height - 5) py = height - 5;
+
+                if (x === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            ctx.stroke();
+        }
+
+        function animate() {
+            updateSimulation();
+            drawGrid();
+            drawTissue();
+            drawTrace();
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>

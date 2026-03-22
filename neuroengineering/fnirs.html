@@ -137,6 +137,62 @@
             margin-bottom: 2rem;
         }
 
+        /* Interactive Simulator Styles */
+        .simulator-box {
+            background-color: #111;
+            color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 3rem 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .sim-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #eaeaea;
+            text-align: center;
+        }
+
+        .sim-controls {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .action-btn {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background-color: #ff3333;
+            border-color: #ff3333;
+        }
+
+        .sim-legend {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 40px 20px;
@@ -218,6 +274,287 @@
             </ul>
         </section>
 
+        <!-- Interactive Simulator -->
+        <div class="simulator-box">
+            <div class="sim-title">Interactive fNIRS Hemodynamics Simulator</div>
+            <p style="text-align:center; font-size:14px; color:#aaa; max-width:700px; margin: 0 auto 20px auto;">
+                Near-infrared light scatters through the scalp and skull in a "banana path" down into the cortex. Watch how neural activity (instantaneous) triggers a massive, delayed surge of oxygenated blood (the BOLD Hemodynamic Response) peaking about 5 seconds later.
+            </p>
+            
+            <div class="sim-controls">
+                <button class="action-btn" id="btnStimulate">Stimulate Cortex (e.g., Tap Fingers)</button>
+            </div>
+
+            <canvas id="fnirsCanvas" width="800" height="400" style="background:#0a0a0a; border: 1px solid #333; border-radius: 4px; display: block; margin: 0 auto; width: 100%;"></canvas>
+            
+            <div class="sim-legend">
+                <span><span style="color:#ffffff;">⚡</span> Neural Activity (Spikes)</span>
+                <span><span style="color:#ff3333;">―</span> Oxygenated Hemoglobin (HbO)</span>
+                <span><span style="color:#3366ff;">―</span> Deoxygenated Hemoglobin (HbR)</span>
+            </div>
+        </div>
+
     </div>
+
+    <script>
+        const canvas = document.getElementById('fnirsCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = canvas.width;
+        let height = canvas.height;
+        let timeIdx = 0;
+        
+        const topH = 200;
+        const maxPoints = 800; // 1 pixel per time step
+
+        // Traces
+        const traceNeural = new Array(maxPoints).fill(0);
+        const traceHbO = new Array(maxPoints).fill(0);
+        const traceHbR = new Array(maxPoints).fill(0);
+
+        // Stimulus Tracking
+        let stimuli = []; // Array of timeIdx when stimulated
+
+        document.getElementById('btnStimulate').addEventListener('click', () => { 
+            stimuli.push(timeIdx); 
+            // Add a visual spike to the neural trace
+            traceNeural[traceNeural.length - 1] = 1.0;
+        });
+
+        // Hemodynamic Response Function (HRF)
+        function getHRF(t_frames) {
+            let t = t_frames / 60.0; // Assume 60fps for 1 second = 60 frames
+            if (t < 0 || t > 25) return { hbo: 0, hbr: 0 };
+            
+            // t^5 * e^-t peaks at t=5. Max val is roughly 21.0
+            let val = Math.pow(t, 5) * Math.exp(-t) / 21.0; 
+            
+            return {
+                hbo: val * 1.5,      // HbO increases massively (oversupply)
+                hbr: val * -0.5      // HbR decreases (flushed out)
+            };
+        }
+
+        // Photons for animation
+        const photons = [];
+        for (let i=0; i<40; i++) {
+            photons.push({
+                progress: Math.random(),
+                speed: 0.01 + Math.random() * 0.02,
+                wobble: Math.random() * Math.PI * 2
+            });
+        }
+
+        function drawTissue(currentHbO) {
+            // Background
+            ctx.fillStyle = "#0c0f12";
+            ctx.fillRect(0, 0, width, topH);
+
+            // Shape generators
+            let getScalpY = (x) => 40 + Math.pow(x - width/2, 2) / 6000;
+            
+            // Draw Skin
+            ctx.beginPath();
+            ctx.moveTo(0, getScalpY(0));
+            for(let x=0; x<=width; x+=10) ctx.lineTo(x, getScalpY(x));
+            ctx.lineTo(width, topH); ctx.lineTo(0, topH);
+            ctx.fillStyle = "#3a2a24"; // dark skin
+            ctx.fill();
+
+            // Draw Skull
+            ctx.beginPath();
+            ctx.moveTo(0, getScalpY(0) + 12);
+            for(let x=0; x<=width; x+=10) ctx.lineTo(x, getScalpY(x) + 12);
+            ctx.lineTo(width, topH); ctx.lineTo(0, topH);
+            ctx.fillStyle = "#888888"; // bone
+            ctx.fill();
+
+            // Draw Cortex (Gray Matter)
+            ctx.beginPath();
+            ctx.moveTo(0, getScalpY(0) + 26);
+            for(let x=0; x<=width; x+=5) {
+                // Sulci and gyri (folds)
+                let fold = Math.sin(x * 0.08) * 8 + Math.cos(x * 0.03) * 5;
+                ctx.lineTo(x, getScalpY(x) + 30 + fold);
+            }
+            ctx.lineTo(width, topH); ctx.lineTo(0, topH);
+            ctx.fillStyle = "#4c4552"; // gray matter baseline
+            ctx.fill();
+
+            // Hemodynamic Glow (Red overlay on cortex based on HbO)
+            if (currentHbO > 0.01) {
+                ctx.globalAlpha = Math.min(currentHbO * 0.8, 1);
+                ctx.fillStyle = "#ff0033"; // super oxygenated red
+                ctx.fill(); // fills the cortex path again
+                ctx.globalAlpha = 1.0;
+            }
+
+            // Draw Optodes (Source and Detector)
+            let sx = width/2 - 80;
+            let sy = getScalpY(sx);
+            let dx = width/2 + 80;
+            let dy = getScalpY(dx);
+
+            // Source (Red Laser)
+            ctx.fillStyle = "#ff3333";
+            ctx.fillRect(sx - 10, sy - 30, 20, 30);
+            ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.fillText("SRC", sx-9, sy-40);
+            
+            // Detector
+            ctx.fillStyle = "#555";
+            ctx.fillRect(dx - 10, dy - 30, 20, 30);
+            ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.fillText("DET", dx-9, dy-40);
+
+            // Banana Path Glow
+            let cx = width/2;
+            let cy = getScalpY(cx) + 40; // deep in cortex
+            
+            let gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, 100);
+            // The glow gets redder if highly oxygenated, absorbing more infrared (actually 850nm absorbs more HbO)
+            let pathColor = currentHbO > 0.2 ? 'rgba(255, 50, 50, 0.4)' : 'rgba(255, 100, 100, 0.15)';
+            gradient.addColorStop(0, pathColor);
+            gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            
+            ctx.beginPath();
+            ctx.ellipse(cx, cy - 10, 100, 50, 0, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw Individual Photons Scattering
+            ctx.fillStyle = "#ffcccc";
+            for (let p of photons) {
+                p.progress += p.speed;
+                if (p.progress > 1) {
+                    p.progress = 0;
+                    p.wobble = Math.random() * Math.PI * 2;
+                }
+                
+                // Elliptical arc math
+                let angle = Math.PI - (p.progress * Math.PI); // PI to 0
+                let px = cx + Math.cos(angle) * 80;
+                let py = (cy-10) + Math.sin(angle) * 50;
+
+                // add random scatter wobble
+                px += Math.cos(p.wobble) * 15;
+                py += Math.sin(p.wobble) * 15;
+                p.wobble += 0.2; // spin
+
+                ctx.beginPath();
+                ctx.arc(px, py, 1.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function drawGrid() {
+            // Divider Top/Bottom
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, topH); ctx.lineTo(width, topH); ctx.stroke();
+
+            // Labels
+            ctx.fillStyle = "#888";
+            ctx.font = "12px sans-serif";
+            ctx.fillText("Tissue Cross-Section & Optical Path", 10, 20);
+            ctx.fillText("Sensory Cortex BOLD Hemodynamic Response Trace (Real-time)", 10, 220);
+
+            // Baseline for trace
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, topH + 100); ctx.lineTo(width, topH + 100); ctx.stroke();
+
+            // Scan line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.beginPath(); ctx.moveTo(timeIdx % width, topH); ctx.lineTo(timeIdx % width, height); ctx.stroke();
+        }
+
+        function updateSimulation() {
+            timeIdx += 1; // 60 fps = 1 time unit per frame
+
+            // Calculate current total HRF from all past stimuli
+            let totalHbO = 0;
+            let totalHbR = 0;
+            
+            for (let t_stim of stimuli) {
+                let frames_passed = timeIdx - t_stim;
+                let hrf = getHRF(frames_passed);
+                totalHbO += hrf.hbo;
+                totalHbR += hrf.hbr;
+            }
+
+            // Prune old stimuli to save math (> 25 seconds = 1500 frames)
+            stimuli = stimuli.filter(t => (timeIdx - t) < 1500);
+
+            // Shift and record traces
+            traceNeural.shift(); traceNeural.push(0); // Auto-reset to 0 unless clicked this frame
+            traceHbO.shift(); traceHbO.push(totalHbO);
+            traceHbR.shift(); traceHbR.push(totalHbR);
+
+            return totalHbO;
+        }
+
+        let currentScale = 60; // Initial scale
+
+        function drawTrace(data, color, lineWidth, offset) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            
+            for (let x = 0; x < data.length; x++) {
+                let py = (topH + 100) - (data[x] * currentScale) + offset; 
+                if (x === 0) ctx.moveTo(x, py);
+                else ctx.lineTo(x, py);
+            }
+            ctx.stroke();
+        }
+
+        function drawSpikes(data, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            for (let x = 0; x < data.length; x++) {
+                if (data[x] > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, topH + 100);
+                    ctx.lineTo(x, topH + 80 - (data[x] * Math.min(60, currentScale)));
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function animate() {
+            let currentHbO = updateSimulation();
+            
+            ctx.clearRect(0, topH, width, height - topH); // clear bottom
+            
+            drawTissue(currentHbO); // totally redraws top
+            drawGrid();
+
+            // Dynamic scaling logic
+            let maxAbsVal = 1.5; // Baseline minimum scale
+            for (let i = 0; i < traceHbO.length; i++) {
+                if (traceHbO[i] > maxAbsVal) maxAbsVal = traceHbO[i];
+                if (Math.abs(traceHbR[i]) > maxAbsVal) maxAbsVal = Math.abs(traceHbR[i]);
+            }
+            // Target scale aims to fit the max value comfortably within 85px (so it stays in the 100px half of the bottom pane)
+            let targetScale = 85 / maxAbsVal;
+            currentScale = currentScale * 0.95 + targetScale * 0.05; // Smoothly interpolate scale
+
+            // Add a clipping mask so traces can never draw over the top tissue drawing
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, topH, width, height - topH);
+            ctx.clip();
+
+            // Draw traces
+            drawTrace(traceHbO, '#ff3333', 3, 0); // Red HbO
+            drawTrace(traceHbR, '#3366ff', 3, 0); // Blue HbR
+            drawSpikes(traceNeural, '#ffffff');   // White Neural spikes
+
+            ctx.restore(); // Remove clipping mask
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>
