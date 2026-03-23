@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Choose Your Own Neuroengineering Adventure</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #131a2b;
+  --surface-hover: #1a2540;
+  --border: #1e2d4a;
+  --text: #e2e8f0;
+  --text-dim: #8094b8;
+  --accent: #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.15);
+  --accent2: #a78bfa;
+  --accent3: #34d399;
+  --accent4: #fb923c;
+  --accent5: #f472b6;
+  --danger: #ef4444;
+  --radius: 12px;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Playfair Display', serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Animated background grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(167, 139, 250, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Title Screen ── */
+#title-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 90vh;
+  text-align: center;
+  animation: fadeIn 1s ease;
+}
+
+#title-screen h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  line-height: 1.15;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent5) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#title-screen .subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+}
+
+#title-screen .intro-text {
+  max-width: 560px;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+  margin-bottom: 2.5rem;
+}
+
+#title-screen .intro-text strong {
+  color: var(--text);
+}
+
+.btn-start {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  padding: 1rem 2.5rem;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 60px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.05em;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-start::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: -1;
+}
+
+.btn-start:hover {
+  color: var(--bg);
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+
+.btn-start:hover::before { opacity: 1; }
+
+/* ── Adventure Screen ── */
+#adventure-screen {
+  display: none;
+  min-height: 100vh;
+  padding-bottom: 4rem;
+}
+
+/* Breadcrumb trail */
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  margin-bottom: 2rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.breadcrumb .crumb {
+  padding: 0.25rem 0.6rem;
+  background: var(--surface);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumb .crumb:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.breadcrumb .sep { color: var(--border); }
+
+/* Progress bar */
+.progress-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+/* Topic card */
+.topic-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2.5rem;
+  margin-bottom: 2rem;
+  animation: slideUp 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.topic-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.topic-card[data-color="blue"]::before { background: var(--accent); }
+.topic-card[data-color="purple"]::before { background: var(--accent2); }
+.topic-card[data-color="green"]::before { background: var(--accent3); }
+.topic-card[data-color="orange"]::before { background: var(--accent4); }
+.topic-card[data-color="pink"]::before { background: var(--accent5); }
+
+.topic-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.topic-tag .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.topic-card[data-color="blue"] .dot { background: var(--accent); }
+.topic-card[data-color="purple"] .dot { background: var(--accent2); }
+.topic-card[data-color="green"] .dot { background: var(--accent3); }
+.topic-card[data-color="orange"] .dot { background: var(--accent4); }
+.topic-card[data-color="pink"] .dot { background: var(--accent5); }
+
+.topic-card h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.8rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.2;
+}
+
+.topic-card .talk-points {
+  margin-bottom: 1.5rem;
+}
+
+.topic-card .talk-points p {
+  color: var(--text-dim);
+  line-height: 1.8;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.topic-card .talk-points p:last-child { margin-bottom: 0; }
+
+/* Activity box */
+.activity-box {
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.activity-box.debate {
+  background: rgba(167, 139, 250, 0.05);
+  border-color: rgba(167, 139, 250, 0.15);
+}
+
+.activity-box.predict {
+  background: rgba(52, 211, 153, 0.05);
+  border-color: rgba(52, 211, 153, 0.15);
+}
+
+.activity-box.discuss {
+  background: rgba(251, 146, 60, 0.05);
+  border-color: rgba(251, 146, 60, 0.15);
+}
+
+.activity-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.5rem;
+}
+
+.activity-box .activity-label { color: var(--accent); }
+.activity-box.debate .activity-label { color: var(--accent2); }
+.activity-box.predict .activity-label { color: var(--accent3); }
+.activity-box.discuss .activity-label { color: var(--accent4); }
+
+.activity-box p {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+/* Voting section */
+.vote-section {
+  margin-top: 2rem;
+}
+
+.vote-section h3 {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+
+.vote-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.vote-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.vote-btn:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  transform: translateX(4px);
+}
+
+.vote-btn .vote-key {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.vote-btn:hover .vote-key {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.vote-btn .vote-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  min-width: 2rem;
+  text-align: right;
+}
+
+.vote-btn .bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-glow);
+  transition: width 0.5s ease;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.vote-btn > * { position: relative; z-index: 1; }
+
+.vote-btn.voted {
+  border-color: var(--accent);
+}
+
+.vote-btn.voted .vote-key {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+/* Lock in button */
+.lock-in-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.btn-lock {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 0.7rem 1.8rem;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 60px;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.05em;
+}
+
+.btn-lock:hover {
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.btn-lock:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-lock:disabled:hover {
+  background: transparent;
+  color: var(--accent);
+  box-shadow: none;
+}
+
+/* Timer */
+.timer-bar {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.timer-bar.active { display: flex; }
+
+.timer-track {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+/* Ending card */
+.ending-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3rem 2.5rem;
+  text-align: center;
+  animation: slideUp 0.5s ease;
+}
+
+.ending-card h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ending-card p {
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin-bottom: 1rem;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.visited-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.visited-chip {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.btn-restart {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.8rem 2rem;
+  border: 1px solid var(--accent2);
+  background: transparent;
+  color: var(--accent2);
+  border-radius: 60px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 1rem;
+}
+
+.btn-restart:hover {
+  background: var(--accent2);
+  color: var(--bg);
+}
+
+/* Controls strip */
+.controls-strip {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.controls-strip.active { display: flex; }
+
+.controls-strip .stats {
+  color: var(--text-dim);
+  display: flex;
+  gap: 1.5rem;
+}
+
+.controls-strip .stats span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.controls-strip button {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.controls-strip button:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile tweaks */
+@media (max-width: 640px) {
+  .topic-card { padding: 1.5rem; }
+  .topic-card h2 { font-size: 1.4rem; }
+  .container { padding: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<!-- ── TITLE SCREEN ── -->
+<div id="title-screen">
+  <h1>Choose Your Own Neuroengineering Adventure</h1>
+  <div class="subtitle">Freshman Neuroscience Colloquium &middot; Spring 2026</div>
+  <p class="intro-text">
+    This is <strong>not</strong> a lecture. There are no slides. You, the audience, will choose where we go next. At each stop I'll talk for a few minutes and we'll do an activity together, then you'll vote on the next topic. Every path through this talk is different.
+  </p>
+  <button class="btn-start" onclick="startAdventure()">Begin the Adventure →</button>
+</div>
+
+<!-- ── ADVENTURE SCREEN ── -->
+<div id="adventure-screen">
+  <div class="breadcrumb" id="breadcrumb"></div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  <div id="topic-area"></div>
+  <div id="vote-area"></div>
+</div>
+
+</div>
+
+<!-- ── BOTTOM CONTROLS (presenter tools) ── -->
+<div class="controls-strip" id="controls-strip">
+  <div class="stats">
+    <span>Stops: <strong id="stat-stops">0</strong></span>
+    <span>Visited: <strong id="stat-visited">0</strong> / <strong id="stat-total">0</strong></span>
+  </div>
+  <div>
+    <button onclick="goBack()" id="btn-back">← Back</button>
+    <button onclick="skipToVote()">Skip to Vote</button>
+    <button onclick="showEnding()">Wrap Up</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// TOPIC GRAPH — the adventure content
+// ═══════════════════════════════════════════
+
+const TOPICS = {
+  // ── OPENING NODE ──
+  "start": {
+    title: "What Even Is Neuroengineering?",
+    tag: "The Big Question",
+    color: "blue",
+    points: [
+      "Let's start with you. Raise your hand if you can define 'neuroengineering' in one sentence. No? Good, that's the point.",
+      "Neuroengineering lives at the intersection of neuroscience and engineering. But where exactly is that border? Is measuring a neuron's voltage 'engineering' or 'science'? What about designing a cochlear implant? Writing a brain decoding algorithm? Building an MRI scanner?",
+      "The real answer: neuroengineering is what happens when you stop just asking 'how does the brain work?' and start asking 'how can we build something that interacts with the brain?'"
+    ],
+    activity: {
+      type: "discuss",
+      text: "Stand-up survey: I'm going to read some activities. Stand up if you think it's engineering, stay seated if you think it's science. Ready? (1) Recording neurons in a mouse. (2) Building a prosthetic arm controlled by thought. (3) Taking an MRI scan. (4) Designing a new MRI pulse sequence. (5) Writing code to decode brain signals. — Notice how it gets blurry in the middle? That's where neuroengineers live."
+    },
+    choices: [
+      { label: "How do we actually see inside the brain?", target: "mri_basics" },
+      { label: "Can computers read minds?", target: "bci_honest" },
+      { label: "What don't we know about the brain?", target: "i_dont_know" },
+    ]
+  },
+
+  // ── IMAGING BRANCH ──
+  "mri_basics": {
+    title: "MRI Without the Magic",
+    tag: "Imaging Fundamentals",
+    color: "blue",
+    points: [
+      "Your body is mostly water. Water has hydrogen atoms. Hydrogen nuclei are tiny spinning magnets. An MRI scanner is just a really, really strong magnet that lines those tiny magnets up, nudges them with radio waves, and listens to the signal they give back.",
+      "That's it. That's the core physics. No radiation, no injection (usually), just magnets and radio. The hard part is making the signal useful, because the raw signal is a mess of frequencies that you have to decode into an image.",
+      "The scanner I work with is a 3 Tesla magnet, about 60,000 times stronger than Earth's magnetic field. Strong enough that if you bring a wrench into the room, it becomes a projectile."
+    ],
+    activity: {
+      type: "predict",
+      text: "Prediction sketch: On a piece of paper, draw what you think a brain MRI image looks like. Seriously, just sketch it, 30 seconds. — Now here's a real one. How close were you? Most people forget that MRI gives you slices, like slicing a loaf of bread. You can slice in any direction."
+    },
+    choices: [
+      { label: "What if you could MRI someone's lungs with xenon gas?", target: "xe_mri" },
+      { label: "How do you see brain wiring, not just brain shape?", target: "diffusion" },
+      { label: "The resolution problem: why we need so many tools", target: "resolution" },
+    ]
+  },
+
+  "xe_mri": {
+    title: "The Balloon Full of Xenon",
+    tag: "Hyperpolarized Gas MRI",
+    color: "green",
+    points: [
+      "Standard MRI is great for brains. But lungs? Lungs are full of air, and air has almost no signal in an MRI. Try to image lungs with conventional MRI and you get a black void.",
+      "Someone had a crazy idea: what if we magnetize a noble gas, xenon-129, to an absurd degree, hyperpolarize it to about 100,000 times its normal magnetic signal, put it in a bag, and have a patient breathe it in? Then we image the lungs while they're holding that breath.",
+      "And it works. You can see exactly where air goes in the lungs, how gas exchanges into the blood, and map ventilation defects that are invisible to CT or standard MRI. One breath, one image, no radiation."
+    ],
+    activity: {
+      type: "predict",
+      text: "Before I show you: predict what a hyperpolarized xenon lung image looks like. Is it like an X-ray? A CT scan? Something else? Sketch it or just describe it to your neighbor. — Then show them a real image."
+    },
+    choices: [
+      { label: "Why can't we just simulate the brain?", target: "simulate" },
+      { label: "The gap between discovery and therapy", target: "translation" },
+      { label: "What does a PhD student's actual day look like?", target: "day_in_life" },
+    ]
+  },
+
+  "diffusion": {
+    title: "Seeing Connections: Diffusion MRI",
+    tag: "White Matter Mapping",
+    color: "blue",
+    points: [
+      "Imagine 1,000 people standing in a field. You say 'go.' They wander randomly in all directions. Now imagine those same people in a narrow hallway. They can only go forward or backward. If you watched from above, you'd see very different spread patterns.",
+      "That's diffusion MRI. Water molecules in your brain diffuse freely in some directions but are blocked by cell membranes and myelin sheaths. By measuring which direction water prefers to move, we can reconstruct the major wiring bundles of the brain.",
+      "The resulting images, tractography maps, look like a rainbow spaghetti explosion. They're beautiful and informative, but also a bit misleading: every one of those colorful streamlines is a statistical inference, not a direct observation of an axon."
+    ],
+    activity: {
+      type: "predict",
+      text: "The 'explain it to a 5-year-old' challenge: I just told you how diffusion MRI works. You have 90 seconds, talk to your neighbor and produce one sentence a child could understand. Who's brave enough to share theirs? — Bonus question: if we can map brain wiring, why don't we have a complete wiring diagram yet? What's in the way?"
+    },
+    choices: [
+      { label: "The resolution problem: why we need so many tools", target: "resolution" },
+      { label: "Can computers read your mind?", target: "bci_honest" },
+      { label: "Your smartphone vs. your brain", target: "phone_brain" },
+    ]
+  },
+
+  "resolution": {
+    title: "The Resolution Problem",
+    tag: "Tools & Tradeoffs",
+    color: "orange",
+    points: [
+      "Every brain measurement tool is making a tradeoff between three things: spatial resolution (how small can you see?), temporal resolution (how fast can you measure?), and invasiveness (do you need to open the skull?).",
+      "EEG: fast, non-invasive, terrible spatial resolution. fMRI: great spatial resolution, non-invasive, slow. Single-unit recording: incredible resolution on both axes, but you need electrodes inside the brain. There is no perfect tool.",
+      "This is why neuroengineering exists. Every measurement has blind spots. The field is fundamentally about inventing new ways to push these tradeoffs, to get more information with less cost."
+    ],
+    activity: {
+      type: "discuss",
+      text: "I'm going to name some tools. Without Googling, place them on an imaginary grid where one axis is spatial resolution (left = blurry, right = sharp) and the other is temporal resolution (bottom = slow, top = fast). Ready? EEG, fMRI, PET, MEG, single-unit electrodes, calcium imaging. — Discuss with a neighbor, then let's compare notes."
+    },
+    choices: [
+      { label: "Brain-computer interfaces: the honest version", target: "bci_honest" },
+      { label: "The balloon full of xenon", target: "xe_mri" },
+      { label: "Why can't we just simulate the brain?", target: "simulate" },
+    ]
+  },
+
+  // ── BCI BRANCH ──
+  "bci_honest": {
+    title: "Brain-Computer Interfaces: The Honest Version",
+    tag: "BCIs & Neural Prosthetics",
+    color: "purple",
+    points: [
+      "The hype: Neuralink will let you control computers with your mind and achieve digital telepathy. The reality: brain-computer interfaces have been restoring function to paralyzed patients since the early 2000s, long before Elon Musk got involved.",
+      "The BrainGate project showed over a decade ago that people with paralysis could move a cursor, control a robotic arm, and even type by thinking about movements. It works. But it's slow, requires brain surgery, the signals degrade over time, and it demands a clinical team.",
+      "The honest answer to 'can we read minds?' is: we can decode a few things from brain signals with surprising accuracy, but we're nowhere near reading thoughts, memories, or feelings. The brain doesn't store information the way a computer does."
+    ],
+    activity: {
+      type: "debate",
+      text: "Debate corners: go to a corner of the room. 'Brain-computer interfaces will be as common as smartphones within 50 years.' Strongly agree, somewhat agree, somewhat disagree, strongly disagree. Go. — Now, one person from each corner, make your case. You have 60 seconds."
+    },
+    choices: [
+      { label: "Neuroethics: should we even do this?", target: "neuroethics" },
+      { label: "Your smartphone vs. your brain", target: "phone_brain" },
+      { label: "The neural prosthetics timeline", target: "prosthetics_timeline" },
+    ]
+  },
+
+  "neuroethics": {
+    title: "Neuroethics Speed Round",
+    tag: "Ethics & Society",
+    color: "pink",
+    points: [
+      "As neuroengineering gets more powerful, the ethical questions get harder. And they're not hypothetical anymore: these are real debates happening right now in labs, companies, and regulatory agencies.",
+      "Who owns your brain data? If a BCI company records your neural activity, is that medical data? Can it be sold? What about brain-to-brain communication, does 'freedom of thought' extend to neural interfaces?",
+      "There's also the equity question: if cognitive enhancement becomes possible through neural technology, who gets access? Does it widen inequality or level the playing field?"
+    ],
+    activity: {
+      type: "debate",
+      text: "I'm giving each row a different scenario. You have 3 minutes to decide: should this be allowed, banned, or regulated? (1) Mandatory BCI monitoring for people on parole. (2) Pharmacological memory erasure for severe PTSD. (3) Neural enhancement devices for students taking exams. (4) Employers requiring 'focus tracking' EEG headbands at work. — Report out. No easy answers here."
+    },
+    choices: [
+      { label: "What don't we know about the brain?", target: "i_dont_know" },
+      { label: "The gap between discovery and therapy", target: "translation" },
+      { label: "What does a PhD student's day actually look like?", target: "day_in_life" },
+    ]
+  },
+
+  "prosthetics_timeline": {
+    title: "The Neural Prosthetics Timeline",
+    tag: "History & Future",
+    color: "purple",
+    points: [
+      "1960s: The first cochlear implant prototypes. Doctors wire electrodes into the inner ear and send electrical pulses. Patients hear crude sounds. Many scientists call it impossible.",
+      "1987: Deep brain stimulation is used to treat Parkinson's tremor. An electrode in the brain, hooked to a pacemaker-like device, and the tremor stops almost instantly. One of the most dramatic moments in neurology.",
+      "2006: BrainGate. A paralyzed man moves a computer cursor with his thoughts, via a small chip implanted in his motor cortex. 2023: Neuralink puts their chip in a human. But the fundamental science is decades old."
+    ],
+    activity: {
+      type: "predict",
+      text: "Your turn to predict the future. Write down one neural prosthetic or neuroengineering technology you think will exist in 2050 that doesn't exist today. Be specific. — Let's hear some. I'll tell you what's already in the pipeline and what's still science fiction."
+    },
+    choices: [
+      { label: "Neuroethics: should we even do this?", target: "neuroethics" },
+      { label: "What if you could hear your own brain?", target: "neurofeedback" },
+      { label: "Signal vs. noise: the fundamental challenge", target: "signal_noise" },
+    ]
+  },
+
+  // ── FUNDAMENTALS BRANCH ──
+  "i_dont_know": {
+    title: "The 'I Don't Know' List",
+    tag: "Open Questions",
+    color: "green",
+    points: [
+      "One of the most important things freshmen should know: neuroscience is shockingly early in its understanding of the brain. We know more about the surface of Mars than we know about what happens between your ears.",
+      "We don't know how memories are stored at the molecular level. We don't know how consciousness arises. We don't know why we sleep (we have theories, but no definitive answer). We don't know how general anesthesia works, and we use it on millions of people a year.",
+      "This isn't a failure. This is an invitation. The biggest discoveries in neuroscience haven't been made yet. And many of them will require engineering tools that don't exist yet, tools that people in this room might build."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Let's build a list together. What else don't we know about the brain? Shout them out, anything you're curious about, anything you've wondered. I'll keep a running list. — The goal is to get at least 15 things on this list. I bet we can do 20."
+    },
+    choices: [
+      { label: "Why can't we just simulate the brain?", target: "simulate" },
+      { label: "The 10% myth and what it teaches us", target: "ten_percent" },
+      { label: "If you could measure anything, what would you ask?", target: "measure_anything" },
+    ]
+  },
+
+  "simulate": {
+    title: "Why Can't We Just Simulate the Brain?",
+    tag: "Computation & Complexity",
+    color: "green",
+    points: [
+      "86 billion neurons. Each one connected to roughly 7,000 others. That's about 600 trillion synapses. And each synapse is itself a complex molecular machine with hundreds of proteins.",
+      "The Blue Brain Project tried to simulate a single cortical column of a rat, about 31,000 neurons. It required a supercomputer. Scaling that to a full human brain would require more computing power than currently exists on Earth. And that model still left out glial cells, blood vessels, neuromodulators...",
+      "But here's the real problem: even if we had the computing power, we don't know the rules well enough to simulate. We don't know what level of detail matters. Is it the neurons? The synapses? The molecules? The quantum states? We're trying to reverse-engineer a machine whose source code we've never seen."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Yes-and improv round: I'll start with a wild claim. The next person has to build on it with 'yes, and...' We'll chain through 5-6 people. Starting claim: 'We successfully simulated a complete human brain on a computer.' Yes, and... what happens next? What do we do with it? What goes wrong?"
+    },
+    choices: [
+      { label: "Your smartphone vs. your brain", target: "phone_brain" },
+      { label: "Brain-computer interfaces: the honest version", target: "bci_honest" },
+      { label: "What does a PhD student's day actually look like?", target: "day_in_life" },
+    ]
+  },
+
+  "ten_percent": {
+    title: "The 10% Myth (and What It Teaches Us)",
+    tag: "Neuromyths",
+    color: "orange",
+    points: [
+      "You've heard 'we only use 10% of our brains.' It's completely false. Brain imaging shows that essentially all brain regions are active over the course of a day. Even during sleep, large areas are humming along.",
+      "But the myth is interesting because it reveals a real truth: we don't understand what most of the brain is doing at any given moment. We can name the function of maybe a few dozen regions with confidence. The rest? We have guesses.",
+      "Also worth knowing: brain lesion studies show that damage to almost any part of the brain causes some deficit. If 90% were unused, you'd expect damage to be mostly harmless. It's not."
+    ],
+    activity: {
+      type: "debate",
+      text: "Two truths and a lie, neuroscience edition. Which one is the lie? (1) Your brain uses about 20% of your body's energy despite being only 2% of your mass. (2) Neurons can fire up to 1,000 times per second. (3) Adults cannot grow new neurons anywhere in the brain. — Debate with your neighbor before I reveal the answer."
+    },
+    choices: [
+      { label: "What if you could hear your own brain activity?", target: "neurofeedback" },
+      { label: "Signal vs. noise: the fundamental challenge", target: "signal_noise" },
+      { label: "Brain-computer interfaces: the honest version", target: "bci_honest" },
+    ]
+  },
+
+  "phone_brain": {
+    title: "Your Smartphone vs. Your Brain",
+    tag: "Computation Analogies",
+    color: "orange",
+    points: [
+      "Your phone has a CPU that processes about 15 billion transistors. Your brain has 86 billion neurons. Your phone uses about 5 watts. Your brain uses about 20 watts. Your phone does math billions of times faster than you. But you can recognize a face in a crowd in 200 milliseconds, and your phone's best AI still struggles.",
+      "The analogy breaks in important places: your brain doesn't have a clear separation between memory and processing, it's all mixed together. There's no clock speed. There's no operating system (that we know of). And neurons are far more complex than transistors.",
+      "The biggest difference: your phone was designed. Your brain evolved. Evolution doesn't optimize for elegance, it optimizes for survival. The brain is full of kludges, redundancies, and legacy systems, like software that's been patched for 500 million years."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Quick challenge: name something your phone does way better than your brain, and something your brain does way better than your phone. We'll go rapid-fire around the room. — The deeper question: what does this tell us about what 'intelligence' actually is? Is your phone intelligent? Are you a computer?"
+    },
+    choices: [
+      { label: "Why can't we just simulate the brain?", target: "simulate" },
+      { label: "The 'I don't know' list", target: "i_dont_know" },
+      { label: "Career paths in neuroengineering", target: "day_in_life" },
+    ]
+  },
+
+  // ── DEEPER CUTS ──
+  "signal_noise": {
+    title: "Signal vs. Noise",
+    tag: "The Core Challenge",
+    color: "blue",
+    points: [
+      "Every measurement tool in neuroscience is fighting the same battle: the signal you care about is tiny, and it's buried in noise. An EEG electrode on your scalp picks up microvolts from millions of neurons, but also picks up muscle twitches, power line hum, and your heartbeat.",
+      "My career, in one sentence, is: finding clever ways to pull signal out of noise. That's true of MRI pulse sequence design, of BCI decoding algorithms, of everything. If you understand signal processing, you can work on almost any problem in neuroengineering.",
+      "Here's what makes it hard: in the brain, one person's 'noise' is another person's 'signal.' The heartbeat artifact in your EEG is useless to a neuroscientist, but a cardiologist would love it. What counts as signal depends entirely on what question you're asking."
+    ],
+    activity: {
+      type: "predict",
+      text: "Reverse lecture: I just explained signal vs. noise in 2 minutes. Now turn to a partner and teach it back. You have 90 seconds. I'll eavesdrop and catch any misconceptions. — Debrief: what did you find hardest to explain? That's where the real understanding gaps are."
+    },
+    choices: [
+      { label: "MRI without the magic", target: "mri_basics" },
+      { label: "The balloon full of xenon", target: "xe_mri" },
+      { label: "What would you measure if you could measure anything?", target: "measure_anything" },
+    ]
+  },
+
+  "neurofeedback": {
+    title: "What If You Could Hear Your Own Brain?",
+    tag: "Neurofeedback & Sonification",
+    color: "pink",
+    points: [
+      "Neurofeedback is the idea that if you can see or hear your own brain activity in real time, you can learn to control it. Athletes use it. Meditators use it. It's being tested for ADHD, anxiety, and peak performance.",
+      "Sonification takes it further: converting brain signals into sound. Your alpha waves become a hum, your beta waves a crackle. Some artists have performed concerts driven entirely by their EEG. It's weird and wonderful.",
+      "The science is genuinely mixed. Some neurofeedback studies show real effects, others don't replicate well. It's a great example of a technology that's ahead of the science, where we can build the tool but don't fully understand why it sometimes works."
+    ],
+    activity: {
+      type: "discuss",
+      text: "If you could monitor one thing about your own brain in real time, always, what would it be? Stress level? Focus? Emotional state? Creativity? What would you do with that information? — Let's hear from 5 or 6 people. Notice how everyone wants to monitor something different. That tells us something about what we value."
+    },
+    choices: [
+      { label: "Neuroethics: should we even do this?", target: "neuroethics" },
+      { label: "Brain-computer interfaces: the honest version", target: "bci_honest" },
+      { label: "The gap between discovery and therapy", target: "translation" },
+    ]
+  },
+
+  "measure_anything": {
+    title: "If You Could Measure Anything...",
+    tag: "Dream Experiments",
+    color: "green",
+    points: [
+      "One of the most powerful questions in science: what would you measure if you had no technological limitations? If you had a perfect tool that could see any molecule, any signal, any connection, in any living brain, in real time, what would you look at?",
+      "This question matters because it separates the 'what do we want to know' from the 'what can we currently measure.' The gap between those two things is where the next generation of neuroengineering tools will be invented.",
+      "Some of my dream measurements: watching a single memory form in real time across the whole brain, seeing every neurotransmitter molecule in a living synapse, measuring the exact moment a decision is made and tracing it backward to its origin."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Paper airplane Q&A: everyone write your dream measurement on a piece of paper, fold it into an airplane, and throw it. Pick up someone else's plane, read it aloud. We'll discuss the most interesting ones. — This is how real research questions are born. The question comes first, then we figure out the technology."
+    },
+    choices: [
+      { label: "The resolution problem: why we need so many tools", target: "resolution" },
+      { label: "The 'I don't know' list", target: "i_dont_know" },
+      { label: "What does a neuroengineering PhD look like?", target: "day_in_life" },
+    ]
+  },
+
+  "translation": {
+    title: "The Translation Gap",
+    tag: "Bench to Bedside",
+    color: "orange",
+    points: [
+      "Here's a depressing statistic: fewer than 5% of neuroscience discoveries ever become therapies. The 'translation gap' between a lab finding and something that helps a patient is enormous.",
+      "Why? Animal models don't always predict human responses. Clinical trials are expensive and slow. Regulatory approval takes years. And sometimes the basic science just isn't ready, we publish a finding but don't understand it well enough to engineer a solution.",
+      "This is the core motivation for neuroengineering as a field. We need people who can bridge the gap, who speak both 'neuroscience' and 'engineering,' who can take a discovery and ask 'how do we make this work in a real patient?'"
+    ],
+    activity: {
+      type: "discuss",
+      text: "The 'if I had unlimited funding' game: I'll describe a real clinical problem. In groups of 3, you have 3 minutes to sketch a solution. Be creative, there are no wrong answers. Problem: 'We need a way to detect Alzheimer's disease 10 years before symptoms appear, non-invasively, cheaply, at a primary care clinic.' Go. — Now let's hear what you came up with. I'll tell you what's actually being tried."
+    },
+    choices: [
+      { label: "The balloon full of xenon", target: "xe_mri" },
+      { label: "What does a PhD student's day actually look like?", target: "day_in_life" },
+      { label: "The neural prosthetics timeline", target: "prosthetics_timeline" },
+    ]
+  },
+
+  "day_in_life": {
+    title: "A Day in the Life of a Neuroengineering PhD Student",
+    tag: "The Real Deal",
+    color: "pink",
+    points: [
+      "Freshmen almost never hear what grad school actually looks like day to day, so let me be honest. A typical day might include: 2 hours coding a data analysis pipeline, 1 hour in a lab meeting arguing about results, 1 hour reading papers, 30 minutes troubleshooting equipment that mysteriously stopped working, and 1 hour of actual scanning or data collection if you're lucky.",
+      "The boring parts: debugging code, filling out IRB paperwork, waiting for subjects who don't show up, reformatting references. The exciting parts: seeing your data for the first time, having a result that nobody in history has seen before, presenting at a conference and having someone ask a question that changes how you think.",
+      "The weird part: after 4-6 years, you are the world's leading expert on one very specific thing. Maybe it's 'diffusion MRI of the corticospinal tract in people with ALS' or 'xenon gas exchange in smokers' lungs.' You know more about that one thing than anyone on Earth. That's a strange and wonderful feeling."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Honest AMA: I'll answer any question about grad school, academic careers, or my research. But for every question I answer, I'm asking you one back. Who's first? — And here's my question for you: what scares you most about the idea of doing research?"
+    },
+    choices: [
+      { label: "What don't we know about the brain?", target: "i_dont_know" },
+      { label: "The failed experiment story", target: "failed_experiment" },
+      { label: "Career paths beyond academia", target: "career_paths" },
+    ]
+  },
+
+  "failed_experiment": {
+    title: "The Failed Experiment Story",
+    tag: "Learning from Failure",
+    color: "pink",
+    points: [
+      "I'm going to tell you about a time a negative control broke everything. We were working on X-ray optogenetics, the idea that you could use radioluminescent nanoparticles to convert X-rays into visible light inside the body and activate light-sensitive proteins in neurons. If it worked, you could stimulate deep brain circuits without surgery, without implants, just an X-ray beam from outside the skull.",
+      "We were testing in C. elegans, tiny transparent worms that are a workhorse model in neuroscience. We hit them with X-rays, and saw a behavioral response. It worked! Except this was the negative control: worms with no channelrhodopsin, no light-sensitive protein at all. They responded behaviorally to low dose X-rays.",
+      "The X-rays alone were changing the worms' behavior, probably through direct radiation effects on neurons.",
+      "The lesson wasn't the failure itself. The lesson was what we did next. In research, the most important skill isn't being smart. It's being persistent, and being willing to look at a result that contradicts your hypothesis and say 'huh, that's interesting' instead of 'that's broken.'",
+      "Almost every major discovery in neuroscience involved someone noticing something unexpected. Broca found the speech area because a patient could only say one word. Penfield mapped the cortex because epilepsy patients were already having brain surgery. Serendipity favors the prepared mind."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Your turn. Think of a time you learned more from something going wrong than from it going right. It doesn't have to be science, it can be anything. Talk to your neighbor for 2 minutes. — Anyone want to share? The point is: failure is data. It's not the end of the story, it's the middle."
+    },
+    choices: [
+      { label: "What would you measure if you could measure anything?", target: "measure_anything" },
+      { label: "Career paths in neuroengineering", target: "career_paths" },
+      { label: "Let's wrap up", target: "__end__" },
+    ]
+  },
+
+  "career_paths": {
+    title: "Where Does Neuroengineering Take You?",
+    tag: "Careers & Futures",
+    color: "purple",
+    points: [
+      "The blind résumé game: I'll describe 4 career paths without telling you who they are. (1) Started in electrical engineering, did a PhD on brain signals, now leads a team at a medical device startup making brain implants. (2) Studied neuroscience, learned to code in grad school, now works at a tech company building AI models inspired by the brain. (3) Got a PhD in biomedical engineering, did a postdoc, now runs a university lab and teaches. (4) Started in pre-med, switched to neuroengineering, now works at the FDA reviewing brain device applications.",
+      "All real paths. All legitimate. None of them were planned from the beginning. The common thread: they all learned to think at the intersection of biology and technology.",
+      "The UAB Neuroengineering PhD program is designed to put you at that intersection. You learn neuroscience, you learn engineering, and you learn to translate between the two. It's not for everyone, but if this talk got you excited, it might be for you."
+    ],
+    activity: {
+      type: "discuss",
+      text: "Last question for you: what do you want to do? Not 'what's your major,' but what problem do you want to solve? What would make you excited to go to work every day? Shout it out or tell your neighbor. — There is no wrong answer, and I guarantee there's a path from 'here' to 'there' that goes through neuroengineering."
+    },
+    choices: [
+      { label: "One more stop — any topic we haven't seen yet", target: "__unvisited__" },
+      { label: "Let's wrap this up", target: "__end__" },
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+
+let history = [];
+let visited = new Set();
+let votes = {};
+let votingTimer = null;
+let myVote = null;
+
+const TOTAL_TOPICS = Object.keys(TOPICS).length;
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+
+function startAdventure() {
+  document.getElementById('title-screen').style.display = 'none';
+  document.getElementById('adventure-screen').style.display = 'block';
+  document.getElementById('controls-strip').classList.add('active');
+  navigateTo('start');
+}
+
+function navigateTo(id) {
+  if (id === '__end__') { showEnding(); return; }
+
+  if (id === '__unvisited__') {
+    const unvisited = Object.keys(TOPICS).filter(k => !visited.has(k));
+    if (unvisited.length === 0) { showEnding(); return; }
+    // pick a random unvisited topic
+    id = unvisited[Math.floor(Math.random() * unvisited.length)];
+  }
+
+  history.push(id);
+  visited.add(id);
+  myVote = null;
+  votes = {};
+  clearInterval(votingTimer);
+
+  const topic = TOPICS[id];
+  updateBreadcrumb();
+  updateProgress();
+  updateStats();
+  renderTopic(topic);
+  renderVoting(topic.choices, id);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goBack() {
+  if (history.length <= 1) return;
+  history.pop();
+  const prev = history[history.length - 1];
+  // don't re-add to history
+  myVote = null;
+  votes = {};
+  clearInterval(votingTimer);
+  const topic = TOPICS[prev];
+  updateBreadcrumb();
+  updateProgress();
+  updateStats();
+  renderTopic(topic);
+  renderVoting(topic.choices, prev);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════
+
+function renderTopic(topic) {
+  const activityClass = topic.activity?.type || '';
+  const activityLabels = {
+    discuss: '💬 Activity — Discussion',
+    debate: '⚔️ Activity — Debate',
+    predict: '🔮 Activity — Prediction',
+  };
+
+  document.getElementById('topic-area').innerHTML = `
+    <div class="topic-card" data-color="${topic.color}">
+      <div class="topic-tag"><span class="dot"></span>${topic.tag}</div>
+      <h2>${topic.title}</h2>
+      <div class="talk-points">
+        ${topic.points.map(p => `<p>${p}</p>`).join('')}
+      </div>
+      ${topic.activity ? `
+        <div class="activity-box ${activityClass}">
+          <div class="activity-label">${activityLabels[topic.activity.type] || '💬 Activity'}</div>
+          <p>${topic.activity.text}</p>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderVoting(choices, currentId) {
+  if (!choices || choices.length === 0) {
+    document.getElementById('vote-area').innerHTML = '';
+    return;
+  }
+
+  // Filter out already-visited topics, but keep at least all options if all visited
+  let availableChoices = choices.filter(c => !visited.has(c.target) || c.target === '__end__' || c.target === '__unvisited__');
+  if (availableChoices.length === 0) availableChoices = choices;
+
+  // init votes
+  availableChoices.forEach((c, i) => { votes[i] = 0; });
+
+  const keys = ['A', 'B', 'C', 'D'];
+
+  document.getElementById('vote-area').innerHTML = `
+    <div class="vote-section">
+      <h3>Where do we go next?</h3>
+      <div class="vote-options">
+        ${availableChoices.map((c, i) => `
+          <button class="vote-btn" data-idx="${i}" onclick="castVote(${i})">
+            <div class="bar-fill" style="width: 0%"></div>
+            <span class="vote-key">${keys[i]}</span>
+            <span>${c.label}${visited.has(c.target) ? ' <span style="opacity:0.4">(visited)</span>' : ''}</span>
+            <span class="vote-count">0</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="lock-in-row">
+        <button class="btn-lock" id="btn-lock" onclick="lockIn()" disabled>Lock In Winner →</button>
+      </div>
+      <div class="timer-bar" id="timer-bar">
+        <span id="timer-text">0:15</span>
+        <div class="timer-track"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+      </div>
+    </div>
+  `;
+
+  // Store choices for lockIn
+  window._currentChoices = availableChoices;
+
+  // Keyboard shortcuts
+  window._voteKeyHandler = (e) => {
+    const keyMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+    const idx = keyMap[e.key.toLowerCase()];
+    if (idx !== undefined && idx < availableChoices.length) castVote(idx);
+    if (e.key === 'Enter') lockIn();
+  };
+  document.addEventListener('keydown', window._voteKeyHandler);
+}
+
+function castVote(idx) {
+  // Simulate audience votes (since this is presenter-driven, clicking adds a vote)
+  votes[idx] = (votes[idx] || 0) + 1;
+  updateVoteDisplay();
+  document.getElementById('btn-lock').disabled = false;
+}
+
+function updateVoteDisplay() {
+  const total = Object.values(votes).reduce((a, b) => a + b, 0);
+  document.querySelectorAll('.vote-btn').forEach(btn => {
+    const i = parseInt(btn.dataset.idx);
+    const count = votes[i] || 0;
+    const pct = total > 0 ? (count / total * 100) : 0;
+    btn.querySelector('.vote-count').textContent = count;
+    btn.querySelector('.bar-fill').style.width = pct + '%';
+
+    // highlight winner
+    const maxVotes = Math.max(...Object.values(votes));
+    if (count === maxVotes && count > 0) {
+      btn.classList.add('voted');
+    } else {
+      btn.classList.remove('voted');
+    }
+  });
+}
+
+function lockIn() {
+  const maxVotes = Math.max(...Object.values(votes));
+  if (maxVotes === 0) return;
+
+  // find winner (first in case of tie)
+  let winnerIdx = 0;
+  for (let i in votes) {
+    if (votes[i] === maxVotes) { winnerIdx = parseInt(i); break; }
+  }
+
+  document.removeEventListener('keydown', window._voteKeyHandler);
+  const target = window._currentChoices[winnerIdx].target;
+  navigateTo(target);
+}
+
+function skipToVote() {
+  const voteArea = document.getElementById('vote-area');
+  if (voteArea) voteArea.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Breadcrumb ──
+function updateBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  bc.innerHTML = history.map((id, i) => {
+    const t = TOPICS[id];
+    const isLast = i === history.length - 1;
+    return `${i > 0 ? '<span class="sep">→</span>' : ''}
+      <span class="crumb" style="${isLast ? 'color:var(--accent);border-color:var(--accent)' : ''}"
+            onclick="jumpTo(${i})">${t ? t.title : id}</span>`;
+  }).join('');
+}
+
+function jumpTo(idx) {
+  // Truncate history and go back
+  history = history.slice(0, idx + 1);
+  const id = history[history.length - 1];
+  myVote = null;
+  votes = {};
+  clearInterval(votingTimer);
+  const topic = TOPICS[id];
+  updateBreadcrumb();
+  updateProgress();
+  updateStats();
+  renderTopic(topic);
+  renderVoting(topic.choices, id);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Progress ──
+function updateProgress() {
+  const pct = (visited.size / TOTAL_TOPICS) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function updateStats() {
+  document.getElementById('stat-stops').textContent = history.length;
+  document.getElementById('stat-visited').textContent = visited.size;
+  document.getElementById('stat-total').textContent = TOTAL_TOPICS;
+}
+
+// ── Ending ──
+function showEnding() {
+  clearInterval(votingTimer);
+  document.removeEventListener('keydown', window._voteKeyHandler);
+
+  const unvisited = Object.keys(TOPICS).filter(k => !visited.has(k));
+
+  document.getElementById('topic-area').innerHTML = `
+    <div class="ending-card">
+      <h2>Thanks for Choosing This Adventure</h2>
+      <p>We visited <strong>${visited.size}</strong> of <strong>${TOTAL_TOPICS}</strong> topics today. Every run through this talk is different, and you shaped this one.</p>
+      <p>The topics we explored:</p>
+      <div class="visited-list">
+        ${Array.from(visited).map(id => {
+          const t = TOPICS[id];
+          return `<span class="visited-chip">${t ? t.title : id}</span>`;
+        }).join('')}
+      </div>
+      ${unvisited.length > 0 ? `
+        <p style="margin-top:1rem; font-size:0.85rem;">Topics we didn't get to: ${unvisited.map(id => TOPICS[id]?.title).filter(Boolean).join(', ')}. Come talk to me if any of those sound interesting.</p>
+      ` : `<p style="margin-top:1rem;">We hit every topic. That's a first!</p>`}
+      <p style="margin-top:1.5rem;"><strong>If any of this excited you:</strong> the UAB Neuroengineering PhD Program is always looking for curious people. Come find me, Dr. Mark Bolding, or visit markbolding.com.</p>
+      <button class="btn-restart" onclick="restart()">Start Over</button>
+    </div>
+  `;
+  document.getElementById('vote-area').innerHTML = '';
+}
+
+function restart() {
+  history = [];
+  visited = new Set();
+  votes = {};
+  myVote = null;
+  document.getElementById('adventure-screen').style.display = 'none';
+  document.getElementById('controls-strip').classList.remove('active');
+  document.getElementById('title-screen').style.display = 'flex';
+}
+</script>
+
+</body>
+</html>
