@@ -26,6 +26,46 @@
   --font-display: 'Playfair Display', serif;
 }
 
+body.high-contrast {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-hover: #222222;
+  --border: #ffffff;
+  --text: #ffffff;
+  --text-dim: #cccccc;
+  --accent: #ffff00;
+  --accent-glow: rgba(255, 255, 0, 0.25);
+  --accent2: #00ffff;
+  --accent3: #00ff00;
+  --accent4: #ff9900;
+  --accent5: #ff00ff;
+  --danger: #ff0000;
+}
+body.high-contrast::before {
+  display: none;
+}
+body.high-contrast .topic-card, body.high-contrast .ending-card {
+  border-width: 2px;
+}
+.hc-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hc-toggle:hover {
+  border-color: var(--text);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -600,12 +640,15 @@ body::before {
 </head>
 <body>
 
+<button id="btn-hc" class="hc-toggle" onclick="toggleHighContrast()">High Contrast: Off</button>
+
 <div class="container">
 
 <!-- ── TITLE SCREEN ── -->
 <div id="title-screen">
   <h1>Choose Your Own Neuroengineering Adventure</h1>
-  <div class="subtitle">Freshman Neuroscience Colloquium &middot; Spring 2026</div>
+  <div class="subtitle" style="margin-bottom: 0.5rem;">Freshman Neuroscience Colloquium &middot; Spring 2026</div>
+  <div class="subtitle" style="font-size: 1rem; color: var(--text); font-weight: bold;">Mark Bolding, PhD</div>
   <p class="intro-text">
     This is <strong>not</strong> a lecture. There are no slides. You, the audience, will choose where we go next. At each stop I'll talk for a few minutes and we'll do an activity together, then you'll vote on the next topic. Every path through this talk is different.
   </p>
@@ -636,6 +679,28 @@ body::before {
 </div>
 
 <script>
+function toggleHighContrast() {
+  const isHC = document.body.classList.toggle('high-contrast');
+  localStorage.setItem('highContrast', isHC ? 'true' : 'false');
+  const btn = document.getElementById('btn-hc');
+  if (btn) btn.textContent = isHC ? 'High Contrast: On' : 'High Contrast: Off';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // If the script runs before DOMContentLoaded, we also just run it immediately if possible
+  if (localStorage.getItem('highContrast') === 'true') {
+    document.body.classList.add('high-contrast');
+    const btn = document.getElementById('btn-hc');
+    if (btn) btn.textContent = 'High Contrast: On';
+  }
+});
+// Also run immediately just in case the button is already parsed
+if (localStorage.getItem('highContrast') === 'true') {
+  document.body.classList.add('high-contrast');
+  const btn = document.getElementById('btn-hc');
+  if (btn) btn.textContent = 'High Contrast: On';
+}
+
 // ═══════════════════════════════════════════
 // TOPIC GRAPH — the adventure content
 // ═══════════════════════════════════════════
@@ -1116,7 +1181,10 @@ function renderTopic(topic) {
       ${topic.activity ? `
         <div class="activity-box ${activityClass}">
           <div class="activity-label">${activityLabels[topic.activity.type] || '💬 Activity'}</div>
-          <p>${topic.activity.text}</p>
+          <button onclick="this.nextElementSibling.style.display='block'; this.style.display='none'" style="font-family:var(--font-mono); font-size:0.8rem; padding:0.5rem 1rem; border:1px solid var(--border); background:transparent; color:var(--text); border-radius:4px; cursor:pointer; margin-top:0.5rem; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'; this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text)'">Reveal Activity</button>
+          <div style="display: none; margin-top: 0.5rem;">
+            <p>${topic.activity.text}</p>
+          </div>
         </div>
       ` : ''}
     </div>
@@ -1166,8 +1234,17 @@ function renderVoting(choices, currentId) {
 
   // Keyboard shortcuts
   window._voteKeyHandler = (e) => {
+    const key = e.key.toLowerCase();
+    
+    if (key === 'r') {
+      const revealBtn = document.querySelector('.activity-box button');
+      if (revealBtn && revealBtn.style.display !== 'none') {
+        revealBtn.click();
+      }
+    }
+
     const keyMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-    const idx = keyMap[e.key.toLowerCase()];
+    const idx = keyMap[key];
     if (idx !== undefined && idx < availableChoices.length) castVote(idx);
     if (e.key === 'Enter') lockIn();
   };
