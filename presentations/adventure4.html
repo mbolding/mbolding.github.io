@@ -635,6 +635,7 @@ body::before {
   .topic-card { padding: 1.5rem; }
   .topic-card h2 { font-size: 1.4rem; }
   .container { padding: 1rem; }
+  .vote-section { padding-bottom: 7rem; }
 }
 </style>
 </head>
@@ -1201,10 +1202,30 @@ function renderVoting(choices, currentId) {
   let availableChoices = choices.filter(c => !visited.has(c.target) || c.target === '__end__' || c.target === '__unvisited__');
   if (availableChoices.length === 0) availableChoices = choices;
 
-  // init votes
-  availableChoices.forEach((c, i) => { votes[i] = 0; });
-
   const keys = ['A', 'B', 'C', 'D'];
+
+  // On mobile: tap a choice to go directly, no voting/lock-in
+  if (window.innerWidth <= 640) {
+    document.getElementById('vote-area').innerHTML = `
+      <div class="vote-section">
+        <h3>Where do we go next?</h3>
+        <div class="vote-options">
+          ${availableChoices.map((c, i) => `
+            <button class="vote-btn" onclick="navigateTo('${c.target}')">
+              <span class="vote-key">${keys[i]}</span>
+              <span>${c.label}${visited.has(c.target) ? ' <span style="opacity:0.4">(visited)</span>' : ''}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    window._currentChoices = availableChoices;
+    window._voteKeyHandler = null;
+    return;
+  }
+
+  // Desktop: voting + lock-in behavior
+  availableChoices.forEach((c, i) => { votes[i] = 0; });
 
   document.getElementById('vote-area').innerHTML = `
     <div class="vote-section">
