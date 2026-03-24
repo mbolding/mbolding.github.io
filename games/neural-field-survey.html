@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Field Survey — Minesweeper</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fffff8;
+    --ink: #1a1a1a;
+    --ink-light: #6b6b6b;
+    --ink-faint: #b8b8b8;
+    --ink-whisper: #e0ddd5;
+    --accent: #c0392b;
+    --safe: #fffff8;
+    --revealed: #f7f5ee;
+    --flagged-bg: #fdf6f0;
+    --n1: #4a6fa5;
+    --n2: #2d6a4f;
+    --n3: #c0392b;
+    --n4: #5b3a6b;
+    --n5: #8b4513;
+    --n6: #1a7a7a;
+    --n7: #1a1a1a;
+    --n8: #6b6b6b;
+    --cell-size: 34px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'EB Garamond', Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 620px;
+    width: 100%;
+  }
+
+  /* — Header — */
+  h1 {
+    font-size: 1.65rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    margin-bottom: 2px;
+  }
+
+  .subtitle {
+    font-size: 0.92rem;
+    color: var(--ink-light);
+    font-style: italic;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  /* — Controls — */
+  .controls {
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .control-group label {
+    font-size: 0.82rem;
+    color: var(--ink-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+  }
+
+  .control-group select {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.95rem;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--ink-faint);
+    padding: 2px 18px 2px 2px;
+    color: var(--ink);
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b6b6b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    outline: none;
+  }
+
+  .control-group select:focus {
+    border-bottom-color: var(--ink);
+  }
+
+  .btn-new {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: none;
+    border: 1px solid var(--ink-faint);
+    padding: 5px 14px;
+    color: var(--ink-light);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-new:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  /* — Status bar — */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ink-whisper);
+  }
+
+  .stat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--ink-light);
+    letter-spacing: 0.03em;
+  }
+
+  .stat-value {
+    color: var(--ink);
+    font-weight: 400;
+  }
+
+  .status-message {
+    font-size: 0.88rem;
+    font-style: italic;
+    color: var(--ink-light);
+    min-height: 1.3em;
+    transition: color 0.3s;
+  }
+
+  .status-message.lost { color: var(--accent); font-style: normal; }
+  .status-message.won { color: var(--n2); font-style: normal; }
+
+  /* — Grid — */
+  .grid-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 16px 0;
+  }
+
+  .grid {
+    display: inline-grid;
+    gap: 0;
+    border: 1px solid var(--ink-whisper);
+    user-select: none;
+  }
+
+  .cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 400;
+    cursor: pointer;
+    background: var(--bg);
+    border-right: 1px solid var(--ink-whisper);
+    border-bottom: 1px solid var(--ink-whisper);
+    transition: background 0.1s;
+    position: relative;
+  }
+
+  .cell:hover:not(.revealed):not(.game-over) {
+    background: #f0ede4;
+  }
+
+  .cell.revealed {
+    background: var(--revealed);
+    cursor: default;
+  }
+
+  .cell.flagged::after {
+    content: '⚑';
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+
+  .cell.revealed.mine-cell {
+    background: #fdecea;
+  }
+
+  .cell.revealed.mine-cell.trigger {
+    background: #f5d0cb;
+  }
+
+  /* Neurotoxin symbol for mines */
+  .cell .mine-symbol {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-family: 'EB Garamond', serif;
+    font-weight: 600;
+  }
+
+  /* Number colors */
+  .cell .n1 { color: var(--n1); }
+  .cell .n2 { color: var(--n2); }
+  .cell .n3 { color: var(--n3); }
+  .cell .n4 { color: var(--n4); }
+  .cell .n5 { color: var(--n5); }
+  .cell .n6 { color: var(--n6); }
+  .cell .n7 { color: var(--n7); }
+  .cell .n8 { color: var(--n8); }
+
+  /* — Legend — */
+  .legend {
+    margin-top: 20px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ink-whisper);
+    font-size: 0.82rem;
+    color: var(--ink-light);
+    line-height: 1.7;
+  }
+
+  .legend-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    margin-bottom: 4px;
+  }
+
+  .legend p {
+    margin-bottom: 2px;
+  }
+
+  .legend em {
+    font-style: italic;
+    color: var(--ink);
+  }
+
+  .legend .key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: var(--revealed);
+    padding: 1px 5px;
+    border: 1px solid var(--ink-whisper);
+    border-radius: 2px;
+  }
+
+  /* — Marginal annotation (Tufte sidenote style) — */
+  .annotation {
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    font-style: italic;
+    text-align: right;
+    margin-top: 24px;
+    line-height: 1.5;
+  }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    :root { --cell-size: 28px; }
+    h1 { font-size: 1.35rem; }
+    .controls { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+   <!-- TODO: add me to games index-->
+<div class="container">
+
+  <h1>Neural Field Survey</h1>
+  <p class="subtitle">
+    Map the cortical region. Each number indicates adjacent aberrant neurons.
+    Flag all lesion sites without triggering a cascade event.
+  </p>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Region</label>
+      <select id="difficulty">
+        <option value="beginner">Cortical Slice · 9×9</option>
+        <option value="intermediate" selected>Brodmann Area · 16×16</option>
+        <option value="expert">Whole Brain · 30×16</option>
+      </select>
+    </div>
+    <button class="btn-new" id="newGame">New Survey</button>
+  </div>
+
+  <div class="status-bar">
+    <span class="stat">lesions: <span class="stat-value" id="mineCount">0</span></span>
+    <span class="status-message" id="statusMsg">Click any cell to begin field recording.</span>
+    <span class="stat">elapsed: <span class="stat-value" id="timer">0s</span></span>
+  </div>
+
+  <div class="grid-wrapper">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-title">Protocol</div>
+    <p><span class="key">click</span> Probe neuron &nbsp;·&nbsp; <span class="key">right-click</span> Flag lesion site &nbsp;·&nbsp; <span class="key">middle-click</span> Chord reveal</p>
+    <p>Numbers denote <em>adjacent aberrant neuron count</em>. The symbol <em style="color:var(--accent);">⚠</em> marks confirmed lesion sites post-mortem.</p>
+  </div>
+
+  <p class="annotation">
+    Methodology adapted from field potential recording techniques, c. 2026.
+    <br>Visualization follows principles of analytical design (Tufte, 2001).
+  </p>
+
+</div>
+
+<script>
+const CONFIGS = {
+  beginner:     { rows: 9,  cols: 9,  mines: 10 },
+  intermediate: { rows: 16, cols: 16, mines: 40 },
+  expert:       { rows: 16, cols: 30, mines: 99 }
+};
+
+let board = [];
+let revealed = [];
+let flagged = [];
+let gameOver = false;
+let gameWon = false;
+let firstClick = true;
+let rows, cols, totalMines;
+let timerInterval = null;
+let seconds = 0;
+let flagCount = 0;
+
+const gridEl = document.getElementById('grid');
+const mineCountEl = document.getElementById('mineCount');
+const timerEl = document.getElementById('timer');
+const statusEl = document.getElementById('statusMsg');
+const diffSelect = document.getElementById('difficulty');
+const newBtn = document.getElementById('newGame');
+
+function init() {
+  const cfg = CONFIGS[diffSelect.value];
+  rows = cfg.rows;
+  cols = cfg.cols;
+  totalMines = cfg.mines;
+
+  board = Array.from({ length: rows }, () => Array(cols).fill(0));
+  revealed = Array.from({ length: rows }, () => Array(cols).fill(false));
+  flagged = Array.from({ length: rows }, () => Array(cols).fill(false));
+  gameOver = false;
+  gameWon = false;
+  firstClick = true;
+  flagCount = 0;
+  seconds = 0;
+
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerEl.textContent = '0s';
+  mineCountEl.textContent = totalMines;
+  statusEl.textContent = 'Click any cell to begin field recording.';
+  statusEl.className = 'status-message';
+
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+  render();
+}
+
+function placeMines(safeR, safeC) {
+  let placed = 0;
+  while (placed < totalMines) {
+    const r = Math.floor(Math.random() * rows);
+    const c = Math.floor(Math.random() * cols);
+    if (board[r][c] === -1) continue;
+    if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
+    board[r][c] = -1;
+    placed++;
+  }
+  // Compute adjacency
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] === -1) continue;
+      let count = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] === -1) count++;
+        }
+      }
+      board[r][c] = count;
+    }
+  }
+}
+
+function startTimer() {
+  if (timerInterval) return;
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = seconds + 's';
+  }, 1000);
+}
+
+function reveal(r, c) {
+  if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+  if (revealed[r][c] || flagged[r][c]) return;
+  revealed[r][c] = true;
+
+  if (board[r][c] === 0) {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        reveal(r + dr, c + dc);
+      }
+    }
+  }
+}
+
+function checkWin() {
+  let unrevealedSafe = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] !== -1 && !revealed[r][c]) unrevealedSafe++;
+    }
+  }
+  return unrevealedSafe === 0;
+}
+
+function handleClick(r, c) {
+  if (gameOver || gameWon) return;
+  if (flagged[r][c]) return;
+  if (revealed[r][c]) return;
+
+  if (firstClick) {
+    placeMines(r, c);
+    firstClick = false;
+    startTimer();
+    statusEl.textContent = 'Recording neural field potentials…';
+  }
+
+  if (board[r][c] === -1) {
+    // Game over
+    gameOver = true;
+    clearInterval(timerInterval);
+    revealed[r][c] = true;
+    // Reveal all mines
+    for (let rr = 0; rr < rows; rr++) {
+      for (let cc = 0; cc < cols; cc++) {
+        if (board[rr][cc] === -1) revealed[rr][cc] = true;
+      }
+    }
+    statusEl.textContent = 'Cascade event triggered. Neural tissue compromised.';
+    statusEl.className = 'status-message lost';
+    render(r, c);
+    return;
+  }
+
+  reveal(r, c);
+
+  if (checkWin()) {
+    gameWon = true;
+    clearInterval(timerInterval);
+    statusEl.textContent = 'Survey complete. All lesion sites mapped in ' + seconds + 's.';
+    statusEl.className = 'status-message won';
+  }
+
+  render();
+}
+
+function handleRightClick(r, c) {
+  if (gameOver || gameWon) return;
+  if (revealed[r][c]) return;
+
+  flagged[r][c] = !flagged[r][c];
+  flagCount += flagged[r][c] ? 1 : -1;
+  mineCountEl.textContent = totalMines - flagCount;
+  render();
+}
+
+function handleChord(r, c) {
+  if (gameOver || gameWon) return;
+  if (!revealed[r][c]) return;
+  if (board[r][c] <= 0) return;
+
+  // Count adjacent flags
+  let adjFlags = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && flagged[nr][nc]) adjFlags++;
+    }
+  }
+
+  if (adjFlags === board[r][c]) {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !flagged[nr][nc] && !revealed[nr][nc]) {
+          if (board[nr][nc] === -1) {
+            // Hit a mine via chord
+            handleClick(nr, nc);
+            return;
+          }
+          reveal(nr, nc);
+        }
+      }
+    }
+    if (checkWin()) {
+      gameWon = true;
+      clearInterval(timerInterval);
+      statusEl.textContent = 'Survey complete. All lesion sites mapped in ' + seconds + 's.';
+      statusEl.className = 'status-message won';
+    }
+    render();
+  }
+}
+
+function render(triggerR, triggerC) {
+  gridEl.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+
+      if (gameOver || gameWon) cell.classList.add('game-over');
+
+      if (revealed[r][c]) {
+        cell.classList.add('revealed');
+        if (board[r][c] === -1) {
+          cell.classList.add('mine-cell');
+          if (r === triggerR && c === triggerC) cell.classList.add('trigger');
+          cell.innerHTML = '<span class="mine-symbol">⚠</span>';
+        } else if (board[r][c] > 0) {
+          cell.innerHTML = `<span class="n${board[r][c]}">${board[r][c]}</span>`;
+        }
+      } else if (flagged[r][c]) {
+        cell.classList.add('flagged');
+      }
+
+      cell.addEventListener('click', (e) => {
+        if (e.detail === 1) handleClick(r, c);
+      });
+      cell.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        handleRightClick(r, c);
+      });
+      cell.addEventListener('mousedown', (e) => {
+        if (e.button === 1) { e.preventDefault(); handleChord(r, c); }
+      });
+      cell.addEventListener('dblclick', () => handleChord(r, c));
+
+      gridEl.appendChild(cell);
+    }
+  }
+}
+
+diffSelect.addEventListener('change', init);
+newBtn.addEventListener('click', init);
+
+init();
+</script>
+</body>
+</html>

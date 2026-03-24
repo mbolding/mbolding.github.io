@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroSweep — Neural Array Sweep</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  /* ── Dark mode (default) ── */
+  :root {
+    --bg-deep: #020c14;
+    --bg-panel: #040f1c;
+    --bg-cell: #071828;
+    --bg-cell-hover: #0a2035;
+    --bg-cell-revealed: #030d17;
+    --border-dim: #0a3050;
+    --border-glow: #00c8e8;
+    --cyan: #00e5ff;
+    --cyan-dim: #007a90;
+    --teal: #00b4cc;
+    --orange: #ff7b00;
+    --red: #ff2a2a;
+    --green: #00ff88;
+    --white: #cde8f5;
+    --grid-line: rgba(0, 180, 204, 0.12);
+    --shadow-glow: 0 0 12px rgba(0, 229, 255, 0.4);
+    --shadow-glow-strong: 0 0 24px rgba(0, 229, 255, 0.7);
+  }
+
+  /* ── Light mode (Tufte-inspired) ── */
+  body.light {
+    --bg-deep: #fffef8;
+    --bg-panel: #f5f3ec;
+    --bg-cell: #ede9df;
+    --bg-cell-hover: #e2ddd1;
+    --bg-cell-revealed: #f9f7f2;
+    --border-dim: #c8c0ae;
+    --border-glow: #4a8a8c;
+    --cyan: #2a6e72;
+    --cyan-dim: #6b9ea0;
+    --teal: #3d7d80;
+    --orange: #b85c00;
+    --red: #b82222;
+    --green: #2a7a4a;
+    --white: #2c2c2a;
+    --grid-line: rgba(100, 130, 130, 0.1);
+    --shadow-glow: 0 1px 4px rgba(42, 110, 114, 0.18);
+    --shadow-glow-strong: 0 2px 8px rgba(42, 110, 114, 0.28);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px 40px;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 80, 120, 0.25) 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--grid-line) 39px, var(--grid-line) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--grid-line) 39px, var(--grid-line) 40px);
+    transition: background 0.3s, color 0.3s;
+  }
+
+  body.light {
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--grid-line) 39px, var(--grid-line) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--grid-line) 39px, var(--grid-line) 40px);
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .logo-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    opacity: 0.9;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1.4rem, 4vw, 2.2rem);
+    letter-spacing: 0.12em;
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.8), 0 0 40px rgba(0, 229, 255, 0.4);
+    text-transform: uppercase;
+    transition: color 0.3s, text-shadow 0.3s;
+  }
+
+  body.light h1 {
+    text-shadow: none;
+    letter-spacing: 0.08em;
+  }
+
+  .subtitle {
+    font-size: 0.72rem;
+    color: var(--cyan-dim);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    transition: color 0.3s;
+  }
+
+  body.light .subtitle {
+    letter-spacing: 0.18em;
+    font-size: 0.68rem;
+  }
+
+  /* ── Control Panel ── */
+  .control-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-dim);
+    border-radius: 10px;
+    padding: 18px 28px;
+    margin-bottom: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    box-shadow: 0 0 30px rgba(0, 100, 160, 0.2);
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  body.light .control-panel {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  .control-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.6;
+    transition: opacity 0.3s;
+  }
+
+  body.light .control-panel::before {
+    opacity: 0.25;
+  }
+
+  .difficulty-group {
+    display: flex;
+    gap: 6px;
+  }
+
+  .diff-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    padding: 7px 16px;
+    background: transparent;
+    border: 1px solid var(--cyan-dim);
+    color: var(--cyan-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .diff-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.07);
+  }
+
+  body.light .diff-btn:hover {
+    background: rgba(42, 110, 114, 0.08);
+  }
+
+  .diff-btn.active {
+    border-color: var(--cyan);
+    color: var(--bg-deep);
+    background: var(--cyan);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.5);
+    font-weight: bold;
+  }
+
+  body.light .diff-btn.active {
+    box-shadow: none;
+    color: #fffef8;
+  }
+
+  .stat-group {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .stat-box {
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+    color: var(--cyan-dim);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--cyan);
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+    min-width: 3ch;
+    display: block;
+    transition: color 0.3s, text-shadow 0.3s;
+  }
+
+  body.light .stat-value { text-shadow: none; }
+
+  .stat-value.danger { color: var(--orange); text-shadow: 0 0 8px rgba(255, 123, 0, 0.6); }
+  .stat-value.critical { color: var(--red); text-shadow: 0 0 8px rgba(255, 42, 42, 0.7); }
+  body.light .stat-value.danger { text-shadow: none; }
+  body.light .stat-value.critical { text-shadow: none; }
+
+  .new-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 9px 22px;
+    background: transparent;
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    border-radius: 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .new-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 200%; padding-top: 200%;
+    background: rgba(0, 180, 204, 0.15);
+    border-radius: 50%;
+    transition: transform 0.4s, opacity 0.4s;
+    opacity: 0;
+  }
+
+  .new-btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--shadow-glow); }
+  body.light .new-btn:hover { box-shadow: 0 1px 6px rgba(42,110,114,0.2); }
+  .new-btn:active::after { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+
+  /* ── Status Banner ── */
+  .status-banner {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 0.82rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan-dim);
+    transition: all 0.3s;
+  }
+
+  .status-banner.win {
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.8);
+    animation: pulse-green 1.5s ease-in-out infinite;
+  }
+
+  body.light .status-banner.win {
+    text-shadow: none;
+    animation: none;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+  }
+
+  .status-banner.lose {
+    color: var(--red);
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(255, 42, 42, 0.8);
+    animation: pulse-red 0.8s ease-in-out infinite;
+  }
+
+  body.light .status-banner.lose {
+    text-shadow: none;
+    animation: none;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { text-shadow: 0 0 20px rgba(0, 255, 136, 0.8); }
+    50% { text-shadow: 0 0 40px rgba(0, 255, 136, 1), 0 0 80px rgba(0, 255, 136, 0.4); }
+  }
+
+  @keyframes pulse-red {
+    0%, 100% { text-shadow: 0 0 20px rgba(255, 42, 42, 0.8); }
+    50% { text-shadow: 0 0 40px rgba(255, 42, 42, 1), 0 0 80px rgba(255, 42, 42, 0.4); }
+  }
+
+  /* ── Grid Wrapper ── */
+  .grid-wrapper {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-dim);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow:
+      0 0 40px rgba(0, 80, 140, 0.3),
+      inset 0 0 60px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  body.light .grid-wrapper {
+    box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+    border-radius: 4px;
+  }
+
+  .grid-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.5;
+  }
+
+  .grid-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    opacity: 0.3;
+  }
+
+  /* Corner markers */
+  .corner {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: var(--cyan);
+    border-style: solid;
+    opacity: 0.7;
+  }
+  .corner.tl { top: 6px; left: 6px; border-width: 1px 0 0 1px; }
+  .corner.tr { top: 6px; right: 6px; border-width: 1px 1px 0 0; }
+  .corner.bl { bottom: 6px; left: 6px; border-width: 0 0 1px 1px; }
+  .corner.br { bottom: 6px; right: 6px; border-width: 0 1px 1px 0; }
+
+  /* ── Grid ── */
+  #grid {
+    display: grid;
+    gap: 3px;
+    user-select: none;
+  }
+
+  /* ── Cell ── */
+  .cell {
+    width: 36px;
+    height: 36px;
+    background: var(--bg-cell);
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.1s, border-color 0.15s, box-shadow 0.15s;
+    overflow: hidden;
+  }
+
+  /* Electrode pad look: small dot in each corner */
+  .cell::before {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--border-dim);
+    transition: background 0.2s;
+  }
+
+  .cell:not(.revealed):not(.flagged):hover {
+    background: var(--bg-cell-hover);
+    border-color: var(--cyan-dim);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.2);
+  }
+
+  .cell:not(.revealed):not(.flagged):hover::before {
+    background: var(--cyan-dim);
+  }
+
+  .cell.revealed {
+    background: var(--bg-cell-revealed);
+    border-color: rgba(0, 80, 120, 0.4);
+    cursor: default;
+  }
+
+  .cell.flagged {
+    border-color: var(--orange);
+    box-shadow: 0 0 8px rgba(255, 123, 0, 0.3);
+    cursor: pointer;
+  }
+
+  body.light .cell.flagged {
+    box-shadow: none;
+    background: rgba(184, 92, 0, 0.06);
+  }
+
+  .cell.mine-hit {
+    background: rgba(180, 0, 0, 0.3);
+    border-color: var(--red);
+    box-shadow: 0 0 16px rgba(255, 42, 42, 0.6);
+    animation: mine-flash 0.3s ease-out;
+  }
+
+  .cell.mine-revealed {
+    background: rgba(80, 0, 0, 0.3);
+    border-color: rgba(255, 42, 42, 0.4);
+  }
+
+  .cell.win-flash {
+    animation: win-flash 0.4s ease-out forwards;
+  }
+
+  @keyframes mine-flash {
+    0% { background: rgba(255, 80, 0, 0.8); }
+    100% { background: rgba(180, 0, 0, 0.3); }
+  }
+
+  @keyframes win-flash {
+    0% { border-color: var(--green); box-shadow: 0 0 16px rgba(0, 255, 136, 0.8); }
+    100% { border-color: rgba(0, 255, 136, 0.4); box-shadow: 0 0 6px rgba(0, 255, 136, 0.2); }
+  }
+
+  /* Number colors — neural signal readings (dark mode) */
+  .n1 { color: #00d4ff; text-shadow: 0 0 6px rgba(0, 212, 255, 0.8); }
+  .n2 { color: #00ff88; text-shadow: 0 0 6px rgba(0, 255, 136, 0.7); }
+  .n3 { color: #ffaa00; text-shadow: 0 0 6px rgba(255, 170, 0, 0.8); }
+  .n4 { color: #ff6600; text-shadow: 0 0 6px rgba(255, 102, 0, 0.8); }
+  .n5 { color: #ff2a2a; text-shadow: 0 0 6px rgba(255, 42, 42, 0.8); }
+  .n6 { color: #ff00cc; text-shadow: 0 0 6px rgba(255, 0, 204, 0.8); }
+  .n7 { color: #cc00ff; text-shadow: 0 0 6px rgba(204, 0, 255, 0.8); }
+  .n8 { color: #ffffff; text-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
+
+  /* Number colors — light mode (muted, ink-like) */
+  body.light .n1 { color: #2a6e72; text-shadow: none; }
+  body.light .n2 { color: #2e7a52; text-shadow: none; }
+  body.light .n3 { color: #8a5a00; text-shadow: none; }
+  body.light .n4 { color: #a03800; text-shadow: none; }
+  body.light .n5 { color: #9e1a1a; text-shadow: none; }
+  body.light .n6 { color: #7a1870; text-shadow: none; }
+  body.light .n7 { color: #5a1a88; text-shadow: none; }
+  body.light .n8 { color: #1e1e1e; text-shadow: none; }
+
+  .cell-num {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Flag icon */
+  .flag-icon {
+    font-size: 14px;
+    color: var(--orange);
+    text-shadow: 0 0 8px rgba(255, 123, 0, 0.9);
+    animation: flag-pulse 2s ease-in-out infinite;
+    transition: color 0.3s;
+  }
+
+  body.light .flag-icon {
+    text-shadow: none;
+    animation: none;
+  }
+
+  @keyframes flag-pulse {
+    0%, 100% { text-shadow: 0 0 8px rgba(255, 123, 0, 0.7); }
+    50% { text-shadow: 0 0 16px rgba(255, 123, 0, 1), 0 0 30px rgba(255, 123, 0, 0.4); }
+  }
+
+  /* Mine / artifact icon */
+  .mine-icon {
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  /* ── Footer / Legend ── */
+  .legend {
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: var(--cyan-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-icon {
+    font-size: 12px;
+  }
+
+  /* ── Overlay for game over / win ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 12, 20, 0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  body.light .overlay {
+    background: rgba(240, 236, 226, 0.88);
+  }
+
+  .overlay.visible { display: flex; }
+
+  .overlay-card {
+    background: var(--bg-panel);
+    border-radius: 14px;
+    padding: 40px 50px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    max-width: 420px;
+    width: 90%;
+  }
+
+  .overlay-card.win-card {
+    border: 1px solid var(--green);
+    box-shadow: 0 0 60px rgba(0, 255, 136, 0.4), inset 0 0 40px rgba(0, 255, 136, 0.05);
+  }
+
+  body.light .overlay-card.win-card {
+    box-shadow: 0 2px 12px rgba(42, 122, 74, 0.2);
+  }
+
+  .overlay-card.lose-card {
+    border: 1px solid var(--red);
+    box-shadow: 0 0 60px rgba(255, 42, 42, 0.4), inset 0 0 40px rgba(255, 42, 42, 0.05);
+  }
+
+  body.light .overlay-card.lose-card {
+    box-shadow: 0 2px 12px rgba(184, 34, 34, 0.2);
+  }
+
+  .overlay-title {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .overlay-card.win-card .overlay-title { color: var(--green); text-shadow: 0 0 20px rgba(0, 255, 136, 0.8); }
+  .overlay-card.lose-card .overlay-title { color: var(--red); text-shadow: 0 0 20px rgba(255, 42, 42, 0.8); }
+  body.light .overlay-card.win-card .overlay-title { text-shadow: none; }
+  body.light .overlay-card.lose-card .overlay-title { text-shadow: none; }
+
+  .overlay-sub {
+    font-size: 0.78rem;
+    color: var(--cyan-dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+
+  body.light .overlay-sub { letter-spacing: 0.08em; }
+
+  .overlay-stats {
+    font-size: 0.82rem;
+    color: var(--white);
+    margin-bottom: 28px;
+    line-height: 2;
+  }
+
+  .overlay-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .overlay-card.win-card .overlay-btn {
+    background: var(--green);
+    color: var(--bg-deep);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+  }
+
+  body.light .overlay-card.win-card .overlay-btn { box-shadow: none; color: #fffef8; }
+
+  .overlay-card.win-card .overlay-btn:hover {
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.8);
+    transform: translateY(-2px);
+  }
+
+  body.light .overlay-card.win-card .overlay-btn:hover { box-shadow: 0 2px 8px rgba(42,122,74,0.3); }
+
+  .overlay-card.lose-card .overlay-btn {
+    background: var(--red);
+    color: var(--bg-deep);
+    box-shadow: 0 0 20px rgba(255, 42, 42, 0.5);
+  }
+
+  body.light .overlay-card.lose-card .overlay-btn { box-shadow: none; color: #fffef8; }
+
+  .overlay-card.lose-card .overlay-btn:hover {
+    box-shadow: 0 0 30px rgba(255, 42, 42, 0.8);
+    transform: translateY(-2px);
+  }
+
+  body.light .overlay-card.lose-card .overlay-btn:hover { box-shadow: 0 2px 8px rgba(184,34,34,0.3); }
+
+  /* scan line animation on overlay (dark only) */
+  body:not(.light) .overlay-card::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: rgba(0, 229, 255, 0.15);
+    animation: scan 3s linear infinite;
+  }
+
+  @keyframes scan {
+    0% { top: 0%; }
+    100% { top: 100%; }
+  }
+
+  /* ── Scanline overlay on whole page (dark mode only) ── */
+  body:not(.light)::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.03) 0px,
+      rgba(0,0,0,0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── Responsive cells ── */
+  @media (max-width: 600px) {
+    .cell { width: 28px; height: 28px; font-size: 0.7rem; }
+    .cell-num { font-size: 0.72rem; }
+  }
+
+  /* ── Mode toggle button ── */
+  .mode-toggle {
+    margin-top: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    padding: 5px 14px;
+    background: transparent;
+    border: 1px solid var(--border-dim);
+    color: var(--cyan-dim);
+    border-radius: 20px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.25s;
+    display: inline-block;
+  }
+
+  .mode-toggle:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0, 229, 255, 0.06);
+  }
+
+  body.light .mode-toggle:hover {
+    background: rgba(42, 110, 114, 0.08);
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+ <!-- TODO: add me to games index-->
+<div class="header">
+  <div class="logo-line">
+    <!-- Neural array SVG icon -->
+    <svg class="logo-icon" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="22" cy="8" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="36" cy="8" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="8" cy="22" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="22" cy="22" r="4" fill="#00e5ff"/>
+      <circle cx="36" cy="22" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="8" cy="36" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="22" cy="36" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="36" cy="36" r="3" fill="#00e5ff" opacity="0.9"/>
+      <line x1="8" y1="8" x2="22" y2="8" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="8" x2="36" y2="8" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="22" x2="22" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="22" x2="36" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="36" x2="22" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="36" x2="36" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="8" x2="8" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="22" x2="8" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="8" x2="22" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="22" x2="22" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="36" y1="8" x2="36" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="36" y1="22" x2="36" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <!-- diagonal connections from center -->
+      <line x1="22" y1="22" x2="8" y2="8" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="22" y1="22" x2="36" y2="8" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="22" y1="22" x2="8" y2="36" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="22" y1="22" x2="36" y2="36" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+    </svg>
+    <h1>NeuroSweep</h1>
+    <svg class="logo-icon" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="22" cy="8" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="36" cy="8" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="8" cy="22" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="22" cy="22" r="4" fill="#00e5ff"/>
+      <circle cx="36" cy="22" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="8" cy="36" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="22" cy="36" r="3" fill="#00e5ff" opacity="0.9"/>
+      <circle cx="36" cy="36" r="3" fill="#00e5ff" opacity="0.9"/>
+      <line x1="8" y1="8" x2="22" y2="8" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="8" x2="36" y2="8" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="22" x2="22" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="22" x2="36" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="36" x2="22" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="36" x2="36" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="8" x2="8" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="8" y1="22" x2="8" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="8" x2="22" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="22" x2="22" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="36" y1="8" x2="36" y2="22" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="36" y1="22" x2="36" y2="36" stroke="#00b4cc" stroke-width="1" opacity="0.6"/>
+      <line x1="22" y1="22" x2="8" y2="8" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="22" y1="22" x2="36" y2="8" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="22" y1="22" x2="8" y2="36" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="22" y1="22" x2="36" y2="36" stroke="#00e5ff" stroke-width="0.5" opacity="0.3"/>
+    </svg>
+  </div>
+  <div class="subtitle">Neural Array Signal Sweep · v2.4.1</div>
+  <button class="mode-toggle" id="mode-toggle" title="Toggle light/dark mode">◐ Light</button>
+</div>
+
+<!-- Control Panel -->
+<div class="control-panel">
+  <div class="difficulty-group">
+    <button class="diff-btn active" data-diff="easy">Easy</button>
+    <button class="diff-btn" data-diff="medium">Medium</button>
+    <button class="diff-btn" data-diff="hard">Hard</button>
+  </div>
+  <div class="stat-group">
+    <div class="stat-box">
+      <span class="stat-label">Artifacts</span>
+      <span class="stat-value" id="mine-count">10</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">Elapsed</span>
+      <span class="stat-value" id="timer">000</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">Flags</span>
+      <span class="stat-value" id="flag-count">0</span>
+    </div>
+  </div>
+  <button class="new-btn" id="new-game-btn">⟳ New Scan</button>
+</div>
+
+<!-- Status Banner -->
+<div class="status-banner" id="status-banner">
+  &nbsp;— Awaiting probe activation —&nbsp;
+</div>
+
+<!-- Grid Wrapper -->
+<div class="grid-wrapper">
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+  <div id="grid"></div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><span class="legend-icon">🖱️</span> Left-click: reveal electrode</div>
+  <div class="legend-item"><span class="legend-icon">⚡</span> Right-click: flag artifact</div>
+  <div class="legend-item"><span class="legend-icon" style="color:#ff7b00">▶</span> Numbers: adjacent signal count</div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-card" id="overlay-card">
+    <div class="overlay-title" id="overlay-title">—</div>
+    <div class="overlay-sub" id="overlay-sub">—</div>
+    <div class="overlay-stats" id="overlay-stats"></div>
+    <button class="overlay-btn" id="overlay-btn">Re-initialize Array</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Config ──────────────────────────────────────────────────────────────
+  const DIFFICULTIES = {
+    easy:   { rows: 9,  cols: 9,  mines: 10 },
+    medium: { rows: 16, cols: 16, mines: 40 },
+    hard:   { rows: 16, cols: 30, mines: 99 },
+  };
+
+  // Mine/artifact SVG as inline unicode combos
+  const ARTIFACT_HTML = '<span class="mine-icon" style="color:#ff2a2a;text-shadow:0 0 8px rgba(255,42,42,0.9)">⚡</span>';
+  const FLAG_HTML     = '<span class="flag-icon">▶</span>';
+  const WRONG_FLAG    = '<span class="mine-icon" style="color:#ff6666;font-size:12px;text-decoration:line-through;color:#ff4444">✕</span>';
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let rows, cols, totalMines;
+  let board = [];        // 2D array of cell objects
+  let revealed = 0;
+  let flags = 0;
+  let gameOver = false;
+  let gameStarted = false;
+  let timerInterval = null;
+  let elapsed = 0;
+  let currentDiff = 'easy';
+
+  // ── DOM ──────────────────────────────────────────────────────────────────
+  const gridEl       = document.getElementById('grid');
+  const mineCountEl  = document.getElementById('mine-count');
+  const timerEl      = document.getElementById('timer');
+  const flagCountEl  = document.getElementById('flag-count');
+  const statusEl     = document.getElementById('status-banner');
+  const overlay      = document.getElementById('overlay');
+  const overlayCard  = document.getElementById('overlay-card');
+  const overlayTitle = document.getElementById('overlay-title');
+  const overlaySub   = document.getElementById('overlay-sub');
+  const overlayStats = document.getElementById('overlay-stats');
+  const overlayBtn   = document.getElementById('overlay-btn');
+  const newGameBtn   = document.getElementById('new-game-btn');
+
+  // ── Difficulty buttons ────────────────────────────────────────────────────
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDiff = btn.dataset.diff;
+      initGame();
+    });
+  });
+
+  newGameBtn.addEventListener('click', initGame);
+  overlayBtn.addEventListener('click', () => { overlay.classList.remove('visible'); initGame(); });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function initGame() {
+    const cfg = DIFFICULTIES[currentDiff];
+    rows = cfg.rows; cols = cfg.cols; totalMines = cfg.mines;
+
+    board = [];
+    revealed = 0;
+    flags = 0;
+    gameOver = false;
+    gameStarted = false;
+    elapsed = 0;
+
+    clearInterval(timerInterval);
+    timerEl.textContent = '000';
+    timerEl.className = 'stat-value';
+    mineCountEl.textContent = String(totalMines).padStart(3, '0');
+    mineCountEl.className = 'stat-value';
+    flagCountEl.textContent = '000';
+    flagCountEl.className = 'stat-value';
+    statusEl.textContent = '— Probe array ready. Click to begin scan —';
+    statusEl.className = 'status-banner';
+    overlay.classList.remove('visible');
+
+    // Build board data
+    for (let r = 0; r < rows; r++) {
+      board[r] = [];
+      for (let c = 0; c < cols; c++) {
+        board[r][c] = { mine: false, revealed: false, flagged: false, adj: 0 };
+      }
+    }
+
+    renderGrid();
+  }
+
+  // ── Place mines after first click ────────────────────────────────────────
+  function placeMines(safeR, safeC) {
+    let placed = 0;
+    while (placed < totalMines) {
+      const r = Math.floor(Math.random() * rows);
+      const c = Math.floor(Math.random() * cols);
+      if (board[r][c].mine) continue;
+      if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
+      board[r][c].mine = true;
+      placed++;
+    }
+    // Calculate adjacency
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!board[r][c].mine) {
+          board[r][c].adj = countAdjacentMines(r, c);
+        }
+      }
+    }
+  }
+
+  function countAdjacentMines(r, c) {
+    let count = 0;
+    eachNeighbor(r, c, (nr, nc) => { if (board[nr][nc].mine) count++; });
+    return count;
+  }
+
+  function eachNeighbor(r, c, fn) {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) fn(nr, nc);
+      }
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  function renderGrid() {
+    gridEl.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+    gridEl.innerHTML = '';
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.addEventListener('click', onLeftClick);
+        cell.addEventListener('contextmenu', onRightClick);
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  function getCellEl(r, c) {
+    return gridEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  }
+
+  function updateCellEl(r, c) {
+    const cell = board[r][c];
+    const el = getCellEl(r, c);
+    if (!el) return;
+
+    el.innerHTML = '';
+    el.className = 'cell';
+
+    if (cell.revealed) {
+      el.classList.add('revealed');
+      if (cell.mine) {
+        el.classList.add('mine-revealed');
+        el.innerHTML = ARTIFACT_HTML;
+      } else if (cell.adj > 0) {
+        const span = document.createElement('span');
+        span.className = `cell-num n${cell.adj}`;
+        span.textContent = cell.adj;
+        el.appendChild(span);
+      }
+    } else if (cell.flagged) {
+      el.classList.add('flagged');
+      el.innerHTML = FLAG_HTML;
+    }
+  }
+
+  // ── Interaction ───────────────────────────────────────────────────────────
+  function onLeftClick(e) {
+    if (gameOver) return;
+    const r = parseInt(this.dataset.r);
+    const c = parseInt(this.dataset.c);
+    const cell = board[r][c];
+    if (cell.revealed || cell.flagged) return;
+
+    if (!gameStarted) {
+      gameStarted = true;
+      placeMines(r, c);
+      startTimer();
+      statusEl.textContent = '— Scanning electrode array… —';
+    }
+
+    if (cell.mine) {
+      triggerGameOver(r, c);
+      return;
+    }
+
+    revealCell(r, c);
+    checkWin();
+  }
+
+  function onRightClick(e) {
+    e.preventDefault();
+    if (gameOver) return;
+    const r = parseInt(this.dataset.r);
+    const c = parseInt(this.dataset.c);
+    const cell = board[r][c];
+    if (cell.revealed) return;
+
+    cell.flagged = !cell.flagged;
+    flags += cell.flagged ? 1 : -1;
+
+    updateFlagDisplay();
+    updateCellEl(r, c);
+
+    if (!gameStarted && cell.flagged) {
+      // allow flagging before first reveal
+    }
+  }
+
+  function updateFlagDisplay() {
+    const remaining = totalMines - flags;
+    mineCountEl.textContent = String(remaining).padStart(3, '0');
+    flagCountEl.textContent = String(flags).padStart(3, '0');
+
+    if (remaining <= 0) {
+      mineCountEl.className = 'stat-value critical';
+    } else if (remaining <= Math.ceil(totalMines * 0.25)) {
+      mineCountEl.className = 'stat-value danger';
+    } else {
+      mineCountEl.className = 'stat-value';
+    }
+  }
+
+  // ── Flood fill reveal ──────────────────────────────────────────────────────
+  function revealCell(r, c) {
+    const stack = [[r, c]];
+    const visited = new Set();
+
+    while (stack.length) {
+      const [cr, cc] = stack.pop();
+      const key = cr * 1000 + cc;
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      const cell = board[cr][cc];
+      if (cell.revealed || cell.flagged || cell.mine) continue;
+
+      cell.revealed = true;
+      revealed++;
+      updateCellEl(cr, cc);
+
+      if (cell.adj === 0) {
+        eachNeighbor(cr, cc, (nr, nc) => {
+          if (!board[nr][nc].revealed && !board[nr][nc].flagged) {
+            stack.push([nr, nc]);
+          }
+        });
+      }
+    }
+  }
+
+  // ── Game Over ─────────────────────────────────────────────────────────────
+  function triggerGameOver(hitR, hitC) {
+    gameOver = true;
+    clearInterval(timerInterval);
+    statusEl.textContent = '⚡ Signal corruption detected ⚡';
+    statusEl.className = 'status-banner lose';
+
+    // Reveal all mines with delay cascade
+    let delay = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = board[r][c];
+        const el = getCellEl(r, c);
+        if (cell.mine && !cell.flagged) {
+          const dr = r - hitR, dc = c - hitC;
+          const dist = Math.sqrt(dr*dr + dc*dc);
+          const d = Math.round(dist * 60);
+          setTimeout(() => {
+            if (r === hitR && c === hitC) {
+              el.classList.add('mine-hit');
+            } else {
+              el.classList.add('mine-revealed');
+            }
+            el.innerHTML = ARTIFACT_HTML;
+          }, d);
+          delay = Math.max(delay, d);
+        } else if (!cell.mine && cell.flagged) {
+          // Wrong flag
+          setTimeout(() => {
+            el.innerHTML = WRONG_FLAG;
+            el.style.borderColor = '#ff4444';
+          }, delay + 100);
+        }
+      }
+    }
+
+    setTimeout(() => {
+      overlayCard.className = 'overlay-card lose-card';
+      overlayTitle.textContent = '⚡ Signal Corruption Detected';
+      overlaySub.textContent = 'A noise source has compromised the neural array.\nArray integrity lost.';
+      overlayStats.innerHTML = `
+        Elapsed time: <span style="color:#00e5ff">${elapsed}s</span><br>
+        Electrodes swept: <span style="color:#00e5ff">${revealed}</span> / ${rows * cols - totalMines}<br>
+        Difficulty: <span style="color:#00e5ff">${currentDiff.toUpperCase()}</span>
+      `;
+      overlay.classList.add('visible');
+    }, delay + 600);
+  }
+
+  // ── Win ────────────────────────────────────────────────────────────────────
+  function checkWin() {
+    const safeTotal = rows * cols - totalMines;
+    if (revealed >= safeTotal) {
+      gameOver = true;
+      clearInterval(timerInterval);
+      statusEl.textContent = '✓ Array calibrated successfully ✓';
+      statusEl.className = 'status-banner win';
+
+      // Flash all revealed cells green
+      let i = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r][c].revealed) {
+            const el = getCellEl(r, c);
+            setTimeout(() => el.classList.add('win-flash'), i * 8);
+            i++;
+          }
+        }
+      }
+
+      setTimeout(() => {
+        overlayCard.className = 'overlay-card win-card';
+        overlayTitle.textContent = '✓ Array Calibrated';
+        overlaySub.textContent = 'All signal artifacts identified.\nNeural probe array is fully operational.';
+        overlayStats.innerHTML = `
+          Elapsed time: <span style="color:#00e5ff">${elapsed}s</span><br>
+          Artifacts flagged: <span style="color:#00e5ff">${flags}</span> / ${totalMines}<br>
+          Difficulty: <span style="color:#00e5ff">${currentDiff.toUpperCase()}</span><br>
+          ${elapsed < 60 ? '<span style="color:#00ff88">⚡ Fast scan bonus!</span>' : ''}
+        `;
+        overlay.classList.add('visible');
+      }, i * 8 + 400);
+    }
+  }
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  function startTimer() {
+    elapsed = 0;
+    timerInterval = setInterval(() => {
+      elapsed++;
+      timerEl.textContent = String(elapsed).padStart(3, '0');
+      if (elapsed >= 500) {
+        timerEl.className = 'stat-value critical';
+      } else if (elapsed >= 200) {
+        timerEl.className = 'stat-value danger';
+      }
+    }, 1000);
+  }
+
+  // ── Keyboard shortcut ─────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') initGame();
+  });
+
+  // ── Mode toggle ───────────────────────────────────────────────────────────
+  const modeToggleBtn = document.getElementById('mode-toggle');
+  let isLight = true;
+  document.body.classList.add('light');
+  modeToggleBtn.textContent = '◑ Dark';
+
+  modeToggleBtn.addEventListener('click', () => {
+    isLight = !isLight;
+    document.body.classList.toggle('light', isLight);
+    modeToggleBtn.textContent = isLight ? '◑ Dark' : '◐ Light';
+  });
+
+  // ── Start ─────────────────────────────────────────────────────────────────
+  initGame();
+
+})();
+</script>
+</body>
+</html>
