@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Reflection &amp; Check-in - IDNE 702</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #f472b6;
+            --accent-soft: rgba(244, 114, 182, 0.12);
+            --phase1: #2dd4bf;
+            --phase2: #a78bfa;
+            --phase3: #fb923c;
+            --phase4: #f472b6;
+            --phase5: #38bdf8;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --success: #22c55e;
+            --warning: #fb923c;
+            --info: #38bdf8;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #f472b6;
+            --accent-soft: rgba(244, 114, 182, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding-bottom: 4rem;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+        header { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            border-bottom: 1px dotted var(--text-muted);
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+        h1 em { color: var(--accent); font-style: italic; }
+
+        .subtitle { font-size: 1rem; color: var(--text-secondary); max-width: 650px; }
+
+        section {
+            margin-bottom: 3rem;
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.75rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        h3 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.25rem;
+            font-weight: 400;
+            margin-bottom: 0.75rem;
+            color: var(--accent);
+        }
+
+        p { margin-bottom: 1rem; }
+
+        ul, ol { padding-left: 2rem; margin-bottom: 1.5rem; }
+        li { margin-bottom: 0.5rem; }
+
+        /* Journey Map */
+        .journey-map {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+        }
+
+        @media (max-width: 600px) {
+            .journey-map { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        .phase-marker {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 0.5rem;
+            border-radius: 8px;
+            text-align: center;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .phase-marker:hover { transform: translateY(-3px); }
+
+        .phase-marker .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-bottom: 0.5rem;
+        }
+
+        .phase-marker .label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+        }
+
+        .phase-marker .weeks {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .phase-marker.completed {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .phase-marker.completed .label { font-weight: 700; }
+
+        .phase-marker.current {
+            background: var(--accent-soft);
+            border: 2px solid var(--accent);
+        }
+
+        .phase-marker.current .label { font-weight: 700; color: var(--accent); }
+
+        .phase-marker.upcoming {
+            opacity: 0.4;
+            border: 1px dashed var(--border);
+        }
+
+        .phase-marker .status-icon {
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+        }
+
+        /* Progress Bar */
+        .overall-progress {
+            margin: 1.5rem 0;
+        }
+
+        .progress-track {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--phase1), var(--phase2), var(--phase3), var(--phase4));
+            transition: width 0.6s ease;
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Reflection Cards */
+        .reflection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .reflection-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .reflection-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .reflection-card.discovery::before { background: var(--phase1); }
+        .reflection-card.programming::before { background: var(--phase2); }
+        .reflection-card.concept::before { background: var(--phase3); }
+        .reflection-card.design::before { background: var(--phase4); }
+
+        .reflection-card h4 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.1rem;
+            font-weight: 400;
+            margin-bottom: 0.75rem;
+        }
+
+        .reflection-card p, .reflection-card ul {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .reflection-card ul { padding-left: 1.25rem; }
+
+        /* Prompt Cards */
+        .prompt-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .prompt-list li {
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            position: relative;
+        }
+
+        .prompt-list li .prompt-category {
+            display: block;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        /* Skills Inventory */
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .skill-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .skill-item .skill-name {
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .skill-bar-track {
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 0.35rem;
+        }
+
+        .skill-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        .skill-item .skill-context {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Expandable Sections */
+        .expandable-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.5rem 0;
+        }
+
+        .expandable-header:hover h3 { color: var(--text-primary); }
+
+        .expandable-content {
+            display: none;
+            padding-top: 0.5rem;
+            animation: slideDown 0.3s ease;
+        }
+
+        .expandable-content.visible { display: block; }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .expand-icon {
+            font-size: 1rem;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .expand-icon.rotated { transform: rotate(180deg); }
+
+        /* Callout */
+        .callout {
+            padding: 1.25rem;
+            border-radius: 6px;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .callout.tip {
+            background: rgba(45, 212, 191, 0.08);
+            border: 1px solid rgba(45, 212, 191, 0.3);
+        }
+
+        .callout.think {
+            background: var(--accent-soft);
+            border: 1px solid rgba(244, 114, 182, 0.3);
+        }
+
+        .callout-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        /* Timeline Summary */
+        .week-summary-grid {
+            display: grid;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .week-summary-item {
+            display: grid;
+            grid-template-columns: 60px 1fr auto;
+            gap: 1rem;
+            padding: 0.75rem;
+            border-radius: 4px;
+            align-items: center;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+
+        .week-summary-item .week-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .week-summary-item .status-tag {
+            font-size: 0.6rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+
+        .status-tag.current { background: var(--accent-soft); color: var(--accent); }
+        .status-tag.upcoming { background: var(--bg-primary); color: var(--text-muted); }
+
+        /* Interactive Checkboxes */
+        .checkbox-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .particle-checkbox {
+            width: 28px;
+            height: 28px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 700;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: var(--bg-primary);
+            user-select: none;
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+        }
+
+        .particle-checkbox:hover {
+            border-color: var(--text-muted);
+            transform: scale(1.1);
+        }
+
+        .particle-checkbox.checked {
+            background: var(--success);
+            border-color: var(--success);
+            color: #fff;
+            transform: scale(1);
+        }
+
+        .particle-checkbox.checked:hover {
+            transform: scale(1.1);
+            filter: brightness(1.1);
+        }
+
+        .particle-checkbox.xed {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+            transform: scale(1);
+        }
+
+        .particle-checkbox.xed:hover {
+            transform: scale(1.1);
+            filter: brightness(1.1);
+        }
+
+        .particle-canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes checkPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .particle-checkbox.pop {
+            animation: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Action Items */
+        .action-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .action-list li {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            font-size: 0.85rem;
+        }
+
+        .action-list li .action-icon {
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+
+        footer {
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        @media print {
+            .back-link { display: none; }
+            body { background: white; color: black; }
+            .container { max-width: 100%; padding: 0; }
+            section { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+            .expandable-content { display: block !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="IDNE702_SP2026.html" class="back-link" aria-label="Return to course timeline">← Back to Timeline</a>
+
+        <header>
+            <h1>Progress <em>Reflection</em><br>& Check-in</h1>
+            <p class="subtitle">Week 11 — Take a step back. Assess where you are, reflect on the process so far, and calibrate for the final push toward your proposal and presentation.</p>
+        </header>
+
+        <!-- Section 01: Where We Are -->
+        <section>
+            <h2>01. Where We Are</h2>
+            <p>You are entering <strong>Week 11 of 13</strong> — the tail end of the <strong>Design Phase</strong>.
+                By now your team has traversed from open-ended discovery through programming, concept generation,
+                and into detailed design. This is a natural inflection point to pause and take stock.</p>
+
+            <div class="overall-progress">
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: 84.6%;"></div>
+                </div>
+                <div class="progress-meta">
+                    <span>Week 1 · Jan 14</span>
+                    <span>Week 11 of 13 — 84.6% through the semester</span>
+                    <span>Week 13 · Apr 8</span>
+                </div>
+            </div>
+
+            <div class="journey-map">
+                <div class="phase-marker completed">
+                    <div class="dot" style="background: var(--phase1);"></div>
+                    <span class="label">Discovery</span>
+                    <span class="weeks">Wks 1–3</span>
+                    <span class="status-icon">✓</span>
+                </div>
+                <div class="phase-marker completed">
+                    <div class="dot" style="background: var(--phase2);"></div>
+                    <span class="label">Programming</span>
+                    <span class="weeks">Wks 4–6</span>
+                    <span class="status-icon">✓</span>
+                </div>
+                <div class="phase-marker completed">
+                    <div class="dot" style="background: var(--phase3);"></div>
+                    <span class="label">Concept</span>
+                    <span class="weeks">Wks 7–9</span>
+                    <span class="status-icon">✓</span>
+                </div>
+                <div class="phase-marker current">
+                    <div class="dot" style="background: var(--phase4);"></div>
+                    <span class="label">Design</span>
+                    <span class="weeks">Wks 10–11</span>
+                    <span class="status-icon">◉</span>
+                </div>
+                <div class="phase-marker upcoming">
+                    <div class="dot" style="background: var(--phase5);"></div>
+                    <span class="label">Delivery</span>
+                    <span class="weeks">Wks 12–13</span>
+                    <span class="status-icon">○</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 02: Week-by-Week Recap -->
+        <section>
+            <h2>02. The Road So Far</h2>
+            <p>A compact look at the ground you've covered. Click any phase to expand the detail.</p>
+
+            <!-- Discovery Phase -->
+            <div class="expandable-header" onclick="toggleExpand(this)">
+                <h3 style="color: var(--phase1);">Discovery Phase — Weeks 1–3</h3>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="expandable-content">
+                <div class="week-summary-grid">
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase1);">Wk 1</span>
+                        <span>Project Launch & Team Formation — roles defined, research centers surveyed</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase1);">Wk 2</span>
+                        <span>Stakeholder Analysis & Site Research — personas created, pain points mapped</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase1);">Wk 3</span>
+                        <span>Neuroscience Principles & Precedent Studies — evidence-based design foundations laid</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Programming Phase -->
+            <div class="expandable-header" onclick="toggleExpand(this)" style="margin-top: 1.5rem;">
+                <h3 style="color: var(--phase2);">Programming Phase — Weeks 4–6</h3>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="expandable-content">
+                <div class="week-summary-grid">
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase2);">Wk 4</span>
+                        <span>Space Requirements — functional needs cataloged, adjacency diagrams started</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase2);">Wk 5</span>
+                        <span>Program of Requirements — square footage allocated, environmental standards set</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase2);">Wk 6</span>
+                        <span>Preliminary Concepts — first design ideas generated, stakeholder check-in</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Concept Phase -->
+            <div class="expandable-header" onclick="toggleExpand(this)" style="margin-top: 1.5rem;">
+                <h3 style="color: var(--phase3);">Concept Phase — Weeks 7–9</h3>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="expandable-content">
+                <div class="week-summary-grid">
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase3);">Wk 7</span>
+                        <span>Concept Development — divergent thinking, multiple design directions explored</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase3);">Wk 8</span>
+                        <span>Concept Evaluation — decision matrices, scoring, stakeholder feedback</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase3);">Wk 9</span>
+                        <span>Hybrid Development — best elements combined, mid-project review ★</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Design Phase -->
+            <div class="expandable-header" onclick="toggleExpand(this)" style="margin-top: 1.5rem;">
+                <h3 style="color: var(--phase4);">Design Phase — Weeks 10–11</h3>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="expandable-content">
+                <div class="week-summary-grid">
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase4);">Wk 10</span>
+                        <span>Detailed Design — floor plans finalized, 3D visualizations, signature spaces</span>
+                        <div class="checkbox-wrap"><div class="particle-checkbox checked" onclick="toggleCheck(this)" role="checkbox" aria-checked="true" tabindex="0">✓</div><canvas class="particle-canvas" width="120" height="120"></canvas></div>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase4);">Wk 11</span>
+                        <span>Budget & Implementation — cost estimates, timeline, risk strategies</span>
+                        <span class="status-tag current">Now</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delivery Phase -->
+            <div class="expandable-header" onclick="toggleExpand(this)" style="margin-top: 1.5rem;">
+                <h3 style="color: var(--phase5);">Delivery Phase — Weeks 12–13</h3>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="expandable-content">
+                <div class="week-summary-grid">
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase5);">Wk 12</span>
+                        <span>Proposal Document — compile, peer review, refine</span>
+                        <span class="status-tag upcoming">Ahead</span>
+                    </div>
+                    <div class="week-summary-item">
+                        <span class="week-label" style="color: var(--phase5);">Wk 13</span>
+                        <span>Final Presentations — present to panel, revisions, celebration ★</span>
+                        <span class="status-tag upcoming">Ahead</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 03: Skills Developed -->
+        <section>
+            <h2>03. Skills & Competencies Developed</h2>
+            <p>Over the past 10 weeks, you've been building a toolkit that bridges neuroscience, engineering, and design. Take a moment to appreciate the breadth of what you've practiced.</p>
+
+            <div class="skills-grid">
+                <div class="skill-item">
+                    <div class="skill-name">Stakeholder Analysis</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 100%; background: var(--phase1);"></div>
+                    </div>
+                    <div class="skill-context">Personas, interviews, needs mapping</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Evidence-Based Design</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 90%; background: var(--phase2);"></div>
+                    </div>
+                    <div class="skill-context">Literature review, neuroscience principles</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Space Programming</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 95%; background: var(--phase2);"></div>
+                    </div>
+                    <div class="skill-context">POR, adjacency, SF allocation</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Concept Generation</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 100%; background: var(--phase3);"></div>
+                    </div>
+                    <div class="skill-context">Divergent thinking, ideation</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Decision Making</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 85%; background: var(--phase3);"></div>
+                    </div>
+                    <div class="skill-context">Trade-off matrices, evaluation</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Visualization</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 75%; background: var(--phase4);"></div>
+                    </div>
+                    <div class="skill-context">Floor plans, 3D models, renderings</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Team Collaboration</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 90%; background: var(--phase1);"></div>
+                    </div>
+                    <div class="skill-context">Roles, communication, integration</div>
+                </div>
+                <div class="skill-item">
+                    <div class="skill-name">Budget & Planning</div>
+                    <div class="skill-bar-track">
+                        <div class="skill-bar-fill" style="width: 50%; background: var(--phase4);"></div>
+                    </div>
+                    <div class="skill-context">Cost estimation, risk analysis — in progress</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 04: Reflection Prompts -->
+        <section>
+            <h2>04. Guided Reflection</h2>
+            <p>Use these prompts individually or in your team meeting. Honest reflection drives growth. Write your answers down — you'll reference them in your final proposal narrative.</p>
+
+            <ul class="prompt-list">
+                <li>
+                    <span class="prompt-category">Process</span>
+                    What was the most difficult transition between phases? When did the project feel "messy" — and how did your team push through it?
+                </li>
+                <li>
+                    <span class="prompt-category">Process</span>
+                    Look at your original team roles from Week 1. Have they shifted? Did someone emerge in a role you didn't expect?
+                </li>
+                <li>
+                    <span class="prompt-category">Learning</span>
+                    What neuroscience principle surprised you the most? How did it change a design decision your team made?
+                </li>
+                <li>
+                    <span class="prompt-category">Learning</span>
+                    What do you understand about the built environment <em>now</em> that you didn't at the start? Could you explain it to a friend in another discipline?
+                </li>
+                <li>
+                    <span class="prompt-category">Design</span>
+                    If you could go back to Week 7 (concept generation), what would you do differently? Would you explore a direction your team discarded?
+                </li>
+                <li>
+                    <span class="prompt-category">Design</span>
+                    Which "signature space" in your design are you most proud of? What makes it special from a neuroscience-informed perspective?
+                </li>
+                <li>
+                    <span class="prompt-category">Impact</span>
+                    Has working on this project changed how you experience buildings and spaces in your daily life? Give an example.
+                </li>
+                <li>
+                    <span class="prompt-category">Growth</span>
+                    What skill or competency listed above feels strongest? Which one do you want to develop further before the semester ends?
+                </li>
+            </ul>
+        </section>
+
+        <!-- Section 05: What's Working & What's Not -->
+        <section>
+            <h2>05. Team Health Check</h2>
+            <p>A quick diagnostic. Discuss these openly with your team — flag areas that need attention before the final sprint.</p>
+
+            <div class="reflection-grid">
+                <div class="reflection-card discovery">
+                    <h4>🟢 What's Working</h4>
+                    <p>Identify strengths your team should lean into:</p>
+                    <ul>
+                        <li>Communication cadence and quality</li>
+                        <li>Division of labor that plays to strengths</li>
+                        <li>Integration across disciplinary perspectives</li>
+                        <li>Managing feedback from stakeholders</li>
+                    </ul>
+                </div>
+                <div class="reflection-card concept">
+                    <h4>🟡 Watch Zones</h4>
+                    <p>Areas that need attention but aren't critical yet:</p>
+                    <ul>
+                        <li>Scope creep vs. realistic constraints</li>
+                        <li>Depth vs. breadth in the final proposal</li>
+                        <li>Uneven workload distribution</li>
+                        <li>Time management for remaining deliverables</li>
+                    </ul>
+                </div>
+                <div class="reflection-card design">
+                    <h4>🔴 Action Required</h4>
+                    <p>Non-negotiables for the next two weeks:</p>
+                    <ul>
+                        <li>Budget estimates cannot be vague — get specific</li>
+                        <li>Implementation timeline must be realistic</li>
+                        <li>Every design decision needs a "why"</li>
+                        <li>Proposal document structure must be agreed on</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 06: Looking Forward -->
+        <section>
+            <h2>06. The Final Sprint — Weeks 12 & 13</h2>
+            <p>You have <strong>two weeks</strong> to transform your work into a polished, professional deliverable. Here's what needs to happen:</p>
+
+            <ul class="action-list">
+                <li>
+                    <span class="action-icon">📋</span>
+                    <div>
+                        <strong>Week 12: Proposal Document</strong> — Compile everything into a cohesive proposal: executive summary, design vision, space program, floor plans, budget, timeline. Peer review within the team.
+                    </div>
+                </li>
+                <li>
+                    <span class="action-icon">🎤</span>
+                    <div>
+                        <strong>Week 13: Final Presentation</strong> — 15–20 minute presentation to a review panel. Every team member should speak. Tell the <em>story</em> of your design — the research, the reasoning, the neuroscience.
+                    </div>
+                </li>
+                <li>
+                    <span class="action-icon">⚡</span>
+                    <div>
+                        <strong>Priority this week:</strong> Lock down your budget framework and implementation timeline. These are the "reality check" components that ground your creative vision.
+                    </div>
+                </li>
+                <li>
+                    <span class="action-icon">🧠</span>
+                    <div>
+                        <strong>Don't forget the neuroscience:</strong> Your final proposal should clearly trace design decisions back to evidence-based principles. This is what sets your work apart from a generic architecture project.
+                    </div>
+                </li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="callout-label">💡 Tip</span>
+                Start your proposal document <em>now</em>, even if it's rough. The biggest risk in Week 12 is discovering you haven't agreed on your narrative structure. A shared outline this week saves hours of chaos next week.
+            </div>
+        </section>
+
+        <!-- Section 07: The Bigger Picture -->
+        <section>
+            <h2>07. The Bigger Picture</h2>
+            <p>This course asked you to do something unusual: design a building using the brain as your guide. Whether you go on to be a researcher, an engineer, a clinician, or a designer, the core insight persists:</p>
+
+            <div class="callout think">
+                <span class="callout-label">Think About It</span>
+                Every environment you encounter — a hospital, a classroom, a lab, a home — is shaping the cognition, mood, and productivity of the people inside it. You now have a framework for understanding <em>how</em> and <em>why</em>. That lens doesn't go away after Week 13.
+            </div>
+
+            <p>The skills you've developed — translating between disciplines, thinking in systems, balancing evidence with creativity, making design decisions under uncertainty — these are transferable far beyond this project.</p>
+        </section>
+
+        <footer>
+            <p>IDNE 702 · Spring 2026 · Week 11 Progress Reflection</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Expandable sections
+        function toggleExpand(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.expand-icon');
+            content.classList.toggle('visible');
+            icon.classList.toggle('rotated');
+        }
+
+        // Checkbox with particle effects
+        function toggleCheck(el) {
+            el.classList.add('pop');
+            setTimeout(() => el.classList.remove('pop'), 350);
+
+            if (el.classList.contains('checked')) {
+                // checked -> xed
+                el.classList.remove('checked');
+                el.classList.add('xed');
+                el.textContent = '✗';
+                el.setAttribute('aria-checked', 'mixed');
+                spawnParticles(el, '#ef4444');
+            } else if (el.classList.contains('xed')) {
+                // xed -> unchecked
+                el.classList.remove('xed');
+                el.textContent = '';
+                el.setAttribute('aria-checked', 'false');
+            } else {
+                // unchecked -> checked
+                el.classList.add('checked');
+                el.textContent = '✓';
+                el.setAttribute('aria-checked', 'true');
+                spawnParticles(el, '#22c55e');
+            }
+        }
+
+        function spawnParticles(checkbox, color) {
+            const wrap = checkbox.parentElement;
+            const canvas = wrap.querySelector('.particle-canvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width;
+            const H = canvas.height;
+            const cx = W / 2;
+            const cy = H / 2;
+
+            const particles = [];
+            const count = 18;
+
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+                const speed = 1.5 + Math.random() * 3;
+                const size = 2 + Math.random() * 4;
+                const hueShift = (Math.random() - 0.5) * 30;
+                particles.push({
+                    x: cx,
+                    y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: size,
+                    alpha: 1,
+                    decay: 0.015 + Math.random() * 0.02,
+                    color: color,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.3,
+                    shape: Math.random() > 0.5 ? 'circle' : (Math.random() > 0.5 ? 'square' : 'star'),
+                    gravity: 0.03 + Math.random() * 0.03
+                });
+            }
+
+            // Add sparkle particles
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 2;
+                particles.push({
+                    x: cx,
+                    y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 1 + Math.random() * 2,
+                    alpha: 1,
+                    decay: 0.025 + Math.random() * 0.02,
+                    color: '#ffffff',
+                    rotation: 0,
+                    rotationSpeed: 0,
+                    shape: 'circle',
+                    gravity: 0.01
+                });
+            }
+
+            function drawStar(ctx, x, y, size, rotation) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(rotation);
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                    const method = i === 0 ? 'moveTo' : 'lineTo';
+                    ctx[method](Math.cos(angle) * size, Math.sin(angle) * size);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, W, H);
+                let alive = false;
+
+                for (const p of particles) {
+                    if (p.alpha <= 0) continue;
+                    alive = true;
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += p.gravity;
+                    p.vx *= 0.98;
+                    p.alpha -= p.decay;
+                    p.rotation += p.rotationSpeed;
+                    p.size *= 0.995;
+
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.fillStyle = p.color;
+
+                    if (p.shape === 'circle') {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (p.shape === 'square') {
+                        ctx.save();
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate(p.rotation);
+                        ctx.fillRect(-p.size, -p.size, p.size * 2, p.size * 2);
+                        ctx.restore();
+                    } else if (p.shape === 'star') {
+                        drawStar(ctx, p.x, p.y, p.size, p.rotation);
+                    }
+                }
+
+                ctx.globalAlpha = 1;
+                if (alive) requestAnimationFrame(animate);
+                else ctx.clearRect(0, 0, W, H);
+            }
+
+            animate();
+        }
+
+        // Keyboard support for checkboxes
+        document.addEventListener('keydown', function(e) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('particle-checkbox')) {
+                e.preventDefault();
+                toggleCheck(e.target);
+            }
+        });
+    </script>
+</body>
+
+</html>
