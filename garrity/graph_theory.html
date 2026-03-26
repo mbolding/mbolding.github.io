@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Theory - Traversal & Connectivity</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --node-default: #2c5282;
+            --node-visited: #d69e2e;
+            --node-active: #b13e3e;
+            --node-queued: #38b2ac;
+            --edge-default: #aaa;
+            --edge-tree: #2c5282;
+        }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 700px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 700px;
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #eee;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        button:hover { background: #ddd; }
+        button:disabled { opacity: 0.4; cursor: default; }
+
+        button.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        .info-bar {
+            width: 100%;
+            max-width: 700px;
+            font-family: 'Gill Sans', sans-serif;
+            font-size: 0.9rem;
+            color: #555;
+            min-height: 1.4em;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend {
+            width: 100%;
+            max-width: 700px;
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.82rem;
+            font-family: 'Gill Sans', sans-serif;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            color: #444;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .mode-indicator {
+            font-size: 0.85rem;
+            font-family: 'Gill Sans', sans-serif;
+            color: #666;
+            margin-top: 0.4rem;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <a href="index.html" class="back-link">&larr; Back to Index</a>
+        <h1>Graph Theory: BFS &amp; DFS Traversal</h1>
+        <span class="subtitle">Bonus: Graph Theory</span>
+    </header>
+
+    <main>
+        <p>
+            A <strong>graph</strong> $G = (V, E)$ consists of a set of <em>vertices</em> $V$ and a set of
+            <em>edges</em> $E \subseteq V \times V$. Graphs model relationships — networks, maps, dependencies —
+            and are central to discrete mathematics, computer science, and topology.
+        </p>
+        <p>
+            <span class="sidenote">
+                <strong>Degree:</strong> The degree $\deg(v)$ of a vertex is the number of edges incident to it.
+                By the <em>Handshaking Lemma</em>, $\sum_{v \in V} \deg(v) = 2|E|$.<br>
+                <strong>Path:</strong> A sequence of distinct vertices $v_0, v_1, \ldots, v_k$ where each
+                consecutive pair is connected by an edge.<br>
+                <strong>Connected:</strong> A graph is connected if there is a path between every pair of vertices.
+            </span>
+        </p>
+        <p>
+            Two fundamental ways to <em>traverse</em> a graph from a starting vertex:
+        </p>
+        <ul>
+            <li><strong>Breadth-First Search (BFS):</strong> Explore all neighbors at distance $k$ before
+                distance $k+1$. Uses a <em>queue</em>. Finds shortest paths.</li>
+            <li><strong>Depth-First Search (DFS):</strong> Follow one path as deep as possible before
+                backtracking. Uses a <em>stack</em> (or recursion). Reveals connected components and cycles.</li>
+        </ul>
+        <p>
+            <strong>Instructions:</strong> Click an empty spot to add a vertex. Click two vertices in sequence
+            to add an edge. Then pick a traversal and click a start vertex.
+        </p>
+
+        <div class="viz-container">
+            <div class="controls">
+                <button id="btn-add-node" class="active" onclick="setMode('node')">Add Vertex</button>
+                <button id="btn-add-edge" onclick="setMode('edge')">Add Edge</button>
+                <button id="btn-bfs" onclick="setMode('bfs')">BFS</button>
+                <button id="btn-dfs" onclick="setMode('dfs')">DFS</button>
+                <button onclick="stepTraversal()" id="btn-step" disabled>Step</button>
+                <button onclick="resetTraversal()" id="btn-reset-trav" disabled>Reset Traversal</button>
+                <button onclick="clearAll()" style="margin-left:auto;">Clear All</button>
+            </div>
+            <div class="info-bar" id="info-bar">Mode: Add Vertex &mdash; click the canvas to place nodes.</div>
+            <canvas id="canvas" width="700" height="420"></canvas>
+            <div class="legend">
+                <span class="legend-item"><span class="legend-dot" style="background:var(--node-default)"></span> Unvisited</span>
+                <span class="legend-item"><span class="legend-dot" style="background:var(--node-queued)"></span> In queue / stack</span>
+                <span class="legend-item"><span class="legend-dot" style="background:var(--node-active)"></span> Currently visiting</span>
+                <span class="legend-item"><span class="legend-dot" style="background:var(--node-visited)"></span> Visited</span>
+            </div>
+        </div>
+
+        <div class="chapter-nav">
+            <a href="algorithms.html" class="nav-link">
+                <span style="font-size:1.2rem;">&larr;</span>
+                <div>
+                    <span>Previous</span>
+                    <strong>Chapter 16: Algorithms</strong>
+                </div>
+            </a>
+            <div></div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const infoBar = document.getElementById('info-bar');
+
+        const NODE_R = 18;
+        let nodes = [];   // {x, y, id, label}
+        let edges = [];   // {a, b}  (indices into nodes)
+        let mode = 'node';  // 'node' | 'edge' | 'bfs' | 'dfs'
+        let edgeFirst = null;  // first node selected for edge creation
+
+        // Traversal state
+        let traversing = false;
+        let visitOrder = [];
+        let visitedSet = new Set();
+        let frontier = [];   // queue (BFS) or stack (DFS)
+        let treeEdges = new Set();
+        let activeNode = null;
+        let traversalType = null;
+        let traversalDone = false;
+
+        // ---- Default graph ----
+        function loadDefault() {
+            nodes = [
+                { x: 350, y: 60,  id: 0, label: 'A' },
+                { x: 180, y: 160, id: 1, label: 'B' },
+                { x: 520, y: 160, id: 2, label: 'C' },
+                { x: 100, y: 290, id: 3, label: 'D' },
+                { x: 280, y: 290, id: 4, label: 'E' },
+                { x: 440, y: 290, id: 5, label: 'F' },
+                { x: 610, y: 290, id: 6, label: 'G' },
+            ];
+            edges = [
+                { a: 0, b: 1 }, { a: 0, b: 2 },
+                { a: 1, b: 3 }, { a: 1, b: 4 },
+                { a: 2, b: 5 }, { a: 2, b: 6 },
+                { a: 4, b: 5 },
+            ];
+        }
+        loadDefault();
+
+        // ---- Mode management ----
+        const modeButtons = {
+            node: 'btn-add-node',
+            edge: 'btn-add-edge',
+            bfs:  'btn-bfs',
+            dfs:  'btn-dfs',
+        };
+
+        const modeInfo = {
+            node: 'Mode: Add Vertex &mdash; click empty space to place a node.',
+            edge: 'Mode: Add Edge &mdash; click two vertices to connect them.',
+            bfs:  'Mode: BFS &mdash; click a start vertex.',
+            dfs:  'Mode: DFS &mdash; click a start vertex.',
+        };
+
+        function setMode(m) {
+            mode = m;
+            edgeFirst = null;
+            Object.entries(modeButtons).forEach(([key, id]) => {
+                document.getElementById(id).classList.toggle('active', key === m);
+            });
+            infoBar.innerHTML = modeInfo[m];
+            draw();
+        }
+
+        // ---- Canvas interaction ----
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top)  * scaleY;
+            handleClick(x, y);
+        });
+
+        function handleClick(x, y) {
+            const hit = nodeAt(x, y);
+
+            if (mode === 'node') {
+                if (hit !== null) return;
+                const label = String.fromCharCode(65 + nodes.length % 26) + (nodes.length >= 26 ? Math.floor(nodes.length / 26) : '');
+                nodes.push({ x, y, id: nodes.length, label });
+                draw();
+
+            } else if (mode === 'edge') {
+                if (hit === null) return;
+                if (edgeFirst === null) {
+                    edgeFirst = hit;
+                    infoBar.textContent = `Selected ${nodes[hit].label} — now click another vertex.`;
+                    draw();
+                } else {
+                    if (hit !== edgeFirst && !edgeExists(edgeFirst, hit)) {
+                        edges.push({ a: edgeFirst, b: hit });
+                    }
+                    edgeFirst = null;
+                    infoBar.innerHTML = modeInfo['edge'];
+                    draw();
+                }
+
+            } else if (mode === 'bfs' || mode === 'dfs') {
+                if (hit === null) return;
+                if (traversing && !traversalDone) return;
+                startTraversal(mode, hit);
+            }
+        }
+
+        function nodeAt(x, y) {
+            for (let i = nodes.length - 1; i >= 0; i--) {
+                const n = nodes[i];
+                if ((x - n.x) ** 2 + (y - n.y) ** 2 < NODE_R ** 2) return i;
+            }
+            return null;
+        }
+
+        function edgeExists(a, b) {
+            return edges.some(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
+        }
+
+        // ---- Traversal ----
+        function startTraversal(type, startIdx) {
+            traversalType = type;
+            traversing = true;
+            traversalDone = false;
+            visitedSet = new Set();
+            visitOrder = [];
+            treeEdges = new Set();
+            activeNode = null;
+            frontier = [startIdx];
+            visitedSet.add(startIdx);
+
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-reset-trav').disabled = false;
+
+            infoBar.innerHTML = `${type.toUpperCase()} from <strong>${nodes[startIdx].label}</strong> — click Step to advance.`;
+            draw();
+        }
+
+        function adj(idx) {
+            const neighbors = [];
+            for (const e of edges) {
+                if (e.a === idx) neighbors.push({ neighbor: e.b, edgeKey: edgeKey(e.a, e.b) });
+                if (e.b === idx) neighbors.push({ neighbor: e.a, edgeKey: edgeKey(e.a, e.b) });
+            }
+            return neighbors;
+        }
+
+        function edgeKey(a, b) { return Math.min(a, b) + '_' + Math.max(a, b); }
+
+        function stepTraversal() {
+            if (!traversing || traversalDone) return;
+
+            if (frontier.length === 0) {
+                traversalDone = true;
+                activeNode = null;
+                const order = visitOrder.map(i => nodes[i].label).join(' → ');
+                infoBar.innerHTML = `${traversalType.toUpperCase()} complete. Visit order: <strong>${order}</strong>`;
+                document.getElementById('btn-step').disabled = true;
+                draw();
+                return;
+            }
+
+            let current;
+            if (traversalType === 'bfs') {
+                current = frontier.shift();
+            } else {
+                current = frontier.pop();
+            }
+
+            activeNode = current;
+            visitOrder.push(current);
+
+            const neighbors = adj(current);
+            for (const { neighbor, edgeKey: ek } of neighbors) {
+                if (!visitedSet.has(neighbor)) {
+                    visitedSet.add(neighbor);
+                    frontier.push(neighbor);
+                    treeEdges.add(ek);
+                }
+            }
+
+            const order = visitOrder.map(i => nodes[i].label).join(' → ');
+            const frontierLabels = frontier.map(i => nodes[i].label).join(', ');
+            const queueWord = traversalType === 'bfs' ? 'Queue' : 'Stack';
+            infoBar.innerHTML = `Visiting <strong>${nodes[current].label}</strong> | ${queueWord}: [${frontierLabels}] | Order so far: ${order}`;
+
+            draw();
+        }
+
+        function resetTraversal() {
+            traversing = false;
+            traversalDone = false;
+            visitedSet = new Set();
+            visitOrder = [];
+            treeEdges = new Set();
+            activeNode = null;
+            frontier = [];
+            traversalType = null;
+            document.getElementById('btn-step').disabled = true;
+            document.getElementById('btn-reset-trav').disabled = true;
+            infoBar.innerHTML = modeInfo[mode];
+            draw();
+        }
+
+        function clearAll() {
+            nodes = [];
+            edges = [];
+            resetTraversal();
+            infoBar.innerHTML = modeInfo[mode];
+        }
+
+        // ---- Drawing ----
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Edges
+            for (const e of edges) {
+                const na = nodes[e.a], nb = nodes[e.b];
+                const ek = edgeKey(e.a, e.b);
+                const isTree = treeEdges.has(ek);
+                ctx.beginPath();
+                ctx.moveTo(na.x, na.y);
+                ctx.lineTo(nb.x, nb.y);
+                ctx.strokeStyle = isTree ? '#2c5282' : '#ccc';
+                ctx.lineWidth = isTree ? 2.5 : 1.5;
+                ctx.stroke();
+            }
+
+            // Nodes
+            for (let i = 0; i < nodes.length; i++) {
+                const n = nodes[i];
+                let color = '#2c5282';
+
+                if (traversing) {
+                    if (i === activeNode) {
+                        color = '#b13e3e';
+                    } else if (frontier.includes(i)) {
+                        color = '#38b2ac';
+                    } else if (visitedSet.has(i)) {
+                        color = '#d69e2e';
+                    }
+                }
+
+                if (mode === 'edge' && edgeFirst === i) {
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, NODE_R + 4, 0, 2 * Math.PI);
+                    ctx.strokeStyle = '#b13e3e';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, NODE_R, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 13px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(n.label, n.x, n.y);
+            }
+        }
+
+        draw();
+    </script>
+</body>
+
+</html>
