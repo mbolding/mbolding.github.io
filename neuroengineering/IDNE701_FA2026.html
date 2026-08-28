@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDNE 701: Introduction to Neuroengineering – FA26 Edition</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --phase1: #2dd4bf;
+            --phase2: #a78bfa;
+            --phase3: #fb923c;
+            --phase4: #f472b6;
+            --phase5: #38bdf8;
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --neural-line: #d4d4d4;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #1a1a1e;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --neural-line: #333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Neural network background pattern */
+        .neural-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0.4;
+            z-index: 0;
+        }
+
+        .neural-node {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: var(--neural-line);
+            border-radius: 50%;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: scale(1.5);
+                opacity: 0.6;
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        .course-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            line-height: 1.1;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--phase3);
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            max-width: 650px;
+            margin: 1rem auto 0;
+        }
+
+        /* View Toggle */
+        .view-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.6rem 1.2rem;
+            font-family: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--text-muted);
+        }
+
+        .toggle-btn.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        /* Phase Overview */
+        .phase-overview {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 3rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(8px);
+            opacity: 0.95;
+        }
+
+        @media (max-width: 768px) {
+            .phase-overview {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .phase-overview {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .phase-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+
+        .phase-pill:hover {
+            transform: translateY(-2px);
+        }
+
+        .phase-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .phase-1 .phase-dot,
+        .week-card.phase-1 {
+            --accent: var(--phase1);
+        }
+
+        .phase-2 .phase-dot,
+        .week-card.phase-2 {
+            --accent: var(--phase2);
+        }
+
+        .phase-3 .phase-dot,
+        .week-card.phase-3 {
+            --accent: var(--phase3);
+        }
+
+        .phase-4 .phase-dot,
+        .week-card.phase-4 {
+            --accent: var(--phase4);
+        }
+
+        .phase-5 .phase-dot,
+        .week-card.phase-5 {
+            --accent: var(--phase5);
+        }
+
+        .phase-dot {
+            background: var(--accent);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom,
+                    var(--phase1) 0%, var(--phase1) 22%,
+                    var(--phase2) 22%, var(--phase2) 44%,
+                    var(--phase3) 44%, var(--phase3) 65%,
+                    var(--phase4) 65%, var(--phase4) 86%,
+                    var(--phase5) 86%, var(--phase5) 100%);
+            border-radius: 2px;
+        }
+
+        /* Week Cards */
+        .week-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .week-card::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 1.5rem;
+            width: 10px;
+            height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            border: 2px solid var(--bg-primary);
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        .week-card.milestone::after {
+            content: '★';
+            position: absolute;
+            left: -2rem;
+            top: 1.35rem;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            z-index: 2;
+        }
+
+        .week-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            border-left: 3px solid var(--accent);
+            transition: background 0.2s;
+        }
+
+        .week-header:hover {
+            background: var(--bg-secondary);
+        }
+
+        .week-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .week-number {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .week-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.15rem;
+            font-weight: 400;
+        }
+
+        .milestone-badge {
+            font-size: 0.6rem;
+            background: var(--accent);
+            color: #000;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+
+        .tour-badge {
+            font-size: 0.6rem;
+            background: rgba(56, 189, 248, 0.2);
+            color: var(--phase5);
+            border: 1px solid var(--phase5);
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+
+        .expand-icon {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .week-card.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .week-content {
+            display: none;
+            padding: 0 1.25rem 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .week-card.expanded .week-content {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Content Sections */
+        .content-section {
+            margin-top: 1.25rem;
+        }
+
+        .section-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .task-list {
+            list-style: none;
+        }
+
+        .task-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .task-list li a {
+            color: var(--text-primary);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .task-list li a:hover {
+            color: var(--phase3);
+        }
+
+        .task-list li.completed {
+            text-decoration: line-through;
+            color: var(--text-muted);
+            opacity: 0.8;
+        }
+
+        .task-list li::before {
+            content: '→';
+            position: absolute;
+            left: 4px;
+            top: 0;
+            bottom: 0;
+            color: var(--accent);
+        }
+
+        .instructor-tasks li::before {
+            content: '◆';
+            font-size: 0.6rem;
+            top: 0.35rem;
+        }
+
+        .events-list li::before {
+            content: '○';
+            font-size: 0.8rem;
+            top: 0.05rem;
+            color: var(--accent);
+        }
+
+        /* Time Division Chart */
+        .time-chart {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .time-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #000;
+            transition: flex 0.3s;
+        }
+
+        .time-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        /* Principles Section */
+        .principles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .principle-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .principle-card h4 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.1rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+            color: var(--phase3);
+        }
+
+        .principle-card p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Progress indicator */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--phase1), var(--phase2), var(--phase3), var(--phase4), var(--phase5));
+            z-index: 1000;
+            transition: width 0.1s;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .timeline {
+                padding-left: 1.5rem;
+            }
+
+            .week-card::before {
+                left: -1.5rem;
+            }
+
+            .week-card.milestone::after {
+                left: -1.5rem;
+            }
+
+            .week-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.3rem;
+            }
+
+            .week-title {
+                font-size: 1rem;
+            }
+        }
+
+        /* Hidden class for filtering */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.2s;
+            z-index: 900;
+            box-shadow: var(--shadow);
+            border: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-3px);
+        }
+
+        /* Print Styles */
+        @media print {
+
+            .neural-bg,
+            .progress-bar,
+            .view-toggle,
+            .back-to-top,
+            .expand-icon {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .week-content {
+                display: block !important;
+                border-top: 1px solid #ccc;
+            }
+
+            .week-card {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+
+            .phase-overview {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    <div class="neural-bg" id="neuralBg"></div>
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+    <div class="container">
+        <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <a href="../index.html"
+                style="color: var(--text-muted); text-decoration: none; font-size: 0.8rem; border-bottom: 1px dotted var(--text-muted);"
+                aria-label="Return to commonplace book index">← Back to Main Index</a>
+            <a href="index.html"
+                style="color: var(--text-muted); text-decoration: none; font-size: 0.8rem; border-bottom: 1px dotted var(--text-muted);"
+                aria-label="Return to neuroengineering knowledge base">📖 Neuroengineering Knowledge Base →</a>
+        </div>
+
+        <header>
+            <div class="course-tag">IDNE 701 · Introduction to Neuroengineering · FA26 Edition</div>
+            <h1>Multimodal Neuroimaging &amp;<br><em>Diagnostic Biomarker Systems</em></h1>
+            <p class="subtitle">A 14-week semester trajectory from clinical neuropathology to physical sensor design,
+                reconstruction algorithms, safety validation, and regulatory translation.</p>
+        </header>
+
+        <div class="view-toggle">
+            <button class="toggle-btn active" data-view="all" aria-label="Show all weeks in timeline">All Weeks</button>
+            <button class="toggle-btn" data-view="student" aria-label="Show student tasks only">Student Focus</button>
+            <button class="toggle-btn" data-view="instructor" aria-label="Show instructor tasks only">Instructor Focus</button>
+            <button class="toggle-btn" data-view="milestones" aria-label="Show milestone weeks only">Milestones Only</button>
+            <div style="width: 1px; background: var(--border); margin: 0 0.5rem;" aria-hidden="true"></div>
+            <button class="toggle-btn" id="expandAllBtn" aria-label="Expand all week details">Expand All</button>
+            <button class="toggle-btn" id="collapseAllBtn" aria-label="Collapse all week details">Collapse All</button>
+        </div>
+
+        <div class="phase-overview">
+            <div class="phase-pill phase-1" data-phase="1" role="button"
+                aria-label="Jump to Discovery phase, weeks 1 through 3" tabindex="0">
+                <div class="phase-dot"></div>
+                <span>Discovery &amp; Clinical Framing (1-3)</span>
+            </div>
+            <div class="phase-pill phase-2" data-phase="2" role="button"
+                aria-label="Jump to Biophysics phase, weeks 4 through 6" tabindex="0">
+                <div class="phase-dot"></div>
+                <span>Biophysics &amp; Sensors (4-6)</span>
+            </div>
+            <div class="phase-pill phase-3" data-phase="3" role="button"
+                aria-label="Jump to Architecture phase, weeks 7 through 9" tabindex="0">
+                <div class="phase-dot"></div>
+                <span>Architecture &amp; Midterm (7-9)</span>
+            </div>
+            <div class="phase-pill phase-4" data-phase="4" role="button"
+                aria-label="Jump to Safety phase, weeks 10 through 12" tabindex="0">
+                <div class="phase-dot"></div>
+                <span>Safety &amp; Regulation (10-12)</span>
+            </div>
+            <div class="phase-pill phase-5" data-phase="5" role="button"
+                aria-label="Jump to Delivery phase, weeks 13 through 14" tabindex="0">
+                <div class="phase-dot"></div>
+                <span>Verification &amp; Pitch (13-14)</span>
+            </div>
+        </div>
+
+        <div class="timeline" id="timeline">
+
+            <!-- Week 1 -->
+            <div class="week-card phase-1" data-week="1">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 1 · Aug 26</span>
+                        <span class="week-title">Course Launch, Team Formation &amp; Diagnostic Challenges</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Form interdisciplinary teams (3–4 students blending engineering, computing, and neurobiology skills).</li>
+                            <li>Select a target neurological or psychiatric disorder (e.g., Early Alzheimer's, Traumatic Brain Injury, Drug-Resistant Epilepsy, Parkinsonian Subtypes, Stroke Recovery).</li>
+                            <li>Review the foundational <a href="index.html">Neuroengineering Knowledge Base</a> and terminology in the <a href="glossary.html">Glossary</a>.</li>
+                            <li>Establish team collaboration protocols, GitHub repository, and shared documentation workspace.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Deliver opening lecture: <em>The Grand Challenges of Non-Invasive Brain Sensing &amp; Diagnostic Biomarkers</em>.</li>
+                            <li>Facilitate cross-disciplinary team matchmaking exercise.</li>
+                            <li>Provide initial reading list on neuroimaging physics and clinical biomarker validation.</li>
+                            <li>Publish semester milestone schedule and grading rubrics.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Course Kickoff:</strong> Scope, project charter, and team formation salon.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 35; background: var(--phase2);">35%</div>
+                            <div class="time-segment" style="flex: 25; background: var(--phase3);">25%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>Team formation &amp; charter</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Disease literature review</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Project scoping</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 2 -->
+            <div class="week-card phase-1" data-week="2">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 2 · Sep 02</span>
+                        <span class="week-title">Neuropathology, Clinical Stakeholders &amp; Biomarker Definition</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Map out specific pathological hallmarks (e.g., neuroinflammation, tau accumulation, microvascular disruption, epileptogenic spikes, demyelination).</li>
+                            <li>Draft a stakeholder interview protocol for clinical neurologists, neuroradiologists, and neurosurgeons.</li>
+                            <li>Establish quantitative sensitivity, specificity, and spatiotemporal target criteria for the proposed diagnostic system.</li>
+                            <li>Explore contrast modalities: <a href="fmri.html">fMRI</a>, <a href="dti.html">DTI / Diffusion MRI</a>, <a href="eeg.html">EEG</a>, and <a href="meg.html">MEG</a>.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Host clinical guest speaker: <em>From Clinical Symptom to Imaging Biomarker — What Clinicians Need</em>.</li>
+                            <li>Provide stakeholder interview rubric and clinical needs specification template.</li>
+                            <li>Confirm schedule and safety clearance for Week 3 Research MRI core visit.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Guest Clinical Lecture:</strong> Neuroradiology clinical workflow and diagnostic bottlenecks.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 45; background: var(--phase1);">45%</div>
+                            <div class="time-segment" style="flex: 35; background: var(--phase2);">35%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>Pathology &amp; biomarker mapping</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Stakeholder needs interview</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Target specifications</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 3 -->
+            <div class="week-card phase-1" data-week="3">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 3 · Sep 09</span>
+                        <span class="week-title">Precedents &amp; Lab Visit: UAB Research MRI Core</span>
+                        <span class="tour-badge">Lab Tour I</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Complete <a href="../MRI_safety/index.html">MRI Safety Training &amp; Protocol Quiz</a> prior to entering scanner suites.</li>
+                            <li>Participate in the on-site walkthrough of the <strong>UAB Research MRI Core</strong> facilities (3T &amp; 7T scanners, RF coil arrays, gradient cabinets).</li>
+                            <li>Document state-of-the-art diagnostic precedents and benchmark their technical specifications against your project goals.</li>
+                            <li>Finalize Phase 1 Deliverable: <em>Target Disease &amp; Clinical Needs Specification Dossier</em>.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lead guided lab tour of the <strong>UAB Research MRI Core</strong> facilities.</li>
+                            <li>Demonstrate live pulse sequence execution, phantom scanning, and RF head coil hardware.</li>
+                            <li>Review and provide formative feedback on Phase 1 team project charters.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Lab Tour I:</strong> UAB Research MRI Core (High-Field Scanner Bay, RF Lab, Gradient Cabinets).</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>MRI Core on-site tour</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Precedent benchmarking</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Phase 1 dossier synthesis</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 4 -->
+            <div class="week-card phase-2" data-week="4">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 4 · Sep 16</span>
+                        <span class="week-title">Biophysical Contrast Mechanisms &amp; Signal Transduction</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Model the fundamental biophysics of your team's primary sensing modality:
+                                <ul>
+                                    <li>Nuclear spin dynamics, \(T_1 / T_2 / T_2^*\) relaxation, and BOLD contrast in <a href="fmri.html">fMRI</a>.</li>
+                                    <li>Photons in scattering tissue, Beer-Lambert law, and oxy/deoxy-hemoglobin absorption in <a href="fnirs.html">fNIRS</a>.</li>
+                                    <li>Dipole sources, volume conduction, and Poisson equation in <a href="eeg.html">EEG</a> and <a href="meg.html">MEG</a>.</li>
+                                    <li>Acoustic wave propagation and microbubble dynamics in <a href="fus.html">focused ultrasound</a>.</li>
+                                </ul>
+                            </li>
+                            <li>Calculate theoretical Signal-to-Noise Ratio (SNR) and spatiotemporal resolution boundaries for your target tissue depth.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture: <em>Biophysical Foundations of Neural Contrast — From Quantum Spins to Photons &amp; Ionic Currents</em>.</li>
+                            <li>Provide interactive simulation notebooks (Bloch equations, Monte Carlo photon scattering).</li>
+                            <li>Hold technical office hours on physics modeling and parameter selection.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Hands-on Workshop:</strong> Numerical modeling of contrast physics in Python/MATLAB.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase2);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase1);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Biophysical modeling</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>SNR &amp; resolution bounds</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>Literature calibration</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 5 -->
+            <div class="week-card phase-2" data-week="5">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 5 · Sep 23</span>
+                        <span class="week-title">Sensor Hardware, Transduction Physics &amp; Array Architecture</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Design the physical transducer / sensor geometry (e.g., phased-array RF coils, optode source-detector geometry, active EEG electrode layouts, capacitive sensors).</li>
+                            <li>Analyze impedance matching, geometric decoupling, optical fiber coupling, or analog front-end (AFE) amplification stages.</li>
+                            <li>Simulate the spatial sensitivity profile (e.g., \(B_1^-\) receive sensitivity, photon banana distribution in brain tissue, lead field matrices).</li>
+                            <li>Review comparative trade-offs between invasive vs non-invasive sensing modalities (<a href="ecog.html">ECoG</a> vs <a href="eeg.html">EEG</a> vs <a href="fnirs.html">fNIRS</a>).</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture: <em>Sensor Engineering: Front-End Noise, Geometric Decoupling, and Multi-Channel Array Design</em>.</li>
+                            <li>Demonstrate RF bench test equipment (Network Analyzer, S-parameter measurement, Q-factor calculation).</li>
+                            <li>Distribute hardware specification checklist and design matrix template.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Hardware Design Studio:</strong> Array geometry and front-end noise budget optimization.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 45; background: var(--phase2);">45%</div>
+                            <div class="time-segment" style="flex: 35; background: var(--phase3);">35%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase4);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Sensor array design</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Sensitivity field modeling</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>Front-end electronics specs</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 6 -->
+            <div class="week-card phase-2" data-week="6">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 6 · Sep 30</span>
+                        <span class="week-title">Optical Imaging &amp; In-Class fNIRS Demonstration</span>
+                        <span class="tour-badge">Live Demo</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Participate in live in-class <a href="fnirs.html">fNIRS system demonstration</a> (continuous-wave &amp; frequency-domain optical topography).</li>
+                            <li>Collect and inspect real-time optical brain hemodynamic signals during a cognitive motor/verbal task.</li>
+                            <li>Compare optical absorption curves of HbO vs HbR against functional magnetic resonance (<a href="fmri.html">fMRI</a>) BOLD responses.</li>
+                            <li>Prepare preliminary presentation slides and system diagrams for next week's Mid-Semester Design Review.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Conduct live in-class <strong>fNIRS demonstration</strong> using multi-channel research cap system.</li>
+                            <li>Demonstrate real-time modified Beer-Lambert transformation, motion artifact detection, and optode placement.</li>
+                            <li>Release evaluation rubric for the Week 7 Mid-Semester Design Review milestone.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Live In-Class Demonstration:</strong> Multi-channel fNIRS hemodynamic recording and live signal analysis.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase2);">40%</div>
+                            <div class="time-segment" style="flex: 35; background: var(--phase3);">35%</div>
+                            <div class="time-segment" style="flex: 25; background: var(--phase1);">25%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>fNIRS demo &amp; data parsing</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Midterm presentation prep</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>Design dossier compilation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 7 -->
+            <div class="week-card phase-3 milestone" data-week="7">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 7 · Oct 07</span>
+                        <span class="week-title">Mid-Semester Milestone: Concept Pin-Up &amp; Preliminary Design Review</span>
+                        <span class="milestone-badge">★ Milestone</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Present 12-minute team pitch with visual concept boards and preliminary technical block diagrams.</li>
+                            <li>Defend selection of biophysical contrast mechanism, sensor geometry, and expected biomarker resolution.</li>
+                            <li>Engage in peer critique and faculty Q&amp;A panel.</li>
+                            <li>Submit Phase 1 &amp; 2 Deliverable: <em>Preliminary Design Concept (PDC) &amp; Biomarker Architecture Dossier</em>.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Convene faculty and clinical review panel for the mid-semester design critique.</li>
+                            <li>Evaluate presentations using the PDR rubric (Innovation, Biophysical Rigor, Feasibility, Stakeholder Alignment).</li>
+                            <li>Provide written milestone synthesis and actionable pivots for Phase 3 engineering.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Mid-Semester Review Colloquium:</strong> Team presentations, concept pin-up gallery, and feedback reception.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase3);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase2);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase1);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Design presentation &amp; defense</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Panel Q&amp;A &amp; critique</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>Peer review assessment</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 8 -->
+            <div class="week-card phase-3" data-week="8">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 8 · Oct 14</span>
+                        <span class="week-title">Signal Acquisition, Sampling Schemes &amp; Pulse Sequences</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Design the spatial encoding and temporal sampling scheme (e.g., 2D/3D k-space trajectories, EPI, spiral readouts, EEG temporal montage sampling, multiplexed optical source modulation).</li>
+                            <li>Evaluate the Nyquist-Shannon sampling limits, spatial aliasing, and gradient timing constraints.</li>
+                            <li>Calculate scan time / acquisition latency vs point spread function (PSF) blurring trade-offs.</li>
+                            <li>Draft the mathematical signal model: \(S(t) = \int \rho(\mathbf{r}) e^{-i \mathbf{k}(t) \cdot \mathbf{r}} d\mathbf{r}\).</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture: <em>Spatial Encoding, K-Space Dynamics, and Pulse Sequence Engineering</em>.</li>
+                            <li>Demonstrate sequence simulation toolboxes (Pulseq, JEMRIS, Brainstorm).</li>
+                            <li>Hold sequence optimization lab session with team breakout consultations.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Workshop:</strong> Pulse sequence timing diagrams and k-space trajectory design.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 45; background: var(--phase3);">45%</div>
+                            <div class="time-segment" style="flex: 35; background: var(--phase4);">35%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase2);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Acquisition &amp; sequence design</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>K-space / sampling simulation</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase2);"></span>Timing budget analysis</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 9 -->
+            <div class="week-card phase-3" data-week="9">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 9 · Oct 21</span>
+                        <span class="week-title">Reconstruction Pipelines &amp; Machine Learning Biomarker Extraction</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Implement reconstruction algorithms (Inverse Fast Fourier Transform [IFFT], SENSE/GRAPPA parallel imaging, or minimum norm estimate [MNE] source localization).</li>
+                            <li>Build computational pipeline for feature extraction, dimensionality reduction, or deep neural network biomarker classification (see <a href="ml_bci.html">Machine Learning in BCI</a> and <a href="kalman_filters.html">Kalman Filtering</a>).</li>
+                            <li>Quantify reconstruction error (RMSE, SSIM) and biomarker classification accuracy (ROC-AUC, Confusion Matrix).</li>
+                            <li>Implement baseline synthetic data test bench to benchmark reconstruction fidelity.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture: <em>Inverse Problems, Compressed Sensing, and Deep Learning in Neuroimage Reconstruction</em>.</li>
+                            <li>Provide open neuroimaging benchmark datasets (OASIS, ADNI, HCP, PhysioNet).</li>
+                            <li>Code walkthrough: PyTorch / TensorFlow pipelines for accelerated image reconstruction and biomarker inference.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Hackathon Session:</strong> Algorithm sprint for reconstruction acceleration and biomarker detection.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase3);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase4);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase5);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Reconstruction algorithm coding</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>ML biomarker training</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase5);"></span>Validation on public datasets</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 10 -->
+            <div class="week-card phase-4" data-week="10">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 10 · Oct 28</span>
+                        <span class="week-title">Artifact Mitigation, Motion Correction &amp; SNR Optimization</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Identify system-specific noise sources (e.g., patient motion, cardiac/respiratory pulsatility, eddy currents, \(B_0\) field inhomogeneities, eye blinks).</li>
+                            <li>Incorporate real-time or prospective motion correction (navigators, optical tracking, ICA filtering, retrospective phase correction).</li>
+                            <li>Demonstrate robustness of biomarker detection in the presence of synthetic noise and patient movement.</li>
+                            <li>Formulate the signal processing flow chart and computational latency budget.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture: <em>The Dirty Reality of Brain Signals: Noise, Physiological Artifacts, and Mitigation Strategies</em>.</li>
+                            <li>Demonstrate artifact removal toolboxes (FSL, SPM, MNE-Python, EEGLAB).</li>
+                            <li>Confirm logistics for Week 11 Neuroengineering EEG Core lab visit.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Clinic Simulation:</strong> Stress-testing student algorithms against corrupt and noisy clinical datasets.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase4);">40%</div>
+                            <div class="time-segment" style="flex: 35; background: var(--phase3);">35%</div>
+                            <div class="time-segment" style="flex: 25; background: var(--phase5);">25%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>Artifact filtering &amp; motion correction</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Algorithm stress testing</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase5);"></span>Latency optimization</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 11 -->
+            <div class="week-card phase-4" data-week="11">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 11 · Nov 04</span>
+                        <span class="week-title">Lab Visit: Neuroengineering EEG Core &amp; Electrophysiology</span>
+                        <span class="tour-badge">Lab Tour II</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Visit the <strong>Neuroengineering EEG Core</strong> for hands-on high-density EEG (128/256 channel) setup and impedance measurement.</li>
+                            <li>Observe real-time evoked potential (ERP) paradigms, spectral power decomposition, and source localization.</li>
+                            <li>Compare electrophysiological temporal resolution against metabolic neuroimaging modalities.</li>
+                            <li>Integrate high-density electrophysiology considerations into multimodal sensing designs.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Host guided tour of the <strong>Neuroengineering EEG Core</strong> facilities.</li>
+                            <li>Demonstrate electrode impedance checking, active shielding, noise cancellation, and ERP data acquisition.</li>
+                            <li>Distribute FDA regulatory guidance documents (510(k) vs PMA, Early Feasibility, Q-Submission protocol).</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Lab Tour II:</strong> Neuroengineering EEG Core (Electrophysiology Suites, Faradaic Shielded Rooms).</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 40; background: var(--phase4);">40%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase3);">30%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase5);">30%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>EEG Core lab tour</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Electrophysiology signal analysis</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase5);"></span>Regulatory framework drafting</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 12 -->
+            <div class="week-card phase-4" data-week="12">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 12 · Nov 11</span>
+                        <span class="week-title">Safety Limits (SAR, Thermal, Optical) &amp; FDA Regulatory Strategy</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Perform quantitative safety and dose modeling for your device:
+                                <ul>
+                                    <li>Specific Absorption Rate (SAR in W/kg), \(B_1^+\) RMS, and peripheral nerve stimulation (PNS) thresholds in MRI.</li>
+                                    <li>Maximum Permissible Exposure (MPE) and tissue heating limits (ANSI Z136.1) in optical / fNIRS systems.</li>
+                                    <li>Thermal index (TI), mechanical index (MI), and spatial-peak temporal-average intensity (\(I_{\text{spta}}\)) in ultrasound.</li>
+                                    <li>Electrical leakage current and patient isolation (IEC 60601-1) in EEG.</li>
+                                </ul>
+                            </li>
+                            <li>Formulate FDA classification strategy (Class II 510(k) predicate vs De Novo vs Class III PMA) and draft an Early Feasibility / IDE plan.</li>
+                            <li>Address ethical considerations in diagnostic neuroimaging (see <a href="neuroethics.html">Neuroethics &amp; Translation</a>).</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Lecture: <em>Safety Limits, Standards (IEC 60601 / ISO 14971), and the FDA Regulatory Pathway for Neurotechnologies</em>.</li>
+                            <li>Provide risk management matrix template (Failure Mode &amp; Effects Analysis [FMEA]).</li>
+                            <li>Conduct regulatory strategy clinics with student teams.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Regulatory Clinic:</strong> Risk analysis, predicate device search, and FDA Pre-Submission strategy.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 45; background: var(--phase4);">45%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase5);">30%</div>
+                            <div class="time-segment" style="flex: 25; background: var(--phase3);">25%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>SAR &amp; safety physics</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase5);"></span>FDA regulatory roadmap</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Risk matrix &amp; FMEA</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Week 13 -->
+            <div class="week-card phase-5" data-week="13">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 13 · Nov 18</span>
+                        <span class="week-title">Verification, Virtual Prototyping &amp; Clinical Protocol (IRB)</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Synthesize complete end-to-end virtual simulation demo showing:
+                                <ul>
+                                    <li>Simulated diseased vs healthy neural substrate.</li>
+                                    <li>Sensor array signal acquisition with noise models.</li>
+                                    <li>Reconstruction and ML diagnostic output dashboard.</li>
+                                </ul>
+                            </li>
+                            <li>Draft a full Human Subjects Clinical Validation Protocol (IRB proposal with inclusion/exclusion criteria, primary endpoints, statistical power).</li>
+                            <li>Compile the final Technical Design Dossier chapters and prepare pitch slides.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Review draft clinical validation protocols and provide IRB compliance feedback.</li>
+                            <li>Conduct 1-on-1 pitch coaching sessions with each team.</li>
+                            <li>Distribute symposium presentation guidelines and judging criteria.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Dry Run &amp; Pitch Coaching:</strong> Rapid-fire feedback on pitch structure and technical demonstration.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 50; background: var(--phase5);">50%</div>
+                            <div class="time-segment" style="flex: 30; background: var(--phase4);">30%</div>
+                            <div class="time-segment" style="flex: 20; background: var(--phase3);">20%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase5);"></span>Virtual prototype simulation</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase4);"></span>IRB clinical protocol draft</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase3);"></span>Dossier compilation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thanksgiving Recess Note -->
+            <div style="margin: 1.5rem 0; padding: 1rem; border-radius: 6px; border: 1px dashed var(--border); text-align: center; font-size: 0.75rem; color: var(--text-muted); background: var(--bg-secondary);">
+                🦃 <strong>Nov 25:</strong> Thanksgiving Break · No Scheduled Class Sessions · Final Polish Week
+            </div>
+
+            <!-- Week 14 -->
+            <div class="week-card phase-5 milestone" data-week="14">
+                <div class="week-header">
+                    <div class="week-info">
+                        <span class="week-number">Week 14 · Dec 02–09</span>
+                        <span class="week-title">Final Milestone: Grand Pitch Symposium &amp; Deliverable Showcase</span>
+                        <span class="milestone-badge">★ Final Milestone</span>
+                    </div>
+                    <span class="expand-icon" aria-label="Expand week details" role="button">▼</span>
+                </div>
+                <div class="week-content">
+                    <div class="content-section student-content">
+                        <div class="section-label">Student Tasks</div>
+                        <ul class="task-list">
+                            <li>Deliver 15-minute public pitch + live interactive simulation demonstration to guest faculty, clinicians, and industry evaluators.</li>
+                            <li>Defend the end-to-end design: Clinical impact, biophysical validation, hardware architecture, reconstruction algorithm, safety, and regulatory pathway.</li>
+                            <li>Submit the final course deliverable package:
+                                <ul>
+                                    <li><strong>Deliverable 1:</strong> Complete <em>Technical Design Dossier &amp; Regulatory Strategy</em> (PDF).</li>
+                                    <li><strong>Deliverable 2:</strong> Reproducible <em>Simulation &amp; Reconstruction Codebase</em> (GitHub repo with documentation).</li>
+                                    <li><strong>Deliverable 3:</strong> Executive <em>Pitch Deck &amp; One-Page Clinical Brief</em>.</li>
+                                </ul>
+                            </li>
+                            <li>Complete peer team evaluations and course retrospectives.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section instructor-content">
+                        <div class="section-label">Instructor Actions</div>
+                        <ul class="task-list instructor-tasks">
+                            <li>Host and moderate the <strong>IDNE 701 Grand Pitch Symposium</strong> with invited panel judges.</li>
+                            <li>Tabulate final evaluations and award Best Innovation, Best Clinical Translation, and Best Engineering Design awards.</li>
+                            <li>Publish selected project showcases to the program website and archive materials.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section events-content">
+                        <div class="section-label">Events</div>
+                        <ul class="task-list events-list">
+                            <li><strong>Grand Pitch Symposium:</strong> Final formal presentations, live software demos, and award ceremony.</li>
+                        </ul>
+                    </div>
+                    <div class="content-section">
+                        <div class="section-label">Time Division</div>
+                        <div class="time-chart">
+                            <div class="time-segment" style="flex: 60; background: var(--phase5);">60%</div>
+                            <div class="time-segment" style="flex: 40; background: var(--phase1);">40%</div>
+                        </div>
+                        <div class="time-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase5);"></span>Final symposium pitch &amp; demo</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: var(--phase1);"></span>Dossier submission &amp; debrief</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Foundational Neuroimaging Principles Reference -->
+        <div class="principles-grid">
+            <div class="principle-card">
+                <h4>Biophysical Contrast &amp; Transduction</h4>
+                <p>Grounding diagnostic measurements in biological reality — from nuclear spin relaxation and photon scattering to ionic dipole potentials.</p>
+            </div>
+            <div class="principle-card">
+                <h4>Spatiotemporal Resolution Bounds</h4>
+                <p>Navigating the fundamental physical trade-offs across penetration depth, temporal sampling frequency, and voxel/sensor volume.</p>
+            </div>
+            <div class="principle-card">
+                <h4>K-Space &amp; Inverse Problems</h4>
+                <p>Mathematical foundations of spatial encoding, non-Cartesian sampling trajectories, and regularized / compressed sensing reconstruction.</p>
+            </div>
+            <div class="principle-card">
+                <h4>Machine Learning &amp; Biomarker Specificity</h4>
+                <p>Validating feature extraction algorithms against class imbalance, motion confounders, and rigorous out-of-distribution generalization.</p>
+            </div>
+            <div class="principle-card">
+                <h4>SAR, Thermal &amp; Laser Safety</h4>
+                <p>Ensuring patient safety through strict adherence to RF specific absorption rates, optical maximum permissible exposure, and IEC standards.</p>
+            </div>
+            <div class="principle-card">
+                <h4>Regulatory &amp; Clinical Translation</h4>
+                <p>Navigating FDA 510(k)/PMA classification, Early Feasibility IDE protocols, and clinical workflow integration in medical centers.</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>IDNE 701 Fall 2026 · Introduction to Neuroengineering · Diagnostic Biomarker Systems Project</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Create neural network background
+        function createNeuralBg() {
+            const container = document.getElementById('neuralBg');
+            const nodeCount = 18;
+
+            for (let i = 0; i < nodeCount; i++) {
+                const node = document.createElement('div');
+                node.className = 'neural-node';
+                node.style.left = Math.random() * 100 + '%';
+                node.style.top = Math.random() * 100 + '%';
+                node.style.animationDelay = Math.random() * 3 + 's';
+                container.appendChild(node);
+            }
+        }
+        createNeuralBg();
+
+        // Week card expansion
+        document.querySelectorAll('.week-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const card = header.parentElement;
+                card.classList.toggle('expanded');
+                const isExpanded = card.classList.contains('expanded');
+                header.setAttribute('aria-expanded', isExpanded);
+            });
+        });
+
+        // View toggle functionality
+        const toggleBtns = document.querySelectorAll('.toggle-btn[data-view]');
+        const weekCards = document.querySelectorAll('.week-card');
+
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const view = btn.dataset.view;
+
+                weekCards.forEach(card => {
+                    card.classList.remove('hidden');
+                    const studentContent = card.querySelector('.student-content');
+                    const instructorContent = card.querySelector('.instructor-content');
+
+                    if (studentContent) studentContent.classList.remove('hidden');
+                    if (instructorContent) instructorContent.classList.remove('hidden');
+
+                    if (view === 'student') {
+                        if (instructorContent) instructorContent.classList.add('hidden');
+                    } else if (view === 'instructor') {
+                        if (studentContent) studentContent.classList.add('hidden');
+                    } else if (view === 'milestones') {
+                        if (!card.classList.contains('milestone')) {
+                            card.classList.add('hidden');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Expand/Collapse All functionality
+        document.getElementById('expandAllBtn').addEventListener('click', () => {
+            document.querySelectorAll('.week-card').forEach(card => {
+                if (!card.classList.contains('hidden')) {
+                    card.classList.add('expanded');
+                    const header = card.querySelector('.week-header');
+                    if (header) header.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+
+        document.getElementById('collapseAllBtn').addEventListener('click', () => {
+            document.querySelectorAll('.week-card').forEach(card => {
+                card.classList.remove('expanded');
+                const header = card.querySelector('.week-header');
+                if (header) header.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        // Phase pill click to scroll
+        document.querySelectorAll('.phase-pill').forEach(pill => {
+            const activatePill = () => {
+                const phase = pill.dataset.phase;
+                const firstCard = document.querySelector(`.week-card.phase-${phase}`);
+                if (firstCard) {
+                    const yOffset = -180;
+                    const y = firstCard.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                    firstCard.classList.add('expanded');
+                    const header = firstCard.querySelector('.week-header');
+                    if (header) header.setAttribute('aria-expanded', 'true');
+                }
+            };
+
+            pill.addEventListener('click', activatePill);
+            pill.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    activatePill();
+                }
+            });
+        });
+
+        // Add keyboard accessibility to week headers
+        document.querySelectorAll('.week-header').forEach(header => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            header.setAttribute('aria-expanded', 'false');
+
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const card = header.parentElement;
+                    card.classList.toggle('expanded');
+                    const isExpanded = card.classList.contains('expanded');
+                    header.setAttribute('aria-expanded', isExpanded);
+                }
+            });
+        });
+
+        // Back to Top functionality
+        const backToTopBtn = document.getElementById('backToTop');
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        // Progress bar on scroll
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollPercent = (scrollTop / docHeight) * 100;
+            document.getElementById('progressBar').style.width = scrollPercent + '%';
+        });
+    </script>
+</body>
+
+</html>
