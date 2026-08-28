@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grading Rubrics & Assessment Framework - IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #ff3300;
+            --accent-soft: rgba(255, 51, 0, 0.08);
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --code-font: 'Space Mono', monospace;
+            --serif-font: 'Instrument Serif', serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --phase1: #3b82f6;
+            --phase2: #10b981;
+            --phase3: #f59e0b;
+            --phase4: #8b5cf6;
+            --phase5: #ec4899;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #18181b;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #ff5522;
+            --accent-soft: rgba(255, 85, 34, 0.15);
+            --border: #27272a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #1f1f23;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--code-font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding-bottom: 5rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            position: relative;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .back-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            border-bottom: 1px dotted var(--text-muted);
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--accent);
+            border-bottom-style: solid;
+            border-color: var(--accent);
+        }
+
+        .theme-toggle {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent);
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: clamp(2.4rem, 5vw, 3.8rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        h1 em {
+            color: var(--accent);
+            font-style: italic;
+        }
+
+        .subtitle {
+            font-family: var(--sans-font);
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 760px;
+            line-height: 1.6;
+        }
+
+        .meta-badges {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.25rem;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+        }
+
+        .meta-badge {
+            background: var(--accent-soft);
+            color: var(--accent);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 51, 0, 0.2);
+            font-weight: 700;
+        }
+
+        /* Grade Distribution Grid */
+        .section-title {
+            font-family: var(--serif-font);
+            font-size: 2rem;
+            margin: 2.5rem 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-desc {
+            font-family: var(--sans-font);
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .breakdown-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .breakdown-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
+
+        .breakdown-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+        }
+
+        .breakdown-card.p1::before { background: var(--phase1); }
+        .breakdown-card.p2::before { background: var(--phase3); }
+        .breakdown-card.p3::before { background: var(--phase4); }
+        .breakdown-card.p4::before { background: var(--phase5); }
+        .breakdown-card.p5::before { background: var(--phase2); }
+
+        .breakdown-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.5rem;
+        }
+
+        .breakdown-name {
+            font-family: var(--sans-font);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .breakdown-pct {
+            font-family: var(--code-font);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .breakdown-desc {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .breakdown-timing {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Tabs */
+        .rubric-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin: 2rem 0 1.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+            overflow-x: auto;
+        }
+
+        .rubric-tab {
+            padding: 0.6rem 1.2rem;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: var(--code-font);
+            font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .rubric-tab:hover {
+            color: var(--text-primary);
+            background: var(--accent-soft);
+        }
+
+        .rubric-tab.active {
+            color: var(--text-primary);
+            background: var(--bg-card);
+            border-color: var(--border);
+            border-bottom: 2px solid var(--accent);
+            font-weight: 700;
+        }
+
+        /* Rubric Panels */
+        .rubric-panel {
+            display: none;
+        }
+
+        .rubric-panel.active {
+            display: block;
+            animation: fadeIn 0.25s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Rubric Card */
+        .rubric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .rubric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 0.6rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .rubric-title {
+            font-family: var(--serif-font);
+            font-size: 1.4rem;
+            color: var(--text-primary);
+        }
+
+        .rubric-score {
+            font-family: var(--code-font);
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+
+        .criteria-desc {
+            font-family: var(--sans-font);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        /* Level Descriptions Grid */
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .level-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .level-col {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .level-col.selected {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .level-label {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            color: var(--text-primary);
+        }
+
+        .level-pts {
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+
+        .level-desc {
+            font-family: var(--sans-font);
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .score-selector {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .score-btn {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            cursor: pointer;
+            text-align: center;
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .score-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .score-btn.active {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+            font-weight: 700;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            font-family: var(--sans-font);
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Total Score Card */
+        .total-score-card {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2.5rem 0 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .total-label {
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+        }
+
+        .total-value {
+            font-family: var(--serif-font);
+            font-size: 4rem;
+            line-height: 1;
+        }
+
+        .total-grade {
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+            font-weight: 700;
+            color: #f59e0b;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-family: var(--code-font);
+            font-weight: 700;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        @media print {
+            .back-link,
+            .theme-toggle,
+            .actions,
+            .rubric-nav,
+            .score-selector,
+            textarea {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .rubric-panel {
+                display: block !important;
+                page-break-after: always;
+            }
+
+            .rubric-card,
+            .total-score-card {
+                box-shadow: none;
+                border: 1px solid #000;
+                break-inside: avoid;
+                color: black;
+                background: white;
+            }
+
+            .total-score-card {
+                background: #eee;
+                color: black;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <a href="IDNE701_FA2026.html" class="back-link">← Back to Course Timeline</a>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">◐ Dark Mode</button>
+            </div>
+            <h1>Grading Rubrics &amp; <em>Assessment Framework</em></h1>
+            <p class="subtitle">Comprehensive criteria, milestone scorecards, and evaluation matrices for IDNE 701:
+                Introduction to Neuroengineering (Fall 2026).</p>
+            <div class="meta-badges">
+                <span class="meta-badge">IDNE 701 · Fall 2026</span>
+                <span class="meta-badge">3 Major Milestones · 100 Total Points</span>
+                <span class="meta-badge">Interactive Evaluator Included</span>
+            </div>
+        </header>
+
+        <!-- Grade Distribution -->
+        <h2 class="section-title">Semester Grade Architecture</h2>
+        <p class="section-desc">Assessment in IDNE 701 balances continuous iterative engineering, mid-semester concept
+            defense, peer critique, and the final deliverable showcase. <strong>Note:</strong> All percentage weights
+            shown below are <em>approximate and subjective</em>, serving as guideline targets rather than rigid formulas.</p>
+
+        <div class="breakdown-grid">
+            <div class="breakdown-card p1">
+                <div class="breakdown-header">
+                    <span class="breakdown-name">Phase 1 &amp; 2 Discovery</span>
+                    <span class="breakdown-pct">~15%</span>
+                </div>
+                <div class="breakdown-desc">Clinical needs specification, stakeholder interviews, biophysical forward
+                    model, and sensor layout drafts.</div>
+                <div class="breakdown-timing">Weeks 1–6 · Continuous</div>
+            </div>
+
+            <div class="breakdown-card p2">
+                <div class="breakdown-header">
+                    <span class="breakdown-name">Midterm PDR Milestone</span>
+                    <span class="breakdown-pct">~20%</span>
+                </div>
+                <div class="breakdown-desc">Concept pin-up gallery, 12-min oral defense to faculty panel, and
+                    Preliminary Design Dossier submission.</div>
+                <div class="breakdown-timing">Week 7 · Oct 07 Milestone</div>
+            </div>
+
+            <div class="breakdown-card p3">
+                <div class="breakdown-header">
+                    <span class="breakdown-name">Phase 3 &amp; 4 Systems</span>
+                    <span class="breakdown-pct">~15%</span>
+                </div>
+                <div class="breakdown-desc">Sensor array architecture, reconstruction pipeline code, SAR/safety
+                    analyses, and FDA 510(k)/PMA draft.</div>
+                <div class="breakdown-timing">Weeks 8–12 · Continuous</div>
+            </div>
+
+            <div class="breakdown-card p4">
+                <div class="breakdown-header">
+                    <span class="breakdown-name">Final Package &amp; Pitch</span>
+                    <span class="breakdown-pct">~35%</span>
+                </div>
+                <div class="breakdown-desc">Dossier PDF (~15%), Reproducible Simulation Codebase (~10%), Grand Pitch
+                    Symposium Presentation (~10%).</div>
+                <div class="breakdown-timing">Week 14 · Dec 02–09 Final</div>
+            </div>
+
+            <div class="breakdown-card p5">
+                <div class="breakdown-header">
+                    <span class="breakdown-name">Cores &amp; Participation</span>
+                    <span class="breakdown-pct">~15%</span>
+                </div>
+                <div class="breakdown-desc">MRI / fNIRS / EEG Core engagement, active salon critique, team collaboration,
+                    and peer evaluations.</div>
+                <div class="breakdown-timing">All Semester · Individual</div>
+            </div>
+        </div>
+
+        <!-- Rubric Navigation Tabs -->
+        <h2 class="section-title">Interactive Rubric Scorecards</h2>
+        <p class="section-desc">Select a milestone below to view detailed criteria or calculate an evaluation score in
+            real time.</p>
+
+        <div class="rubric-nav">
+            <button class="rubric-tab active" data-tab="pdr">01. Midterm PDR Review (Wk 7)</button>
+            <button class="rubric-tab" data-tab="dossier">02. Final Technical Dossier (Wk 14)</button>
+            <button class="rubric-tab" data-tab="pitch">03. Grand Pitch Symposium (Wk 14)</button>
+        </div>
+
+        <!-- Form Container -->
+        <form id="rubricForm">
+
+            <!-- Panel 1: Midterm PDR Review -->
+            <div class="rubric-panel active" id="panel-pdr">
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">01. Clinical Need &amp; Stakeholder Alignment</span>
+                        <span class="rubric-score" id="pdr_1_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Clarity of target disorder definition, unmet diagnostic gap, stakeholder
+                        interview rigor (neurologists, neuroradiologists), and clinical sensitivity/specificity targets.</p>
+                    <div class="level-grid">
+                        <div class="level-col">
+                            <div class="level-label">Exemplary</div>
+                            <div class="level-pts">23–25 pts</div>
+                            <div class="level-desc">Target pathology precisely bounded; quantified clinical need supported by primary stakeholder interviews; unambiguous diagnostic performance envelope.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Proficient</div>
+                            <div class="level-pts">19–22 pts</div>
+                            <div class="level-desc">Clear clinical condition and literature rationale; stakeholder needs identified but missing granular quantitative bounds.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Developing</div>
+                            <div class="level-pts">15–18 pts</div>
+                            <div class="level-desc">Vague disease framing; generic stakeholder requirements lacking clinical validation or realistic workflow integration.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Unsatisfactory</div>
+                            <div class="level-pts">0–14 pts</div>
+                            <div class="level-desc">Superficial pathology overview; no evidence of stakeholder alignment or target diagnostic criteria.</div>
+                        </div>
+                    </div>
+                    <div class="score-selector" data-criterion="pdr_1">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Instructor feedback on Clinical Need & Stakeholder Alignment..." id="pdr_1_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">02. Biophysical Contrast &amp; Transduction Rigor</span>
+                        <span class="rubric-score" id="pdr_2_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Mathematical/physical modeling of the neural contrast mechanism (dipole, BOLD, optical absorption, acoustic impedance), signal propagation, SNR budget, and spatiotemporal resolution limits.</p>
+                    <div class="level-grid">
+                        <div class="level-col">
+                            <div class="level-label">Exemplary</div>
+                            <div class="level-pts">23–25 pts</div>
+                            <div class="level-desc">Rigorous forward physics formulation; accurate SNR vs. tissue depth modeling; clear articulation of physical vs. biological noise sources.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Proficient</div>
+                            <div class="level-pts">19–22 pts</div>
+                            <div class="level-desc">Correct physical principles; sound order-of-magnitude estimates; minor gaps in skull attenuation or noise modeling.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Developing</div>
+                            <div class="level-pts">15–18 pts</div>
+                            <div class="level-desc">Qualitative descriptions only; lacks mathematical modeling of signal decay, SNR, or resolution trade-offs.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Unsatisfactory</div>
+                            <div class="level-pts">0–14 pts</div>
+                            <div class="level-desc">Flawed biophysical assumptions or physically unfeasible contrast mechanisms proposed.</div>
+                        </div>
+                    </div>
+                    <div class="score-selector" data-criterion="pdr_2">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Instructor feedback on Biophysical Modeling..." id="pdr_2_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">03. Preliminary Architecture &amp; Feasibility</span>
+                        <span class="rubric-score" id="pdr_3_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">System block diagram, sensor placement geometry, channel count justification, preliminary component selection, and initial safety envelope.</p>
+                    <div class="level-grid">
+                        <div class="level-col">
+                            <div class="level-label">Exemplary</div>
+                            <div class="level-pts">23–25 pts</div>
+                            <div class="level-desc">Comprehensive system topology; fully justified channel array geometry; clear signal chain from transducer to ADC with component bounds.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Proficient</div>
+                            <div class="level-pts">19–22 pts</div>
+                            <div class="level-desc">Solid block diagram; reasonable sensor array layout; minor omissions in interface electronics or data bandwidth.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Developing</div>
+                            <div class="level-pts">15–18 pts</div>
+                            <div class="level-desc">High-level black-box diagrams; vague sensor specs; insufficient consideration of hardware feasibility.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Unsatisfactory</div>
+                            <div class="level-pts">0–14 pts</div>
+                            <div class="level-desc">Missing architecture; disconnected subsystems; no hardware rationale.</div>
+                        </div>
+                    </div>
+                    <div class="score-selector" data-criterion="pdr_3">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Instructor feedback on Architecture & Feasibility..." id="pdr_3_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">04. Defense, Visual Concept Pin-Up &amp; Q&amp;A</span>
+                        <span class="rubric-score" id="pdr_4_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">12-minute oral presentation delivery, concept pin-up poster visual clarity, poise during faculty grilling, and equitable interdisciplinary team speaking.</p>
+                    <div class="level-grid">
+                        <div class="level-col">
+                            <div class="level-label">Exemplary</div>
+                            <div class="level-pts">23–25 pts</div>
+                            <div class="level-desc">Flawless time management; publication-quality schematics; incisive and confident responses to rigorous panel critique; seamless team parity.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Proficient</div>
+                            <div class="level-pts">19–22 pts</div>
+                            <div class="level-desc">Clear delivery; good visuals; solid answers to most questions with minor hesitation on deep edge cases.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Developing</div>
+                            <div class="level-pts">15–18 pts</div>
+                            <div class="level-desc">Rushed or over time; cluttered pin-up boards; defensive or uncertain answers during Q&amp;A; unbalanced participation.</div>
+                        </div>
+                        <div class="level-col">
+                            <div class="level-label">Unsatisfactory</div>
+                            <div class="level-pts">0–14 pts</div>
+                            <div class="level-desc">Disorganized presentation; illegible visuals; inability to address panel questions.</div>
+                        </div>
+                    </div>
+                    <div class="score-selector" data-criterion="pdr_4">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Instructor feedback on Presentation Defense..." id="pdr_4_notes"></textarea>
+                </div>
+            </div>
+
+            <!-- Panel 2: Final Technical Dossier -->
+            <div class="rubric-panel" id="panel-dossier">
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">01. End-to-End Systems Engineering &amp; Signal Chain</span>
+                        <span class="rubric-score" id="dos_1_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Full circuit and instrumentation architecture, analog front-end (AFE), filtering, sampling rates, dynamic range, data throughput, and mechanical form factor.</p>
+                    <div class="score-selector" data-criterion="dos_1">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Systems Engineering..." id="dos_1_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">02. Inverse Problem &amp; Image Reconstruction Rigor</span>
+                        <span class="rubric-score" id="dos_2_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Mathematical inverse formulation, regularization choices (L1/L2, beamforming, dipole fits), motion artifact rejection algorithms, and quantitative reconstruction SNR.</p>
+                    <div class="score-selector" data-criterion="dos_2">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Image Reconstruction & Algorithms..." id="dos_2_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">03. Safety, SAR / Thermal &amp; FDA Regulatory Strategy</span>
+                        <span class="rubric-score" id="dos_3_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Compliance with IEEE/IEC safety standards, Specific Absorption Rate (SAR), acoustic limits, electrical isolation, cybersecurity, and credible FDA 510(k) predicate / De Novo roadmap.</p>
+                    <div class="score-selector" data-criterion="dos_3">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Safety & FDA Strategy..." id="dos_3_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">04. Verification Plan &amp; IRB Clinical Protocol Draft</span>
+                        <span class="rubric-score" id="dos_4_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Bench/phantom verification protocol, sample size calculation, statistical endpoints, risk-benefit analysis, and complete draft of IRB human subjects protocol.</p>
+                    <div class="score-selector" data-criterion="dos_4">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Verification & IRB Protocol..." id="dos_4_notes"></textarea>
+                </div>
+            </div>
+
+            <!-- Panel 3: Grand Pitch Symposium -->
+            <div class="rubric-panel" id="panel-pitch">
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">01. Clinical Value Proposition &amp; Pitch Narrative</span>
+                        <span class="rubric-score" id="pit_1_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Compelling framing of the grand challenge, healthcare economic impact, patient-centric workflow, and persuasive translation thesis.</p>
+                    <div class="score-selector" data-criterion="pit_1">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Clinical Narrative..." id="pit_1_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">02. Live Software / Simulation Demonstration</span>
+                        <span class="rubric-score" id="pit_2_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Interactive execution of virtual prototype simulation, real-time noise injection, inverse reconstruction visualization, and codebase reproducibility.</p>
+                    <div class="score-selector" data-criterion="pit_2">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Live Demo & Codebase..." id="pit_2_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">03. Defense Under Expert Panel Grilling</span>
+                        <span class="rubric-score" id="pit_3_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Mastery of technical edge cases, honest acknowledgment of limitations, rigorous justification of assumptions, and intellectual agility during Q&amp;A.</p>
+                    <div class="score-selector" data-criterion="pit_3">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Defense & Technical Rigor..." id="pit_3_notes"></textarea>
+                </div>
+
+                <div class="rubric-card">
+                    <div class="rubric-header">
+                        <span class="rubric-title">04. Visual Polish, Deck Quality &amp; Team Synergies</span>
+                        <span class="rubric-score" id="pit_4_display">0 / 25 pts</span>
+                    </div>
+                    <p class="criteria-desc">Executive-level visual design, synchronized multimedia, seamless cross-disciplinary speaking transitions, and exemplary professional presence.</p>
+                    <div class="score-selector" data-criterion="pit_4">
+                        <button type="button" class="score-btn" data-score="14">Unsat (14)</button>
+                        <button type="button" class="score-btn" data-score="17">Dev (17)</button>
+                        <button type="button" class="score-btn" data-score="21">Prof (21)</button>
+                        <button type="button" class="score-btn" data-score="25">Exemp (25)</button>
+                    </div>
+                    <textarea placeholder="Feedback on Visual Polish & Teamwork..." id="pit_4_notes"></textarea>
+                </div>
+            </div>
+
+            <!-- Total Score Display -->
+            <div class="total-score-card">
+                <div class="total-label" id="currentMilestoneLabel">Midterm PDR Total Score</div>
+                <div class="total-value" id="grandTotalDisplay">0 / 100</div>
+                <div class="total-grade" id="gradeEquivalentDisplay">Incomplete Evaluation</div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="actions">
+                <button type="button" class="btn-primary" id="saveBtn">Save Evaluation</button>
+                <button type="button" class="btn-secondary" id="printBtn">Print / Export PDF</button>
+                <button type="button" class="btn-secondary" id="resetBtn">Reset Form</button>
+            </div>
+        </form>
+
+        <footer>
+            <p>IDNE 701: Introduction to Neuroengineering · Fall 2026</p>
+            <p style="margin-top: 0.5rem;"><a href="IDNE701_FA2026.html" style="color: var(--accent); text-decoration: none;">← Return to 14-Week Interactive Timeline</a></p>
+        </footer>
+    </div>
+
+    <!-- Interactive Script -->
+    <script>
+        // State
+        const scores = {
+            pdr_1: 0, pdr_2: 0, pdr_3: 0, pdr_4: 0,
+            dos_1: 0, dos_2: 0, dos_3: 0, dos_4: 0,
+            pit_1: 0, pit_2: 0, pit_3: 0, pit_4: 0
+        };
+
+        let currentTab = 'pdr';
+
+        // Tab Switching
+        const tabs = document.querySelectorAll('.rubric-tab');
+        const panels = document.querySelectorAll('.rubric-panel');
+        const milestoneLabel = document.getElementById('currentMilestoneLabel');
+
+        const tabNames = {
+            pdr: 'Midterm PDR Milestone Score (Week 7)',
+            dossier: 'Final Technical Dossier Score (Week 14)',
+            pitch: 'Grand Pitch Symposium Score (Week 14)'
+        };
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                tab.classList.add('active');
+                currentTab = tab.dataset.tab;
+                document.getElementById('panel-' + currentTab).classList.add('active');
+                milestoneLabel.textContent = tabNames[currentTab];
+                updateTotal();
+            });
+        });
+
+        // Score Buttons
+        document.querySelectorAll('.score-selector').forEach(group => {
+            const criterion = group.dataset.criterion;
+            const buttons = group.querySelectorAll('.score-btn');
+
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const score = parseInt(btn.dataset.score, 10);
+                    scores[criterion] = score;
+
+                    const display = document.getElementById(criterion + '_display');
+                    if (display) {
+                        display.textContent = score + ' / 25 pts';
+                    }
+
+                    updateTotal();
+                    autoSave();
+                });
+            });
+        });
+
+        // Update Total for Active Tab
+        function updateTotal() {
+            let activeKeys = [];
+            if (currentTab === 'pdr') activeKeys = ['pdr_1', 'pdr_2', 'pdr_3', 'pdr_4'];
+            else if (currentTab === 'dossier') activeKeys = ['dos_1', 'dos_2', 'dos_3', 'dos_4'];
+            else if (currentTab === 'pitch') activeKeys = ['pit_1', 'pit_2', 'pit_3', 'pit_4'];
+
+            const total = activeKeys.reduce((sum, k) => sum + (scores[k] || 0), 0);
+            const totalDisplay = document.getElementById('grandTotalDisplay');
+            const gradeDisplay = document.getElementById('gradeEquivalentDisplay');
+
+            totalDisplay.textContent = total + ' / 100';
+
+            if (total === 0) {
+                gradeDisplay.textContent = 'Incomplete Evaluation';
+                gradeDisplay.style.color = 'var(--text-muted)';
+            } else if (total >= 93) {
+                gradeDisplay.textContent = 'Grade: A (Exemplary Design & Defense)';
+                gradeDisplay.style.color = '#10b981';
+            } else if (total >= 90) {
+                gradeDisplay.textContent = 'Grade: A- (Excellent Translation)';
+                gradeDisplay.style.color = '#10b981';
+            } else if (total >= 85) {
+                gradeDisplay.textContent = 'Grade: B+ (Strong Engineering)';
+                gradeDisplay.style.color = '#3b82f6';
+            } else if (total >= 80) {
+                gradeDisplay.textContent = 'Grade: B (Proficient Execution)';
+                gradeDisplay.style.color = '#3b82f6';
+            } else if (total >= 70) {
+                gradeDisplay.textContent = 'Grade: C (Needs Re-evaluation / Iteration)';
+                gradeDisplay.style.color = '#f59e0b';
+            } else {
+                gradeDisplay.textContent = 'Grade: Unsatisfactory';
+                gradeDisplay.style.color = '#ef4444';
+            }
+        }
+
+        // Local Storage
+        function autoSave() {
+            const data = {
+                scores,
+                notes: {}
+            };
+            document.querySelectorAll('textarea').forEach(ta => {
+                data.notes[ta.id] = ta.value;
+            });
+            localStorage.setItem('idne701_rubric_data', JSON.stringify(data));
+        }
+
+        function loadSaved() {
+            const saved = localStorage.getItem('idne701_rubric_data');
+            if (!saved) return;
+            try {
+                const data = JSON.parse(saved);
+                if (data.scores) {
+                    Object.assign(scores, data.scores);
+                    for (const [key, val] of Object.entries(scores)) {
+                        if (val > 0) {
+                            const group = document.querySelector(`.score-selector[data-criterion="${key}"]`);
+                            if (group) {
+                                const btn = group.querySelector(`.score-btn[data-score="${val}"]`);
+                                if (btn) btn.classList.add('active');
+                            }
+                            const display = document.getElementById(key + '_display');
+                            if (display) display.textContent = val + ' / 25 pts';
+                        }
+                    }
+                }
+                if (data.notes) {
+                    for (const [id, text] of Object.entries(data.notes)) {
+                        const ta = document.getElementById(id);
+                        if (ta) ta.value = text;
+                    }
+                }
+                updateTotal();
+            } catch (e) {
+                console.error('Failed to load saved rubric data:', e);
+            }
+        }
+
+        // Textarea inputs trigger autosave
+        document.querySelectorAll('textarea').forEach(ta => {
+            ta.addEventListener('input', autoSave);
+        });
+
+        // Save & Reset Buttons
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            autoSave();
+            alert('Evaluation scores and feedback notes saved locally.');
+        });
+
+        document.getElementById('printBtn').addEventListener('click', () => {
+            window.print();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset all scores and feedback notes?')) {
+                localStorage.removeItem('idne701_rubric_data');
+                for (const k of Object.keys(scores)) scores[k] = 0;
+                document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('textarea').forEach(ta => ta.value = '');
+                document.querySelectorAll('.rubric-score').forEach(s => s.textContent = '0 / 25 pts');
+                updateTotal();
+            }
+        });
+
+        // Theme Toggle
+        const themeBtn = document.getElementById('themeToggle');
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+                themeBtn.textContent = '☼ Light Mode';
+            } else {
+                document.body.classList.remove('dark');
+                themeBtn.textContent = '◐ Dark Mode';
+            }
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            themeBtn.textContent = isDark ? '☼ Light Mode' : '◐ Dark Mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        // Init
+        initTheme();
+        loadSaved();
+        updateTotal();
+    </script>
+</body>
+
+</html>
