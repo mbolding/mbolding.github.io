@@ -18,6 +18,9 @@
     --scope-grid: #1e293b;
     --fid-line: #38bdf8;
     --env-line: #f59e0b;
+    --status-bg: #eff6ff;
+    --status-border: #bfdbfe;
+    --status-text: #1e40af;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -34,6 +37,9 @@
       --scope-grid: #1e293b;
       --fid-line: #38bdf8;
       --env-line: #fbbf24;
+      --status-bg: #172554;
+      --status-border: #1e3a8a;
+      --status-text: #93c5fd;
     }
   }
   :root[data-theme="dark"] {
@@ -49,6 +55,9 @@
     --scope-grid: #1e293b;
     --fid-line: #38bdf8;
     --env-line: #fbbf24;
+    --status-bg: #172554;
+    --status-border: #1e3a8a;
+    --status-text: #93c5fd;
   }
 
   * { box-sizing: border-box; }
@@ -72,19 +81,19 @@
   }
   .pulse-bar {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
   button {
     background: var(--accent);
     color: #fff;
     border: none;
-    padding: 9px 16px;
+    padding: 8px 14px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 500;
     transition: opacity 0.15s;
   }
@@ -98,6 +107,20 @@
     background: var(--accent);
     color: #fff;
     border-color: var(--accent);
+  }
+  .status-banner {
+    background: var(--status-bg);
+    border: 1px solid var(--status-border);
+    color: var(--status-text);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .dual-grid {
     display: grid;
@@ -132,7 +155,7 @@
   }
   .readout-row {
     display: flex;
-    gap: 14px;
+    gap: 16px;
     flex-wrap: wrap;
     margin-top: 12px;
     padding-top: 12px;
@@ -200,15 +223,22 @@
   <div class="panel">
     <!-- Pulse & Frame Actions -->
     <div class="pulse-bar">
-      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">RF Excitation:</span>
-      <button id="btn90">90&deg; Pulse (Max FID)</button>
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Apply RF Pulse:</span>
+      <button id="btn90">90&deg; Pulse</button>
       <button id="btn45" class="secondary">45&deg; Pulse</button>
-      <button id="btn180" class="secondary" title="At 180° Mxy = 0, so NO FID is induced!">180&deg; Inversion (Zero FID)</button>
-      <button id="btnReset" class="secondary">Equilibrium (M0)</button>
+      <button id="btn180" class="secondary">180&deg; Inversion</button>
+      <button id="btnCustom" class="secondary">Fire Slider Angle (&alpha;)</button>
+      <button id="btnReset" class="secondary" title="Restore thermal equilibrium Mz = +M0">Reset to M0</button>
       <div style="margin-left: auto; display: flex; gap: 6px;">
-        <button id="btnFrameLab" class="secondary active" style="padding:6px 10px; font-size:0.78rem;">Lab Frame</button>
-        <button id="btnFrameRot" class="secondary" style="padding:6px 10px; font-size:0.78rem;">Rotating Frame</button>
+        <button id="btnFrameLab" class="secondary active" style="padding:5px 9px; font-size:0.75rem;">Lab Frame</button>
+        <button id="btnFrameRot" class="secondary" style="padding:5px 9px; font-size:0.75rem;">Rotating Frame</button>
       </div>
+    </div>
+
+    <!-- Excitation Memory Status Banner -->
+    <div class="status-banner" id="statusBanner">
+      <span id="statusText">System at thermal equilibrium ($M_z = +1.00$). Click any RF pulse to tip magnetization.</span>
+      <span style="font-size:0.75rem; opacity:0.85;" id="statusSub">Remembers current Mz across excitations</span>
     </div>
 
     <!-- Dual Canvases -->
@@ -233,12 +263,12 @@
         <span class="readout-val" id="dispTime">0.0 ms</span>
       </div>
       <div class="readout-item">
-        <span class="readout-label">Longitudinal Mz/M0:</span>
-        <span class="readout-val mz" id="dispMz">0.00</span>
+        <span class="readout-label">Longitudinal Mz:</span>
+        <span class="readout-val mz" id="dispMz">+1.00</span>
       </div>
       <div class="readout-item">
-        <span class="readout-label">Transverse Mxy/M0:</span>
-        <span class="readout-val mxy" id="dispMxy">1.00</span>
+        <span class="readout-label">Transverse Mxy:</span>
+        <span class="readout-val mxy" id="dispMxy">0.00</span>
       </div>
       <div class="readout-item">
         <span class="readout-label">Induced EMF (E):</span>
@@ -251,7 +281,7 @@
       <button id="btnPlayPause" style="min-width: 80px;">Pause</button>
       <button id="btnStep" class="secondary">Step &rarr;</button>
       <div class="time-slider-wrap">
-        <label style="margin:0; white-space:nowrap;">Scrubber:</label>
+        <label style="margin:0; white-space:nowrap;">Time Scrubber:</label>
         <input type="range" id="timeScrubber" min="0" max="100" value="0" step="0.2">
       </div>
     </div>
@@ -259,7 +289,7 @@
     <!-- Parameters Sliders -->
     <div class="controls-grid">
       <div>
-        <label>Flip Angle α: <span class="val-badge" id="valAlpha">90&deg;</span></label>
+        <label>Flip Angle α (for Custom Pulse): <span class="val-badge" id="valAlpha">90&deg;</span></label>
         <input type="range" id="sliderAlpha" min="0" max="180" value="90" step="1">
       </div>
       <div>
@@ -279,17 +309,16 @@
 
   <div class="panel">
     <p class="note" style="margin-top: 0;">
-      <strong>Physical Principles:</strong>
+      <strong>Physical Principles &amp; Excitation Memory:</strong>
     </p>
     <p class="note">
-      1. <strong>Faraday's Law of Induction:</strong> An RF receiver coil positioned along the transverse x-axis detects the rate of change of magnetic flux:
-      E(t) = -dΦ/dt ∝ -dMx(t)/dt. As the transverse magnetization vector Mxy rotates past the copper loop, it induces an alternating electrical voltage. When M points along the longitudinal z-axis (at equilibrium or after a 180&deg; inversion pulse), Mxy = 0, producing zero flux change through the coil and <strong>no FID signal</strong>.
+      1. <strong>Remembering Mz &amp; T1 Saturation:</strong> An RF pulse can only tip whatever longitudinal magnetization ($M_z^-$) is currently present in the system at the moment of excitation. If you fire a 90&deg; pulse shortly after a previous excitation before $T_1$ recovery is complete, $M_z^-$ is small, so the resulting transverse magnetization $M_{xy}(0^+) = M_z^- \sin(90^\circ)$ and the generated FID are proportionally small. This progressive reduction of signal with rapid pulsing is <strong>$T_1$ saturation</strong>.
     </p>
     <p class="note">
-      2. <strong>Microscopic Origin of the Decay (T2*):</strong> The net moment Mxy is the vector sum of billions of individual proton dipoles. Because local magnetic fields vary microscopically (ΔB0), individual spin isochromats precess at slightly different frequencies. Immediately after excitation they are in phase; over time they fan out (dephase) across the transverse plane. As their phase dispersion widens, their vector sum cancels out &mdash; producing the decaying exponential envelope of the Free Induction Decay.
+      2. <strong>Inversion Recovery &amp; The Null Point:</strong> Fire a 180&deg; pulse to invert $M_z$ to $-1.00$. As $M_z(t)$ recovers towards $+1.00$, it passes through zero (the <em>null point</em> at $t_{	ext{null}} = T_1 \ln 2 pprox 0.693 T_1$). If you apply a 90&deg; pulse exactly when $M_z pprox 0$, $M_{xy}(0^+) = 0 	imes \sin(90^\circ) = 0$ &mdash; <strong>no FID signal is produced!</strong> This is the exact principle used in FLAIR (suppressing CSF) and STIR (suppressing fat).
     </p>
     <p class="note">
-      3. <strong>T1 vs. T2* Asymmetry:</strong> In biological tissue, transverse dephasing (T2* ≈ 10–50 ms) happens orders of magnitude faster than longitudinal thermal recovery back to the lattice (T1 ≈ 500–1500 ms). Notice that long after the FID has vanished into noise, the longitudinal magnetization Mz is still slowly recovering toward +M0.
+      3. <strong>Faraday's Law of Induction:</strong> An RF receiver coil detects the time-derivative of magnetic flux: $\mathcal{E}(t) = -d\Phi_B/dt \propto -dM_x/dt$. Only transverse magnetization ($M_{xy}$) produces an alternating flux through the transverse coil loop.
     </p>
   </div>
 
@@ -297,15 +326,18 @@
 </div>
 
 <script>
-// State
+// Physical State
+const M0 = 1.0;
+let initMz = 1.0;    // Mz immediately after the most recent pulse (at epoch t=0)
+let initMxy = 0.0;   // Mxy immediately after the most recent pulse (at epoch t=0)
 let alpha = 90 * Math.PI / 180; // Flip angle in radians
-let T2star = 25.0; // ms
-let T1 = 300.0; // ms
-let freq = 18.0; // Hz
-let time = 0.0; // ms
-let maxTime = 100.0; // ms
+let T2star = 25.0;   // ms
+let T1 = 300.0;      // ms
+let freq = 18.0;      // Hz
+let time = 0.0;       // ms within current epoch
+let maxTime = 100.0;  // ms
 let isPlaying = true;
-let frameMode = 'lab'; // 'lab' or 'rot'
+let frameMode = 'lab';// 'lab' or 'rot'
 
 // 3D Camera Orbit
 let camYaw = -0.55;
@@ -336,6 +368,7 @@ const dispTime = document.getElementById('dispTime');
 const dispMz = document.getElementById('dispMz');
 const dispMxy = document.getElementById('dispMxy');
 const dispCoil = document.getElementById('dispCoil');
+const statusText = document.getElementById('statusText');
 
 const sliderAlpha = document.getElementById('sliderAlpha');
 const valAlpha = document.getElementById('valAlpha');
@@ -349,15 +382,15 @@ const valFreq = document.getElementById('valFreq');
 const btnFrameLab = document.getElementById('btnFrameLab');
 const btnFrameRot = document.getElementById('btnFrameRot');
 
-// Bloch calculation helpers
+// Bloch calculation helpers based on initMz and initMxy
 function getMagnetization(t) {
-  const M0 = 1.0;
-  const Mz0 = M0 * Math.cos(alpha);
-  const Mxy0 = M0 * Math.sin(alpha);
+  // Longitudinal recovery from initMz towards M0 (+1.0)
+  const mz = M0 - (M0 - initMz) * Math.exp(-t / T1);
 
-  const mxyMag = Mxy0 * Math.exp(-t / T2star);
-  const mz = M0 - (M0 - Mz0) * Math.exp(-t / T1);
+  // Transverse decay from initMxy with time constant T2*
+  const mxyMag = initMxy * Math.exp(-t / T2star);
 
+  // Precession angle in radians
   const effectiveFreq = (frameMode === 'lab') ? freq : (freq * 0.2);
   const omega = 2 * Math.PI * (effectiveFreq / 1000.0); // rad per ms
   const phase = omega * t;
@@ -365,9 +398,47 @@ function getMagnetization(t) {
   const mx = mxyMag * Math.cos(phase);
   const my = mxyMag * Math.sin(phase);
 
-  const emf = (Mxy0 > 0.001) ? (mxyMag * Math.sin(phase)) : 0;
+  // Induced EMF is proportional to -dMx/dt ≈ mxyMag * sin(phase)
+  const emf = (Math.abs(initMxy) > 0.001) ? (mxyMag * Math.sin(phase)) : 0;
 
-  return { mz, mxyMag, mx, my, phase, emf, Mxy0 };
+  return { mz, mxyMag, mx, my, phase, emf, initMxy, initMz };
+}
+
+// Apply an RF pulse of angle flipRad to whatever Mz is currently present!
+function applyPulse(flipRad, labelName) {
+  // 1. Calculate current state at this instant
+  const st = getMagnetization(time);
+  const Mz_before = st.mz;
+
+  // 2. Tipping transformation:
+  // Longitudinal magnetization Mz_before is rotated by flipRad
+  initMz = Mz_before * Math.cos(flipRad);
+  initMxy = Mz_before * Math.sin(flipRad);
+
+  // 3. Reset time within this new epoch
+  time = 0.0;
+  timeScrubber.value = 0.0;
+  isPlaying = true;
+  btnPlayPause.textContent = 'Pause';
+
+  // 4. Informative status update
+  const deg = Math.round(flipRad * 180 / Math.PI);
+  let note = '';
+  if (Math.abs(Mz_before) < 0.06) {
+    note = ' [Null Point! Mz ≈ 0 → no FID signal produced]';
+  } else if (deg === 180) {
+    note = ' [Inversion: Mz inverted to negative, Mxy = 0 → no FID]';
+  } else if (Mz_before < 0) {
+    note = ' [Inverted Mz tipped → FID has 180° phase flip]';
+  } else if (Mz_before < 0.90) {
+    note = ` [T1 Saturated: Mz was only ${(Mz_before*100).toFixed(0)}% recovered]`;
+  } else {
+    note = ' [Full equilibrium excitation]';
+  }
+
+  statusText.innerHTML = `<strong>${labelName || deg + '&deg; Pulse'}:</strong> Tipped pre-pulse $M_z$ (${(Mz_before >= 0 ? '+' : '') + Mz_before.toFixed(2)}) &rarr; new $M_{xy}(0) = ${(initMxy >= 0 ? '+' : '') + initMxy.toFixed(2)}$, $M_z(0) = ${(initMz >= 0 ? '+' : '') + initMz.toFixed(2)}$.<em>${note}</em>`;
+
+  updateAll();
 }
 
 // 3D Projection Engine
@@ -389,7 +460,7 @@ function project(x, y, z, cx, cy, scale) {
   };
 }
 
-// Draw arrow in 3D
+// Draw 3D Arrow
 function draw3DArrow(ctx, start, end, color, lineWidth = 3, arrowSize = 7) {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
@@ -401,6 +472,8 @@ function draw3DArrow(ctx, start, end, color, lineWidth = 3, arrowSize = 7) {
 
   const dx = end.px - start.px;
   const dy = end.py - start.py;
+  const len = Math.hypot(dx, dy);
+  if (len < 3) return; // Vector too short for head
   const angle = Math.atan2(dy, dx);
   ctx.beginPath();
   ctx.moveTo(end.px, end.py);
@@ -434,7 +507,7 @@ function renderSpins() {
 
   const negX = project(-1.1, 0, 0, cx, cy, scale);
   const negY = project(0, -1.1, 0, cx, cy, scale);
-  const negZ = project(0, 0, -1.1, cx, cy, scale);
+  const negZ = project(0, 0, -1.3, cx, cy, scale);
   ctxSpins.beginPath();
   ctxSpins.moveTo(negX.px, negX.py); ctxSpins.lineTo(origin.px, origin.py);
   ctxSpins.moveTo(negY.px, negY.py); ctxSpins.lineTo(origin.px, origin.py);
@@ -453,7 +526,8 @@ function renderSpins() {
   ctxSpins.fillStyle = '#64748b';
   ctxSpins.fillText('x (transverse)', axisX.px + 4, axisX.py);
   ctxSpins.fillText('y', axisY.px + 4, axisY.py);
-  ctxSpins.fillText('z (B0 field)', axisZ.px - 20, axisZ.py - 8);
+  ctxSpins.fillText('z (B0)', axisZ.px - 14, axisZ.py - 8);
+  ctxSpins.fillText('-z (inversion)', negZ.px - 28, negZ.py + 14);
 
   // 2. Transverse plane reference circle
   ctxSpins.strokeStyle = 'rgba(148, 163, 184, 0.25)';
@@ -473,7 +547,7 @@ function renderSpins() {
   const coilRadius = 0.55;
   ctxSpins.lineWidth = 3;
   const absEmf = Math.abs(state.emf);
-  ctxSpins.strokeStyle = `rgba(56, 189, 248, ${0.4 + 0.6 * absEmf})`;
+  ctxSpins.strokeStyle = `rgba(56, 189, 248, ${0.35 + 0.65 * absEmf})`;
   ctxSpins.beginPath();
   for (let i = 0; i <= nCircle; i++) {
     let a = (i / nCircle) * 2 * Math.PI;
@@ -489,17 +563,17 @@ function renderSpins() {
   ctxSpins.fillText('RF Receiver Coil', coilTop.px - 35, coilTop.py - 8);
 
   // 4. Individual Isochromats
-  if (state.Mxy0 > 0.01) {
+  if (Math.abs(state.initMxy) > 0.01) {
     const effFreq = (frameMode === 'lab') ? freq : (freq * 0.2);
     const basePhase = 2 * Math.PI * (effFreq / 1000.0) * time;
     const dephaseAmount = (time / T2star);
 
     isochromats.forEach((iso) => {
       const isoPhase = basePhase + iso.offset * dephaseAmount;
-      const len = 0.85;
+      const len = Math.abs(state.initMxy) * 0.85;
       const isoPt = project(
-        Math.cos(isoPhase) * len,
-        Math.sin(isoPhase) * len,
+        Math.cos(isoPhase) * len * (state.initMxy >= 0 ? 1 : -1),
+        Math.sin(isoPhase) * len * (state.initMxy >= 0 ? 1 : -1),
         state.mz,
         cx, cy, scale
       );
@@ -592,8 +666,8 @@ function renderSignal() {
     let y = scope1MidY - st.emf * (scope1H * 0.44);
     fidPoints.push({ x, y });
 
-    let envY = scope1MidY - st.mxyMag * (scope1H * 0.44);
-    let envYNeg = scope1MidY + st.mxyMag * (scope1H * 0.44);
+    let envY = scope1MidY - Math.abs(st.mxyMag) * (scope1H * 0.44);
+    let envYNeg = scope1MidY + Math.abs(st.mxyMag) * (scope1H * 0.44);
     envUpper.push({ x, y: envY });
     envLower.push({ x, y: envYNeg });
   }
@@ -617,26 +691,36 @@ function renderSignal() {
   fidPoints.forEach((pt, i) => i === 0 ? ctxSignal.moveTo(pt.x, pt.y) : ctxSignal.lineTo(pt.x, pt.y));
   ctxSignal.stroke();
 
-  // Scope 2: Bloch Relaxation Curves
+  // Scope 2: Bloch Relaxation Curves (supporting -1.0 to +1.0 for Mz)
   const scope2Top = midSep + 12;
   const scope2H = h - scope2Top - 28;
-  const scope2BaseY = scope2Top + scope2H;
+  const scope2MidY = scope2Top + scope2H / 2; // zero line for Mz
 
   ctxSignal.strokeStyle = '#1e293b';
   ctxSignal.lineWidth = 1;
   ctxSignal.beginPath();
-  ctxSignal.moveTo(padLeft, scope2BaseY); ctxSignal.lineTo(padLeft + plotW, scope2BaseY);
-  ctxSignal.moveTo(padLeft, scope2Top); ctxSignal.lineTo(padLeft + plotW, scope2Top);
+  ctxSignal.moveTo(padLeft, scope2Top); ctxSignal.lineTo(padLeft + plotW, scope2Top); // +1.0 line
+  ctxSignal.moveTo(padLeft, scope2MidY); ctxSignal.lineTo(padLeft + plotW, scope2MidY); // 0.0 line
+  ctxSignal.moveTo(padLeft, scope2Top + scope2H); ctxSignal.lineTo(padLeft + plotW, scope2Top + scope2H); // -1.0 line
   for (let t = 0; t <= maxTime; t += 20) {
     let x = padLeft + (t / maxTime) * plotW;
     ctxSignal.moveTo(x, scope2Top); ctxSignal.lineTo(x, scope2Top + scope2H);
   }
   ctxSignal.stroke();
 
+  // Zero-line dashed emphasis
+  ctxSignal.strokeStyle = '#334155';
+  ctxSignal.setLineDash([2, 2]);
+  ctxSignal.beginPath();
+  ctxSignal.moveTo(padLeft, scope2MidY); ctxSignal.lineTo(padLeft + plotW, scope2MidY);
+  ctxSignal.stroke();
+  ctxSignal.setLineDash([]);
+
   ctxSignal.fillStyle = '#94a3b8';
   ctxSignal.font = '10px ui-monospace, monospace';
-  ctxSignal.fillText('1.0', 20, scope2Top + 8);
-  ctxSignal.fillText('0.0', 20, scope2BaseY);
+  ctxSignal.fillText('+1.0', 16, scope2Top + 8);
+  ctxSignal.fillText(' 0.0', 16, scope2MidY + 3);
+  ctxSignal.fillText('-1.0', 16, scope2Top + scope2H);
   for (let t = 0; t <= maxTime; t += 20) {
     let x = padLeft + (t / maxTime) * plotW;
     ctxSignal.fillText(t + 'ms', x - 12, h - 10);
@@ -644,11 +728,11 @@ function renderSignal() {
 
   ctxSignal.font = 'bold 11px sans-serif';
   ctxSignal.fillStyle = '#4ade80';
-  ctxSignal.fillText('— Mxy(t) [T2* decay]', padLeft + 6, scope2Top + 16);
+  ctxSignal.fillText('— Mxy(t) [T2* decay]', padLeft + 6, scope2Top + 14);
   ctxSignal.fillStyle = '#f87171';
-  ctxSignal.fillText('— Mz(t) [T1 recovery]', padLeft + 160, scope2Top + 16);
+  ctxSignal.fillText('— Mz(t) [T1 recovery]', padLeft + 155, scope2Top + 14);
 
-  // Mxy curve
+  // Mxy curve (plotted from 0 upwards)
   ctxSignal.lineWidth = 2;
   ctxSignal.strokeStyle = '#4ade80';
   ctxSignal.beginPath();
@@ -656,20 +740,21 @@ function renderSignal() {
     let t = (i / points) * maxTime;
     let st = getMagnetization(t);
     let x = padLeft + (t / maxTime) * plotW;
-    let y = scope2BaseY - st.mxyMag * scope2H;
+    // Maps [0, 1] to [scope2MidY, scope2Top]
+    let y = scope2MidY - Math.abs(st.mxyMag) * (scope2H * 0.5);
     if (i === 0) ctxSignal.moveTo(x, y);
     else ctxSignal.lineTo(x, y);
   }
   ctxSignal.stroke();
 
-  // Mz curve
+  // Mz curve (maps [-1, +1] to [scope2Top+scope2H, scope2Top])
   ctxSignal.strokeStyle = '#f87171';
   ctxSignal.beginPath();
   for (let i = 0; i <= points; i++) {
     let t = (i / points) * maxTime;
     let st = getMagnetization(t);
     let x = padLeft + (t / maxTime) * plotW;
-    let y = scope2BaseY - Math.max(0, st.mz) * scope2H;
+    let y = scope2MidY - st.mz * (scope2H * 0.5);
     if (i === 0) ctxSignal.moveTo(x, y);
     else ctxSignal.lineTo(x, y);
   }
@@ -682,7 +767,7 @@ function renderSignal() {
   ctxSignal.setLineDash([3, 2]);
   ctxSignal.beginPath();
   ctxSignal.moveTo(curX, scope1Top);
-  ctxSignal.lineTo(curX, scope2BaseY);
+  ctxSignal.lineTo(curX, scope2Top + scope2H);
   ctxSignal.stroke();
   ctxSignal.setLineDash([]);
 
@@ -701,8 +786,8 @@ function renderSignal() {
 function updateAll() {
   const st = getMagnetization(time);
   dispTime.textContent = time.toFixed(1) + ' ms';
-  dispMz.textContent = st.mz.toFixed(2);
-  dispMxy.textContent = st.mxyMag.toFixed(2);
+  dispMz.textContent = (st.mz >= 0 ? '+' : '') + st.mz.toFixed(2);
+  dispMxy.textContent = Math.abs(st.mxyMag).toFixed(2);
   dispCoil.textContent = (st.emf > 0 ? '+' : '') + st.emf.toFixed(2) + ' a.u.';
   timeScrubber.value = time;
 
@@ -719,7 +804,10 @@ function loop(timestamp) {
   if (isPlaying) {
     time += dt * 0.045;
     if (time > maxTime) {
-      time = 0;
+      // Loop within the epoch or let it continue relaxing
+      time = maxTime;
+      isPlaying = false;
+      btnPlayPause.textContent = 'Play';
     }
     updateAll();
   }
@@ -749,8 +837,6 @@ timeScrubber.addEventListener('input', (e) => {
 sliderAlpha.addEventListener('input', (e) => {
   alpha = parseFloat(e.target.value) * Math.PI / 180;
   valAlpha.textContent = e.target.value + '°';
-  time = 0;
-  updateAll();
 });
 
 sliderT2.addEventListener('input', (e) => {
@@ -771,43 +857,32 @@ sliderFreq.addEventListener('input', (e) => {
   updateAll();
 });
 
+// Excitation Button Handlers (using continuous Mz state)
 document.getElementById('btn90').addEventListener('click', () => {
-  sliderAlpha.value = 90;
-  alpha = 90 * Math.PI / 180;
-  valAlpha.textContent = '90°';
-  time = 0;
-  isPlaying = true;
-  btnPlayPause.textContent = 'Pause';
-  updateAll();
+  applyPulse(Math.PI / 2, '90° Pulse');
 });
 
 document.getElementById('btn45').addEventListener('click', () => {
-  sliderAlpha.value = 45;
-  alpha = 45 * Math.PI / 180;
-  valAlpha.textContent = '45°';
-  time = 0;
-  isPlaying = true;
-  btnPlayPause.textContent = 'Pause';
-  updateAll();
+  applyPulse(Math.PI / 4, '45° Pulse');
 });
 
 document.getElementById('btn180').addEventListener('click', () => {
-  sliderAlpha.value = 180;
-  alpha = 180 * Math.PI / 180;
-  valAlpha.textContent = '180°';
-  time = 0;
-  isPlaying = true;
-  btnPlayPause.textContent = 'Pause';
-  updateAll();
+  applyPulse(Math.PI, '180° Inversion Pulse');
+});
+
+document.getElementById('btnCustom').addEventListener('click', () => {
+  const deg = sliderAlpha.value;
+  applyPulse(parseFloat(deg) * Math.PI / 180, `${deg}° Custom Pulse`);
 });
 
 document.getElementById('btnReset').addEventListener('click', () => {
-  sliderAlpha.value = 0;
-  alpha = 0;
-  valAlpha.textContent = '0°';
+  initMz = 1.0;
+  initMxy = 0.0;
   time = 0;
+  timeScrubber.value = 0;
   isPlaying = false;
   btnPlayPause.textContent = 'Play';
+  statusText.innerHTML = '<strong>Reset:</strong> Restored thermal equilibrium ($M_z = +1.00$, $M_{xy} = 0.00$).';
   updateAll();
 });
 
@@ -861,6 +936,7 @@ window.addEventListener('touchmove', (e) => {
   renderSpins();
 });
 
+// Initial draw at equilibrium
 updateAll();
 </script>
 </body>
