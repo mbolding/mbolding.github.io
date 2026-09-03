@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulse Sequence Timing Diagram</title>
+<style>
+  :root{--bg:#fafafa;--fg:#1a1a1a;--muted:#666;--accent:#2563eb;--card:#fff;--border:#ddd;}
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--card:#131b2c;--border:#26324a; }
+  }
+  :root[data-theme="dark"] { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--card:#131b2c;--border:#26324a; }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 16px 60px;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:940px;margin:0 auto;}
+  h1{font-size:1.5rem;margin:0 0 4px;}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:0.95rem;line-height:1.4;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:20px;}
+  label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:4px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .row{display:flex;gap:20px;flex-wrap:wrap;}
+  .col{flex:1;min-width:220px;}
+  canvas{display:block;background:var(--card);border-radius:6px;max-width:100%;}
+  .value{font-weight:600;color:var(--accent);}
+  .note{font-size:0.83rem;color:var(--muted);margin-top:10px;line-height:1.45;}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>Pulse Sequence Timing Diagram</h1>
+  <p class="sub">A spin-echo sequence, one repetition: an RF pulse tips magnetization, gradients turn on and off in a precise order, and a signal is read out &mdash; then the whole thing repeats every <strong>TR</strong>. Drag TE to see the 180&deg; pulse and the echo move together (the echo always forms at TE); drag TR to see how much longer the scanner waits before repeating.</p>
+
+  <div class="panel">
+    <canvas id="c" width="960" height="330" style="width:100%;height:330px;"></canvas>
+
+    <div class="row" style="margin-top:16px;">
+      <div class="col">
+        <label>TE &mdash; echo time: <span class="value" id="teVal">40 ms</span></label>
+        <input type="range" id="te" min="15" max="150" value="40" step="1">
+      </div>
+      <div class="col">
+        <label>TR &mdash; repetition time: <span class="value" id="trVal">1500 ms</span></label>
+        <input type="range" id="tr" min="200" max="4000" value="1500" step="20">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note">
+      <strong>Reading the diagram:</strong> the 90&deg; pulse (with the slice-select gradient Gz on) tips magnetization into the transverse plane. A brief Gy phase-encode blip follows &mdash; a different amplitude every repetition, which is how the phase-encode direction gets filled in, one k-space line per TR. A negative Gx lobe deliberately dephases the spins; the 180&deg; refocusing pulse at TE/2 flips them so they rephase into an echo exactly at TE, which is when the positive Gx readout lobe is on and the signal is actually sampled. Everything after that is dead time until the next TR, when the whole block repeats with a new phase-encode amplitude.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Physics of MRI &middot; Pulse Sequence Timing Diagram</footer>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const teSlider = document.getElementById('te');
+const trSlider = document.getElementById('tr');
+const teVal = document.getElementById('teVal');
+const trVal = document.getElementById('trVal');
+
+const labelX = 10;
+const xStart = 110, xEnd = 630;
+const breakX0 = 645, breakX1 = 685;
+const trBarX0 = 700, trBarMaxX1 = 900;
+
+const tracks = ['RF', 'Gz', 'Gy', 'Gx', 'Signal'];
+const trackY = {};
+tracks.forEach((t, i) => trackY[t] = 30 + i * 58);
+
+function timeToX(t, teWindow) {
+  return xStart + (t / teWindow) * (xEnd - xStart);
+}
+
+function baseline(y) {
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(xStart - 20, y); ctx.lineTo(xEnd + 10, y);
+  ctx.stroke();
+}
+
+function sincBump(y, xc, halfWidthPx, amp, color, label) {
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  const n = 40;
+  for (let i = 0; i <= n; i++) {
+    const u = (i / n - 0.5) * 6; // -3..3
+    const x = xc + (i / n - 0.5) * halfWidthPx * 2;
+    const s = u === 0 ? 1 : Math.sin(u) / u;
+    const y2 = y - s * amp;
+    if (i === 0) ctx.moveTo(x, y2); else ctx.lineTo(x, y2);
+  }
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, xc, y - amp - 8);
+  ctx.textAlign = 'start';
+}
+
+function rectPulse(y, xc, halfWidthPx, amp, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(xc - halfWidthPx, y - amp, halfWidthPx * 2, amp);
+  ctx.strokeStyle = color;
+  ctx.strokeRect(xc - halfWidthPx, y - amp, halfWidthPx * 2, amp);
+}
+
+function phaseFan(y, xc, halfWidthPx) {
+  const steps = 7;
+  for (let i = 0; i < steps; i++) {
+    const frac = (i / (steps - 1)) * 2 - 1; // -1..1
+    const amp = frac * 20;
+    ctx.strokeStyle = i === Math.floor(steps / 2) ? '#7c3aed' : 'rgba(124,58,237,0.45)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(xc - halfWidthPx, y);
+    ctx.lineTo(xc - halfWidthPx, y - amp);
+    ctx.lineTo(xc + halfWidthPx, y - amp);
+    ctx.lineTo(xc + halfWidthPx, y);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#7c3aed';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('phase-encode steps (one per TR)', xc + halfWidthPx + 8, y - 20);
+}
+
+function gaussBump(y, xc, sigmaPx, amp, color, label) {
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  const n = 60;
+  for (let i = 0; i <= n; i++) {
+    const x = xc - 3 * sigmaPx + (i / n) * 6 * sigmaPx;
+    const g = Math.exp(-((x - xc) ** 2) / (2 * sigmaPx * sigmaPx));
+    const yy = y - g * amp;
+    if (i === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+  }
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, xc, y - amp - 8);
+  ctx.textAlign = 'start';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const TE = parseInt(teSlider.value, 10);
+  const TR = parseInt(trSlider.value, 10);
+  teVal.textContent = TE + ' ms';
+  trVal.textContent = TR + ' ms';
+
+  // affine (not proportional) window so the TE fraction of the window genuinely
+  // changes with TE -- a purely proportional window would look identical at every TE
+  const teWindow = TE + 120;
+  const x0 = timeToX(0, teWindow);
+  const xTEhalf = timeToX(TE / 2, teWindow);
+  const xTE = timeToX(TE, teWindow);
+  const gap = xTEhalf - x0; // pixel gap between the 90 and 180 pulses at this TE
+  const rfHalf90 = Math.min(10, gap * 0.28);
+  const rfHalf180 = Math.min(12, gap * 0.32);
+  const blipHalf = Math.min(10, gap * 0.16);
+  const blipX = x0 + gap * 0.55;
+
+  // track labels + baselines
+  ctx.font = '12px sans-serif';
+  ctx.fillStyle = '#64748b';
+  tracks.forEach(t => {
+    ctx.fillText(t, labelX, trackY[t] + 4);
+    baseline(trackY[t]);
+  });
+
+  // vertical guide lines
+  [xTEhalf, xTE].forEach((x, i) => {
+    ctx.strokeStyle = '#94a3b8';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, 10); ctx.lineTo(x, trackY['Signal'] + 20);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('TE/2', xTEhalf - 12, trackY['Signal'] + 34);
+  ctx.fillText('TE', xTE - 8, trackY['Signal'] + 34);
+
+  // RF: 90 at t=0, 180 at TE/2
+  sincBump(trackY['RF'], x0, rfHalf90, 22, '#dc2626', '90°');
+  sincBump(trackY['RF'], xTEhalf, rfHalf180, 32, '#b91c1c', '180°');
+
+  // Gz: slice-select gradient under each RF pulse
+  rectPulse(trackY['Gz'], x0, rfHalf90, 18, 'rgba(37,99,235,0.55)');
+  rectPulse(trackY['Gz'], xTEhalf, rfHalf180, 18, 'rgba(37,99,235,0.55)');
+
+  // Gy: phase-encode fan shortly after the 90 pulse (position scales with the
+  // available 90-to-180 gap so it never collides with either pulse)
+  phaseFan(trackY['Gy'], blipX, blipHalf);
+
+  // Gx: dephase lobe (negative) after 90, readout lobe centered at TE
+  ctx.fillStyle = 'rgba(220,38,38,0.5)';
+  ctx.fillRect(blipX - blipHalf, trackY['Gx'], blipHalf * 2, 16);
+  ctx.strokeStyle = 'rgba(220,38,38,0.5)';
+  ctx.strokeRect(blipX - blipHalf, trackY['Gx'], blipHalf * 2, 16);
+  const readoutHalf = Math.max(16, Math.min(60, (xEnd - x0) * 0.12));
+  rectPulse(trackY['Gx'], xTE, readoutHalf, 20, 'rgba(22,163,74,0.55)');
+  ctx.fillStyle = '#16a34a';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('readout', xTE - 16, trackY['Gx'] - 26);
+
+  // Signal: echo centered at TE
+  gaussBump(trackY['Signal'], xTE, readoutHalf * 0.55, 24, '#0891b2', 'echo');
+
+  // break + TR bar
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(breakX0, trackY['Signal'] + 15);
+  ctx.lineTo(breakX0 + 8, trackY['Signal'] - 5);
+  ctx.lineTo(breakX0 + 16, trackY['Signal'] + 15);
+  ctx.lineTo(breakX0 + 24, trackY['Signal'] - 5);
+  ctx.stroke();
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'italic 11px sans-serif';
+  ctx.fillText('(dead time)', breakX0 - 8, trackY['Signal'] + 30);
+
+  const trFrac = (TR - 200) / (4000 - 200);
+  const barW = 20 + trFrac * (trBarMaxX1 - trBarX0 - 20);
+  ctx.fillStyle = 'rgba(100,116,139,0.25)';
+  ctx.fillRect(trBarX0, trackY['RF'] - 10, barW, 20);
+  ctx.strokeStyle = '#64748b';
+  ctx.strokeRect(trBarX0, trackY['RF'] - 10, barW, 20);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('TR = ' + TR + ' ms', trBarX0, trackY['RF'] - 16);
+  const nextRfX = Math.min(trBarX0 + barW + 16, W - 14);
+  sincBump(trackY['RF'], nextRfX, 8, 14, '#dc2626', '90°');
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'italic 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('next TR begins', nextRfX, trackY['Signal'] + 30);
+  ctx.textAlign = 'start';
+}
+
+teSlider.addEventListener('input', draw);
+trSlider.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

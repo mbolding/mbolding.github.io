@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gradient Encoding Visualizer</title>
+<style>
+  :root{--bg:#fafafa;--fg:#1a1a1a;--muted:#666;--accent:#2563eb;--accent2:#16a34a;--card:#fff;--border:#ddd;}
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#16a34a;--card:#131b2c;--border:#26324a; }
+  }
+  :root[data-theme="dark"] { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#16a34a;--card:#131b2c;--border:#26324a; }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 16px 60px;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:1.5rem;margin:0 0 4px;}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:0.95rem;line-height:1.4;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:20px;}
+  label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:4px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
+  .col{flex:1;min-width:200px;}
+  canvas{display:block;background:#0f172a;border-radius:6px;max-width:100%;}
+  .value{font-weight:600;color:var(--accent);}
+  .note{font-size:0.83rem;color:var(--muted);margin-top:10px;line-height:1.45;}
+  button{background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:6px;cursor:pointer;font-size:0.88rem;}
+  button:hover{opacity:0.88;}
+  button.secondary{background:#e5e7eb;color:#1a1a1a;}
+  .modebar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .modebtn{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;font-size:0.85rem;}
+  .modebtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>Gradient Encoding Visualizer</h1>
+  <p class="sub">A gradient coil adds a linear field variation on top of B0, so the Larmor frequency &mdash; and therefore the precession you saw in the Spins demo &mdash; becomes <strong>position-dependent</strong>. That's the entire trick behind spatial encoding. Pick a mode below to see each gradient's job. (Rotation speeds here are wildly exaggerated for visibility &mdash; real Larmor frequencies are tens of MHz.)</p>
+
+  <div class="panel">
+    <div class="modebar">
+      <button class="modebtn active" data-mode="freq">Frequency encoding</button>
+      <button class="modebtn" data-mode="phase">Phase encoding</button>
+      <button class="modebtn" data-mode="slice">Slice selection</button>
+    </div>
+
+    <canvas id="c" width="860" height="230" style="width:100%;height:230px;"></canvas>
+
+    <div class="row" style="margin-top:16px;">
+      <div class="col">
+        <label>Gradient strength: <span class="value" id="gVal">50</span></label>
+        <input type="range" id="grad" min="0" max="100" value="50" step="1">
+      </div>
+      <div class="col" id="controls" style="text-align:right;"></div>
+    </div>
+
+    <p class="note" id="explain"></p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Physics of MRI &middot; Gradient Encoding Visualizer</footer>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const N = 15;
+const cyc = H / 2;
+const margin = 60;
+
+const gradSlider = document.getElementById('grad');
+const gVal = document.getElementById('gVal');
+const controls = document.getElementById('controls');
+const explain = document.getElementById('explain');
+const modeButtons = document.querySelectorAll('.modebtn');
+
+let mode = 'freq';
+let angles = new Array(N).fill(0);
+let excited = new Array(N).fill(false);
+let playing = false;
+let rafId = null;
+let lastT = null;
+
+function positions() {
+  const arr = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);           // 0..1
+    const p = t * 2 - 1;              // -1..1 relative position
+    const x = margin + t * (W - 2 * margin);
+    arr.push({ p, x });
+  }
+  return arr;
+}
+
+function localFreqDegPerSec(p, gradStrength) {
+  // base rotation + gradient-induced offset, both in visualization units
+  return 40 + gradStrength * p * 3.2;
+}
+
+function resetAngles() { angles = new Array(N).fill(0); excited = new Array(N).fill(false); draw(); }
+
+function drawSpin(x, y, angleDeg, color, label) {
+  const r = 16;
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  const rad = angleDeg * Math.PI / 180;
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + r * Math.cos(rad), y - r * Math.sin(rad));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.fillStyle = color;
+  ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const g = parseFloat(gradSlider.value);
+  const pos = positions();
+
+  // isocenter line
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 10); ctx.lineTo(W / 2, H - 40);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('isocenter', W / 2 - 26, H - 24);
+
+  if (mode === 'slice') {
+    // RF bandwidth window: fixed frequency window, maps to a position window that
+    // shrinks as gradient strength increases (thickness = bandwidth / gradient)
+    const bandwidthHz = 22; // fixed "RF bandwidth" in our viz units
+    const gEff = Math.max(g, 4);
+    const halfWidthP = bandwidthHz / (gEff * 3.2 * 2); // solve local freq offset = +-bandwidth/2
+    const halfWidthPx = Math.min(halfWidthP, 1) * (W / 2 - margin);
+    ctx.fillStyle = 'rgba(34,197,94,0.15)';
+    ctx.fillRect(W / 2 - halfWidthPx, 10, halfWidthPx * 2, H - 50);
+    ctx.strokeStyle = 'rgba(34,197,94,0.6)';
+    ctx.strokeRect(W / 2 - halfWidthPx, 10, halfWidthPx * 2, H - 50);
+    ctx.fillStyle = '#4ade80';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('RF excites only this slice (fixed bandwidth)', W / 2 - 100, 24);
+  }
+
+  pos.forEach((pt, i) => {
+    let color = '#60a5fa';
+    if (mode === 'slice' && excited[i]) color = '#4ade80';
+    drawSpin(pt.x, cyc, angles[i], color, i);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '9px sans-serif';
+    ctx.fillText(pt.p.toFixed(1), pt.x - 8, cyc + 34);
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('position along gradient axis', W / 2 - 60, cyc + 50);
+}
+
+function tick(t) {
+  if (!lastT) lastT = t;
+  const dt = (t - lastT) / 1000;
+  lastT = t;
+  const g = parseFloat(gradSlider.value);
+  positions().forEach((pt, i) => {
+    angles[i] = (angles[i] + localFreqDegPerSec(pt.p, g) * dt) % 360;
+  });
+  draw();
+  if (playing) rafId = requestAnimationFrame(tick);
+}
+
+function setMode(m) {
+  mode = m;
+  modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  playing = false;
+  lastT = null;
+  if (rafId) cancelAnimationFrame(rafId);
+  resetAngles();
+  buildControls();
+  draw();
+}
+
+function buildControls() {
+  controls.innerHTML = '';
+  if (mode === 'freq') {
+    explain.innerHTML = '<strong>Frequency encoding:</strong> the readout gradient is left on while the signal is measured, so spins at different positions precess at different rates the whole time. Press Play &mdash; spins farther from isocenter visibly spin faster (or the opposite direction), which is literally how position gets mapped to frequency.';
+    const playBtn = document.createElement('button');
+    playBtn.textContent = 'Play';
+    playBtn.onclick = () => {
+      playing = !playing;
+      playBtn.textContent = playing ? 'Pause' : 'Play';
+      lastT = null;
+      if (playing) rafId = requestAnimationFrame(tick);
+      else if (rafId) cancelAnimationFrame(rafId);
+    };
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'secondary';
+    resetBtn.textContent = 'Reset';
+    resetBtn.style.marginLeft = '8px';
+    resetBtn.onclick = () => { playing = false; playBtn.textContent = 'Play'; if (rafId) cancelAnimationFrame(rafId); resetAngles(); };
+    controls.appendChild(playBtn);
+    controls.appendChild(resetBtn);
+  } else if (mode === 'phase') {
+    explain.innerHTML = '<strong>Phase encoding:</strong> the gradient is switched on only <em>briefly</em> before readout, then turned off. Every spin goes back to precessing at the same rate afterward &mdash; but each one has picked up a position-dependent phase offset that it keeps. Press "Apply pulse" to see the fan of frozen phase offsets appear.';
+    const applyBtn = document.createElement('button');
+    applyBtn.textContent = 'Apply phase-encode pulse';
+    applyBtn.onclick = () => {
+      const g = parseFloat(gradSlider.value);
+      const pulseDuration = 0.35; // seconds, fixed short pulse
+      angles = positions().map(pt => (localFreqDegPerSec(pt.p, g) * pulseDuration) % 360);
+      draw();
+    };
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'secondary';
+    resetBtn.textContent = 'Reset';
+    resetBtn.style.marginLeft = '8px';
+    resetBtn.onclick = resetAngles;
+    controls.appendChild(applyBtn);
+    controls.appendChild(resetBtn);
+  } else if (mode === 'slice') {
+    explain.innerHTML = '<strong>Slice selection:</strong> the RF pulse only has power across a fixed, narrow band of frequencies. With a gradient on, only spins within one physical slice fall in that frequency band and get flipped (shown in green). Raise the gradient strength and the excited slice gets <em>thinner</em> for the same RF bandwidth &mdash; slice thickness = RF bandwidth &divide; gradient strength.';
+    const applyBtn = document.createElement('button');
+    applyBtn.textContent = 'Apply RF pulse';
+    applyBtn.onclick = () => {
+      const g = Math.max(parseFloat(gradSlider.value), 4);
+      const bandwidthHz = 22;
+      const halfWidthP = bandwidthHz / (g * 3.2 * 2);
+      excited = positions().map(pt => Math.abs(pt.p) <= halfWidthP);
+      draw();
+    };
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'secondary';
+    resetBtn.textContent = 'Reset';
+    resetBtn.style.marginLeft = '8px';
+    resetBtn.onclick = resetAngles;
+    controls.appendChild(applyBtn);
+    controls.appendChild(resetBtn);
+  }
+}
+
+modeButtons.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+gradSlider.addEventListener('input', () => { gVal.textContent = gradSlider.value; draw(); });
+
+setMode('freq');
+</script>
+</body>
+</html>

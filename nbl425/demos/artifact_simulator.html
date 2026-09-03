@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRI Artifact Simulator</title>
+<style>
+  :root{--bg:#fafafa;--fg:#1a1a1a;--muted:#666;--accent:#2563eb;--card:#fff;--border:#ddd;}
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--card:#131b2c;--border:#26324a; }
+  }
+  :root[data-theme="dark"] { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--card:#131b2c;--border:#26324a; }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 16px 60px;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:1.5rem;margin:0 0 4px;}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:0.95rem;line-height:1.4;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:20px;}
+  label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:4px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .row{display:flex;gap:20px;flex-wrap:wrap;}
+  .col{flex:1;min-width:230px;}
+  canvas{display:block;background:#000;border-radius:6px;max-width:100%;image-rendering:pixelated;}
+  .value{font-weight:600;color:var(--accent);}
+  .note{font-size:0.83rem;color:var(--muted);margin-top:10px;line-height:1.45;}
+  .canvaslabel{font-size:0.78rem;color:var(--muted);text-align:center;margin-top:6px;}
+  .modebar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .modebtn{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;font-size:0.85rem;}
+  .modebtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>MRI Artifact Simulator</h1>
+  <p class="sub">Same reconstruction engine as the k-space explorer, now with a chosen artifact deliberately introduced before reconstruction. Pick an artifact and drag the severity slider.</p>
+
+  <div class="panel">
+    <div class="modebar">
+      <button class="modebtn active" data-mode="chemshift">Chemical shift</button>
+      <button class="modebtn" data-mode="aliasing">Aliasing (wrap-around)</button>
+      <button class="modebtn" data-mode="motion">Motion / ghosting</button>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <canvas id="cTrue" width="128" height="128"></canvas>
+        <div class="canvaslabel">Reference (no artifact)</div>
+      </div>
+      <div class="col">
+        <canvas id="cArt" width="128" height="128"></canvas>
+        <div class="canvaslabel" id="artLabel">With artifact</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <label><span id="sevPrefix">Severity:</span> <span class="value" id="sevVal">0</span></label>
+      <input type="range" id="severity" min="0" max="100" value="0" step="1">
+    </div>
+
+    <p class="note" id="explain"></p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Physics of MRI &middot; Artifact Simulator</footer>
+</div>
+
+<script>
+const N = 128;
+
+// ---------- FFT ----------
+function fft1d(re, im, invert) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (invert ? 1 : -1) * 2 * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cwr = 1, cwi = 0;
+      const half = len >> 1;
+      for (let j = 0; j < half; j++) {
+        const ur = re[i+j], ui = im[i+j];
+        const vr = re[i+j+half]*cwr - im[i+j+half]*cwi;
+        const vi = re[i+j+half]*cwi + im[i+j+half]*cwr;
+        re[i+j] = ur+vr; im[i+j] = ui+vi;
+        re[i+j+half] = ur-vr; im[i+j+half] = ui-vi;
+        const nwr = cwr*wr - cwi*wi, nwi = cwr*wi + cwi*wr;
+        cwr = nwr; cwi = nwi;
+      }
+    }
+  }
+  if (invert) for (let i=0;i<n;i++){ re[i]/=n; im[i]/=n; }
+}
+function fft2d(re, im, n, invert) {
+  for (let y = 0; y < n; y++) fft1d(re.subarray(y*n,(y+1)*n), im.subarray(y*n,(y+1)*n), invert);
+  const colRe = new Float64Array(n), colIm = new Float64Array(n);
+  for (let x = 0; x < n; x++) {
+    for (let y = 0; y < n; y++) { colRe[y]=re[y*n+x]; colIm[y]=im[y*n+x]; }
+    fft1d(colRe, colIm, invert);
+    for (let y = 0; y < n; y++) { re[y*n+x]=colRe[y]; im[y*n+x]=colIm[y]; }
+  }
+}
+
+// ---------- phantom (water background + fat rectangle + one other structure) ----------
+function makeWaterLayer(n) {
+  const img = new Float64Array(n * n);
+  const cx = n/2, cy = n/2;
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++) {
+    const r = Math.hypot(x-cx,y-cy);
+    let v = (r < n*0.42) ? 0.55 : 0;
+    if (Math.abs(x-cx-n*0.14)<n*0.07 && Math.abs(y-cy+n*0.05)<n*0.07) v = 0.3;
+    img[y*n+x] = v;
+  }
+  return img;
+}
+function makeFatLayer(n, cxOff, cyOff) {
+  const img = new Float64Array(n * n);
+  const cx = n/2 + (cxOff||0), cy = n/2 + (cyOff||0);
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++) {
+    if (Math.abs(x-cx+n*0.12)<n*0.10 && Math.abs(y-cy)<n*0.16) img[y*n+x] = 1.0;
+  }
+  return img;
+}
+function makeFullPhantom(n, cxOff, cyOff) {
+  const w = makeWaterLayer(n), f = makeFatLayer(n, cxOff, cyOff);
+  const out = new Float64Array(n*n);
+  for (let i=0;i<n*n;i++) out[i] = Math.max(w[i], f[i]);
+  return out;
+}
+
+function drawGray(canvas, data, n, vmin, vmax) {
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(n, n);
+  const range = (vmax - vmin) || 1;
+  for (let i=0;i<n*n;i++) {
+    let v = (data[i]-vmin)/range; v = Math.max(0, Math.min(1, v));
+    const g = Math.round(v*255);
+    imgData.data[i*4]=g; imgData.data[i*4+1]=g; imgData.data[i*4+2]=g; imgData.data[i*4+3]=255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+const cTrue = document.getElementById('cTrue');
+const cArt = document.getElementById('cArt');
+const severitySlider = document.getElementById('severity');
+const sevVal = document.getElementById('sevVal');
+const sevPrefix = document.getElementById('sevPrefix');
+const artLabel = document.getElementById('artLabel');
+const explain = document.getElementById('explain');
+const modeButtons = document.querySelectorAll('.modebtn');
+
+const waterLayer = makeWaterLayer(N);
+const fatLayer0 = makeFatLayer(N, 0, 0);
+const referencePhantom = makeFullPhantom(N, 0, 0);
+drawGray(cTrue, referencePhantom, N, 0, 1);
+
+// precompute k-space of the fat layer alone, for the chemical-shift phase-ramp trick
+const kFatRe = Float64Array.from(fatLayer0);
+const kFatIm = new Float64Array(N * N);
+fft2d(kFatRe, kFatIm, N, false);
+
+// precompute base + motion-shifted phantom k-spaces, for the motion/ghosting mode
+const motionDx = 9, motionDy = 5;
+const basePhantom = referencePhantom;
+const movedPhantom = makeFullPhantom(N, motionDx, motionDy);
+const kBaseRe = Float64Array.from(basePhantom), kBaseIm = new Float64Array(N*N);
+fft2d(kBaseRe, kBaseIm, N, false);
+const kMovedRe = Float64Array.from(movedPhantom), kMovedIm = new Float64Array(N*N);
+fft2d(kMovedRe, kMovedIm, N, false);
+
+// fixed pseudo-random row order (deterministic per page load) for the motion mode
+const rowOrder = Array.from({length: N}, (_, i) => i);
+(function shuffle(a) {
+  let seed = 42;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+})(rowOrder);
+
+let mode = 'chemshift';
+
+function renderChemShift(sev) {
+  const dx = (sev / 100) * 14; // pixel displacement
+  const shiftedRe = new Float64Array(N*N), shiftedIm = new Float64Array(N*N);
+  for (let y=0;y<N;y++) {
+    for (let x=0;x<N;x++) {
+      const kx = x < N/2 ? x : x - N;
+      const ang = -2 * Math.PI * kx * dx / N;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      const re = kFatRe[y*N+x], im = kFatIm[y*N+x];
+      shiftedRe[y*N+x] = re*c - im*s;
+      shiftedIm[y*N+x] = re*s + im*c;
+    }
+  }
+  fft2d(shiftedRe, shiftedIm, N, true);
+  const combined = new Float64Array(N*N);
+  for (let i=0;i<N*N;i++) combined[i] = Math.max(waterLayer[i], Math.hypot(shiftedRe[i], shiftedIm[i]));
+  drawGray(cArt, combined, N, 0, 1);
+  sevVal.textContent = dx.toFixed(1) + ' px displacement';
+}
+
+function renderAliasing(sev) {
+  const f = 1 - (sev/100) * 0.55; // FOV fraction, 1.0 -> 0.45
+  const reducedH = Math.max(20, Math.round(N * f));
+  const offset = Math.floor((N - reducedH) / 2);
+  const out = new Float64Array(N*N);
+  for (let y=0;y<N;y++) {
+    const srcY = (((y - offset) % reducedH) + reducedH) % reducedH + offset;
+    for (let x=0;x<N;x++) out[y*N+x] = referencePhantom[srcY*N+x];
+  }
+  drawGray(cArt, out, N, 0, 1);
+  sevVal.textContent = Math.round(f*100) + '% of full FOV kept vertically';
+}
+
+function renderMotion(sev) {
+  const numCorrupt = Math.round((sev/100) * N);
+  const corrupt = new Set(rowOrder.slice(0, numCorrupt));
+  const mRe = new Float64Array(N*N), mIm = new Float64Array(N*N);
+  for (let y=0;y<N;y++) {
+    for (let x=0;x<N;x++) {
+      if (corrupt.has(y)) { mRe[y*N+x]=kMovedRe[y*N+x]; mIm[y*N+x]=kMovedIm[y*N+x]; }
+      else { mRe[y*N+x]=kBaseRe[y*N+x]; mIm[y*N+x]=kBaseIm[y*N+x]; }
+    }
+  }
+  fft2d(mRe, mIm, N, true);
+  const out = new Float64Array(N*N);
+  for (let i=0;i<N*N;i++) out[i] = Math.hypot(mRe[i], mIm[i]);
+  drawGray(cArt, out, N, 0, 1);
+  sevVal.textContent = numCorrupt + ' / ' + N + ' phase-encode lines corrupted by motion';
+}
+
+function render() {
+  const sev = parseInt(severitySlider.value, 10);
+  if (mode === 'chemshift') renderChemShift(sev);
+  else if (mode === 'aliasing') renderAliasing(sev);
+  else renderMotion(sev);
+}
+
+function setMode(m) {
+  mode = m;
+  modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  severitySlider.value = 0;
+  if (m === 'chemshift') {
+    artLabel.textContent = 'With chemical shift';
+    sevPrefix.textContent = 'Severity (proportional to bandwidth-per-pixel / field strength):';
+    explain.innerHTML = '<strong>Chemical shift:</strong> fat and water precess at slightly different frequencies, and MRI reads frequency as position. So the bright "fat" structure gets reconstructed at the wrong spatial location &mdash; shifted from where it actually is (outlined by the reference panel), overlapping or gapping at its edges with the surrounding water. This uses the same Fourier shift theorem from Lecture 1: shifting an object in image space is just multiplying its k-space by a phase ramp.';
+  } else if (m === 'aliasing') {
+    artLabel.textContent = 'With reduced FOV';
+    sevPrefix.textContent = 'Severity (how much the field of view is shrunk):';
+    explain.innerHTML = '<strong>Aliasing / wrap-around:</strong> if the field of view is smaller than the anatomy being imaged, whatever sticks out past the FOV edge does not disappear &mdash; it reappears wrapped onto the opposite side of the image. Shrink the FOV here and watch the top/bottom of the phantom fold back in from the other edge.';
+  } else {
+    artLabel.textContent = 'With motion';
+    sevPrefix.textContent = 'Severity (fraction of phase-encode lines acquired mid-motion):';
+    explain.innerHTML = '<strong>Motion / ghosting:</strong> each phase-encode line is acquired at a different moment. If the "patient" moves partway through the scan, some lines come from one position and some from another &mdash; the reconstruction blends both, producing blurring and ghost copies. Notice the artifact is worst at partial corruption; at 100% every line agrees again (just a cleanly shifted image), which is why real motion artifacts are patchiest with brief, partial movement.';
+  }
+  sevVal.textContent = '0';
+  render();
+}
+
+modeButtons.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+severitySlider.addEventListener('input', render);
+setMode('chemshift');
+</script>
+</body>
+</html>

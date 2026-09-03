@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>k-space Explorer</title>
+<style>
+  :root{--bg:#fafafa;--fg:#1a1a1a;--muted:#666;--accent:#2563eb;--accent2:#dc2626;--card:#fff;--border:#ddd;}
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#dc2626;--card:#131b2c;--border:#26324a; }
+  }
+  :root[data-theme="dark"] { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#dc2626;--card:#131b2c;--border:#26324a; }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 16px 60px;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:1.5rem;margin:0 0 4px;}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:0.95rem;line-height:1.4;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:20px;}
+  label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:4px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  select{padding:6px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.9rem;background:#fff;}
+  .row{display:flex;gap:20px;flex-wrap:wrap;}
+  .col{flex:1;min-width:230px;}
+  canvas{display:block;background:#000;border-radius:6px;max-width:100%;image-rendering:pixelated;}
+  .value{font-weight:600;color:var(--accent);}
+  button{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:0.88rem;}
+  button:hover{opacity:0.88;}
+  button.secondary{background:#e5e7eb;color:#1a1a1a;}
+  .note{font-size:0.83rem;color:var(--muted);margin-top:10px;line-height:1.45;}
+  .canvaslabel{font-size:0.78rem;color:var(--muted);text-align:center;margin-top:6px;}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>k-space Explorer</h1>
+  <p class="sub">MRI raw data is acquired in <strong>k-space</strong>, not as an image. The center of k-space carries coarse contrast and shape; the edges carry sharp detail. Drag the slider to keep only the central fraction of k-space and watch the reconstruction lose detail &mdash; and start ringing. That ringing is the <strong>Gibbs / truncation artifact</strong>.</p>
+
+  <div class="panel">
+    <div class="row">
+      <div class="col">
+        <canvas id="cPhantom" width="128" height="128"></canvas>
+        <div class="canvaslabel">"True" phantom (image space)</div>
+      </div>
+      <div class="col">
+        <canvas id="cKspace" width="128" height="128"></canvas>
+        <div class="canvaslabel">log|k-space| &mdash; kept region outlined</div>
+      </div>
+      <div class="col">
+        <canvas id="cRecon" width="128" height="128"></canvas>
+        <div class="canvaslabel">Reconstruction from kept k-space</div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <label>Fraction of k-space kept (centered square window): <span class="value" id="fracVal">100%</span></label>
+      <input type="range" id="frac" min="4" max="128" value="128" step="2">
+    </div>
+
+    <div class="row" style="margin-top:14px;">
+      <div class="col">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <input type="checkbox" id="showProfile" checked style="width:auto;"> Show intensity profile across the middle row
+        </label>
+      </div>
+      <div class="col" style="text-align:right;">
+        <span class="note" id="errNote"></span>
+      </div>
+    </div>
+
+    <canvas id="cProfile" width="880" height="140" style="width:100%;height:140px;background:var(--card);border:1px solid var(--border);margin-top:10px;"></canvas>
+  </div>
+
+  <div class="panel">
+    <p class="note">
+      <strong>Try this:</strong> pull the slider down to ~20&ndash;30%. Notice the reconstruction still has the right overall shape and contrast (that information lives near the center of k-space) but sharp edges now ring with alternating bright/dark bands, and fine structure blurs away (that information lived at the edges you just threw out). This is exactly why more k-space lines = a bigger acquisition matrix = sharper image, at the cost of scan time.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Physics of MRI &middot; k-space Explorer</footer>
+</div>
+
+<script>
+const N = 128;
+
+// ---------- FFT (iterative radix-2 Cooley-Tukey) ----------
+function fft1d(re, im, invert) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (invert ? 1 : -1) * 2 * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cwr = 1, cwi = 0;
+      const half = len >> 1;
+      for (let j = 0; j < half; j++) {
+        const ur = re[i + j], ui = im[i + j];
+        const vr = re[i + j + half] * cwr - im[i + j + half] * cwi;
+        const vi = re[i + j + half] * cwi + im[i + j + half] * cwr;
+        re[i + j] = ur + vr; im[i + j] = ui + vi;
+        re[i + j + half] = ur - vr; im[i + j + half] = ui - vi;
+        const nwr = cwr * wr - cwi * wi, nwi = cwr * wi + cwi * wr;
+        cwr = nwr; cwi = nwi;
+      }
+    }
+  }
+  if (invert) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+}
+
+function fft2d(re, im, n, invert) {
+  for (let y = 0; y < n; y++) {
+    fft1d(re.subarray(y * n, (y + 1) * n), im.subarray(y * n, (y + 1) * n), invert);
+  }
+  const colRe = new Float64Array(n), colIm = new Float64Array(n);
+  for (let x = 0; x < n; x++) {
+    for (let y = 0; y < n; y++) { colRe[y] = re[y * n + x]; colIm[y] = im[y * n + x]; }
+    fft1d(colRe, colIm, invert);
+    for (let y = 0; y < n; y++) { re[y * n + x] = colRe[y]; im[y * n + x] = colIm[y]; }
+  }
+}
+
+function fftshiftIndex(i, n) { return (i + n / 2) % n; }
+
+// ---------- phantom ----------
+function makePhantom(n) {
+  const img = new Float64Array(n * n);
+  const cx = n / 2, cy = n / 2;
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const r = Math.hypot(x - cx, y - cy);
+      let v = 0;
+      if (r < n * 0.42) v = 0.6;
+      if (Math.abs(x - cx + n * 0.12) < n * 0.10 && Math.abs(y - cy) < n * 0.16) v = 1.0;
+      if (Math.abs(x - cx - n * 0.14) < n * 0.07 && Math.abs(y - cy + n * 0.05) < n * 0.07) v = 0.3;
+      img[y * n + x] = v;
+    }
+  }
+  return img;
+}
+
+function drawGray(canvas, data, n, vmin, vmax) {
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(n, n);
+  const range = (vmax - vmin) || 1;
+  for (let i = 0; i < n * n; i++) {
+    let v = (data[i] - vmin) / range;
+    v = Math.max(0, Math.min(1, v));
+    const g = Math.round(v * 255);
+    imgData.data[i * 4] = g;
+    imgData.data[i * 4 + 1] = g;
+    imgData.data[i * 4 + 2] = g;
+    imgData.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ---------- setup ----------
+const phantom = makePhantom(N);
+const kRe = Float64Array.from(phantom);
+const kIm = new Float64Array(N * N);
+fft2d(kRe, kIm, N, false); // forward FFT, DC at [0,0]
+
+// shifted magnitude for display (log)
+const kMagShifted = new Float64Array(N * N);
+let maxLogMag = 0;
+for (let y = 0; y < N; y++) {
+  for (let x = 0; x < N; x++) {
+    const mag = Math.hypot(kRe[y * N + x], kIm[y * N + x]);
+    const lm = Math.log(mag + 1);
+    const sy = fftshiftIndex(y, N), sx = fftshiftIndex(x, N);
+    kMagShifted[sy * N + sx] = lm;
+    if (lm > maxLogMag) maxLogMag = lm;
+  }
+}
+
+drawGray(document.getElementById('cPhantom'), phantom, N, 0, 1);
+
+const fracSlider = document.getElementById('frac');
+const fracVal = document.getElementById('fracVal');
+const cKspace = document.getElementById('cKspace');
+const cRecon = document.getElementById('cRecon');
+const cProfile = document.getElementById('cProfile');
+const errNote = document.getElementById('errNote');
+const showProfileBox = document.getElementById('showProfile');
+
+function update() {
+  const keep = parseInt(fracSlider.value, 10);
+  fracVal.textContent = Math.round((keep / N) * 100) + '%';
+
+  // draw k-space with kept-region outline
+  const kctx = cKspace.getContext('2d');
+  drawGray(cKspace, kMagShifted, N, 0, maxLogMag);
+  const lo = Math.floor((N - keep) / 2), hi = lo + keep;
+  kctx.strokeStyle = '#22c55e';
+  kctx.lineWidth = 1;
+  kctx.strokeRect(lo + 0.5, lo + 0.5, keep - 1, keep - 1);
+
+  // build masked k-space (unshifted indexing) and reconstruct
+  const mRe = new Float64Array(N * N);
+  const mIm = new Float64Array(N * N);
+  for (let sy = lo; sy < hi; sy++) {
+    for (let sx = lo; sx < hi; sx++) {
+      // sy,sx are in shifted (centered) coords -> map back to raw FFT coords
+      const y = fftshiftIndex(sy, N), x = fftshiftIndex(sx, N);
+      mRe[y * N + x] = kRe[y * N + x];
+      mIm[y * N + x] = kIm[y * N + x];
+    }
+  }
+  fft2d(mRe, mIm, N, true); // inverse
+  const recon = new Float64Array(N * N);
+  for (let i = 0; i < N * N; i++) recon[i] = Math.hypot(mRe[i], mIm[i]);
+
+  drawGray(cRecon, recon, N, 0, 1);
+
+  // error
+  let err = 0;
+  for (let i = 0; i < N * N; i++) err += Math.abs(recon[i] - phantom[i]);
+  err /= (N * N);
+  errNote.textContent = 'mean |error| vs true phantom: ' + err.toFixed(4);
+
+  // profile
+  if (showProfileBox.checked) {
+    const pctx = cProfile.getContext('2d');
+    pctx.clearRect(0, 0, cProfile.width, cProfile.height);
+    const row = Math.floor(N / 2);
+    const w = cProfile.width, h = cProfile.height;
+    function plot(data, color) {
+      pctx.beginPath();
+      pctx.strokeStyle = color;
+      pctx.lineWidth = 1.5;
+      for (let x = 0; x < N; x++) {
+        const px = (x / (N - 1)) * w;
+        const py = h - (data[row * N + x] * (h - 10)) - 5;
+        if (x === 0) pctx.moveTo(px, py); else pctx.lineTo(px, py);
+      }
+      pctx.stroke();
+    }
+    plot(phantom, '#94a3b8');
+    plot(recon, '#2563eb');
+    pctx.font = '11px sans-serif';
+    pctx.fillStyle = '#94a3b8'; pctx.fillText('gray = true phantom', 8, 14);
+    pctx.fillStyle = '#2563eb'; pctx.fillText('blue = reconstruction', 8, 28);
+  } else {
+    const pctx = cProfile.getContext('2d');
+    pctx.clearRect(0, 0, cProfile.width, cProfile.height);
+  }
+}
+
+fracSlider.addEventListener('input', update);
+showProfileBox.addEventListener('change', update);
+update();
+</script>
+</body>
+</html>

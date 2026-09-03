@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TR/TE Contrast Explorer</title>
+<style>
+  :root{--bg:#fafafa;--fg:#1a1a1a;--muted:#666;--accent:#2563eb;--accent2:#dc2626;--card:#fff;--border:#ddd;}
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#dc2626;--card:#131b2c;--border:#26324a; }
+  }
+  :root[data-theme="dark"] { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#dc2626;--card:#131b2c;--border:#26324a; }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 16px 60px;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:1.5rem;margin:0 0 4px;}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:0.95rem;line-height:1.4;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:20px;}
+  label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:4px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .row{display:flex;gap:20px;flex-wrap:wrap;}
+  .col{flex:1;min-width:230px;}
+  canvas{display:block;background:var(--card);border-radius:6px;max-width:100%;}
+  .value{font-weight:600;color:var(--accent);}
+  .note{font-size:0.83rem;color:var(--muted);margin-top:10px;line-height:1.45;}
+  .swatchrow{display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;justify-content:center;}
+  .swatch{width:100px;text-align:center;}
+  .swatchbox{width:100px;height:100px;border-radius:8px;border:1px solid var(--border);}
+  .swatchlabel{font-size:0.8rem;margin-top:6px;color:var(--fg);font-weight:600;}
+  .swatchval{font-size:0.75rem;color:var(--muted);}
+  .badge{display:inline-block;padding:6px 14px;border-radius:20px;background:#eef2ff;color:var(--accent);font-size:0.95rem;font-weight:700;}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>TR/TE Contrast Explorer</h1>
+  <p class="sub">Every tissue has its own T1 and T2. What actually shows up as bright or dark in the image depends on <strong>TR</strong> (repetition time) and <strong>TE</strong> (echo time) &mdash; the two timing choices the operator makes. Drag TR and TE and watch the same four tissues flip between T1-, T2-, and proton-density-weighted contrast.</p>
+
+  <div class="panel">
+    <div class="row">
+      <div class="col">
+        <label>TR &mdash; repetition time: <span class="value" id="trVal">500 ms</span></label>
+        <input type="range" id="tr" min="200" max="4000" value="500" step="20">
+      </div>
+      <div class="col">
+        <label>TE &mdash; echo time: <span class="value" id="teVal">15 ms</span></label>
+        <input type="range" id="te" min="5" max="200" value="15" step="1">
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;">
+      <span class="badge" id="weightBadge">T1-weighted</span>
+    </div>
+
+    <div class="swatchrow" id="swatches"></div>
+
+    <p class="note" style="text-align:center;">Signal model (spin-echo): S = M0 &middot; (1&minus;e<sup>&minus;TR/T1</sup>) &middot; e<sup>&minus;TE/T2</sup>. Swatch brightness is each tissue's S, normalized to the brightest tissue at the current TR/TE.</p>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="col">
+        <canvas id="cT1" width="420" height="240" style="width:100%;height:240px;"></canvas>
+        <div class="note" style="text-align:center;">T1 recovery &mdash; dashed line marks your TR</div>
+      </div>
+      <div class="col">
+        <canvas id="cT2" width="420" height="240" style="width:100%;height:240px;"></canvas>
+        <div class="note" style="text-align:center;">T2 decay &mdash; dashed line marks your TE</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note">
+      <strong>Try this:</strong> set TR short (~500) and TE short (~15) &mdash; fat is brightest, CSF is darkest: <strong>T1-weighted</strong>. Now push TR long (~4000) and TE long (~100) &mdash; CSF becomes brightest: <strong>T2-weighted</strong>. With TR long and TE short, the tissues mostly separate by how much hydrogen they contain rather than by T1 or T2: <strong>proton-density weighted</strong>.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Physics of MRI &middot; TR/TE Contrast Explorer</footer>
+</div>
+
+<script>
+const tissues = [
+  { name: 'Fat',          T1: 260,  T2: 80   },
+  { name: 'White matter', T1: 780,  T2: 90   },
+  { name: 'Gray matter',  T1: 920,  T2: 100  },
+  { name: 'CSF',          T1: 2500, T2: 1500 },
+];
+
+const trSlider = document.getElementById('tr');
+const teSlider = document.getElementById('te');
+const trVal = document.getElementById('trVal');
+const teVal = document.getElementById('teVal');
+const swatchesEl = document.getElementById('swatches');
+const weightBadge = document.getElementById('weightBadge');
+const cT1 = document.getElementById('cT1');
+const cT2 = document.getElementById('cT2');
+
+// build swatch DOM once
+tissues.forEach((t, i) => {
+  const div = document.createElement('div');
+  div.className = 'swatch';
+  div.innerHTML = `<div class="swatchbox" id="box${i}"></div><div class="swatchlabel">${t.name}</div><div class="swatchval" id="val${i}"></div>`;
+  swatchesEl.appendChild(div);
+});
+
+function signal(T1, T2, TR, TE) {
+  return (1 - Math.exp(-TR / T1)) * Math.exp(-TE / T2);
+}
+
+function classify(TR, TE) {
+  const shortTR = TR < 900, longTR = TR > 1800;
+  const shortTE = TE < 35, longTE = TE > 60;
+  if (shortTR && shortTE) return 'T1-weighted';
+  if (longTR && longTE) return 'T2-weighted';
+  if (longTR && shortTE) return 'Proton-density weighted';
+  return 'Mixed / intermediate weighting';
+}
+
+function drawCurve(canvas, tmax, getVal, marker) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const colors = ['#d97706', '#64748b', '#0891b2', '#2563eb'];
+  const padL = 40, padB = 26, padT = 10, padR = 10;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  // axes
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT); ctx.lineTo(padL, h - padB); ctx.lineTo(w - padR, h - padB);
+  ctx.stroke();
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('0', padL - 4, h - padB + 12);
+  ctx.fillText(tmax + ' ms', w - padR - 30, h - padB + 12);
+  ctx.save();
+  ctx.translate(12, h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('signal', 0, 0);
+  ctx.restore();
+
+  tissues.forEach((t, i) => {
+    ctx.beginPath();
+    ctx.strokeStyle = colors[i];
+    ctx.lineWidth = 2;
+    for (let s = 0; s <= 200; s++) {
+      const time = (s / 200) * tmax;
+      const v = getVal(t, time);
+      const x = padL + (time / tmax) * plotW;
+      const y = padT + (1 - v) * plotH;
+      if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+
+  // marker line
+  const mx = padL + Math.min(marker / tmax, 1) * plotW;
+  ctx.strokeStyle = '#111';
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(mx, padT); ctx.lineTo(mx, h - padB);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // legend
+  tissues.forEach((t, i) => {
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(padL + i * 95, padT, 8, 8);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '9px sans-serif';
+    ctx.fillText(t.name, padL + i * 95 + 11, padT + 8);
+  });
+}
+
+function update() {
+  const TR = parseInt(trSlider.value, 10);
+  const TE = parseInt(teSlider.value, 10);
+  trVal.textContent = TR + ' ms';
+  teVal.textContent = TE + ' ms';
+  weightBadge.textContent = classify(TR, TE);
+
+  const signals = tissues.map(t => signal(t.T1, t.T2, TR, TE));
+  const maxS = Math.max(...signals, 1e-6);
+
+  tissues.forEach((t, i) => {
+    const s = signals[i];
+    const g = Math.round((s / maxS) * 255);
+    document.getElementById('box' + i).style.background = `rgb(${g},${g},${g})`;
+    document.getElementById('val' + i).textContent = 'S=' + s.toFixed(3);
+  });
+
+  drawCurve(cT1, 3000, (t, time) => 1 - Math.exp(-time / t.T1), TR);
+  drawCurve(cT2, 500, (t, time) => Math.exp(-time / t.T2), TE);
+}
+
+trSlider.addEventListener('input', update);
+teSlider.addEventListener('input', update);
+update();
+</script>
+</body>
+</html>
