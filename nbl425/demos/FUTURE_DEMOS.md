@@ -6,7 +6,7 @@ This document catalogs proposed interactive simulations and educational tools fo
 
 ## 1. Functional MRI & Experimental Design (Weeks 04 & 05)
 
-### [IN PROGRESS] fMRI GLM Design Matrix & Convolution Studio
+### [COMPLETED] fMRI GLM Design Matrix & Convolution Studio
 * **Target File**: `nbl425/demos/glm_studio.html`
 * **Core Concepts**:
   * Block designs vs. rapid event-related designs.
@@ -18,9 +18,9 @@ This document catalogs proposed interactive simulations and educational tools fo
   * Drag and place stimulus blocks or event impulses on an interactive timeline.
   * Toggle collinearity / jittering to observe how overlapping trials impact detection power vs. estimation efficiency.
 
-### EPI Geometric Distortion & Susceptibility Dropout Simulator
+### [COMPLETED] EPI Geometric Distortion & Susceptibility Dropout Simulator
 * **Target File**: `nbl425/demos/epi_distortion.html`
-* **Course Week**: Week 04 (fMRI) & Week 03 (Structural MRI & Contrast)
+* **Course Week**: Week 03 (Structural MRI & Contrast) & Week 04 (fMRI)
 * **Core Concepts**:
   * Macroscopic magnetic field gradients ($\Delta B_0$) at air-tissue boundaries (paranasal sinuses and mastoid air cells/ear canals).
   * Low phase-encoding bandwidth in single-shot Echo Planar Imaging (EPI).
@@ -30,7 +30,7 @@ This document catalogs proposed interactive simulations and educational tools fo
   * Cross-sectional head slice with adjustable sinus cavity size and $B_0$ field strength (1.5T, 3T, 7T).
   * Phase-encoding direction toggle: Anterior-to-Posterior (A&rarr;P) vs. Posterior-to-Anterior (P&rarr;A).
   * Bandwidth slider ($BW_{\text{PE}}$) showing geometric compression vs. stretching.
-  * "Blip-up / Blip-down" topup distortion correction tool unwarping the distorted EPI image.
+  * "Blip-up / Blip-down" TOPUP distortion correction tool unwarping the distorted EPI image.
 
 ---
 

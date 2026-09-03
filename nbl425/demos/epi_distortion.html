@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPI Geometric Distortion &amp; Susceptibility Dropout Simulator</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --scope-bg: #090d16;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --ap-color: #ea580c;
+    --pa-color: #0284c7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --scope-bg: #050811;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+      --ap-color: #fb923c;
+      --pa-color: #38bdf8;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .tri-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 860px) {
+    .tri-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    background: #000;
+    border: 1px solid var(--border);
+  }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .readout-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 0.84rem;
+  }
+  .readout-item {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .readout-label { color: var(--muted); }
+  .readout-val { font-weight: 600; font-family: ui-monospace, SFMono-Regular, monospace; color: var(--accent); }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .unwarp-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .unwarp-slider-wrap { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px; }
+
+  .note {
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .note strong { color: var(--fg); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>EPI Geometric Distortion &amp; Susceptibility Dropout</h1>
+  <p class="sub">
+    Visualizing how magnetic susceptibility differences (&Delta;<i>B</i><sub>0</sub>) at air-tissue interfaces interact with the low phase-encoding bandwidth of single-shot Echo Planar Imaging (EPI) to produce severe geometric distortion, intra-voxel signal dropout, and how reversed phase-encoding (<strong>TOPUP</strong>) unwarps the image.
+  </p>
+
+  <div class="panel">
+    <!-- Presets -->
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Scanner Protocol:</span>
+      <button id="btn3TAP" class="active">Standard 3T (A&rarr;P Compression)</button>
+      <button id="btn3TPA" class="secondary">Standard 3T (P&rarr;A Stretching)</button>
+      <button id="btn7T" class="secondary">Ultra-High Field 7T (Extreme)</button>
+      <button id="btnAccel" class="secondary">Accelerated (GRAPPA <i>R</i>=2)</button>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <button id="btnToggleGrid" class="secondary" style="font-size:0.78rem;">Toggle Grid</button>
+      </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Standard 3T fMRI (A&rarr;P):</strong> Anterior-to-Posterior phase encoding causes orbitofrontal tissue to be compressed backwards toward the brain center.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Pixel shift: &Delta;<i>y</i> = &Delta;<i>f</i> / <i>BW</i><sub>PE</sub></span>
+    </div>
+
+    <!-- Triple View Canvases -->
+    <div class="tri-grid">
+      <!-- 1. Structural Reference & Fieldmap -->
+      <div class="canvas-box">
+        <canvas id="cRef" width="320" height="320"></canvas>
+        <div class="canvas-caption">1. True Anatomy &amp; &Delta;<i>B</i><sub>0</sub> Susceptibility Map (Air vs. Brain)</div>
+      </div>
+
+      <!-- 2. Distorted EPI Image -->
+      <div class="canvas-box">
+        <canvas id="cDistorted" width="320" height="320"></canvas>
+        <div class="canvas-caption">2. Acquired EPI (Geometric Shift &amp; Signal Dropout)</div>
+      </div>
+
+      <!-- 3. TOPUP Unwarping / Correction -->
+      <div class="canvas-box">
+        <canvas id="cCorrected" width="320" height="320"></canvas>
+        <div class="canvas-caption">3. TOPUP Reversed Phase-Encode Correction</div>
+      </div>
+    </div>
+
+    <!-- Readout Bar -->
+    <div class="readout-row">
+      <div class="readout-item">
+        <span class="readout-label">Field Strength:</span>
+        <span class="readout-val" id="dispB0">3.0 Tesla</span>
+      </div>
+      <div class="readout-item">
+        <span class="readout-label">PE Bandwidth:</span>
+        <span class="readout-val" id="dispBW">25.0 Hz/px</span>
+      </div>
+      <div class="readout-item">
+        <span class="readout-label">Max Shift &Delta;<i>y</i>:</span>
+        <span class="readout-val" id="dispShift">4.8 pixels</span>
+      </div>
+      <div class="readout-item">
+        <span class="readout-label">Orbitofrontal Dropout:</span>
+        <span class="readout-val" id="dispDropout" style="color:#ef4444;">-68% signal</span>
+      </div>
+    </div>
+
+    <!-- Interactive TOPUP Unwarping Slider -->
+    <div class="unwarp-bar">
+      <span style="font-size:0.85rem; font-weight:600;">TOPUP Fieldmap Unwarping:</span>
+      <div class="unwarp-slider-wrap">
+        <input type="range" id="sliderUnwarp" min="0" max="100" value="0" step="1">
+        <span class="val-badge" id="valUnwarp">0% (Raw Distorted)</span>
+      </div>
+      <button id="btnAnimateUnwarp" class="secondary" style="font-size:0.82rem;">Play Unwarp Animation</button>
+    </div>
+
+    <!-- Parameter Sliders -->
+    <div class="controls-grid">
+      <div>
+        <label>Static Field <i>B</i><sub>0</sub>: <span class="val-badge" id="valB0">3.0 T</span></label>
+        <input type="range" id="sliderB0" min="1.5" max="7.0" value="3.0" step="0.5">
+      </div>
+      <div>
+        <label>PE Bandwidth (<i>BW</i><sub>PE</sub>): <span class="val-badge" id="valBW">25 Hz/px</span></label>
+        <input type="range" id="sliderBW" min="12" max="60" value="25" step="1">
+      </div>
+      <div>
+        <label>Echo Time (<i>TE</i>): <span class="val-badge" id="valTE">30 ms</span></label>
+        <input type="range" id="sliderTE" min="15" max="50" value="30" step="1">
+      </div>
+      <div>
+        <label>Sinus Air Cavity Size: <span class="val-badge" id="valSinus">Standard</span></label>
+        <input type="range" id="sliderSinus" min="0.5" max="1.8" value="1.0" step="0.1">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;">
+      <strong>Physical Foundations of EPI Distortion &amp; Signal Loss:</strong>
+    </p>
+    <p class="note">
+      1. <strong>Why Only the Phase-Encoding Axis Distorts:</strong> In single-shot EPI, frequency encoding along <i>x</i> is fast (dwell time ~ a few microseconds), giving a massive bandwidth of ~1,500 Hz/pixel &mdash; so off-resonance shifts along <i>x</i> are negligible (&lt;0.05 pixels). In contrast, acquiring lines in <i>k</i><sub>y</sub> requires waiting for an entire echo spacing (~0.5–1.0 ms), yielding an extremely low bandwidth along <i>y</i> (<i>BW</i><sub>PE</sub> &approx; 20–35 Hz/pixel). Any off-resonance frequency shift &Delta;<i>f</i> translates directly into a large spatial pixel displacement:
+      &Delta;<i>y</i> = &Delta;<i>f</i> / <i>BW</i><sub>PE</sub>.
+    </p>
+    <p class="note">
+      2. <strong>Compression (A&rarr;P) vs. Stretching (P&rarr;A):</strong> Near the frontal sinuses, tissue is diamagnetic while air is paramagnetic/neutral, setting up a steep susceptibility field gradient. In Anterior-to-Posterior (A&rarr;P) phase encoding, the spatial displacement shifts the orbitofrontal cortex posteriorly, squashing it into the brain. Reversing the gradient polarity to Posterior-to-Anterior (P&rarr;A) flips the displacement sign, stretching the frontal lobe forward into the bone/air.
+    </p>
+    <p class="note">
+      3. <strong>Intra-Voxel Dephasing (Dropout):</strong> Within a voxel of finite slice thickness and size, macroscopic field gradients |&nabla;<i>B</i><sub>0</sub>| cause spins across the voxel to precess at differing rates. By the time the gradient echo is sampled at echo time <i>TE</i>, destructive phase interference causes complete, irreversible signal blackout (dropout). Notice that while TOPUP successfully unwarps the geometry, the signal dropout in the orbitofrontal cortex cannot be recovered!
+    </p>
+    <p class="note">
+      4. <strong>The "Blip-Up / Blip-Down" (TOPUP) Solution:</strong> By acquiring two brief EPI volumes with opposite phase-encode polarities (A&rarr;P and P&rarr;A), the algorithm calculates the off-resonance fieldmap &Delta;<i>f</i>(<i>x</i>, <i>y</i>) that mathematically aligns both opposite distortions back to the true undistorted anatomy.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; EPI Artifact Simulation</footer>
+</div>
+
+<script>
+// --- Simulation State ---
+let B0 = 3.0; // Tesla
+let bwPE = 25.0; // Hz per pixel
+let TE = 30.0; // ms
+let sinusScale = 1.0;
+let peDir = 1; // +1 = AP (compression), -1 = PA (stretching)
+let unwarpFraction = 0.0; // 0.0 (raw) to 1.0 (fully unwarped)
+let showGrid = false;
+
+// Canvases
+const cRef = document.getElementById('cRef');
+const ctxRef = cRef.getContext('2d');
+const cDistorted = document.getElementById('cDistorted');
+const ctxDistorted = cDistorted.getContext('2d');
+const cCorrected = document.getElementById('cCorrected');
+const ctxCorrected = cCorrected.getContext('2d');
+
+const N = 160; // Simulation resolution grid
+const refImgData = ctxRef.createImageData(N, N);
+const distImgData = ctxDistorted.createImageData(N, N);
+const corrImgData = ctxCorrected.createImageData(N, N);
+
+// Synthetic Anatomical Phantom Slice Definition
+// Returns { intensity: 0..255, isAir: bool, isVentricle: bool }
+function getAnatomy(nx, ny) {
+  // Center is (0,0), radius approx 0.8
+  const x = (nx - N / 2) / (N * 0.44);
+  const y = (ny - N / 2) / (N * 0.44); // y: -1 (anterior) to +1 (posterior)
+
+  const r2 = (x * 1.05) * (x * 1.05) + (y * 0.95) * (y * 0.95);
+
+  // Skull & Brain Boundary (oval)
+  if (r2 > 1.0) {
+    return { val: 0, isAir: true };
+  }
+
+  // Skull ring (bone)
+  if (r2 > 0.88) {
+    return { val: 35, isAir: false };
+  }
+
+  // Frontal sinus air pocket (anterior, top of brain)
+  const sinusDist2 = (x * x * 3.5) + Math.pow(y + 0.88, 2);
+  if (sinusDist2 < 0.035 * sinusScale) {
+    return { val: 0, isAir: true, isSinus: true };
+  }
+
+  // Lateral ear canals / petrous bone air cavities
+  const earL = Math.pow(x + 0.65, 2) + Math.pow(y + 0.05, 2) * 2.5;
+  const earR = Math.pow(x - 0.65, 2) + Math.pow(y + 0.05, 2) * 2.5;
+  if (earL < 0.02 * sinusScale || earR < 0.02 * sinusScale) {
+    return { val: 0, isAir: true };
+  }
+
+  // Ventricles (CSF, dark on T2* EPI)
+  const ventL = Math.pow((x + 0.12) * 2.2, 2) + Math.pow(y * 1.2, 2);
+  const ventR = Math.pow((x - 0.12) * 2.2, 2) + Math.pow(y * 1.2, 2);
+  if (ventL < 0.08 || ventR < 0.08) {
+    return { val: 40, isAir: false, isVentricle: true };
+  }
+
+  // White Matter core vs Gray Matter ribbon
+  const wmDist = (x * x * 1.4) + (y * y * 1.2);
+  if (wmDist < 0.35) {
+    return { val: 175, isAir: false }; // White matter
+  }
+  return { val: 220, isAir: false }; // Gray matter
+}
+
+// Compute Off-Resonance Frequency Shift Delta_f(x, y) in Hz
+function getFieldOffset(nx, ny) {
+  const x = (nx - N / 2) / (N * 0.44);
+  const y = (ny - N / 2) / (N * 0.44);
+
+  // 1. Frontal sinus dipole-like perturbation:
+  // Decays as 1 / d^2 from sinus center (0, -0.90)
+  const dxF = x;
+  const dyF = y - (-0.90);
+  const distF2 = dxF * dxF + dyF * dyF + 0.04;
+  // Field strength scales linearly with B0 (Hz shift is proportional to B0)
+  const baseFreqShift = (B0 / 3.0) * 115.0 * sinusScale;
+  let dfFrontal = (baseFreqShift * (dyF / Math.pow(distF2, 1.5))) * 0.22;
+
+  // 2. Lateral ear canals perturbation
+  const dxEL = x - (-0.68), dyEL = y - 0.05;
+  const distEL2 = dxEL * dxEL + dyEL * dyEL + 0.03;
+  const dfEarL = (baseFreqShift * 0.4) * (dxEL / Math.pow(distEL2, 1.5)) * 0.15;
+
+  const dxER = x - 0.68, dyER = y - 0.05;
+  const distER2 = dxER * dxER + dyER * dyER + 0.03;
+  const dfEarR = -(baseFreqShift * 0.4) * (dxER / Math.pow(distER2, 1.5)) * 0.15;
+
+  return dfFrontal + dfEarL + dfEarR;
+}
+
+// Color map for Fieldmap: Blue (negative Hz) -> Black (0 Hz) -> Red (positive Hz)
+function getFieldColor(df) {
+  const maxHz = 100.0 * (B0 / 3.0);
+  const norm = Math.max(-1.0, Math.min(1.0, df / maxHz));
+  let r = 0, g = 0, b = 0;
+  if (norm > 0) {
+    r = Math.round(norm * 255);
+    g = Math.round(norm * 80);
+  } else {
+    b = Math.round(-norm * 255);
+    g = Math.round(-norm * 100);
+  }
+  return { r, g, b };
+}
+
+// Render All Three Canvases
+function renderAll() {
+  let maxShiftPixels = 0;
+  let maxDropout = 0;
+
+  // Render Canvas 1: Reference Anatomy + Fieldmap Overlay
+  for (let ny = 0; ny < N; ny++) {
+    for (let nx = 0; nx < N; nx++) {
+      const idx = (ny * N + nx) * 4;
+      const anat = getAnatomy(nx, ny);
+      const df = getFieldOffset(nx, ny);
+
+      if (anat.isAir) {
+        // Outside or Sinus
+        refImgData.data[idx] = 10;
+        refImgData.data[idx + 1] = 10;
+        refImgData.data[idx + 2] = 15;
+        refImgData.data[idx + 3] = 255;
+      } else {
+        // Blend anatomy with fieldmap color
+        const fcol = getFieldColor(df);
+        const aVal = anat.val;
+        refImgData.data[idx] = Math.min(255, Math.round(aVal * 0.7 + fcol.r * 0.6));
+        refImgData.data[idx + 1] = Math.min(255, Math.round(aVal * 0.7 + fcol.g * 0.6));
+        refImgData.data[idx + 2] = Math.min(255, Math.round(aVal * 0.7 + fcol.b * 0.6));
+        refImgData.data[idx + 3] = 255;
+      }
+    }
+  }
+  ctxRef.putImageData(refImgData, 0, 0);
+
+  // Render Canvas 2: Distorted EPI Image (Forward Mapping / Backward Resampling)
+  for (let ny = 0; ny < N; ny++) {
+    for (let nx = 0; nx < N; nx++) {
+      const idx = (ny * N + nx) * 4;
+
+      // Backward projection: to find intensity at distorted pixel (nx, ny),
+      // what source y_source displaced into this ny?
+      // ny = y_src + shift(y_src)  =>  y_src approx ny - shift(ny)
+      const df = getFieldOffset(nx, ny);
+      const shiftPx = peDir * (df / bwPE);
+      if (Math.abs(shiftPx) > maxShiftPixels) maxShiftPixels = Math.abs(shiftPx);
+
+      const srcY = ny - shiftPx;
+
+      if (srcY < 0 || srcY >= N) {
+        distImgData.data[idx] = 0;
+        distImgData.data[idx + 1] = 0;
+        distImgData.data[idx + 2] = 0;
+        distImgData.data[idx + 3] = 255;
+      } else {
+        // Bilinear or nearest sample
+        const sy = Math.round(srcY);
+        const anat = getAnatomy(nx, sy);
+
+        if (anat.isAir) {
+          distImgData.data[idx] = 5;
+          distImgData.data[idx + 1] = 5;
+          distImgData.data[idx + 2] = 10;
+          distImgData.data[idx + 3] = 255;
+        } else {
+          // Calculate intra-voxel signal dropout due to local field gradient |d(df)/dy|
+          const dfNext = getFieldOffset(nx, Math.min(N - 1, sy + 1));
+          const dfPrev = getFieldOffset(nx, Math.max(0, sy - 1));
+          const gradY = Math.abs(dfNext - dfPrev) * 0.5; // Hz per pixel
+
+          // Dropout factor: exp( - k * grad * (TE / 30) )
+          const dropoutK = 0.055 * (TE / 30.0);
+          const atten = Math.exp(-gradY * dropoutK);
+          const lossPercent = (1.0 - atten) * 100;
+          if (lossPercent > maxDropout) maxDropout = lossPercent;
+
+          let val = Math.round(anat.val * atten);
+
+          // Grid line overlay
+          if (showGrid && (nx % 14 === 0 || sy % 14 === 0)) {
+            val = Math.min(255, val + 90);
+          }
+
+          distImgData.data[idx] = val;
+          distImgData.data[idx + 1] = val;
+          distImgData.data[idx + 2] = val;
+          distImgData.data[idx + 3] = 255;
+        }
+      }
+    }
+  }
+  ctxDistorted.putImageData(distImgData, 0, 0);
+
+  // Render Canvas 3: Corrected / TOPUP Unwarping Canvas
+  // unwarpFraction ranges from 0 (distorted) to 1.0 (unwarped back to true coordinates)
+  for (let ny = 0; ny < N; ny++) {
+    for (let nx = 0; nx < N; nx++) {
+      const idx = (ny * N + nx) * 4;
+
+      const df = getFieldOffset(nx, ny);
+      // As unwarpFraction increases, the remaining displacement reduces to 0
+      const remainingShift = peDir * (df / bwPE) * (1.0 - unwarpFraction);
+      const srcY = ny - remainingShift;
+
+      if (srcY < 0 || srcY >= N) {
+        corrImgData.data[idx] = 0;
+        corrImgData.data[idx + 1] = 0;
+        corrImgData.data[idx + 2] = 0;
+        corrImgData.data[idx + 3] = 255;
+      } else {
+        const sy = Math.round(srcY);
+        const anat = getAnatomy(nx, sy);
+
+        if (anat.isAir) {
+          corrImgData.data[idx] = 5;
+          corrImgData.data[idx + 1] = 5;
+          corrImgData.data[idx + 2] = 10;
+          corrImgData.data[idx + 3] = 255;
+        } else {
+          // Note: Signal dropout is permanent! Even after unwarping geometry, the missing spins cannot be restored!
+          const dfNext = getFieldOffset(nx, Math.min(N - 1, sy + 1));
+          const dfPrev = getFieldOffset(nx, Math.max(0, sy - 1));
+          const gradY = Math.abs(dfNext - dfPrev) * 0.5;
+          const dropoutK = 0.055 * (TE / 30.0);
+          const atten = Math.exp(-gradY * dropoutK);
+
+          let val = Math.round(anat.val * atten);
+
+          if (showGrid && (nx % 14 === 0 || sy % 14 === 0)) {
+            val = Math.min(255, val + 90);
+          }
+
+          corrImgData.data[idx] = val;
+          corrImgData.data[idx + 1] = Math.round(val * (unwarpFraction > 0.6 ? 1.05 : 1.0));
+          corrImgData.data[idx + 2] = val;
+          corrImgData.data[idx + 3] = 255;
+        }
+      }
+    }
+  }
+  ctxCorrected.putImageData(corrImgData, 0, 0);
+
+  // Update Readout Bar
+  document.getElementById('dispB0').textContent = B0.toFixed(1) + ' Tesla';
+  document.getElementById('dispBW').textContent = bwPE.toFixed(1) + ' Hz/px';
+  document.getElementById('dispShift').textContent = maxShiftPixels.toFixed(1) + ' pixels';
+  document.getElementById('dispDropout').textContent = '-' + maxDropout.toFixed(0) + '% signal';
+}
+
+// --- Presets ---
+function setPreset(p) {
+  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  const bannerText = document.getElementById('bannerText');
+
+  if (p === '3tap') {
+    document.getElementById('btn3TAP').classList.add('active');
+    B0 = 3.0; bwPE = 25.0; TE = 30.0; peDir = 1; sinusScale = 1.0;
+    bannerText.innerHTML = '<strong>Standard 3T fMRI (A&rarr;P):</strong> Anterior-to-Posterior phase encoding causes orbitofrontal tissue to be compressed backwards toward the brain center.';
+  } else if (p === '3tpa') {
+    document.getElementById('btn3TPA').classList.add('active');
+    B0 = 3.0; bwPE = 25.0; TE = 30.0; peDir = -1; sinusScale = 1.0;
+    bannerText.innerHTML = '<strong>Standard 3T fMRI (P&rarr;A):</strong> Reversed Posterior-to-Anterior phase encoding flips the displacement sign, stretching the frontal lobes forward.';
+  } else if (p === '7t') {
+    document.getElementById('btn7T').classList.add('active');
+    B0 = 7.0; bwPE = 25.0; TE = 25.0; peDir = 1; sinusScale = 1.2;
+    bannerText.innerHTML = '<strong>Ultra-High Field 7T fMRI:</strong> Field offsets scale with B0 (&Delta;f &gt; 250 Hz), magnifying geometric distortion and severe orbitofrontal signal dropout!';
+  } else if (p === 'accel') {
+    document.getElementById('btnAccel').classList.add('active');
+    B0 = 3.0; bwPE = 50.0; TE = 30.0; peDir = 1; sinusScale = 1.0;
+    bannerText.innerHTML = '<strong>Accelerated EPI (GRAPPA R=2):</strong> Parallel imaging cuts the effective echo train length in half, doubling phase-encode bandwidth and cutting spatial distortion in half!';
+  }
+
+  // Update slider inputs
+  document.getElementById('sliderB0').value = B0;
+  document.getElementById('valB0').textContent = B0.toFixed(1) + ' T';
+  document.getElementById('sliderBW').value = bwPE;
+  document.getElementById('valBW').textContent = bwPE.toFixed(0) + ' Hz/px';
+  document.getElementById('sliderTE').value = TE;
+  document.getElementById('valTE').textContent = TE.toFixed(0) + ' ms';
+  document.getElementById('sliderSinus').value = sinusScale;
+  document.getElementById('valSinus').textContent = sinusScale > 1.1 ? 'Large' : sinusScale < 0.9 ? 'Small' : 'Standard';
+
+  unwarpFraction = 0.0;
+  document.getElementById('sliderUnwarp').value = 0;
+  document.getElementById('valUnwarp').textContent = '0% (Raw Distorted)';
+
+  renderAll();
+}
+
+// --- Event Listeners ---
+document.getElementById('btn3TAP').addEventListener('click', () => setPreset('3tap'));
+document.getElementById('btn3TPA').addEventListener('click', () => setPreset('3tpa'));
+document.getElementById('btn7T').addEventListener('click', () => setPreset('7t'));
+document.getElementById('btnAccel').addEventListener('click', () => setPreset('accel'));
+
+document.getElementById('btnToggleGrid').addEventListener('click', () => {
+  showGrid = !showGrid;
+  document.getElementById('btnToggleGrid').classList.toggle('active', showGrid);
+  renderAll();
+});
+
+const sliderUnwarp = document.getElementById('sliderUnwarp');
+const valUnwarp = document.getElementById('valUnwarp');
+sliderUnwarp.addEventListener('input', (e) => {
+  unwarpFraction = parseFloat(e.target.value) / 100.0;
+  valUnwarp.textContent = e.target.value === '100' ? '100% (Fully Unwarped)' : e.target.value + '%';
+  renderAll();
+});
+
+let animId = null;
+document.getElementById('btnAnimateUnwarp').addEventListener('click', () => {
+  if (animId) cancelAnimationFrame(animId);
+  let progress = 0;
+  function step() {
+    progress += 0.025;
+    if (progress > 1.0) progress = 1.0;
+    unwarpFraction = progress;
+    sliderUnwarp.value = Math.round(progress * 100);
+    valUnwarp.textContent = Math.round(progress * 100) + '%';
+    renderAll();
+    if (progress < 1.0) animId = requestAnimationFrame(step);
+  }
+  animId = requestAnimationFrame(step);
+});
+
+// Sliders
+document.getElementById('sliderB0').addEventListener('input', (e) => {
+  B0 = parseFloat(e.target.value);
+  document.getElementById('valB0').textContent = B0.toFixed(1) + ' T';
+  renderAll();
+});
+
+document.getElementById('sliderBW').addEventListener('input', (e) => {
+  bwPE = parseFloat(e.target.value);
+  document.getElementById('valBW').textContent = bwPE.toFixed(0) + ' Hz/px';
+  renderAll();
+});
+
+document.getElementById('sliderTE').addEventListener('input', (e) => {
+  TE = parseFloat(e.target.value);
+  document.getElementById('valTE').textContent = TE.toFixed(0) + ' ms';
+  renderAll();
+});
+
+document.getElementById('sliderSinus').addEventListener('input', (e) => {
+  sinusScale = parseFloat(e.target.value);
+  document.getElementById('valSinus').textContent = sinusScale > 1.1 ? 'Large' : sinusScale < 0.9 ? 'Small' : 'Standard';
+  renderAll();
+});
+
+// Initial Setup
+setPreset('3tap');
+</script>
+</body>
+</html>
