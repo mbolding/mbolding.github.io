@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fMRI GLM &amp; Convolution Studio</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --taskA: #ea580c;
+    --taskA-bg: rgba(234, 88, 12, 0.15);
+    --taskB: #0284c7;
+    --taskB-bg: rgba(2, 132, 199, 0.15);
+    --fit-line: #a855f7;
+    --scope-bg: #090d16;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --taskA: #fb923c;
+      --taskA-bg: rgba(251, 146, 60, 0.2);
+      --taskB: #38bdf8;
+      --taskB-bg: rgba(56, 189, 248, 0.2);
+      --fit-line: #c084fc;
+      --scope-bg: #050811;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .timeline-box {
+    margin-bottom: 16px;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  canvas.scope {
+    background: var(--scope-bg);
+    border-color: var(--scope-grid);
+  }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stat-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+  .stat-val { font-size: 1.1rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+  .stat-val.taskA { color: var(--taskA); }
+  .stat-val.taskB { color: var(--taskB); }
+  .stat-val.sig { color: #16a34a; }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .contrast-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .note {
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .note strong { color: var(--fg); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>fMRI GLM &amp; Convolution Studio</h1>
+  <p class="sub">
+    Construct cognitive paradigm timelines, convolve stimulus events with the canonical Hemodynamic Response Function (HRF) to build the <strong>Design Matrix</strong> (<i>X</i>), inject noise and drift, and solve the <strong>General Linear Model</strong> (<i>Y</i> = <i>X</i>&beta; + &epsilon;) in real time.
+  </p>
+
+  <div class="panel">
+    <!-- Preset Selection -->
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Experimental Design:</span>
+      <button id="btnBlock" class="active">Block Design (High Power)</button>
+      <button id="btnJitter" class="secondary">Jittered Event-Related (Efficient)</button>
+      <button id="btnFixed" class="secondary">Fixed Event-Related (Harmonic)</button>
+      <button id="btnCollinear" class="secondary">Collinear / Confounded</button>
+      <button id="btnRandomizeNoise" class="secondary" style="margin-left: auto;">New Noise Instance</button>
+    </div>
+
+    <!-- Status / Educational Banner -->
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Block Design:</strong> 20s sustained blocks produce large, cumulative BOLD responses, maximizing statistical detection power.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">VIF: 1.02 &middot; Collinearity: Minimal</span>
+    </div>
+
+    <!-- Canvas 1: Stimulus Timeline & Convolved Regressors -->
+    <div class="timeline-box">
+      <canvas id="cTimeline" width="996" height="230"></canvas>
+      <div class="canvas-caption">Stimulus Paradigm <i>u</i>(<i>t</i>) &amp; Convolved BOLD Regressors: <span style="color:var(--taskA);font-weight:600;">Task A (Orange)</span> vs. <span style="color:var(--taskB);font-weight:600;">Task B (Blue)</span> &times; Canonical HRF</div>
+    </div>
+
+    <!-- Canvas 2: Synthetic Voxel Signal & OLS Fit -->
+    <div class="timeline-box" style="margin-top: 20px;">
+      <canvas id="cVoxel" class="scope" width="996" height="250"></canvas>
+      <div class="canvas-caption">Voxel Time Series <i>Y</i>(<i>t</i>) (Noisy Dots) &amp; Overlaid OLS Model Fit <span style="color:var(--fit-line);font-weight:600;"><i>Y&#770;</i> = <i>X</i>&beta;&#770; (Purple Line)</span></div>
+    </div>
+
+    <!-- Statistical Readout Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">True &beta;<sub>A</sub> vs. Estimated &beta;&#770;<sub>A</sub></div>
+        <div class="stat-val taskA" id="dispBetaA">2.00 &rarr; 1.98</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">True &beta;<sub>B</sub> vs. Estimated &beta;&#770;<sub>B</sub></div>
+        <div class="stat-val taskB" id="dispBetaB">1.00 &rarr; 1.04</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Contrast <i>c</i><sup>T</sup>&beta;&#770;</div>
+        <div class="stat-val" id="dispContrast">+0.94</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><i>t</i>-statistic</div>
+        <div class="stat-val sig" id="dispTstat"><i>t</i> = 4.82</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Significance (<i>p</i>-value)</div>
+        <div class="stat-val sig" id="dispPval"><i>p</i> &lt; 0.0001</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Variance Inflation (VIF)</div>
+        <div class="stat-val" id="dispVIF">1.02</div>
+      </div>
+    </div>
+
+    <!-- Contrast Selection Bar -->
+    <div class="contrast-bar">
+      <span style="font-size: 0.85rem; font-weight: 600;">Statistical Contrast <i>c</i>:</span>
+      <button id="cTaskA" class="active">Task A &gt; Baseline [1, 0]</button>
+      <button id="cTaskB" class="secondary">Task B &gt; Baseline [0, 1]</button>
+      <button id="cDiff" class="secondary">Task A &gt; Task B [1, -1]</button>
+      <div style="margin-left: auto; font-size: 0.82rem; color: var(--muted);">
+        Model: <i>Y</i> = &beta;<sub>A</sub><i>X</i><sub>A</sub> + &beta;<sub>B</sub><i>X</i><sub>B</sub> + &beta;<sub>drift</sub><i>X</i><sub>drift</sub> + &beta;<sub>0</sub>
+      </div>
+    </div>
+
+    <!-- Sliders Grid -->
+    <div class="controls-grid">
+      <div>
+        <label>True Task A Effect Size (&beta;<sub>A</sub>): <span class="val-badge" id="valBetaA">2.0%</span></label>
+        <input type="range" id="sliderBetaA" min="0" max="4.0" value="2.0" step="0.1">
+      </div>
+      <div>
+        <label>True Task B Effect Size (&beta;<sub>B</sub>): <span class="val-badge" id="valBetaB">1.0%</span></label>
+        <input type="range" id="sliderBetaB" min="0" max="4.0" value="1.0" step="0.1">
+      </div>
+      <div>
+        <label>Thermal Noise Level (&sigma;<sub>noise</sub>): <span class="val-badge" id="valNoise">0.8%</span></label>
+        <input type="range" id="sliderNoise" min="0.1" max="2.5" value="0.8" step="0.05">
+      </div>
+      <div>
+        <label>Scanner Baseline Drift: <span class="val-badge" id="valDrift">1.5%</span></label>
+        <input type="range" id="sliderDrift" min="0" max="4.0" value="1.5" step="0.1">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;">
+      <strong>Core Concepts of the fMRI General Linear Model (GLM):</strong>
+    </p>
+    <p class="note">
+      1. <strong>Convolution with the HRF:</strong> Neural events induce metabolic activity that triggers a sluggish, delayed blood-oxygenation response peaking 5–6 seconds later, followed by an undershoot. We convolve our stimulus timing vectors <i>u</i>(<i>t</i>) with the canonical double-gamma Hemodynamic Response Function <i>h</i>(<i>t</i>) to predict what the BOLD response should look like: <i>X</i><sub>i</sub>(<i>t</i>) = (<i>u</i><sub>i</sub> &lowast; <i>h</i>)(<i>t</i>).
+    </p>
+    <p class="note">
+      2. <strong>Detection Power vs. Estimation Efficiency:</strong>
+      <strong>Block designs</strong> create massive cumulative signal swings by stringing events together, yielding very high statistical detection power (large <i>t</i>-statistics). However, they cannot isolate the shape of single events. <strong>Jittered event-related designs</strong> separate events with variable intervals, allowing the HRF to be estimated accurately (high estimation efficiency) at the cost of reduced overall raw signal amplitude.
+    </p>
+    <p class="note">
+      3. <strong>Multicollinearity &amp; Variance Inflation (VIF):</strong> When two conditions always occur in rapid succession (e.g. in the Collinear preset where Task B immediately follows Task A), their convolved regressors become heavily correlated (<i>r</i> &rarr; 1). In the GLM, high collinearity blows up the covariance matrix (<i>X</i><sup>T</sup><i>X</i>)<sup>&minus;1</sup>, inflating the standard error of parameter estimates (&beta;&#770;) and destroying our statistical ability to distinguish Task A from Task B!
+    </p>
+    <p class="note">
+      4. <strong>Nuisance Regressors:</strong> Real MRI scans suffer from low-frequency hardware drifts and heating. By including a linear drift column in the design matrix <i>X</i>, the GLM separates baseline drifts from true task-related neural activations.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; General Linear Model Simulation</footer>
+</div>
+
+<script>
+// --- Simulation Constants & State ---
+const duration = 160; // Total seconds
+const dt = 0.5; // Sampling interval (sec)
+const numPoints = Math.round(duration / dt); // 320 points
+
+// Current Paradigm: arrays of length numPoints (0 or 1)
+let stimA = new Float32Array(numPoints);
+let stimB = new Float32Array(numPoints);
+
+// Model Parameters
+let trueBetaA = 2.0; // % BOLD change
+let trueBetaB = 1.0; // % BOLD change
+let noiseStd = 0.8;
+let driftAmp = 1.5;
+let currentPreset = 'block';
+let currentContrast = [1, 0]; // Task A > Baseline
+
+// Stored Noise vector (persistent until changed/reseeded)
+let noiseVec = new Float32Array(numPoints);
+function generateNoise() {
+  for (let i = 0; i < numPoints; i++) {
+    // Box-Muller transform
+    let u = Math.random(), v = Math.random();
+    let z = Math.sqrt(-2.0 * Math.log(u || 0.0001)) * Math.cos(2.0 * Math.PI * v);
+    noiseVec[i] = z;
+  }
+}
+generateNoise();
+
+// --- Canonical Double-Gamma HRF ---
+// Peak at 6s, undershoot at 16s
+function canonicalHRF(t) {
+  if (t < 0) return 0;
+  const a1 = 6, b1 = 1;
+  const a2 = 16, b2 = 1;
+  const c = 1 / 6;
+
+  function gammaPdf(t, a, b) {
+    let fact = 1;
+    for (let i = 1; i < a; i++) fact *= i;
+    return (Math.pow(t, a - 1) * Math.exp(-t / b)) / (fact * Math.pow(b, a));
+  }
+
+  const h = gammaPdf(t, a1, b1) - c * gammaPdf(t, a2, b2);
+  return h * 2.1; // scale so peak is approx 1.0
+}
+
+// Compute HRF kernel for convolution
+const hrfLen = Math.round(32 / dt); // 32 seconds kernel
+const hrfKernel = new Float32Array(hrfLen);
+for (let i = 0; i < hrfLen; i++) {
+  hrfKernel[i] = canonicalHRF(i * dt);
+}
+
+// Discrete Convolution
+function convolve(stim) {
+  const out = new Float32Array(numPoints);
+  for (let i = 0; i < numPoints; i++) {
+    let sum = 0;
+    for (let j = 0; j < hrfLen; j++) {
+      if (i - j >= 0) {
+        sum += stim[i - j] * hrfKernel[j] * dt;
+      }
+    }
+    out[i] = sum;
+  }
+  return out;
+}
+
+// --- Presets ---
+function setPreset(p) {
+  currentPreset = p;
+  stimA.fill(0);
+  stimB.fill(0);
+
+  const banner = document.getElementById('banner');
+  const bannerText = document.getElementById('bannerText');
+  const bannerSub = document.getElementById('bannerSub');
+
+  // Remove active from all preset buttons
+  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+
+  if (p === 'block') {
+    document.getElementById('btnBlock').classList.add('active');
+    bannerText.innerHTML = '<strong>Block Design:</strong> 20s sustained blocks produce large, cumulative BOLD responses, maximizing statistical detection power.';
+    // 20s Task A, 20s Rest, 20s Task B, 20s Rest...
+    for (let t = 0; t < duration; t += dt) {
+      let idx = Math.round(t / dt);
+      let cycle = t % 80;
+      if (cycle >= 0 && cycle < 20) stimA[idx] = 1;
+      else if (cycle >= 40 && cycle < 60) stimB[idx] = 1;
+    }
+  } else if (p === 'jitter') {
+    document.getElementById('btnJitter').classList.add('active');
+    bannerText.innerHTML = '<strong>Jittered Event-Related:</strong> Brief 1s events with randomized intervals allow uncorrelating regressors and resolving individual HRF response shapes.';
+    // Jittered events with random ISIs
+    let t = 8;
+    while (t < duration - 12) {
+      let isA = Math.random() > 0.5;
+      let idx = Math.round(t / dt);
+      let len = Math.round(1.5 / dt);
+      for (let k = 0; k < len; k++) {
+        if (idx + k < numPoints) {
+          if (isA) stimA[idx + k] = 1;
+          else stimB[idx + k] = 1;
+        }
+      }
+      t += 4 + Math.random() * 7; // 4 to 11s jittered ISI
+    }
+  } else if (p === 'fixed') {
+    document.getElementById('btnFixed').classList.add('active');
+    bannerText.innerHTML = '<strong>Fixed Event-Related (No Jitter):</strong> Rigid periodic stimulation at fixed 4s intervals causes overlapping responses that cannot be uniquely deconvolved.';
+    for (let t = 8; t < duration - 8; t += 4) {
+      let idx = Math.round(t / dt);
+      let isA = (Math.round(t / 4) % 2 === 0);
+      if (isA) stimA[idx] = 1;
+      else stimB[idx] = 1;
+    }
+  } else if (p === 'collinear') {
+    document.getElementById('btnCollinear').classList.add('active');
+    bannerText.innerHTML = '<strong>Collinear / Confounded:</strong> Task B always immediately follows Task A by 1s. The regressors overlap almost perfectly, causing severe variance inflation and unstable betas!';
+    for (let t = 10; t < duration - 16; t += 22) {
+      let idxA = Math.round(t / dt);
+      let idxB = Math.round((t + 1.5) / dt);
+      stimA[idxA] = 1; stimA[idxA + 1] = 1;
+      stimB[idxB] = 1; stimB[idxB + 1] = 1;
+    }
+  }
+
+  updateSimulation();
+}
+
+// --- Ordinary Least Squares (OLS) Solver ---
+// Solves (X^T * X) * beta = X^T * Y for a 4-column matrix
+function solveOLS(X, Y) {
+  // Compute X^T * X (4x4) and X^T * Y (4x1)
+  const XtX = [
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+  ];
+  const XtY = [0, 0, 0, 0];
+
+  for (let i = 0; i < numPoints; i++) {
+    const x0 = X[0][i];
+    const x1 = X[1][i];
+    const x2 = X[2][i];
+    const x3 = X[3][i];
+    const y = Y[i];
+
+    XtX[0][0] += x0 * x0; XtX[0][1] += x0 * x1; XtX[0][2] += x0 * x2; XtX[0][3] += x0 * x3;
+    XtX[1][0] += x1 * x0; XtX[1][1] += x1 * x1; XtX[1][2] += x1 * x2; XtX[1][3] += x1 * x3;
+    XtX[2][0] += x2 * x0; XtX[2][1] += x2 * x1; XtX[2][2] += x2 * x2; XtX[2][3] += x2 * x3;
+    XtX[3][0] += x3 * x0; XtX[3][1] += x3 * x1; XtX[3][2] += x3 * x2; XtX[3][3] += x3 * x3;
+
+    XtY[0] += x0 * y;
+    XtY[1] += x1 * y;
+    XtY[2] += x2 * y;
+    XtY[3] += x3 * y;
+  }
+
+  // Invert 4x4 matrix using Gauss-Jordan elimination
+  const A = XtX.map((row, r) => [...row, ...(r === 0 ? [1,0,0,0] : r === 1 ? [0,1,0,0] : r === 2 ? [0,0,1,0] : [0,0,0,1])]);
+  const n = 4;
+
+  for (let i = 0; i < n; i++) {
+    // Pivot
+    let maxRow = i;
+    for (let k = i + 1; k < n; k++) {
+      if (Math.abs(A[k][i]) > Math.abs(A[maxRow][i])) maxRow = k;
+    }
+    const temp = A[i]; A[i] = A[maxRow]; A[maxRow] = temp;
+
+    let pivot = A[i][i];
+    if (Math.abs(pivot) < 1e-12) pivot = 1e-12; // Numerical safety
+    for (let j = 0; j < 2 * n; j++) A[i][j] /= pivot;
+
+    for (let k = 0; k < n; k++) {
+      if (k !== i) {
+        let factor = A[k][i];
+        for (let j = 0; j < 2 * n; j++) {
+          A[k][j] -= factor * A[i][j];
+        }
+      }
+    }
+  }
+
+  // Extract inverted matrix (XtX_inv)
+  const XtX_inv = [];
+  for (let i = 0; i < n; i++) {
+    XtX_inv.push(A[i].slice(n, 2 * n));
+  }
+
+  // beta_hat = XtX_inv * XtY
+  const beta_hat = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      beta_hat[i] += XtX_inv[i][j] * XtY[j];
+    }
+  }
+
+  return { beta_hat, XtX_inv };
+}
+
+// --- Main Simulation Update ---
+let cachedRegA, cachedRegB, cachedVoxelData, cachedFitData, cachedStats;
+
+function updateSimulation() {
+  // 1. Convolve stimulus vectors with HRF
+  const regA = convolve(stimA);
+  const regB = convolve(stimB);
+
+  // 2. Linear Drift and Baseline Regressors
+  const regDrift = new Float32Array(numPoints);
+  const regConst = new Float32Array(numPoints);
+  for (let i = 0; i < numPoints; i++) {
+    regDrift[i] = (i / numPoints) - 0.5; // mean zero ramp
+    regConst[i] = 1.0;
+  }
+
+  const X = [regA, regB, regDrift, regConst];
+
+  // 3. Collinearity metrics between regA and regB
+  let sumA = 0, sumB = 0;
+  for (let i = 0; i < numPoints; i++) { sumA += regA[i]; sumB += regB[i]; }
+  let meanA = sumA / numPoints, meanB = sumB / numPoints;
+
+  let num = 0, denA = 0, denB = 0;
+  for (let i = 0; i < numPoints; i++) {
+    let da = regA[i] - meanA;
+    let db = regB[i] - meanB;
+    num += da * db;
+    denA += da * da;
+    denB += db * db;
+  }
+  const corr = (denA > 0 && denB > 0) ? (num / Math.sqrt(denA * denB)) : 0;
+  const vif = (1.0 - corr * corr) > 0.001 ? (1.0 / (1.0 - corr * corr)) : 99.9;
+
+  // 4. Generate Synthetic Voxel Data Y(t)
+  const Y = new Float32Array(numPoints);
+  const baseline = 100.0;
+  for (let i = 0; i < numPoints; i++) {
+    let signal = baseline
+      + trueBetaA * regA[i]
+      + trueBetaB * regB[i]
+      + driftAmp * regDrift[i]
+      + noiseStd * noiseVec[i];
+    Y[i] = signal;
+  }
+
+  // 5. Fit OLS Model
+  const { beta_hat, XtX_inv } = solveOLS(X, Y);
+
+  // Compute fitted values and residuals
+  const Y_fit = new Float32Array(numPoints);
+  let rss = 0;
+  for (let i = 0; i < numPoints; i++) {
+    let y_pred = beta_hat[0] * regA[i] + beta_hat[1] * regB[i] + beta_hat[2] * regDrift[i] + beta_hat[3] * regConst[i];
+    Y_fit[i] = y_pred;
+    let res = Y[i] - y_pred;
+    rss += res * res;
+  }
+
+  const df = numPoints - 4;
+  const sigma2 = rss / df;
+
+  // Contrast Testing
+  const c = [currentContrast[0], currentContrast[1], 0, 0];
+  const cBeta = c[0] * beta_hat[0] + c[1] * beta_hat[1];
+
+  // var(c * beta) = sigma2 * (c^T * XtX_inv * c)
+  let c_cov_c = 0;
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      c_cov_c += c[i] * XtX_inv[i][j] * c[j];
+    }
+  }
+  const se_contrast = Math.sqrt(Math.max(1e-12, sigma2 * c_cov_c));
+  const t_stat = cBeta / se_contrast;
+
+  // Approximate p-value (normal approximation since df = 316)
+  const absT = Math.abs(t_stat);
+  let p_val = 2.0 * (1.0 - 0.5 * (1.0 + Math.sign(absT) * Math.sqrt(1.0 - Math.exp(-2.0 * absT * absT / Math.PI))));
+
+  cachedRegA = regA;
+  cachedRegB = regB;
+  cachedVoxelData = Y;
+  cachedFitData = Y_fit;
+  cachedStats = { beta_hat, cBeta, t_stat, p_val, corr, vif, se_contrast };
+
+  // Update UI Readouts
+  document.getElementById('dispBetaA').textContent = `${trueBetaA.toFixed(2)} → ${beta_hat[0].toFixed(2)}`;
+  document.getElementById('dispBetaB').textContent = `${trueBetaB.toFixed(2)} → ${beta_hat[1].toFixed(2)}`;
+  document.getElementById('dispContrast').textContent = `${cBeta >= 0 ? '+' : ''}${cBeta.toFixed(2)} (SE: ${se_contrast.toFixed(2)})`;
+  document.getElementById('dispTstat').innerHTML = `<i>t</i> = ${t_stat.toFixed(2)}`;
+  document.getElementById('dispPval').innerHTML = p_val < 0.0001 ? '<i>p</i> &lt; 0.0001' : `<i>p</i> = ${p_val.toFixed(4)}`;
+  document.getElementById('dispVIF').textContent = vif >= 99 ? '> 99 (Severe)' : vif.toFixed(2);
+
+  const bannerSub = document.getElementById('bannerSub');
+  bannerSub.textContent = `VIF: ${vif.toFixed(2)} · Regressor Correlation r = ${corr.toFixed(2)}`;
+
+  renderTimelineCanvas();
+  renderVoxelCanvas();
+}
+
+// --- Canvases & Rendering ---
+const cTimeline = document.getElementById('cTimeline');
+const ctxTimeline = cTimeline.getContext('2d');
+const cVoxel = document.getElementById('cVoxel');
+const ctxVoxel = cVoxel.getContext('2d');
+
+function renderTimelineCanvas() {
+  const w = cTimeline.width, h = cTimeline.height;
+  ctxTimeline.clearRect(0, 0, w, h);
+
+  const padLeft = 46, padRight = 20;
+  const padTop = 18, padBottom = 26;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  // Time grid
+  ctxTimeline.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+  ctxTimeline.lineWidth = 1;
+  ctxTimeline.beginPath();
+  for (let t = 0; t <= duration; t += 20) {
+    let x = padLeft + (t / duration) * plotW;
+    ctxTimeline.moveTo(x, padTop);
+    ctxTimeline.lineTo(x, padTop + plotH);
+  }
+  ctxTimeline.stroke();
+
+  // Baseline zero line
+  const midY = padTop + plotH * 0.72;
+  ctxTimeline.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+  ctxTimeline.beginPath();
+  ctxTimeline.moveTo(padLeft, midY);
+  ctxTimeline.lineTo(padLeft + plotW, midY);
+  ctxTimeline.stroke();
+
+  // Axis Labels
+  ctxTimeline.fillStyle = '#64748b';
+  ctxTimeline.font = '10px ui-monospace, monospace';
+  for (let t = 0; t <= duration; t += 20) {
+    let x = padLeft + (t / duration) * plotW;
+    ctxTimeline.fillText(t + 's', x - 8, h - 8);
+  }
+  ctxTimeline.fillText('1.0', 18, padTop + 24);
+  ctxTimeline.fillText('0.0', 18, midY + 4);
+
+  // 1. Draw Stimulus impulses / blocks as shaded bars
+  for (let i = 0; i < numPoints; i++) {
+    let x = padLeft + (i / numPoints) * plotW;
+    let barW = Math.max(1.5, plotW / numPoints);
+    if (stimA[i] > 0) {
+      ctxTimeline.fillStyle = 'rgba(234, 88, 12, 0.25)';
+      ctxTimeline.fillRect(x, padTop + 10, barW, midY - (padTop + 10));
+    }
+    if (stimB[i] > 0) {
+      ctxTimeline.fillStyle = 'rgba(2, 132, 199, 0.25)';
+      ctxTimeline.fillRect(x, padTop + 10, barW, midY - (padTop + 10));
+    }
+  }
+
+  // 2. Draw Convolved Regressors
+  const regMax = 1.4;
+  // Task A (Orange)
+  ctxTimeline.strokeStyle = '#ea580c';
+  ctxTimeline.lineWidth = 2.2;
+  ctxTimeline.beginPath();
+  for (let i = 0; i < numPoints; i++) {
+    let x = padLeft + (i / numPoints) * plotW;
+    let y = midY - (cachedRegA[i] / regMax) * (midY - padTop);
+    if (i === 0) ctxTimeline.moveTo(x, y);
+    else ctxTimeline.lineTo(x, y);
+  }
+  ctxTimeline.stroke();
+
+  // Task B (Blue)
+  ctxTimeline.strokeStyle = '#0284c7';
+  ctxTimeline.lineWidth = 2.2;
+  ctxTimeline.beginPath();
+  for (let i = 0; i < numPoints; i++) {
+    let x = padLeft + (i / numPoints) * plotW;
+    let y = midY - (cachedRegB[i] / regMax) * (midY - padTop);
+    if (i === 0) ctxTimeline.moveTo(x, y);
+    else ctxTimeline.lineTo(x, y);
+  }
+  ctxTimeline.stroke();
+
+  // Regressor Legends
+  ctxTimeline.font = 'bold 11px sans-serif';
+  ctxTimeline.fillStyle = '#ea580c';
+  ctxTimeline.fillText('— Task A BOLD Regressor X_A(t)', padLeft + 10, padTop + 14);
+  ctxTimeline.fillStyle = '#0284c7';
+  ctxTimeline.fillText('— Task B BOLD Regressor X_B(t)', padLeft + 220, padTop + 14);
+}
+
+function renderVoxelCanvas() {
+  const w = cVoxel.width, h = cVoxel.height;
+  ctxVoxel.clearRect(0, 0, w, h);
+
+  const padLeft = 46, padRight = 20;
+  const padTop = 22, padBottom = 26;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  // Grid
+  ctxVoxel.strokeStyle = '#1e293b';
+  ctxVoxel.lineWidth = 1;
+  ctxVoxel.beginPath();
+  for (let t = 0; t <= duration; t += 20) {
+    let x = padLeft + (t / duration) * plotW;
+    ctxVoxel.moveTo(x, padTop);
+    ctxVoxel.lineTo(x, padTop + plotH);
+  }
+  for (let p = 96; p <= 106; p += 2) {
+    let y = padTop + plotH - ((p - 96) / 10.0) * plotH;
+    ctxVoxel.moveTo(padLeft, y);
+    ctxVoxel.lineTo(padLeft + plotW, y);
+  }
+  ctxVoxel.stroke();
+
+  // Y-axis labels (% signal)
+  ctxVoxel.fillStyle = '#94a3b8';
+  ctxVoxel.font = '10px ui-monospace, monospace';
+  for (let p = 96; p <= 106; p += 2) {
+    let y = padTop + plotH - ((p - 96) / 10.0) * plotH;
+    ctxVoxel.fillText(p.toFixed(0) + '%', 14, y + 3);
+  }
+  for (let t = 0; t <= duration; t += 20) {
+    let x = padLeft + (t / duration) * plotW;
+    ctxVoxel.fillText(t + 's', x - 8, h - 8);
+  }
+
+  // 1. Draw Data Points Y(t) as discrete dots
+  ctxVoxel.fillStyle = 'rgba(148, 163, 184, 0.75)';
+  for (let i = 0; i < numPoints; i++) {
+    let x = padLeft + (i / numPoints) * plotW;
+    let y = padTop + plotH - ((cachedVoxelData[i] - 96.0) / 10.0) * plotH;
+    ctxVoxel.beginPath();
+    ctxVoxel.arc(x, y, 2.2, 0, 2 * Math.PI);
+    ctxVoxel.fill();
+  }
+
+  // 2. Draw Fitted Model Y_fit(t) (Purple curve)
+  ctxVoxel.strokeStyle = '#c084fc';
+  ctxVoxel.lineWidth = 2.4;
+  ctxVoxel.beginPath();
+  for (let i = 0; i < numPoints; i++) {
+    let x = padLeft + (i / numPoints) * plotW;
+    let y = padTop + plotH - ((cachedFitData[i] - 96.0) / 10.0) * plotH;
+    if (i === 0) ctxVoxel.moveTo(x, y);
+    else ctxVoxel.lineTo(x, y);
+  }
+  ctxVoxel.stroke();
+
+  // Legends
+  ctxVoxel.font = 'bold 11px sans-serif';
+  ctxVoxel.fillStyle = '#94a3b8';
+  ctxVoxel.fillText('• Measured Voxel Data Y(t)', padLeft + 10, padTop + 14);
+  ctxVoxel.fillStyle = '#c084fc';
+  ctxVoxel.fillText('— GLM OLS Fit Y^ = Xβ^', padLeft + 180, padTop + 14);
+}
+
+// --- Event Listeners ---
+document.getElementById('btnBlock').addEventListener('click', () => setPreset('block'));
+document.getElementById('btnJitter').addEventListener('click', () => setPreset('jitter'));
+document.getElementById('btnFixed').addEventListener('click', () => setPreset('fixed'));
+document.getElementById('btnCollinear').addEventListener('click', () => setPreset('collinear'));
+
+document.getElementById('btnRandomizeNoise').addEventListener('click', () => {
+  generateNoise();
+  updateSimulation();
+});
+
+// Contrast Selection
+const btnCTaskA = document.getElementById('cTaskA');
+const btnCTaskB = document.getElementById('cTaskB');
+const btnCDiff = document.getElementById('cDiff');
+
+function setContrast(c, activeBtn) {
+  currentContrast = c;
+  [btnCTaskA, btnCTaskB, btnCDiff].forEach(b => b.classList.remove('active'));
+  activeBtn.classList.add('active');
+  updateSimulation();
+}
+
+btnCTaskA.addEventListener('click', () => setContrast([1, 0], btnCTaskA));
+btnCTaskB.addEventListener('click', () => setContrast([0, 1], btnCTaskB));
+btnCDiff.addEventListener('click', () => setContrast([1, -1], btnCDiff));
+
+// Sliders
+const sliderBetaA = document.getElementById('sliderBetaA');
+const valBetaA = document.getElementById('valBetaA');
+sliderBetaA.addEventListener('input', (e) => {
+  trueBetaA = parseFloat(e.target.value);
+  valBetaA.textContent = trueBetaA.toFixed(1) + '%';
+  updateSimulation();
+});
+
+const sliderBetaB = document.getElementById('sliderBetaB');
+const valBetaB = document.getElementById('valBetaB');
+sliderBetaB.addEventListener('input', (e) => {
+  trueBetaB = parseFloat(e.target.value);
+  valBetaB.textContent = trueBetaB.toFixed(1) + '%';
+  updateSimulation();
+});
+
+const sliderNoise = document.getElementById('sliderNoise');
+const valNoise = document.getElementById('valNoise');
+sliderNoise.addEventListener('input', (e) => {
+  noiseStd = parseFloat(e.target.value);
+  valNoise.textContent = noiseStd.toFixed(2) + '%';
+  updateSimulation();
+});
+
+const sliderDrift = document.getElementById('sliderDrift');
+const valDrift = document.getElementById('valDrift');
+sliderDrift.addEventListener('input', (e) => {
+  driftAmp = parseFloat(e.target.value);
+  valDrift.textContent = driftAmp.toFixed(1) + '%';
+  updateSimulation();
+});
+
+// Interactive Click on Timeline Canvas to Toggle Stimuli
+cTimeline.addEventListener('click', (e) => {
+  const rect = cTimeline.getBoundingClientRect();
+  const clickX = (e.clientX - rect.left) * (cTimeline.width / rect.width);
+  const padLeft = 46, padRight = 20;
+  const plotW = cTimeline.width - padLeft - padRight;
+  if (clickX < padLeft || clickX > padLeft + plotW) return;
+
+  const frac = (clickX - padLeft) / plotW;
+  const targetIdx = Math.round(frac * numPoints);
+
+  // Toggle 4-second block around click
+  const halfSpan = Math.round(2.0 / dt);
+  const isA = (e.shiftKey || e.button === 2); // Shift-click for Task B, normal click for Task A
+
+  for (let k = -halfSpan; k <= halfSpan; k++) {
+    let idx = targetIdx + k;
+    if (idx >= 0 && idx < numPoints) {
+      if (!isA) stimA[idx] = stimA[idx] ? 0 : 1;
+      else stimB[idx] = stimB[idx] ? 0 : 1;
+    }
+  }
+
+  // Update preset buttons to custom
+  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  document.getElementById('bannerText').innerHTML = '<strong>Custom Paradigm:</strong> Timeline manually edited. Click to toggle Task A blocks; Shift+Click to toggle Task B blocks.';
+  updateSimulation();
+});
+
+// Initial Setup
+setPreset('block');
+</script>
+</body>
+</html>
