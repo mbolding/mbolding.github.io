@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worksheet 2.3: Diagnostic Target Specifications & Performance Envelope – IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- MathJax 3 for rendering LaTeX math formulas -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #f59e0b;
+            --accent-soft: rgba(245, 158, 11, 0.08);
+            --border: #e5e5e5;
+            --border-focus: #f59e0b;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --code-font: 'Space Mono', monospace;
+            --serif-font: 'Instrument Serif', serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --phase1: #3b82f6;
+            --phase2: #10b981;
+            --phase3: #f59e0b;
+            --phase4: #8b5cf6;
+            --phase5: #ec4899;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #18181b;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #fbbf24;
+            --accent-soft: rgba(251, 191, 36, 0.15);
+            --border: #27272a;
+            --border-focus: #fbbf24;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #1f1f23;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--code-font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding-bottom: 5rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .nav-breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .nav-breadcrumbs a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-breadcrumbs a:hover {
+            color: var(--accent);
+        }
+
+        .nav-breadcrumbs span.sep {
+            color: var(--border);
+        }
+
+        .nav-breadcrumbs span.current {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-sm:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Week Tabs */
+        .tabs-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem 1.5rem;
+        }
+
+        .tabs-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .tab-link {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.4rem 0.85rem;
+            border-radius: 4px;
+            color: var(--text-muted);
+            text-decoration: none;
+            white-space: nowrap;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-link:hover {
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        .tab-link.active {
+            color: var(--accent);
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--phase3);
+            background: rgba(245, 158, 11, 0.1);
+            padding: 0.3rem 0.75rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: clamp(2rem, 4vw, 2.75rem);
+            font-weight: 400;
+            line-height: 1.15;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        .header-meta {
+            font-family: var(--sans-font);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            max-width: 820px;
+            margin-top: 0.5rem;
+        }
+
+        /* Action Toolbar */
+        .action-toolbar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .save-status {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .save-status.saved {
+            color: var(--success);
+        }
+
+        /* Cards & Form Sections */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .card-title {
+            font-family: var(--sans-font);
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .step-num {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-family: var(--code-font);
+        }
+
+        .card-desc {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            padding: 0.65rem 0.85rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        textarea {
+            font-family: var(--sans-font);
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 90px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px var(--accent-soft);
+        }
+
+        /* Calculator Section */
+        .calc-container {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        @media (max-width: 800px) {
+            .calc-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .calc-inputs {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .calc-results {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+        }
+
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .slider-val {
+            color: var(--accent);
+            font-family: var(--code-font);
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        /* Confusion Matrix Grid */
+        .matrix-2x2 {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-family: var(--sans-font);
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .matrix-cell {
+            padding: 0.75rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .matrix-header {
+            font-family: var(--code-font);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            align-self: center;
+        }
+
+        .cell-tp { background: rgba(22, 163, 74, 0.1); border-color: rgba(22, 163, 74, 0.3); }
+        .cell-fp { background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.3); }
+        .cell-fn { background: rgba(217, 119, 6, 0.1); border-color: rgba(217, 119, 6, 0.3); }
+        .cell-tn { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
+
+        .cell-num {
+            font-family: var(--code-font);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        .metrics-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .metric-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .metric-value {
+            font-family: var(--code-font);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-top: 0.2rem;
+        }
+
+        .calc-callout {
+            font-family: var(--sans-font);
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: var(--accent-soft);
+            border-radius: 4px;
+            border-left: 2px solid var(--accent);
+        }
+
+        /* TPP Table */
+        .table-responsive {
+            overflow-x: auto;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        table.tpp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--sans-font);
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        table.tpp-table th {
+            background: var(--bg-secondary);
+            padding: 0.75rem 0.85rem;
+            font-family: var(--code-font);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        table.tpp-table td {
+            padding: 0.75rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        table.tpp-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table.tpp-table input,
+        table.tpp-table select,
+        table.tpp-table textarea {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+            min-height: 34px;
+        }
+
+        table.tpp-table textarea {
+            min-height: 60px;
+        }
+
+        .btn-delete-row {
+            background: transparent;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .btn-delete-row:hover {
+            opacity: 1;
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        /* Guide Box */
+        .guide-box {
+            background: var(--accent-soft);
+            border-left: 3px solid var(--accent);
+            padding: 1rem 1.25rem;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 1.5rem;
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .guide-box strong {
+            color: var(--text-primary);
+        }
+
+        .guide-box ul {
+            margin-top: 0.5rem;
+            padding-left: 1.25rem;
+        }
+
+        .guide-box li {
+            margin-bottom: 0.25rem;
+        }
+
+        /* Print formatting */
+        @media print {
+            .top-nav,
+            .tabs-bar,
+            .action-toolbar,
+            .btn-delete-row,
+            .add-row-btn,
+            #themeToggle {
+                display: none !important;
+            }
+
+            body {
+                background: white !important;
+                color: black !important;
+                padding-bottom: 0;
+            }
+
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
+                page-break-inside: avoid;
+            }
+
+            textarea,
+            input,
+            select {
+                border: 1px solid #999 !important;
+                background: transparent !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sticky Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <div class="nav-breadcrumbs">
+                <a href="IDNE701_FA2026.html">IDNE 701</a>
+                <span class="sep">/</span>
+                <a href="IDNE701_FA2026.html#week-2">Week 2</a>
+                <span class="sep">/</span>
+                <span class="current">Worksheet 2.3: Target Specifications</span>
+            </div>
+            <div class="nav-controls">
+                <a href="grading_rubrics.html#panel-pdr" class="btn-sm" title="View Midterm PDR Rubric">📊 Rubric Check</a>
+                <button type="button" class="btn-sm" id="themeToggle">◐ Dark Mode</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Week 2 Worksheets Navigation Bar -->
+    <div class="tabs-bar">
+        <div class="tabs-inner">
+            <a href="worksheet_pathology_mapping.html" class="tab-link">2.1 Pathology &amp; Biomarkers</a>
+            <a href="worksheet_stakeholder_interview.html" class="tab-link">2.2 Stakeholder Protocol</a>
+            <a href="worksheet_target_specifications.html" class="tab-link active">2.3 Target Specifications</a>
+            <a href="clinical_needs_spec_template.html" class="tab-link">Needs Spec Template</a>
+            <a href="stakeholder_interview_rubric.html" class="tab-link">Interview Rubric</a>
+            <a href="IDNE701_FA2026.html#week-2" class="tab-link">← Syllabus Week 2</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <span class="phase-badge">Phase 1 · Engineering Performance Envelope</span>
+            <h1>Worksheet 2.3: <em>Diagnostic Target Specifications &amp; Performance Envelope</em></h1>
+            <p class="header-meta">
+                Translate qualitative stakeholder needs into quantitative engineering specifications. Establish strict bounds for diagnostic accuracy (sensitivity, specificity, ROC AUC, PPV/NPV given disease prevalence), spatiotemporal resolution, and clinical usability constraints.
+            </p>
+        </header>
+
+        <!-- Action Toolbar -->
+        <div class="action-toolbar">
+            <div class="tool-group">
+                <button type="button" class="btn-sm" id="saveDraftBtn">💾 Save Draft</button>
+                <button type="button" class="btn-sm" id="loadExampleBtn">✨ Load Clinical Exemplar (High-Density TPP)</button>
+                <button type="button" class="btn-sm" id="copyMarkdownBtn">📋 Copy Markdown</button>
+                <button type="button" class="btn-sm" id="exportJsonBtn">⬇ Export JSON</button>
+                <button type="button" class="btn-sm" id="printBtn">🖨️ Print / PDF</button>
+                <button type="button" class="btn-sm" id="resetBtn" style="color: var(--danger);">↺ Reset</button>
+            </div>
+            <div class="save-status" id="saveStatus">
+                <span>●</span> Draft synced locally
+            </div>
+        </div>
+
+        <!-- Instructional Guidance -->
+        <div class="guide-box">
+            <strong>Target Product Profile (TPP) Rigor:</strong> In medical device engineering, vague goals like "high resolution" or "good accuracy" result in project failure. Specifications must be:
+            <ul>
+                <li><strong>Quantitative:</strong> State exact physical numbers with standard units (e.g. \(1.2 \text{ mm isotropic}\), \(250 \text{ Hz}\), \(>92\% \text{ sensitivity}\)).</li>
+                <li><strong>Bounded by Trade-offs:</strong> High spatial resolution degrades temporal resolution and SNR (\(\text{SNR} \propto \Delta x \Delta y \Delta z \sqrt{T_{\text{acq}}}\)).</li>
+                <li><strong>Contextualized by Bayesian Prevalence:</strong> In a screening population where disease prevalence is 2%, a 90% specific test generates 5 times more false alarms than true positives!</li>
+            </ul>
+        </div>
+
+        <form id="worksheetForm">
+            <!-- Section 1: Team & Operational Setting Context -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">1</span> Operational Setting &amp; Clinical Intended Use</span>
+                </div>
+                <div class="card-desc">
+                    Bound where and how your proposed neuroengineering system will be deployed.
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="teamName">Team / Project Identifier</label>
+                        <input type="text" id="teamName" placeholder="e.g., Team NeuroScan / Group 4">
+                    </div>
+                    <div class="form-group">
+                        <label for="studentNames">Team Members &amp; Engineering Leads</label>
+                        <input type="text" id="studentNames" placeholder="e.g., Jane Doe (Hardware), Alex Smith (Signal Processing)">
+                    </div>
+                    <div class="form-group">
+                        <label for="clinicalEnvironment">Deployment Environment &amp; Form Factor</label>
+                        <select id="clinicalEnvironment">
+                            <option value="Specialized Neuroimaging Suite (Fixed 3T/7T MRI / OPM-MEG)">Specialized Neuroimaging Suite (Fixed 3T/7T MRI / OPM-MEG)</option>
+                            <option value="Outpatient Neurological Clinic (Desk/Cart-Mounted EEG/fNIRS)">Outpatient Neurological Clinic (Desk/Cart-Mounted EEG/fNIRS)</option>
+                            <option value="Emergency Department / Trauma Bay (Rapid Mobile Triage)">Emergency Department / Trauma Bay (Rapid Mobile Triage)</option>
+                            <option value="Intraoperative Neurosurgical Suite (OR / Sterile Field)">Intraoperative Neurosurgical Suite (OR / Sterile Field)</option>
+                            <option value="Intensive Care Unit Bedside (ICU Continuous Monitoring)">Intensive Care Unit Bedside (ICU Continuous Monitoring)</option>
+                            <option value="Ambulatory / Wearable / At-Home Telemetry">Ambulatory / Wearable / At-Home Telemetry</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="indicationForUse">FDA Indication for Use (Intended Patient Population)</label>
+                        <input type="text" id="indicationForUse" placeholder="e.g., Adult patients with medically refractory epilepsy being evaluated for resective surgery">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: Interactive Diagnostic Performance Calculator -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">2</span> Interactive Diagnostic Performance Calculator (Bayesian 2x2 Matrix)</span>
+                </div>
+                <div class="card-desc">
+                    Adjust the sliders below to explore how clinical disease prevalence interacts with your target sensitivity and specificity to govern Positive Predictive Value (PPV) and Negative Predictive Value (NPV).
+                </div>
+
+                <div class="calc-container">
+                    <!-- Left: Interactive Inputs -->
+                    <div class="calc-inputs">
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Target Disease Prevalence (<em>P</em>)</span>
+                                <span class="slider-val" id="prevDisplay">15.0%</span>
+                            </div>
+                            <input type="range" id="sliderPrev" min="0.5" max="60.0" step="0.5" value="15.0">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">Clinic prevalence in tested cohort</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Target Diagnostic Sensitivity (<em>TPR</em>)</span>
+                                <span class="slider-val" id="sensDisplay">92.0%</span>
+                            </div>
+                            <input type="range" id="sliderSens" min="50" max="99" step="1" value="92">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">True positive rate: <em>TP</em> / (<em>TP</em> + <em>FN</em>)</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Target Diagnostic Specificity (<em>TNR</em>)</span>
+                                <span class="slider-val" id="specDisplay">95.0%</span>
+                            </div>
+                            <input type="range" id="sliderSpec" min="50" max="99" step="1" value="95">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">True negative rate: <em>TN</em> / (<em>TN</em> + <em>FP</em>)</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Hypothetical Cohort Size (<em>N</em>)</span>
+                                <span class="slider-val" id="cohortDisplay">1,000 pts</span>
+                            </div>
+                            <input type="range" id="sliderCohort" min="100" max="5000" step="100" value="1000">
+                        </div>
+                    </div>
+
+                    <!-- Right: Dynamic Results & Matrix -->
+                    <div class="calc-results">
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase;">
+                            Expected 2×2 Contingency Outcomes (Per <span id="matrixN">1,000</span> Patients)
+                        </div>
+
+                        <div class="matrix-2x2">
+                            <div></div>
+                            <div class="matrix-header">Disease (+)</div>
+                            <div class="matrix-header">Disease (−)</div>
+
+                            <div class="matrix-header" style="text-align:right; padding-right:0.5rem;">Test (+)</div>
+                            <div class="matrix-cell cell-tp">
+                                <span style="font-size:0.7rem; color:var(--success); font-weight:700;">True Pos (TP)</span>
+                                <span class="cell-num" id="calcTP">138</span>
+                            </div>
+                            <div class="matrix-cell cell-fp">
+                                <span style="font-size:0.7rem; color:var(--danger); font-weight:700;">False Pos (FP)</span>
+                                <span class="cell-num" id="calcFP">43</span>
+                            </div>
+
+                            <div class="matrix-header" style="text-align:right; padding-right:0.5rem;">Test (−)</div>
+                            <div class="matrix-cell cell-fn">
+                                <span style="font-size:0.7rem; color:var(--warning); font-weight:700;">False Neg (FN)</span>
+                                <span class="cell-num" id="calcFN">12</span>
+                            </div>
+                            <div class="matrix-cell cell-tn">
+                                <span style="font-size:0.7rem; color:var(--phase1); font-weight:700;">True Neg (TN)</span>
+                                <span class="cell-num" id="calcTN">808</span>
+                            </div>
+                        </div>
+
+                        <div class="metrics-summary-grid">
+                            <div class="metric-card">
+                                <div class="metric-title">Positive Predictive Value (PPV)</div>
+                                <div class="metric-value" id="calcPPV">76.2%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-title">Negative Predictive Value (NPV)</div>
+                                <div class="metric-value" id="calcNPV">98.5%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-title">Likelihood Ratio (+) [LR+]</div>
+                                <div class="metric-value" id="calcLRPos">18.4</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-title">Likelihood Ratio (−) [LR−]</div>
+                                <div class="metric-value" id="calcLRNeg">0.08</div>
+                            </div>
+                        </div>
+
+                        <div class="calc-callout" id="calcAnalysisText">
+                            <strong>Bayesian Clinical Note:</strong> With a prevalence of 15.0%, approximately 3 out of every 4 positive tests represent true disease cases (PPV = 76.2%). If your system were deployed in general screening where prevalence drops to 1%, PPV would plummet to ~15%, causing over 5 false alarms for every real patient detected!
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid" style="margin-top: 1.5rem;">
+                    <div class="form-group full-width">
+                        <label for="diagnosticRationale">Clinical Rationale for Selected Sensitivity / Specificity Trade-Off</label>
+                        <textarea id="diagnosticRationale" placeholder="Explain why your team chose these specific sensitivity/specificity targets based on your stakeholder interviews. (e.g. 'Because missed diagnosis leads to irreversible status epilepticus and cognitive decline, we set Sensitivity >= 90%. Conversely, because a positive result qualifies a patient for invasive intracranial surgery, Specificity must exceed 95% to avoid unnecessary craniotomies.')"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Spatiotemporal Resolution & Coverage Envelope -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">3</span> Spatiotemporal Resolution &amp; Physical Bounds</span>
+                </div>
+                <div class="card-desc">
+                    Establish quantitative physical resolution boundaries dictated by your target neuropathology.
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="spatialResolution">Spatial Resolution Target (Lateral \(\Delta x, \Delta y\) &amp; Depth \(\Delta z\))</label>
+                        <input type="text" id="spatialResolution" placeholder="e.g., 1.5 mm isotropic (MRI) or 2.5 mm cortical dipole (MEG)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="temporalResolution">Temporal Resolution Target (\(\Delta t\) / Bandwidth)</label>
+                        <input type="text" id="temporalResolution" placeholder="e.g., 1.0 kHz sampling for spikes (EEG) or 1.5 s TR (fMRI)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="penetrationDepth">Required Depth of Penetration</label>
+                        <input type="text" id="penetrationDepth" placeholder="e.g., Cortical surface to 55 mm deep (hippocampal subfields)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fieldOfView">Field of View (FOV) &amp; Coverage</label>
+                        <input type="text" id="fieldOfView" placeholder="e.g., Whole brain 220 x 220 x 180 mm³ or targeted bilateral temporal ROI">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="acquisitionTime">Maximum Allowable Examination Time</label>
+                        <input type="text" id="acquisitionTime" placeholder="e.g., Maximum 20 minutes active recording in bore">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="motionTolerance">Motion Tolerance &amp; Artifact Budget</label>
+                        <input type="text" id="motionTolerance" placeholder="e.g., Rigid motion <1.5 mm displacement, with prospective optical tracking">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 4: Target Product Profile (TPP) Engineering Matrix -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">4</span> Target Product Profile (TPP) Engineering Matrix</span>
+                    <button type="button" class="btn-sm add-row-btn" id="addTppRowBtn">+ Add Specification</button>
+                </div>
+                <div class="card-desc">
+                    Synthesize your system's complete performance envelope into a formal engineering matrix. Define the threshold (minimum viable specification) versus the ideal target.
+                </div>
+
+                <div class="table-responsive">
+                    <table class="tpp-table" id="tppTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">Engineering Parameter</th>
+                                <th style="width: 18%;">Minimum Threshold (MVP)</th>
+                                <th style="width: 18%;">Ideal Target Spec</th>
+                                <th style="width: 24%;">Biophysical / Clinical Rationale</th>
+                                <th style="width: 15%;">Verification Method</th>
+                                <th style="width: 5%;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tppTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Section 5: Regulatory Pathway & 510(k) Predicate Benchmark -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">5</span> Regulatory Pathway &amp; 510(k) Predicate Benchmark</span>
+                </div>
+                <div class="card-desc">
+                    Identify your anticipated FDA clearance pathway and benchmark your engineering device against a legally marketed predicate system to establish substantial equivalence.
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="fdaPathway">Targeted FDA Regulatory Pathway</label>
+                        <select id="fdaPathway">
+                            <option value="510(k) Premarket Notification (Substantial Equivalence to Predicate Device)" selected>510(k) Premarket Notification (Substantial Equivalence to Predicate Device)</option>
+                            <option value="De Novo Classification (Novel Low-to-Moderate Risk Device)">De Novo Classification (Novel Low-to-Moderate Risk Device)</option>
+                            <option value="Premarket Approval [PMA] (Class III High Risk Device)">Premarket Approval [PMA] (Class III High Risk Device)</option>
+                            <option value="Humanitarian Device Exemption [HDE] / Custom Device Exemption">Humanitarian Device Exemption [HDE] / Custom Device Exemption</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="predicateDevice">Anticipated Predicate Device / Regulatory Benchmark</label>
+                        <input type="text" id="predicateDevice" placeholder="e.g., MEGIN Triux neo MEG System (K172825) / Siemens Magnetom Terra 7T (K171295)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="substantialEquivalence">Substantial Equivalence Comparison &amp; Technological Characteristics</label>
+                        <textarea id="substantialEquivalence" placeholder="Explain how your proposed neuroengineering device compares to the predicate device in intended use, biophysical operating principle, energy source, spatial/temporal performance specifications, and safety profile. Note any differences in technological characteristics and explain why they do not raise new questions of safety or effectiveness."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="regulatoryStandards">FDA Recognized Consensus Standards &amp; Guidance</label>
+                        <input type="text" id="regulatoryStandards" placeholder="e.g., IEC 60601-1 (General Electrical Safety), IEC 60601-2-33 (MRI Safety), ISO 14971 (Risk Management), IEC 62304 (Medical Device Software)">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 6: Dossier Synthesis & Rubric Self-Check -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">6</span> Phase 1 Dossier Synthesis &amp; Self-Check</span>
+                </div>
+                <div class="card-desc">
+                    Synthesize your quantitative specification package into formal prose for Section 3 of your Phase 1 Deliverable.
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="specSummary">Performance Envelope Summary Statement</label>
+                        <textarea id="specSummary" placeholder="Draft an executive summary of your engineering specifications: 'The proposed diagnostic system will achieve a spatial resolution of [X] mm, temporal resolution of [Y] ms, and diagnostic sensitivity > [Z]% within an acquisition window of < [T] minutes, operating within [Safety standard, e.g. IEC 60601-2-33 SAR limits].'"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="safetyConstraints">Patient Safety, Regulatory &amp; Biophysical Limits</label>
+                        <textarea id="safetyConstraints" placeholder="Identify applicable medical device safety limits (e.g. Whole-body SAR < 2.0 W/kg, head SAR < 3.2 W/kg; acoustic mechanical index MI < 1.9 for ultrasound; electrical charge density < 30 μC/cm²/phase to prevent tissue damage; cranial thermal rise < 1.0 °C)."></textarea>
+                    </div>
+                </div>
+            </section>
+        </form>
+    </div>
+
+    <script>
+        // TPP Default Rows
+        let tppRows = [
+            {
+                param: "Diagnostic Sensitivity",
+                threshold: "≥ 85%",
+                ideal: "≥ 95%",
+                rationale: "Minimizes false negatives to ensure patients with active pathology are not discharged without treatment.",
+                verification: "Clinical retrospective cohort ROC analysis (N=150)"
+            },
+            {
+                param: "Diagnostic Specificity",
+                threshold: "≥ 90%",
+                ideal: "≥ 98%",
+                rationale: "Prevents false-positive surgical resection or toxic medication initiation in non-epileptogenic tissue.",
+                verification: "Comparison against surgical histopathology gold standard"
+            },
+            {
+                param: "Spatial Resolution (Lateral & Depth)",
+                threshold: "≤ 2.5 mm isotropic",
+                ideal: "≤ 1.0 mm isotropic",
+                rationale: "Matches the physical dimension of microdysplastic cortical gyral abnormalities and sulcal banks.",
+                verification: "Point-spread function phantom scanning with wire target"
+            },
+            {
+                param: "Temporal Sampling Frequency",
+                threshold: "≥ 250 Hz",
+                ideal: "≥ 1,000 Hz",
+                rationale: "Captures fast electrophysiological interictal sharp waves and high-frequency oscillations (HFOs 80-250 Hz).",
+                verification: "Frequency response testing with synthetic calibrated waveform generator"
+            },
+            {
+                param: "Total Exam Acquisition Time",
+                threshold: "≤ 30 minutes",
+                ideal: "≤ 15 minutes",
+                rationale: "Prevents motion corruption from agitated, elderly, or pediatric patients unable to stay still.",
+                verification: "Clinical workflow stopwatch audit across 20 mock trials"
+            }
+        ];
+
+        // Exemplar Data
+        const exemplarData = {
+            teamName: "Team EpiFocus (Group 1)",
+            studentNames: "Tariq Vance (BME Lead), Sarah Jenkins (Neuroscience), David Wu (ECE)",
+            clinicalEnvironment: "Specialized Neuroimaging Suite (Fixed 3T/7T MRI / OPM-MEG)",
+            indicationForUse: "Pre-surgical localization of the epileptogenic zone (EZ) in pediatric and adult patients with medically refractory focal epilepsy exhibiting MRI-negative conventional 3T scans.",
+            prev: 20.0,
+            sens: 94.0,
+            spec: 96.0,
+            cohort: 1000,
+            diagnosticRationale: "In presurgical epilepsy evaluation, the pre-test prevalence in the referral cohort is approximately 20%. A high sensitivity (94%) is necessary to detect deep sulcal focal cortical dysplasia (FCD IIa/b) that conventional MRI misses. A high specificity (96%) is vital because false localization could prompt resection of eloquent cortex (causing permanent paralysis or aphasia). At these thresholds, PPV is 85.5% and NPV is 98.5%.",
+            spatialResolution: "1.2 mm isotropic for 7T diffusion/structural; 3.0 mm dipole localization accuracy for OPM-MEG",
+            temporalResolution: "1.0 kHz sampling for OPM-MEG electrophysiology; 1.8 s volume TR for resting-state fMRI",
+            penetrationDepth: "Whole brain covering cortical mantle to deep mesial temporal structures (up to 65 mm depth)",
+            fieldOfView: "240 x 240 x 180 mm³ full cranium coverage",
+            acquisitionTime: "Active scanning duration strictly ≤ 22 minutes (total room slot 45 minutes)",
+            motionTolerance: "Prospective optical head motion tracking capable of compensating rigid head translation up to 3.0 mm and rotation up to 4.0 degrees",
+            tppRows: [
+                {
+                    param: "Diagnostic Sensitivity (EZ Detection)",
+                    threshold: "≥ 85%",
+                    ideal: "≥ 95%",
+                    rationale: "Avoids leaving behind residual seizure-generating tissue which causes surgical failure (Engel Class III/IV).",
+                    verification: "Retrospective validation against post-operative seizure freedom outcomes (Engel I at 12 mos)"
+                },
+                {
+                    param: "Diagnostic Specificity (Eloquent Margin)",
+                    threshold: "≥ 90%",
+                    ideal: "≥ 98%",
+                    rationale: "Prevents unnecessary craniotomy or surgical resection of healthy functional cortex.",
+                    verification: "Intraoperative direct cortical stimulation (DCS) functional mapping"
+                },
+                {
+                    param: "Spatial Localization Accuracy",
+                    threshold: "≤ 3.0 mm error",
+                    ideal: "≤ 1.5 mm error",
+                    rationale: "Required to register with robotic stereotactic neuronavigation (Medtronic StealthStation).",
+                    verification: "Co-registration with stereotactic EEG (sEEG) depth electrode contact ground truth"
+                },
+                {
+                    param: "Temporal Sampling Frequency",
+                    threshold: "≥ 500 Hz",
+                    ideal: "≥ 2,000 Hz",
+                    rationale: "Must resolve fast ripples (250–500 Hz) that distinguish primary seizure onset from propagation zones.",
+                    verification: "Synthetic phantom dipole current pulse injection and spectral analysis"
+                },
+                {
+                    param: "Total Exam Acquisition Time",
+                    threshold: "≤ 30 minutes",
+                    ideal: "≤ 18 minutes",
+                    rationale: "Patients with refractory epilepsy often suffer claustrophobia and postictal agitation.",
+                    verification: "Stopwatch audit from patient settling to coil removal"
+                },
+                {
+                    param: "RF Power / Specific Absorption Rate (SAR)",
+                    threshold: "< 3.2 W/kg head SAR",
+                    ideal: "< 2.0 W/kg head SAR",
+                    rationale: "Strict compliance with FDA / IEC 60601-2-33 limits to prevent localized brain tissue heating.",
+                    verification: "Electromagnetic FDTD simulation on Duke / Ella anatomical head models"
+                }
+            ],
+            fdaPathway: "510(k) Premarket Notification (Substantial Equivalence to Predicate Device)",
+            predicateDevice: "MEGIN TRIUX neo Magnetoencephalography System (510(k) K172825) & Siemens MAGNETOM Terra 7T MRI (510(k) K171295)",
+            substantialEquivalence: "Substantial equivalence is demonstrated against the MEGIN TRIUX neo (K172825) for non-invasive functional cortical neuro-mapping and the Siemens MAGNETOM Terra (K171295) for ultra-high-field structural anatomical co-registration. Both the proposed device and predicate systems utilize non-invasive external biomagnetic sensor arrays and RF excitation coils to map focal neuropathology without penetrating the dura or skull. Differences in sensor architecture (optically pumped magnetometers vs. liquid-helium SQUIDs) provide equivalent or superior biomagnetic sensitivity (<15 fT/√Hz) with zero cryogenic maintenance, maintaining substantial equivalence in diagnostic indications and risk profiles under IEC 60601-1 and IEC 60601-2-33.",
+            regulatoryStandards: "IEC 60601-1 (General Medical Electrical Safety), IEC 60601-1-2 (EMC), IEC 60601-2-33 (MRI Safety), ISO 14971 (Risk Management), IEC 62304 (Medical Device Software)",
+            specSummary: "The EpiFocus diagnostic package will deliver 1.2 mm isotropic structural/diffusion resolution combined with 1 kHz OPM-MEG electrophysiological sampling, achieving >94% sensitivity and >96% specificity for epileptogenic zone boundary localization in a 22-minute acquisition window, remaining fully compliant with IEC 60601-2-33 SAR limits (<2.5 W/kg).",
+            safetyConstraints: "Specific Absorption Rate (SAR) restricted to <2.5 W/kg for head coil; maximum B1+ peak field <25 μT; acoustic noise in scanner kept <99 dBA with passive ear protection; cryogenic or optical sensor helmet heat dissipation kept <39.0 °C contact skin temperature."
+        };
+
+        // Render TPP Table
+        function renderTppTable() {
+            const tbody = document.getElementById('tppTableBody');
+            tbody.innerHTML = '';
+
+            tppRows.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <input type="text" value="${escapeHtml(row.param)}" placeholder="Parameter name" data-idx="${idx}" data-field="param" style="font-weight:600;">
+                    </td>
+                    <td>
+                        <input type="text" value="${escapeHtml(row.threshold)}" placeholder="Threshold (MVP)" data-idx="${idx}" data-field="threshold">
+                    </td>
+                    <td>
+                        <input type="text" value="${escapeHtml(row.ideal)}" placeholder="Ideal Target" data-idx="${idx}" data-field="ideal">
+                    </td>
+                    <td>
+                        <textarea data-idx="${idx}" data-field="rationale" placeholder="Clinical/biophysical rationale...">${escapeHtml(row.rationale)}</textarea>
+                    </td>
+                    <td>
+                        <textarea data-idx="${idx}" data-field="verification" placeholder="Test method...">${escapeHtml(row.verification)}</textarea>
+                    </td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn-delete-row" data-delete-idx="${idx}" title="Delete specification">✕</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Bind delete events
+            document.querySelectorAll('.btn-delete-row').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-delete-idx'));
+                    if (tppRows.length <= 1) {
+                        alert('You must keep at least one specification row.');
+                        return;
+                    }
+                    tppRows.splice(idx, 1);
+                    renderTppTable();
+                    triggerAutoSave();
+                });
+            });
+
+            // Bind input changes
+            tbody.querySelectorAll('input, textarea').forEach(el => {
+                el.addEventListener('input', () => {
+                    const idx = parseInt(el.getAttribute('data-idx'));
+                    const field = el.getAttribute('data-field');
+                    if (tppRows[idx]) {
+                        tppRows[idx][field] = el.value;
+                    }
+                    triggerAutoSave();
+                });
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // Add TPP Row
+        document.getElementById('addTppRowBtn').addEventListener('click', () => {
+            tppRows.push({
+                param: "",
+                threshold: "",
+                ideal: "",
+                rationale: "",
+                verification: ""
+            });
+            renderTppTable();
+            triggerAutoSave();
+        });
+
+        // Bayesian Calculator Math
+        const sPrev = document.getElementById('sliderPrev');
+        const sSens = document.getElementById('sliderSens');
+        const sSpec = document.getElementById('sliderSpec');
+        const sCohort = document.getElementById('sliderCohort');
+
+        function updateCalculator() {
+            const p = parseFloat(sPrev.value) / 100.0;
+            const se = parseFloat(sSens.value) / 100.0;
+            const sp = parseFloat(sSpec.value) / 100.0;
+            const n = parseInt(sCohort.value);
+
+            document.getElementById('prevDisplay').textContent = `${(p * 100).toFixed(1)}%`;
+            document.getElementById('sensDisplay').textContent = `${(se * 100).toFixed(1)}%`;
+            document.getElementById('specDisplay').textContent = `${(sp * 100).toFixed(1)}%`;
+            document.getElementById('cohortDisplay').textContent = `${n.toLocaleString()} pts`;
+            document.getElementById('matrixN').textContent = n.toLocaleString();
+
+            const diseased = n * p;
+            const healthy = n * (1.0 - p);
+
+            const tp = Math.round(diseased * se);
+            const fn = Math.round(diseased * (1.0 - se));
+            const fp = Math.round(healthy * (1.0 - sp));
+            const tn = Math.round(healthy * sp);
+
+            document.getElementById('calcTP').textContent = tp.toLocaleString();
+            document.getElementById('calcFN').textContent = fn.toLocaleString();
+            document.getElementById('calcFP').textContent = fp.toLocaleString();
+            document.getElementById('calcTN').textContent = tn.toLocaleString();
+
+            const ppv = (tp + fp > 0) ? (tp / (tp + fp)) * 100.0 : 0;
+            const npv = (tn + fn > 0) ? (tn / (tn + fn)) * 100.0 : 0;
+
+            const lrPos = (1.0 - sp > 0) ? se / (1.0 - sp) : 999;
+            const lrNeg = (sp > 0) ? (1.0 - se) / sp : 0;
+
+            document.getElementById('calcPPV').textContent = `${ppv.toFixed(1)}%`;
+            document.getElementById('calcNPV').textContent = `${npv.toFixed(1)}%`;
+            document.getElementById('calcLRPos').textContent = lrPos > 100 ? '>100' : lrPos.toFixed(1);
+            document.getElementById('calcLRNeg').textContent = lrNeg.toFixed(2);
+
+            // Dynamic analysis text
+            const callout = document.getElementById('calcAnalysisText');
+            if (ppv < 50.0) {
+                callout.innerHTML = `<strong>⚠️ Warning: Low Positive Predictive Value (${ppv.toFixed(1)}%):</strong> Despite a specificity of ${(sp * 100).toFixed(0)}%, the low prevalence (${(p * 100).toFixed(1)}%) means that <em>false positives (${fp}) outnumber true positives (${tp})</em>! Over half of patients flagged positive do not have the condition. Consider restricting intended use to a higher-prevalence enriched referral population or increasing target specificity to ≥98%.`;
+            } else if (ppv >= 80.0) {
+                callout.innerHTML = `<strong>✓ Strong Diagnostic Performance:</strong> At ${(p * 100).toFixed(1)}% prevalence, approximately ${(ppv).toFixed(0)} out of every 100 positive tests represent real pathology (PPV = ${ppv.toFixed(1)}%), with only ${fp} false alarms per ${n} patients. This provides clinicians with high confidence for therapeutic intervention.`;
+            } else {
+                callout.innerHTML = `<strong>Moderate Diagnostic Performance:</strong> With PPV = ${ppv.toFixed(1)}% and NPV = ${npv.toFixed(1)}%, positive test results require secondary confirmation before invasive action, but a negative test virtually rules out disease (NPV = ${npv.toFixed(1)}%).`;
+            }
+        }
+
+        [sPrev, sSens, sSpec, sCohort].forEach(s => s.addEventListener('input', () => {
+            updateCalculator();
+            triggerAutoSave();
+        }));
+
+        // Collect Form Data
+        function collectFormData() {
+            return {
+                teamName: document.getElementById('teamName').value,
+                studentNames: document.getElementById('studentNames').value,
+                clinicalEnvironment: document.getElementById('clinicalEnvironment').value,
+                indicationForUse: document.getElementById('indicationForUse').value,
+                prev: sPrev.value,
+                sens: sSens.value,
+                spec: sSpec.value,
+                cohort: sCohort.value,
+                diagnosticRationale: document.getElementById('diagnosticRationale').value,
+                spatialResolution: document.getElementById('spatialResolution').value,
+                temporalResolution: document.getElementById('temporalResolution').value,
+                penetrationDepth: document.getElementById('penetrationDepth').value,
+                fieldOfView: document.getElementById('fieldOfView').value,
+                acquisitionTime: document.getElementById('acquisitionTime').value,
+                motionTolerance: document.getElementById('motionTolerance').value,
+                tppRows: tppRows,
+                fdaPathway: document.getElementById('fdaPathway').value,
+                predicateDevice: document.getElementById('predicateDevice').value,
+                substantialEquivalence: document.getElementById('substantialEquivalence').value,
+                regulatoryStandards: document.getElementById('regulatoryStandards').value,
+                specSummary: document.getElementById('specSummary').value,
+                safetyConstraints: document.getElementById('safetyConstraints').value
+            };
+        }
+
+        // Populate Form
+        function populateForm(data) {
+            if (!data) return;
+            document.getElementById('teamName').value = data.teamName || '';
+            document.getElementById('studentNames').value = data.studentNames || '';
+            document.getElementById('clinicalEnvironment').value = data.clinicalEnvironment || '';
+            document.getElementById('indicationForUse').value = data.indicationForUse || '';
+
+            if (data.prev !== undefined) sPrev.value = data.prev;
+            if (data.sens !== undefined) sSens.value = data.sens;
+            if (data.spec !== undefined) sSpec.value = data.spec;
+            if (data.cohort !== undefined) sCohort.value = data.cohort;
+            updateCalculator();
+
+            document.getElementById('diagnosticRationale').value = data.diagnosticRationale || '';
+            document.getElementById('spatialResolution').value = data.spatialResolution || '';
+            document.getElementById('temporalResolution').value = data.temporalResolution || '';
+            document.getElementById('penetrationDepth').value = data.penetrationDepth || '';
+            document.getElementById('fieldOfView').value = data.fieldOfView || '';
+            document.getElementById('acquisitionTime').value = data.acquisitionTime || '';
+            document.getElementById('motionTolerance').value = data.motionTolerance || '';
+
+            if (Array.isArray(data.tppRows) && data.tppRows.length > 0) {
+                tppRows = data.tppRows;
+            }
+            renderTppTable();
+
+            document.getElementById('fdaPathway').value = data.fdaPathway || '510(k) Premarket Notification (Substantial Equivalence to Predicate Device)';
+            document.getElementById('predicateDevice').value = data.predicateDevice || '';
+            document.getElementById('substantialEquivalence').value = data.substantialEquivalence || '';
+            document.getElementById('regulatoryStandards').value = data.regulatoryStandards || '';
+
+            document.getElementById('specSummary').value = data.specSummary || '';
+            document.getElementById('safetyConstraints').value = data.safetyConstraints || '';
+        }
+
+        // AutoSave Logic
+        let saveTimeout = null;
+        function triggerAutoSave() {
+            const status = document.getElementById('saveStatus');
+            status.innerHTML = '<span>●</span> Saving...';
+            status.classList.remove('saved');
+
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                const data = collectFormData();
+                localStorage.setItem('idne701_worksheet_2_3', JSON.stringify(data));
+                status.innerHTML = '<span>✓</span> Draft saved locally';
+                status.classList.add('saved');
+            }, 600);
+        }
+
+        document.getElementById('worksheetForm').addEventListener('input', triggerAutoSave);
+
+        // Load Saved
+        function loadSaved() {
+            const saved = localStorage.getItem('idne701_worksheet_2_3');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    populateForm(data);
+                } catch (e) {
+                    console.error('Failed to parse saved worksheet data', e);
+                    renderTppTable();
+                    updateCalculator();
+                }
+            } else {
+                renderTppTable();
+                updateCalculator();
+            }
+        }
+
+        // Action Buttons
+        document.getElementById('saveDraftBtn').addEventListener('click', () => {
+            const data = collectFormData();
+            localStorage.setItem('idne701_worksheet_2_3', JSON.stringify(data));
+            const status = document.getElementById('saveStatus');
+            status.innerHTML = '<span>✓</span> Draft saved locally';
+            status.classList.add('saved');
+            alert('Worksheet 2.3 saved to browser storage.');
+        });
+
+        document.getElementById('loadExampleBtn').addEventListener('click', () => {
+            if (confirm('Load pre-filled Target Product Profile clinical exemplar? Any unsaved changes will be replaced.')) {
+                populateForm(exemplarData);
+                triggerAutoSave();
+            }
+        });
+
+        document.getElementById('printBtn').addEventListener('click', () => {
+            window.print();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Reset this entire worksheet? This cannot be undone.')) {
+                localStorage.removeItem('idne701_worksheet_2_3');
+                document.getElementById('worksheetForm').reset();
+                tppRows = [
+                    {
+                        param: "Diagnostic Sensitivity",
+                        threshold: "≥ 85%",
+                        ideal: "≥ 95%",
+                        rationale: "",
+                        verification: ""
+                    }
+                ];
+                renderTppTable();
+                updateCalculator();
+                triggerAutoSave();
+            }
+        });
+
+        // Export JSON
+        document.getElementById('exportJsonBtn').addEventListener('click', () => {
+            const data = collectFormData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `IDNE701_Worksheet_2_3_${(data.teamName || 'draft').replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Copy Markdown
+        document.getElementById('copyMarkdownBtn').addEventListener('click', () => {
+            const d = collectFormData();
+            let md = `# IDNE 701: Worksheet 2.3 – Diagnostic Target Specifications & Performance Envelope\n\n`;
+            md += `**Team:** ${d.teamName || 'N/A'}  \n`;
+            md += `**Members:** ${d.studentNames || 'N/A'}  \n\n`;
+
+            md += `## 1. Operational Setting & Clinical Intended Use\n`;
+            md += `- **Clinical Environment:** ${d.clinicalEnvironment || 'N/A'}\n`;
+            md += `- **Indication for Use:** ${d.indicationForUse || 'N/A'}\n\n`;
+
+            md += `## 2. Diagnostic Accuracy Envelope & Bayesian Trade-offs\n`;
+            md += `- **Cohort Prevalence:** ${d.prev}%\n`;
+            md += `- **Sensitivity (TPR):** ${d.sens}%\n`;
+            md += `- **Specificity (TNR):** ${d.spec}%\n`;
+            md += `- **Calculated PPV:** ${document.getElementById('calcPPV').textContent}\n`;
+            md += `- **Calculated NPV:** ${document.getElementById('calcNPV').textContent}\n\n`;
+            md += `**Clinical Rationale:**\n${d.diagnosticRationale || 'None'}\n\n`;
+
+            md += `## 3. Spatiotemporal Resolution & Physical Bounds\n`;
+            md += `- **Spatial Resolution:** ${d.spatialResolution || 'N/A'}\n`;
+            md += `- **Temporal Resolution:** ${d.temporalResolution || 'N/A'}\n`;
+            md += `- **Penetration Depth:** ${d.penetrationDepth || 'N/A'}\n`;
+            md += `- **Field of View (FOV):** ${d.fieldOfView || 'N/A'}\n`;
+            md += `- **Max Acquisition Time:** ${d.acquisitionTime || 'N/A'}\n`;
+            md += `- **Motion Tolerance:** ${d.motionTolerance || 'N/A'}\n\n`;
+
+            md += `## 4. Target Product Profile (TPP) Matrix\n\n`;
+            md += `| Parameter | Threshold (MVP) | Ideal Target | Rationale | Verification |\n`;
+            md += `|---|---|---|---|---|\n`;
+            d.tppRows.forEach(r => {
+                md += `| ${r.param.replace(/\|/g, '/')} | ${r.threshold.replace(/\|/g, '/')} | ${r.ideal.replace(/\|/g, '/')} | ${r.rationale.replace(/\|/g, '/')} | ${r.verification.replace(/\|/g, '/')} |\n`;
+            });
+            md += `\n`;
+
+            md += `## 5. Regulatory Pathway & 510(k) Predicate Benchmark\n`;
+            md += `- **Targeted FDA Regulatory Pathway:** ${d.fdaPathway || '510(k) Premarket Notification (Substantial Equivalence to Predicate Device)'}\n`;
+            md += `- **Anticipated Predicate Device / Regulatory Benchmark:** ${d.predicateDevice || 'N/A'}\n\n`;
+            md += `**Substantial Equivalence & Technological Characteristics:**\n${d.substantialEquivalence || 'None'}\n\n`;
+            md += `**Applicable FDA Consensus Standards:**\n${d.regulatoryStandards || 'None'}\n\n`;
+
+            md += `## 6. Performance Envelope Summary & Safety Limits\n`;
+            md += `**Summary:**\n${d.specSummary || 'None'}\n\n`;
+            md += `**Safety / Regulatory Constraints:**\n${d.safetyConstraints || 'None'}\n`;
+
+            navigator.clipboard.writeText(md).then(() => {
+                alert('Formatted Markdown copied to clipboard! You can paste this into your team GitHub or Phase 1 dossier.');
+            }).catch(err => {
+                console.error('Copy failed', err);
+                alert('Could not auto-copy. Please use Export JSON.');
+            });
+        });
+
+        // Theme Toggle
+        const themeBtn = document.getElementById('themeToggle');
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+                themeBtn.textContent = '☼ Light Mode';
+            } else {
+                document.body.classList.remove('dark');
+                themeBtn.textContent = '◐ Dark Mode';
+            }
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            themeBtn.textContent = isDark ? '☼ Light Mode' : '◐ Dark Mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        // Initialize
+        initTheme();
+        loadSaved();
+    </script>
+</body>
+
+</html>

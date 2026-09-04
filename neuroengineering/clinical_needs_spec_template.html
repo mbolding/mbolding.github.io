@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Needs Specification Template – IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.08);
+            --border: #e5e5e5;
+            --border-focus: #2563eb;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --code-font: 'Space Mono', monospace;
+            --serif-font: 'Instrument Serif', serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --phase1: #3b82f6;
+            --phase2: #10b981;
+            --phase3: #f59e0b;
+            --phase4: #8b5cf6;
+            --phase5: #ec4899;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #18181b;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #60a5fa;
+            --accent-soft: rgba(96, 165, 250, 0.15);
+            --border: #27272a;
+            --border-focus: #60a5fa;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #1f1f23;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--code-font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding-bottom: 5rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .nav-breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .nav-breadcrumbs a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-breadcrumbs a:hover {
+            color: var(--accent);
+        }
+
+        .nav-breadcrumbs span.sep {
+            color: var(--border);
+        }
+
+        .nav-breadcrumbs span.current {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-sm:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Week Tabs */
+        .tabs-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem 1.5rem;
+        }
+
+        .tabs-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .tab-link {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.4rem 0.85rem;
+            border-radius: 4px;
+            color: var(--text-muted);
+            text-decoration: none;
+            white-space: nowrap;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-link:hover {
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        .tab-link.active {
+            color: var(--accent);
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--phase1);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 0.3rem 0.75rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: clamp(2rem, 4vw, 2.75rem);
+            font-weight: 400;
+            line-height: 1.15;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        .header-meta {
+            font-family: var(--sans-font);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            max-width: 820px;
+            margin-top: 0.5rem;
+        }
+
+        /* Action Toolbar */
+        .action-toolbar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .save-status {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .save-status.saved {
+            color: var(--success);
+        }
+
+        /* Card / Section */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .card-title {
+            font-family: var(--sans-font);
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .step-num {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-family: var(--code-font);
+        }
+
+        .card-desc {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        select,
+        textarea {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            padding: 0.65rem 0.85rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        textarea {
+            font-family: var(--sans-font);
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 95px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px var(--accent-soft);
+        }
+
+        /* Need Statement Highlight Box */
+        .need-statement-box {
+            background: var(--accent-soft);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .need-formula {
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        /* Guide Box */
+        .guide-box {
+            background: var(--accent-soft);
+            border-left: 3px solid var(--accent);
+            padding: 1rem 1.25rem;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 1.5rem;
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .guide-box strong {
+            color: var(--text-primary);
+        }
+
+        .guide-box ul {
+            margin-top: 0.5rem;
+            padding-left: 1.25rem;
+        }
+
+        .guide-box li {
+            margin-bottom: 0.25rem;
+        }
+
+        /* Print formatting */
+        @media print {
+            .top-nav,
+            .tabs-bar,
+            .action-toolbar,
+            #themeToggle {
+                display: none !important;
+            }
+
+            body {
+                background: white !important;
+                color: black !important;
+                padding-bottom: 0;
+            }
+
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
+                page-break-inside: avoid;
+            }
+
+            textarea,
+            input,
+            select {
+                border: 1px solid #999 !important;
+                background: transparent !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <div class="nav-breadcrumbs">
+                <a href="IDNE701_FA2026.html">IDNE 701</a>
+                <span class="sep">/</span>
+                <a href="IDNE701_FA2026.html#week-2">Week 2</a>
+                <span class="sep">/</span>
+                <span class="current">Needs Specification Template</span>
+            </div>
+            <div class="nav-controls">
+                <a href="stakeholder_interview_rubric.html" class="btn-sm">📊 Interview Rubric</a>
+                <a href="grading_rubrics.html#panel-pdr" class="btn-sm">⚖️ PDR Rubric</a>
+                <button type="button" class="btn-sm" id="themeToggle">◐ Dark Mode</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-bar">
+        <div class="tabs-inner">
+            <a href="clinical_needs_spec_template.html" class="tab-link active">Clinical Needs Spec Template</a>
+            <a href="stakeholder_interview_rubric.html" class="tab-link">Stakeholder Interview Rubric</a>
+            <a href="worksheet_pathology_mapping.html" class="tab-link">Worksheet 2.1: Pathology Mapping</a>
+            <a href="worksheet_stakeholder_interview.html" class="tab-link">Worksheet 2.2: Stakeholder Protocol</a>
+            <a href="worksheet_target_specifications.html" class="tab-link">Worksheet 2.3: Target Specifications</a>
+            <a href="IDNE701_FA2026.html#week-2" class="tab-link">← Syllabus Week 2</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <span class="phase-badge">Phase 1 Master Deliverable Template · Due Week 3</span>
+            <h1>Clinical Needs Specification <em>Master Template</em></h1>
+            <p class="header-meta">
+                The official course template for compiling the Phase 1 Deliverable: <em>Target Disease &amp; Clinical Needs Specification Dossier</em>. Integrates disease neuropathology, primary stakeholder interview evidence, and quantitative diagnostic performance criteria.
+            </p>
+        </header>
+
+        <!-- Action Toolbar -->
+        <div class="action-toolbar">
+            <div class="tool-group">
+                <button type="button" class="btn-sm" id="saveDraftBtn">💾 Save Draft</button>
+                <button type="button" class="btn-sm" id="loadExempBtn">✨ Load Benchmark Dossier (Epilepsy)</button>
+                <button type="button" class="btn-sm" id="copyMarkdownBtn">📋 Copy Complete Dossier Markdown</button>
+                <button type="button" class="btn-sm" id="exportJsonBtn">⬇ Export JSON</button>
+                <button type="button" class="btn-sm" id="printBtn">🖨️ Print / PDF</button>
+                <button type="button" class="btn-sm" id="resetBtn" style="color:var(--danger);">↺ Reset</button>
+            </div>
+            <div class="save-status" id="saveStatus">
+                <span>●</span> Draft synced locally
+            </div>
+        </div>
+
+        <div class="guide-box">
+            <strong>Dossier Requirements:</strong> This template provides the standard section framework for your Phase 1 submission (due Week 3, Sep 09). It forms the baseline documentation that panel reviewers will grade during your Midterm Preliminary Design Review (PDR, Week 7). Complete each section rigorously with primary stakeholder citations and quantitative engineering metrics.
+        </div>
+
+        <form id="templateForm">
+            <!-- Section 1: Team & Metadata -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">1</span> Project Identification &amp; Team Metadata</span>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="teamName">Team / Project Name</label>
+                        <input type="text" id="teamName" placeholder="e.g., Team EpiFocus / Group 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="studentNames">Team Members &amp; Roles</label>
+                        <input type="text" id="studentNames" placeholder="e.g., Tariq Vance (BME), Sarah Jenkins (Neuro), David Wu (ECE)">
+                    </div>
+                    <div class="form-group">
+                        <label for="targetDisease">Target Disorder / Pathological Indication</label>
+                        <input type="text" id="targetDisease" placeholder="e.g., Drug-Resistant Focal Epilepsy / Non-Lesional Neocortical Epilepsy">
+                    </div>
+                    <div class="form-group">
+                        <label for="dossierDate">Document Date / Revision</label>
+                        <input type="date" id="dossierDate">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: Need Statement Formulation -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">2</span> Formal Clinical Need Statement</span>
+                </div>
+                <div class="card-desc">
+                    Articulate the core clinical need using the classic Stanford Biodesign formula. Do NOT prescribe your engineering mechanism yet; strictly define the problem, population, outcome, and constraint.
+                </div>
+
+                <div class="need-statement-box">
+                    <div class="need-formula">Formula: "A way to [PROBLEM] in [POPULATION] that [QUANTIFIABLE OUTCOME] without [CRITICAL CONSTRAINT]."</div>
+                    <textarea id="needStatement" style="font-weight:600; font-size:0.95rem; min-height:80px;" placeholder="e.g., A way to non-invasively delineate epileptogenic zone margins with <2.0 mm spatial precision in pediatric and adult drug-resistant focal epilepsy patients that reduces the need for invasive intracranial stereo-EEG depth electrodes by >50% without extending clinical scan acquisition time beyond 25 minutes."></textarea>
+                </div>
+            </section>
+
+            <!-- Section 3: Clinical Background & Epidemiology -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">3</span> Neuropathology &amp; Epidemiological Impact</span>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="epidemiology">Prevalence, Incidence &amp; Target Demographics</label>
+                        <textarea id="epidemiology" placeholder="Quantify patient population scale (e.g., 3.4M US patients with epilepsy, 30% [~1M] medically refractory despite multi-drug trials; ~100k surgical candidates annually with only ~4,000 surgeries performed due to localization bottlenecks)."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="pathologicalCascade">Primary Pathological Hallmarks &amp; Tissue Locus</label>
+                        <textarea id="pathologicalCascade" placeholder="Detail the underlying cellular, microvascular, and electrophysiological hallmarks from Worksheet 2.1 (e.g., focal cortical dysplasia Type II with balloon cells, dyslamination, localized paroxysmal depolarizing shifts, microglial activation, and regional blood-brain barrier disruption)."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="healthEconomics">Societal, Economic &amp; Healthcare Burden</label>
+                        <textarea id="healthEconomics" placeholder="Document economic burden (e.g. lifetime direct cost of refractory epilepsy >$140k/patient; annual US healthcare expenditure >$28B; high morbidity from sudden unexpected death in epilepsy [SUDEP] and cumulative cognitive decline)."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 4: Current Standard of Care & Failure Modes -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">4</span> Current Diagnostic Pathway &amp; Unmet Need</span>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="standardPathway">Current Gold-Standard Diagnostic Care Pathway</label>
+                        <textarea id="standardPathway" placeholder="Map the patient journey step-by-step: 1) First unprovoked seizure -> emergency CT; 2) Outpatient routine 30-min scalp EEG and 1.5T/3T MRI; 3) Referral to Comprehensive Epilepsy Center for video-EEG telemetry monitoring (3–7 days inpatient); 4) Invasive stereo-EEG (sEEG) depth electrode surgical implantation."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="failureModes">Specific Failure Modes &amp; Diagnostic Gaps</label>
+                        <textarea id="failureModes" placeholder="Explain why the current care pathway fails: 1) 30% of refractory cases are MRI-negative on standard 3T scans; 2) Scalp EEG lacks spatial resolution due to skull volume conduction (>20–30 mm uncertainty); 3) Invasive sEEG carries a 2–4% risk of intracranial hemorrhage and infection, costs >$80k, and suffers from spatial sampling bias (cannot sample areas where electrodes were not placed)."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 5: Voice of Customer & Stakeholder Matrix -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">5</span> Stakeholder Value Propositions (Voice of Customer)</span>
+                </div>
+                <div class="card-desc">
+                    Summarize primary insights and value propositions synthesized from your stakeholder interview protocol (Worksheet 2.2).
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="vocNeurologist">Treating Physician (Neurologist / Epileptologist)</label>
+                        <textarea id="vocNeurologist" placeholder="Value Proposition: Eliminates years of empirical medication cycling; provides objective localization to refer patients to surgical cure within months rather than decades."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="vocRadiologist">Imaging Specialist (Diagnostic Neuroradiologist)</label>
+                        <textarea id="vocRadiologist" placeholder="Value Proposition: High contrast-to-noise ratio in sulcal folds; fast automated processing; DICOM PACS integration; zero reliance on subjective visual inspection of subtle blurs."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="vocSurgeon">Surgical Interventionist (Neurosurgeon)</label>
+                        <textarea id="vocSurgeon" placeholder="Value Proposition: Volumetric 3D boundaries accurate within <2 mm registered directly to neuronavigation software, preserving speech and motor pathways while achieving complete resection."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="vocPatient">Patient &amp; Family / Healthcare System</label>
+                        <textarea id="vocPatient" placeholder="Value Proposition: Sparing painful, high-risk invasive craniotomies or depth electrode surgeries; shorter hospital stays; elimination of chronic cognitive side-effects from multi-drug regimens."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 6: Target Product Profile (TPP) -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">6</span> Target Product Profile (TPP) &amp; Technical Envelope</span>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tppSensitivity">Target Clinical Sensitivity &amp; Rationale</label>
+                        <input type="text" id="tppSensitivity" placeholder="e.g., Threshold: ≥85%, Ideal: ≥95% (Avoids missed epileptogenic tissue causing surgical failure)">
+                    </div>
+                    <div class="form-group">
+                        <label for="tppSpecificity">Target Clinical Specificity &amp; Rationale</label>
+                        <input type="text" id="tppSpecificity" placeholder="e.g., Threshold: ≥90%, Ideal: ≥98% (Prevents resecting eloquent cortex and causing paralysis)">
+                    </div>
+                    <div class="form-group">
+                        <label for="tppSpatialRes">Spatial Resolution &amp; Localization Bounds</label>
+                        <input type="text" id="tppSpatialRes" placeholder="e.g., Threshold: ≤2.5 mm, Ideal: ≤1.2 mm isotropic volumetric margin precision">
+                    </div>
+                    <div class="form-group">
+                        <label for="tppTemporalRes">Temporal Resolution &amp; Dynamic Bandwidth</label>
+                        <input type="text" id="tppTemporalRes" placeholder="e.g., Threshold: ≥500 Hz, Ideal: ≥2,000 Hz to capture interictal spikes and fast ripples">
+                    </div>
+                    <div class="form-group">
+                        <label for="tppScanDuration">Examination Duration &amp; Setup Time</label>
+                        <input type="text" id="tppScanDuration" placeholder="e.g., Patient setup <15 min, active data acquisition strictly ≤22 minutes">
+                    </div>
+                    <div class="form-group">
+                        <label for="tppSafetyLimits">Patient Safety &amp; Biophysical Constraints</label>
+                        <input type="text" id="tppSafetyLimits" placeholder="e.g., RF Head SAR <2.5 W/kg (IEC 60601-2-33); acoustic noise <99 dBA; no ionizing radiation">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 7: Regulatory & Implementation Strategy -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">7</span> Preliminary Regulatory &amp; Risk Assessment</span>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="fdaPathway">Anticipated FDA Regulatory Pathway</label>
+                        <select id="fdaPathway">
+                            <option value="510(k) Premarket Notification (Substantial Equivalence to Predicate Device)">510(k) Premarket Notification (Substantial Equivalence to Predicate Device)</option>
+                            <option value="De Novo Classification (Novel Low-to-Moderate Risk Device)">De Novo Classification (Novel Low-to-Moderate Risk Device)</option>
+                            <option value="Premarket Approval [PMA] (Class III High Risk Diagnostic / Implantable)">Premarket Approval [PMA] (Class III High Risk Diagnostic / Implantable)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="predicateDevice">Anticipated Predicate Device / Regulatory Benchmark</label>
+                        <input type="text" id="predicateDevice" placeholder="e.g., MEGIN Triux neo (K172825) / Siemens Magnetom Terra 7T (K171295)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="topRisks">Top Engineering &amp; Clinical Risks with Mitigation Plans</label>
+                        <textarea id="topRisks" placeholder="1) Risk: Patient head motion during long acquisition corrupts high-resolution phase data. Mitigation: Prospective optical tracker with real-time gradient update.&#10;2) Risk: Skull volume conduction limits high-frequency spike SNR. Mitigation: Constrained inverse dipole modeling using subject-specific BEM head mesh from 7T MRI."></textarea>
+                    </div>
+                </div>
+            </section>
+        </form>
+    </div>
+
+    <script>
+        const exemplarDossier = {
+            teamName: "Team EpiFocus (Group 1)",
+            studentNames: "Tariq Vance (BME Lead), Sarah Jenkins (Neuroscience), David Wu (ECE)",
+            targetDisease: "Drug-Resistant Focal Epilepsy (Non-Lesional Neocortical Epilepsy)",
+            dossierDate: "2026-09-06",
+            needStatement: "A way to non-invasively localize the epileptogenic zone (EZ) with <2.0 mm spatial precision in pediatric and adult drug-resistant focal epilepsy patients that reduces the necessity for invasive intracranial depth electrode implantation by >50% without extending clinical scan acquisition time beyond 25 minutes.",
+            epidemiology: "Epilepsy impacts ~3.4 million individuals in the United States and over 50 million worldwide. Approximately 30% (over 1 million US patients) suffer from drug-resistant epilepsy (DRE), failing to achieve seizure freedom despite trying two or more appropriately chosen anti-seizure medications. For focal DRE, surgical resection of the epileptogenic zone offers a 60–80% chance of complete seizure freedom (Engel Class I), yet fewer than 4,000 surgeries are performed annually due to severe presurgical localization bottlenecks.",
+            pathologicalCascade: "The primary underlying pathology is Focal Cortical Dysplasia (FCD Type IIa/b), characterized by disrupted cortical lamination, dysmorphic neurons, and balloon cells buried in deep sulcal beds. Electrophysiologically, paroxysmal depolarizing shifts trigger high-frequency oscillations (HFOs, 80–500 Hz) and interictal epileptiform discharges. Concurrently, neurovascular uncoupling and localized blood-brain barrier (BBB) leakage lead to subtle extracellular edema and reactive microgliosis.",
+            healthEconomics: "Refractory epilepsy carries an estimated lifetime direct medical cost of >$140,000 per patient, with US annual healthcare expenditures exceeding $28 billion. The mortality rate is 3–4 times higher than the general population due to Sudden Unexpected Death in Epilepsy (SUDEP, 1 in 1,000 patient-years in general epilepsy, rising to 1 in 100 in severe refractory cases).",
+            standardPathway: "1. Clinical presentation with recurrent unprovoked focal seizures.\n2. Inconclusive routine 30-minute outpatient scalp EEG.\n3. Standard 3T structural MRI protocol (3D T1 MPRAGE, T2 FLAIR) interpreted as 'normal' or 'MRI-negative' in ~30% of cases.\n4. Inpatient video-EEG telemetry monitoring (3–7 days) with medication withdrawal.\n5. Surgical consensus conference recommends invasive Phase II monitoring: robotic stereotactic EEG (sEEG) with 10–16 depth electrodes implanted into brain tissue.",
+            failureModes: "1. 3T structural MRI misses subtle cortical dysplasia when dyslamination occurs without macroscopic cortical thickening.\n2. Scalp EEG suffers from severe volume conduction blurring by skull bone (resistivity 30–80x higher than brain), producing localization errors >25 mm.\n3. Invasive sEEG carries a 2–4% morbidity risk (intracranial hemorrhage, CSF leak, bacterial meningitis), costs >$85,000, and suffers from severe spatial sampling bias (only detects signals where depth wires were pre-targeted).",
+            vocNeurologist: "Wants rapid, objective localization to avoid years of failed anti-seizure polypharmacy trials; needs confidence that surgical referral will achieve seizure freedom without memory/cognitive decline.",
+            vocRadiologist: "Needs high-contrast quantitative maps that highlight dysplastic cortical ribbons automatically; demands strict scan times <25 min to prevent motion blur; requires standard DICOM PACS compatibility.",
+            vocSurgeon: "Requires spatial boundary precision <2.0 mm registered to Medtronic StealthStation neuronavigation; demands clear delineation of margin distance from the precentral gyrus (motor cortex) and Broca's area.",
+            vocPatient: "Desperately seeks to avoid invasive robotic skull drilling and intracranial electrode wires; desires shorter hospital stays and independence from lifelong anti-seizure drugs.",
+            tppSensitivity: "Threshold: ≥85%, Ideal: ≥95% (Crucial to prevent leaving residual seizure-generating tissue which causes surgical failure)",
+            tppSpecificity: "Threshold: ≥90%, Ideal: ≥98% (Prevents resection of eloquent motor or language cortex causing irreversible neurological deficit)",
+            tppSpatialRes: "Threshold: ≤2.5 mm, Ideal: ≤1.2 mm isotropic volumetric precision",
+            tppTemporalRes: "Threshold: ≥500 Hz, Ideal: ≥2,000 Hz to resolve fast ripples (250–500 Hz)",
+            tppScanDuration: "Patient preparation <15 minutes; active in-bore acquisition duration strictly ≤22 minutes",
+            tppSafetyLimits: "RF Head SAR <2.5 W/kg (compliant with IEC 60601-2-33); acoustic noise <99 dBA; zero ionizing radiation",
+            fdaPathway: "510(k) Premarket Notification (Substantial Equivalence to Predicate Device)",
+            predicateDevice: "MEGIN Triux neo MEG System (K172825) and Siemens Magnetom Terra 7T MRI (K171295)",
+            topRisks: "1. Risk: Bulk patient motion in claustrophobic patients destroys sub-millimeter phase/diffusion resolution. Mitigation: Optical prospective motion correction tracking retro-reflective marker glasses.\n2. Risk: Magnetic susceptibility artifacts at skull base and temporal air-bone interfaces distort medial temporal dipole localization. Mitigation: Customized high-permittivity dielectric pads and localized B0 shimming."
+        };
+
+        function collectFormData() {
+            return {
+                teamName: document.getElementById('teamName').value,
+                studentNames: document.getElementById('studentNames').value,
+                targetDisease: document.getElementById('targetDisease').value,
+                dossierDate: document.getElementById('dossierDate').value,
+                needStatement: document.getElementById('needStatement').value,
+                epidemiology: document.getElementById('epidemiology').value,
+                pathologicalCascade: document.getElementById('pathologicalCascade').value,
+                healthEconomics: document.getElementById('healthEconomics').value,
+                standardPathway: document.getElementById('standardPathway').value,
+                failureModes: document.getElementById('failureModes').value,
+                vocNeurologist: document.getElementById('vocNeurologist').value,
+                vocRadiologist: document.getElementById('vocRadiologist').value,
+                vocSurgeon: document.getElementById('vocSurgeon').value,
+                vocPatient: document.getElementById('vocPatient').value,
+                tppSensitivity: document.getElementById('tppSensitivity').value,
+                tppSpecificity: document.getElementById('tppSpecificity').value,
+                tppSpatialRes: document.getElementById('tppSpatialRes').value,
+                tppTemporalRes: document.getElementById('tppTemporalRes').value,
+                tppScanDuration: document.getElementById('tppScanDuration').value,
+                tppSafetyLimits: document.getElementById('tppSafetyLimits').value,
+                fdaPathway: document.getElementById('fdaPathway').value,
+                predicateDevice: document.getElementById('predicateDevice').value,
+                topRisks: document.getElementById('topRisks').value
+            };
+        }
+
+        function populateForm(d) {
+            if (!d) return;
+            for (const key in d) {
+                const el = document.getElementById(key);
+                if (el) el.value = d[key];
+            }
+        }
+
+        let saveTimeout = null;
+        function autoSave() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                const data = collectFormData();
+                localStorage.setItem('idne701_needs_spec_template', JSON.stringify(data));
+                const st = document.getElementById('saveStatus');
+                st.innerHTML = '<span>✓</span> Draft saved locally';
+                st.classList.add('saved');
+            }, 600);
+        }
+
+        document.getElementById('templateForm').addEventListener('input', autoSave);
+
+        function loadSaved() {
+            const saved = localStorage.getItem('idne701_needs_spec_template');
+            if (saved) {
+                try {
+                    populateForm(JSON.parse(saved));
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        document.getElementById('loadExempBtn').addEventListener('click', () => {
+            if (confirm('Load pre-filled exemplary Phase 1 Dossier benchmark? Any unsaved edits will be replaced.')) {
+                populateForm(exemplarDossier);
+                autoSave();
+            }
+        });
+
+        document.getElementById('saveDraftBtn').addEventListener('click', () => {
+            autoSave();
+            alert('Clinical Needs Specification template saved locally.');
+        });
+
+        document.getElementById('printBtn').addEventListener('click', () => {
+            window.print();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Reset this template? All fields will be cleared.')) {
+                localStorage.removeItem('idne701_needs_spec_template');
+                document.getElementById('templateForm').reset();
+                autoSave();
+            }
+        });
+
+        document.getElementById('exportJsonBtn').addEventListener('click', () => {
+            const data = collectFormData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `IDNE701_Needs_Specification_${(data.teamName || 'draft').replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('copyMarkdownBtn').addEventListener('click', () => {
+            const d = collectFormData();
+            let md = `# Phase 1 Deliverable: Clinical Needs Specification Dossier\n\n`;
+            md += `**Project:** ${d.teamName || 'N/A'}  \n`;
+            md += `**Team:** ${d.studentNames || 'N/A'}  \n`;
+            md += `**Target Disorder:** ${d.targetDisease || 'N/A'}  \n`;
+            md += `**Date:** ${d.dossierDate || 'N/A'}  \n\n`;
+
+            md += `## 1. Clinical Need Statement\n> "${d.needStatement || 'None'}"\n\n`;
+
+            md += `## 2. Neuropathology & Epidemiology\n`;
+            md += `### Epidemiology & Patient Population\n${d.epidemiology || 'N/A'}\n\n`;
+            md += `### Pathological Cascade & Biological Hallmarks\n${d.pathologicalCascade || 'N/A'}\n\n`;
+            md += `### Economic & Societal Burden\n${d.healthEconomics || 'N/A'}\n\n`;
+
+            md += `## 3. Current Standard of Care & Clinical Gaps\n`;
+            md += `### Current Diagnostic Pathway\n${d.standardPathway || 'N/A'}\n\n`;
+            md += `### Specific Failure Modes & Limitations\n${d.failureModes || 'N/A'}\n\n`;
+
+            md += `## 4. Voice of Customer (Stakeholder Matrix)\n`;
+            md += `- **Treating Neurologist:** ${d.vocNeurologist || 'N/A'}\n`;
+            md += `- **Neuroradiologist:** ${d.vocRadiologist || 'N/A'}\n`;
+            md += `- **Neurosurgeon:** ${d.vocSurgeon || 'N/A'}\n`;
+            md += `- **Patient & System:** ${d.vocPatient || 'N/A'}\n\n`;
+
+            md += `## 5. Target Product Profile (TPP) Specifications\n`;
+            md += `- **Clinical Sensitivity:** ${d.tppSensitivity || 'N/A'}\n`;
+            md += `- **Clinical Specificity:** ${d.tppSpecificity || 'N/A'}\n`;
+            md += `- **Spatial Resolution:** ${d.tppSpatialRes || 'N/A'}\n`;
+            md += `- **Temporal Resolution:** ${d.tppTemporalRes || 'N/A'}\n`;
+            md += `- **Scan & Setup Duration:** ${d.tppScanDuration || 'N/A'}\n`;
+            md += `- **Patient Safety Limits:** ${d.tppSafetyLimits || 'N/A'}\n\n`;
+
+            md += `## 6. Regulatory & Implementation Risk Assessment\n`;
+            md += `- **Regulatory Pathway:** ${d.fdaPathway || 'N/A'}\n`;
+            md += `- **Predicate Device:** ${d.predicateDevice || 'N/A'}\n`;
+            md += `### Critical Risks & Mitigation Strategies\n${d.topRisks || 'N/A'}\n`;
+
+            navigator.clipboard.writeText(md).then(() => {
+                alert('Complete Phase 1 Dossier Markdown copied to clipboard!');
+            });
+        });
+
+        // Theme Toggle
+        const themeBtn = document.getElementById('themeToggle');
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+                themeBtn.textContent = '☼ Light Mode';
+            } else {
+                document.body.classList.remove('dark');
+                themeBtn.textContent = '◐ Dark Mode';
+            }
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            themeBtn.textContent = isDark ? '☼ Light Mode' : '◐ Dark Mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        initTheme();
+        loadSaved();
+    </script>
+</body>
+
+</html>
