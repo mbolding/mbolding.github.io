@@ -36,7 +36,7 @@ This document catalogs proposed interactive simulations and educational tools fo
 
 ## 2. Diffusion Tensor Imaging & Connectomics (Week 06)
 
-### DTI Tensor & Deterministic Tractography Explorer
+### [COMPLETED] DTI Tensor & Deterministic Tractography Explorer
 * **Target File**: `nbl425/demos/dti_tractography.html`
 * **Course Week**: Week 06 (Diffusion Tensor Imaging)
 * **Core Concepts**:
