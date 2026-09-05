@@ -120,7 +120,7 @@ This document catalogs proposed interactive simulations and educational tools fo
 
 ## 5. Optical Imaging (Week 10)
 
-### fNIRS Modified Beer-Lambert Chromophore Unmixer
+### [COMPLETED] fNIRS Modified Beer-Lambert Chromophore Unmixer
 * **Target File**: `nbl425/demos/fnirs_unmixing.html`
 * **Course Week**: Week 10 (Functional NIRS)
 * **Core Concepts**:

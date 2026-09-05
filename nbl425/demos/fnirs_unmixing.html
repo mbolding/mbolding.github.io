@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fNIRS Modified Beer&ndash;Lambert Unmixer</title>
+<style>
+  :root{--bg:#fafafa;--fg:#1a1a1a;--muted:#666;--accent:#2563eb;--accent2:#dc2626;--card:#fff;--border:#ddd;--grid:#e5e7eb;--hbo:#dc2626;--hbr:#2563eb;--l1:#7c3aed;--l2:#0d9488;}
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#f87171;--card:#131b2c;--border:#26324a;--grid:#1e293b;--hbo:#f87171;--hbr:#60a5fa;--l1:#a78bfa;--l2:#2dd4bf; }
+  }
+  :root[data-theme="dark"] { --bg:#0b1220;--fg:#e5e9f0;--muted:#94a3b8;--accent:#60a5fa;--accent2:#f87171;--card:#131b2c;--border:#26324a;--grid:#1e293b;--hbo:#f87171;--hbr:#60a5fa;--l1:#a78bfa;--l2:#2dd4bf; }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 16px 60px;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:1.5rem;margin:0 0 4px;}
+  h2{font-size:1.05rem;margin:0 0 14px;font-weight:600;}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:0.95rem;line-height:1.5;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:20px;}
+  label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:4px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .row{display:flex;gap:20px;flex-wrap:wrap;}
+  .col{flex:1;min-width:200px;}
+  canvas{display:block;background:var(--card);border-radius:6px;max-width:100%;}
+  .value{font-weight:600;color:var(--accent);}
+  .note{font-size:0.83rem;color:var(--muted);margin-top:10px;line-height:1.5;}
+  .btn{padding:6px 13px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-size:0.82rem;cursor:pointer;font-family:inherit;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .metrics{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;}
+  .metric{flex:1;min-width:110px;text-align:center;border:1px solid var(--border);border-radius:8px;padding:8px 6px;}
+  .metric .m-val{font-size:1.1rem;font-weight:700;color:var(--accent);}
+  .metric .m-val.bad{color:var(--accent2);}
+  .metric .m-lab{font-size:0.72rem;color:var(--muted);margin-top:2px;line-height:1.3;}
+  table.mat{border-collapse:collapse;margin:10px auto 0;font-size:0.8rem;font-variant-numeric:tabular-nums;}
+  table.mat td{border:1px solid var(--border);padding:5px 10px;text-align:right;color:var(--fg);}
+  table.mat td.hd{border:none;color:var(--muted);font-size:0.74rem;text-align:center;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:10px;font-size:0.78rem;color:var(--muted);}
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .chip{width:14px;height:3px;border-radius:2px;display:inline-block;}
+  .chip.dash{height:0;border-top:2px dashed currentColor;width:16px;}
+  .status{font-size:0.82rem;line-height:1.6;margin-top:12px;padding:10px 13px;border-radius:7px;background:var(--grid);color:var(--fg);}
+  .warn{color:var(--accent2);font-weight:600;}
+  .ok{color:#16a34a;font-weight:600;}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;margin-top:30px;}
+  .cite{font-size:0.75rem;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom:1rem;"><a href="../index.html" style="color:var(--muted);text-decoration:none;font-size:0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>fNIRS Modified Beer&ndash;Lambert Unmixer</h1>
+  <p class="sub">An fNIRS optode does not measure oxygenation. It measures how much light of one colour failed to come back, and it does that at two colours. Turning those two numbers into separate oxy- and deoxy-haemoglobin concentrations is a 2&times;2 linear solve, and whether it works at all depends almost entirely on which two colours you picked. Choose badly and the algebra still runs, still produces smooth plausible traces, and is wrong.</p>
+
+  <!-- ============ 1. SPECTRA ============ -->
+  <div class="panel">
+    <h2>1. The near-infrared window and the two lasers</h2>
+    <canvas id="spectra" width="860" height="330" style="width:100%;height:auto;"></canvas>
+    <div class="legend">
+      <span><i class="chip" style="background:var(--hbo);"></i> HbO&#8322; (oxygenated)</span>
+      <span><i class="chip" style="background:var(--hbr);"></i> HHb (deoxygenated)</span>
+      <span><i class="chip" style="background:var(--l1);"></i> &lambda;&#8321;</span>
+      <span><i class="chip" style="background:var(--l2);"></i> &lambda;&#8322;</span>
+    </div>
+    <div class="row" style="margin-top:16px;">
+      <div class="col">
+        <label>&lambda;&#8321;: <span class="value" id="w1Val"></span></label>
+        <input type="range" id="w1" min="650" max="900" value="760" step="2">
+      </div>
+      <div class="col">
+        <label>&lambda;&#8322;: <span class="value" id="w2Val"></span></label>
+        <input type="range" id="w2" min="650" max="900" value="850" step="2">
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" data-pair="760,850">Standard pair (760 / 850)</button>
+      <button class="btn" data-pair="690,830">Common pair (690 / 830)</button>
+      <button class="btn" data-pair="830,850">Both above the isosbestic (830 / 850)</button>
+      <button class="btn" data-pair="796,850">One on the isosbestic (796 / 850)</button>
+    </div>
+    <p class="note">
+      Below about 650 nm haemoglobin absorbs so strongly that light cannot cross the head; above about 900 nm water takes over. Between those limits tissue is comparatively transparent, which is the only reason fNIRS exists. Inside that window the two haemoglobin species have <em>different</em> spectra &mdash; that difference is the entire measurement. Where the curves cross, at the <strong>isosbestic point</strong>, they are identical and light of that wavelength cannot tell them apart at all.
+    </p>
+    <p class="cite">
+      Molar extinction coefficients tabulated by S. Prahl from the compilations of W. B. Gratzer (Med. Res. Council Labs, Holly Hill, London) and N. Kollias (Wellman Laboratories, Harvard Medical School), sampled here every 2 nm from 650 to 900 nm. Units are cm<sup>&minus;1</sup>/M.
+    </p>
+  </div>
+
+  <!-- ============ 2. THE FORWARD MATRIX ============ -->
+  <div class="panel">
+    <h2>2. The Modified Beer&ndash;Lambert forward model</h2>
+    <p class="note" style="margin-top:0;">
+      Ordinary Beer&ndash;Lambert assumes light travels straight from source to detector. In tissue it does not: it scatters, and the mean path is far longer than the optode separation. The modified law patches this with a <strong>differential pathlength factor</strong>, so the effective path is d&nbsp;&times;&nbsp;DPF, and adds an unknown scattering loss term G that cancels when you take differences over time. That cancellation is why fNIRS reports <em>changes</em> in concentration and never absolute ones.
+    </p>
+    <p class="note" style="text-align:center;font-size:0.88rem;color:var(--fg);">
+      &Delta;A(&lambda;) = [ &epsilon;<sub>HbO</sub>(&lambda;)&thinsp;&Delta;[HbO&#8322;] + &epsilon;<sub>HHb</sub>(&lambda;)&thinsp;&Delta;[HHb] ] &middot; d &middot; DPF(&lambda;)
+    </p>
+    <div class="row" style="margin-top:14px;">
+      <div class="col">
+        <label>Source&ndash;detector separation d: <span class="value" id="sepVal"></span></label>
+        <input type="range" id="sep" min="1.0" max="5.0" value="3.0" step="0.1">
+      </div>
+      <div class="col">
+        <label>DPF at &lambda;&#8321;: <span class="value" id="dpf1Val"></span></label>
+        <input type="range" id="dpf1" min="3.0" max="9.0" value="6.2" step="0.1">
+      </div>
+      <div class="col">
+        <label>DPF at &lambda;&#8322;: <span class="value" id="dpf2Val"></span></label>
+        <input type="range" id="dpf2" min="3.0" max="9.0" value="5.6" step="0.1">
+      </div>
+    </div>
+
+    <table class="mat" id="matTable"></table>
+
+    <div class="metrics">
+      <div class="metric"><div class="m-val" id="condOut"></div><div class="m-lab">Condition number of the matrix</div></div>
+      <div class="metric"><div class="m-val" id="angOut"></div><div class="m-lab">Angle between the two rows</div></div>
+      <div class="metric"><div class="m-val" id="isoOut"></div><div class="m-lab">Isosbestic point of this data</div></div>
+    </div>
+    <div class="status" id="condStatus"></div>
+  </div>
+
+  <!-- ============ 3. SIMULATED RECORDING ============ -->
+  <div class="panel">
+    <h2>3. Forward, then back again</h2>
+    <p class="note" style="margin-top:0;">
+      A 60-second epoch with two 10-second stimulus blocks. Neural activity drives functional hyperaemia: blood flow overshoots the oxygen actually consumed, so oxyhaemoglobin rises and deoxyhaemoglobin is flushed out. Those true concentrations are pushed <em>forward</em> through the equation above into two attenuation traces, noise is added, and then the 2&times;2 system is solved to try to get the concentrations back.
+    </p>
+    <div class="row" style="margin-top:14px;">
+      <div class="col">
+        <label>Peak &Delta;[HbO&#8322;]: <span class="value" id="ampVal"></span></label>
+        <input type="range" id="amp" min="0.1" max="1.2" value="0.45" step="0.05">
+      </div>
+      <div class="col">
+        <label>&Delta;[HHb] as a fraction of &Delta;[HbO&#8322;]: <span class="value" id="ratioVal"></span></label>
+        <input type="range" id="ratio" min="0.05" max="0.80" value="0.35" step="0.05">
+      </div>
+      <div class="col">
+        <label>Detector noise (&sigma; in optical density): <span class="value" id="noiseVal"></span></label>
+        <input type="range" id="noise" min="0" max="0.0015" value="0.0002" step="0.00005">
+      </div>
+    </div>
+
+    <canvas id="odPlot" width="860" height="220" style="width:100%;height:auto;margin-top:16px;"></canvas>
+    <div class="legend">
+      <span><i class="chip" style="background:var(--l1);"></i> &Delta;A at &lambda;&#8321;</span>
+      <span><i class="chip" style="background:var(--l2);"></i> &Delta;A at &lambda;&#8322;</span>
+      <span>grey bands = stimulus</span>
+    </div>
+
+    <canvas id="concPlot" width="860" height="240" style="width:100%;height:auto;margin-top:18px;"></canvas>
+    <div class="legend">
+      <span><i class="chip" style="background:var(--hbo);"></i> recovered &Delta;[HbO&#8322;]</span>
+      <span><i class="chip" style="background:var(--hbr);"></i> recovered &Delta;[HHb]</span>
+      <span style="color:var(--muted);"><i class="chip dash"></i> ground truth</span>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn" id="reroll">Draw a new noise sample</button>
+      <span class="note" style="margin:0;">Same physiology, different noise. Run it a few times.</span>
+    </div>
+    <div class="status" id="recStatus"></div>
+  </div>
+
+  <!-- ============ TEACHING NOTES ============ -->
+  <div class="panel">
+    <h2>Try this</h2>
+    <p class="note" style="margin-top:0;">
+      <strong>Start at the default 760 / 850 pair and look at the two attenuation traces.</strong> The 850 nm trace has an obvious response, peaking around 6&times;10<sup>&minus;3</sup> OD. The 760 nm trace is about five times smaller. That is not a weak channel: at 760 nm deoxyhaemoglobin absorbs strongly and oxyhaemoglobin weakly, so the rise in HbO&#8322; and the fall in HHb partly cancel inside the same measurement. That small trace still carries the information that separates the two species. Delete it and you have one equation and two unknowns, and no amount of processing afterwards will recover oxygenation.
+    </p>
+    <p class="note">
+      <strong>Now press "Both above the isosbestic (830 / 850)".</strong> Both wavelengths sit on the same side of the crossing point, where the spectra run almost parallel, so the two rows of the matrix become nearly proportional: the angle between them collapses from 36&deg; to about 2&deg; and the condition number rises from roughly 3 to about 50. At the same noise level the error in recovered HbO&#8322; goes from a few percent of the true peak to around 40&#37;. Watch <em>how</em> the traces fail &mdash; they wander in opposite directions, HbO&#8322; up wherever HHb goes down. That mirror-image pattern is the classic fNIRS crosstalk artefact, and this is where it comes from. The measurement did not get noisier. The inverse problem got ill-posed.
+    </p>
+    <p class="note">
+      <strong>With that bad pair still selected, set the noise slider to zero.</strong> The recovery becomes perfect again. This is the point worth taking away: an ill-conditioned matrix does not corrupt the data, it amplifies whatever error is already there. On real hardware you never get to set the noise to zero, so conditioning is a design decision you make once, when you choose the lasers, and cannot fix afterwards.
+    </p>
+    <p class="note">
+      <strong>Press "One on the isosbestic (796 / 850)"</strong> &mdash; 796 nm being the nearest 2 nm sample to the 796.8 nm crossing in this table. This still works, which surprises people. At the isosbestic point the two extinction coefficients are equal, so that channel measures total haemoglobin and says nothing about oxygenation &mdash; but the <em>other</em> channel is still oxygenation-sensitive, the rows stay independent, and the pair solves. It is measurably worse than 760 / 850 (&kappa; of about 9 against about 3, so noise is amplified roughly three times as much) but nowhere near the failure of 830 / 850. A wavelength that carries no oxygenation information is not the same thing as a useless wavelength.
+    </p>
+    <p class="note">
+      <strong>Set the two DPF sliders far apart, say 3.0 and 9.0.</strong> The recovered amplitudes are wrong even though the shapes look right. DPF is not measured in a routine study, it is assumed from published values that depend on wavelength, tissue, and the participant's age. Any error in it propagates straight into the reported micromolar concentrations, which is a large part of why fNIRS results are usually compared within a study rather than across labs.
+    </p>
+    <p class="note">
+      <strong>One thing the model quietly assumes.</strong> Every version of the Beer&ndash;Lambert law here treats the illuminated volume as homogeneous, when a real channel samples scalp, skull, cerebrospinal fluid, and only then cortex. Much of the signal never reaches the brain at all, which is why modern fNIRS adds short-separation channels to measure the superficial contribution and regress it out.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Week 10 &middot; Functional Near-Infrared Spectroscopy</footer>
+</div>
+
+<script>
+/* ============================================================
+   Molar extinction coefficients [HbO2, HHb] in cm^-1/M,
+   650-900 nm in 2 nm steps. Prahl's tabulation of the Gratzer
+   and Kollias compilations.
+   ============================================================ */
+const EPS_START=650, EPS_STEP=2;
+const EPS=[
+  [368,3750.12],[356.8,3642.64],[345.6,3535.16],[335.2,3427.68],[325.6,3320.2],[319.6,3226.56],
+  [314,3140.28],[308.4,3053.96],[302.8,2967.68],[298,2881.4],[294,2795.12],[290,2708.84],
+  [285.6,2627.64],[282,2554.4],[279.2,2481.16],[277.6,2407.92],[276,2334.68],[274.4,2261.48],
+  [272.8,2188.24],[274.4,2115],[276,2051.96],[277.6,2000.48],[279.2,1949.04],[282,1897.56],
+  [286,1846.08],[290,1794.28],[294,1741],[298,1687.76],[302.8,1634.48],[308.4,1583.52],
+  [314,1540.48],[319.6,1497.4],[325.2,1454.36],[332,1411.32],[340,1368.28],[348,1325.88],
+  [356,1285.16],[364,1244.44],[372.4,1203.68],[381.2,1152.8],[390,1102.2],[398.8,1102.2],
+  [407.6,1102.2],[418.8,1101.76],[432.4,1100.48],[446,1115.88],[459.6,1161.64],[473.2,1207.4],
+  [487.6,1266.04],[502.8,1333.24],[518,1405.24],[533.2,1515.32],[548.4,1541.76],[562,1560.48],
+  [574,1560.48],[586,1548.52],[598,1508.44],[610,1459.56],[622.8,1410.52],[636.4,1361.32],
+  [650,1311.88],[663.6,1262.44],[677.2,1213],[689.2,1163.56],[699.6,1114.8],[710,1075.44],
+  [720.4,1036.08],[730.8,996.72],[740,957.36],[748,921.8],[756,890.8],[764,859.8],
+  [772,828.8],[786.4,802.96],[807.2,782.36],[816,761.72],[828,743.84],[836,737.08],
+  [844,730.28],[856,723.52],[864,717.08],[872,711.84],[880,706.6],[887.2,701.32],
+  [901.6,696.08],[916,693.76],[930.4,693.6],[944.8,693.48],[956.4,693.32],[965.2,693.2],
+  [974,693.04],[982.8,692.92],[991.6,692.76],[1001.2,692.64],[1011.6,692.48],[1022,692.36],
+  [1032.4,692.2],[1042.8,691.96],[1050,691.76],[1054,691.52],[1058,691.32],[1062,691.08],
+  [1066,690.88],[1072.8,690.64],[1082.4,692.44],[1092,694.32],[1101.6,696.2],[1111.2,698.04],
+  [1118.4,699.92],[1123.2,701.8],[1128,705.84],[1132.8,709.96],[1137.6,714.08],[1142.8,718.2],
+  [1148.4,722.32],[1154,726.44],[1159.6,729.84],[1165.2,733.2],[1170,736.6],[1174,739.96],
+  [1178,743.6],[1182,747.24],[1186,750.88],[1190,754.52],[1194,758.16],[1198,761.84]
+];
+
+/* Linear interpolation between tabulated 2 nm samples. */
+function epsAt(nm){
+  const t=(nm-EPS_START)/EPS_STEP;
+  const i=Math.max(0, Math.min(EPS.length-2, Math.floor(t)));
+  const f=t-i;
+  return [EPS[i][0]+(EPS[i+1][0]-EPS[i][0])*f, EPS[i][1]+(EPS[i+1][1]-EPS[i][1])*f];
+}
+
+/* Where the two spectra cross, found from the table rather than assumed. */
+const ISO=(()=>{
+  for(let i=0;i<EPS.length-1;i++){
+    const d0=EPS[i][0]-EPS[i][1], d1=EPS[i+1][0]-EPS[i+1][1];
+    if(d0===0) return EPS_START+i*EPS_STEP;
+    if(d0*d1<0){ const w0=EPS_START+i*EPS_STEP; return w0+EPS_STEP*(-d0)/(d1-d0); }
+  }
+  return NaN;
+})();
+
+/* ============================================================
+   State
+   ============================================================ */
+const S={w1:760,w2:850,sep:3.0,dpf1:6.2,dpf2:5.6,amp:0.45,ratio:0.35,noise:0.0002};
+let noiseSeed=20260905;
+
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15, 1|a);
+    t=t+Math.imul(t^t>>>7, 61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+function gaussian(rng){
+  let u=0,v=0;
+  while(u===0) u=rng();
+  while(v===0) v=rng();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+/* ============================================================
+   Linear algebra on the 2x2 system
+   ============================================================ */
+function buildMatrix(){
+  const e1=epsAt(S.w1), e2=epsAt(S.w2);
+  const L1=S.sep*S.dpf1, L2=S.sep*S.dpf2;
+  return {M:[[e1[0]*L1, e1[1]*L1],[e2[0]*L2, e2[1]*L2]], e1, e2, L1, L2};
+}
+function cond2(M){
+  const a=M[0][0], b=M[0][1], c=M[1][0], d=M[1][1];
+  const p=a*a+c*c, q=a*b+c*d, r=b*b+d*d;      // M^T M
+  const tr=p+r, det=p*r-q*q;
+  const disc=Math.sqrt(Math.max(0, tr*tr/4-det));
+  const s1=Math.sqrt(Math.max(0, tr/2+disc)), s2=Math.sqrt(Math.max(0, tr/2-disc));
+  return s2>1e-12 ? s1/s2 : Infinity;
+}
+function rowAngle(M){
+  const n1=Math.hypot(M[0][0],M[0][1]), n2=Math.hypot(M[1][0],M[1][1]);
+  if(n1<1e-12||n2<1e-12) return 0;
+  const c=(M[0][0]*M[1][0]+M[0][1]*M[1][1])/(n1*n2);
+  return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
+}
+function solve2(M,y){
+  const det=M[0][0]*M[1][1]-M[0][1]*M[1][0];
+  if(Math.abs(det)<1e-30) return [NaN,NaN];
+  return [(y[0]*M[1][1]-M[0][1]*y[1])/det, (M[0][0]*y[1]-y[0]*M[1][0])/det];
+}
+
+/* ============================================================
+   Paradigm and haemodynamics
+   ============================================================ */
+const DT=0.2, TEND=60, N=Math.round(TEND/DT);
+const BLOCKS=[[10,20],[35,45]];
+
+/* Peak-normalised gamma; peaks at t = a*b with value 1. */
+function gam(t,a,b){
+  if(t<=0) return 0;
+  return Math.pow(t/(a*b), a)*Math.exp(-(t-a*b)/b);
+}
+function hrf(t){ return gam(t,6,0.9) - 0.35*gam(t,14,0.9); }
+
+const HRF=(()=>{
+  const n=Math.round(30/DT), h=[];
+  for(let i=0;i<n;i++) h.push(hrf(i*DT));
+  const mx=Math.max.apply(null,h);
+  return h.map(v=>v/mx);
+})();
+
+function boxcar(lagSec){
+  const x=new Array(N).fill(0);
+  for(let k=0;k<BLOCKS.length;k++){
+    const a=BLOCKS[k][0], b=BLOCKS[k][1];
+    for(let i=0;i<N;i++){ const t=i*DT-lagSec; if(t>=a&&t<b) x[i]=1; }
+  }
+  return x;
+}
+function convolve(x,h){
+  const y=new Array(x.length).fill(0);
+  for(let i=0;i<x.length;i++){
+    let s=0;
+    for(let k=0;k<h.length && k<=i;k++) s+=x[i-k]*h[k];
+    y[i]=s;
+  }
+  return y;
+}
+
+/* Build ground-truth concentrations, push them forward through the
+   modified Beer-Lambert law, add detector noise, then solve back. */
+function simulate(){
+  const mm=buildMatrix(), M=mm.M;
+
+  const rawO=convolve(boxcar(0), HRF);
+  const rawR=convolve(boxcar(1.0), HRF);       // deoxy lags slightly
+  const pkO=Math.max.apply(null,rawO)||1, pkR=Math.max.apply(null,rawR)||1;
+
+  const trueO=rawO.map(v=>S.amp*v/pkO);                 // uM
+  const trueR=rawR.map(v=>-S.amp*S.ratio*v/pkR);        // uM
+
+  const rng=mulberry32(noiseSeed);
+  const dA1=[], dA2=[], recO=[], recR=[];
+  for(let i=0;i<N;i++){
+    const cO=trueO[i]*1e-6, cR=trueR[i]*1e-6;           // molar
+    const a1=M[0][0]*cO + M[0][1]*cR + S.noise*gaussian(rng);
+    const a2=M[1][0]*cO + M[1][1]*cR + S.noise*gaussian(rng);
+    dA1.push(a1); dA2.push(a2);
+    const c=solve2(M,[a1,a2]);
+    recO.push(c[0]*1e6); recR.push(c[1]*1e6);
+  }
+
+  let se=0, n=0;
+  for(let i=0;i<N;i++){ if(isFinite(recO[i])){ se+=Math.pow(recO[i]-trueO[i],2); n++; } }
+  const rmse=n? Math.sqrt(se/n) : NaN;
+
+  return {trueO:trueO,trueR:trueR,dA1:dA1,dA2:dA2,recO:recO,recR:recR,rmse:rmse};
+}
+
+/* ============================================================
+   Plot helpers
+   ============================================================ */
+function css(v,f){ return getComputedStyle(document.body).getPropertyValue(v).trim()||f; }
+
+function axes(ctx,W,H,pad,xr,yr,xlab,ylab,opts){
+  opts=opts||{};
+  const muted=css('--muted','#666'), border=css('--border','#ddd');
+  ctx.clearRect(0,0,W,H);
+  ctx.font='10px -apple-system,sans-serif';
+  ctx.lineWidth=1;
+
+  const X=function(x){ return pad.l+(x-xr[0])/(xr[1]-xr[0])*(W-pad.l-pad.r); };
+  const Y=opts.log
+    ? function(y){ return pad.t+(1-(Math.log10(y)-Math.log10(yr[0]))/(Math.log10(yr[1])-Math.log10(yr[0])))*(H-pad.t-pad.b); }
+    : function(y){ return pad.t+(1-(y-yr[0])/(yr[1]-yr[0]))*(H-pad.t-pad.b); };
+
+  let ticks=opts.yticks;
+  if(!ticks) ticks = opts.log ? [200,500,1000,2000,4000]
+                             : (function(){ const o=[]; for(let k=0;k<=4;k++) o.push(yr[0]+(yr[1]-yr[0])*k/4); return o; })();
+  ctx.strokeStyle=border; ctx.fillStyle=muted;
+  for(let i=0;i<ticks.length;i++){
+    const t=ticks[i], y=Y(t);
+    ctx.globalAlpha=0.35; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(opts.yfmt?opts.yfmt(t):String(Math.round(t*100)/100), pad.l-6, y);
+  }
+  const xstep=(xr[1]-xr[0])/(opts.xticks||5);
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let v=xr[0]; v<=xr[1]+1e-9; v+=xstep){
+    const x=X(v);
+    ctx.globalAlpha=0.2; ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,H-pad.b); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillText(opts.xfmt?opts.xfmt(v):String(Math.round(v)), x, H-pad.b+5);
+  }
+  ctx.fillText(xlab, pad.l+(W-pad.l-pad.r)/2, H-pad.b+18);
+  ctx.save(); ctx.translate(11, pad.t+(H-pad.t-pad.b)/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillText(ylab,0,0); ctx.restore();
+  return {X:X,Y:Y};
+}
+
+function line(ctx,xs,ys,X,Y,color,width,dash){
+  ctx.save();
+  ctx.beginPath();
+  ctx.strokeStyle=color; ctx.lineWidth=width||1.8;
+  if(dash) ctx.setLineDash(dash);
+  let started=false;
+  for(let i=0;i<xs.length;i++){
+    if(!isFinite(ys[i])) { started=false; continue; }
+    const px=X(xs[i]), py=Y(ys[i]);
+    if(!started){ ctx.moveTo(px,py); started=true; } else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ============================================================
+   Panel 1 - spectra
+   ============================================================ */
+function drawSpectra(){
+  const c=document.getElementById('spectra'), ctx=c.getContext('2d');
+  const W=c.width, H=c.height, pad={l:56,r:14,t:26,b:34};
+  const ax=axes(ctx,W,H,pad,[650,900],[200,4000],'wavelength (nm)',
+                'molar extinction (cm\u207B\u00B9/M, log scale)',
+                {log:true, xticks:5, yfmt:function(v){ return v>=1000?(v/1000)+'k':String(v); }});
+  const X=ax.X, Y=ax.Y;
+
+  const nm=[], o=[], r=[];
+  for(let i=0;i<EPS.length;i++){ nm.push(EPS_START+i*EPS_STEP); o.push(EPS[i][0]); r.push(EPS[i][1]); }
+  line(ctx,nm,r,X,Y,css('--hbr','#2563eb'),2.2);
+  line(ctx,nm,o,X,Y,css('--hbo','#dc2626'),2.2);
+
+  if(isFinite(ISO)){
+    const x=X(ISO), y=Y(epsAt(ISO)[0]);
+    ctx.setLineDash([3,3]); ctx.strokeStyle=css('--muted','#666'); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,H-pad.b); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(x,y,4,0,2*Math.PI); ctx.fillStyle=css('--fg','#111'); ctx.fill();
+    ctx.fillStyle=css('--muted','#666'); ctx.font='10px -apple-system,sans-serif';
+    ctx.textAlign='left'; ctx.textBaseline='bottom';
+    ctx.fillText('isosbestic '+ISO.toFixed(1)+' nm', x+6, pad.t+12);
+  }
+
+  const lasers=[[S.w1,css('--l1','#7c3aed'),'\u03BB\u2081'],[S.w2,css('--l2','#0d9488'),'\u03BB\u2082']];
+  for(let k=0;k<2;k++){
+    const w=lasers[k][0], col=lasers[k][1], lab=lasers[k][2];
+    const x=X(w);
+    ctx.strokeStyle=col; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,H-pad.b); ctx.stroke();
+    const e=epsAt(w);
+    const dots=[[e[0],css('--hbo','#dc2626')],[e[1],css('--hbr','#2563eb')]];
+    for(let j=0;j<2;j++){
+      ctx.beginPath(); ctx.arc(x,Y(dots[j][0]),3.6,0,2*Math.PI); ctx.fillStyle=dots[j][1]; ctx.fill();
+      ctx.strokeStyle=css('--card','#fff'); ctx.lineWidth=1.2; ctx.stroke();
+    }
+    ctx.fillStyle=col; ctx.font='bold 11px -apple-system,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(lab, x, pad.t-4);
+  }
+}
+
+/* ============================================================
+   Panel 2 - matrix and conditioning
+   ============================================================ */
+function updateMatrix(){
+  const mm=buildMatrix(), M=mm.M, e1=mm.e1, e2=mm.e2;
+  const k=cond2(M), ang=rowAngle(M);
+
+  document.getElementById('matTable').innerHTML =
+    '<tr><td class="hd"></td><td class="hd">&Delta;[HbO&#8322;]</td><td class="hd">&Delta;[HHb]</td></tr>'+
+    '<tr><td class="hd">&Delta;A('+S.w1+' nm)</td><td>'+(M[0][0]/1000).toFixed(2)+'</td><td>'+(M[0][1]/1000).toFixed(2)+'</td></tr>'+
+    '<tr><td class="hd">&Delta;A('+S.w2+' nm)</td><td>'+(M[1][0]/1000).toFixed(2)+'</td><td>'+(M[1][1]/1000).toFixed(2)+'</td></tr>'+
+    '<tr><td class="hd" colspan="3" style="padding-top:6px;">entries in 10<sup>3</sup> M<sup>&minus;1</sup> &nbsp;&middot;&nbsp; &epsilon;('+S.w1+') = '+
+      e1[0].toFixed(0)+' / '+e1[1].toFixed(0)+' &nbsp;&middot;&nbsp; &epsilon;('+S.w2+') = '+e2[0].toFixed(0)+' / '+e2[1].toFixed(0)+' cm<sup>&minus;1</sup>/M</td></tr>';
+
+  const condEl=document.getElementById('condOut');
+  condEl.textContent = isFinite(k) ? k.toFixed(1) : '\u221E';
+  condEl.className = 'm-val'+(k>50?' bad':'');
+  document.getElementById('angOut').textContent = ang.toFixed(1)+'\u00B0';
+  document.getElementById('isoOut').textContent = ISO.toFixed(1)+' nm';
+
+  const st=document.getElementById('condStatus');
+  if(S.w1===S.w2){
+    st.innerHTML='<span class="warn">Both lasers are at the same wavelength.</span> The two rows are identical, the matrix is singular, and there is nothing to solve: one measurement cannot determine two unknowns.';
+  } else if(k>30){
+    const sameSide=(S.w1-ISO)*(S.w2-ISO)>0;
+    st.innerHTML='<span class="warn">Ill-conditioned (&kappa; = '+k.toFixed(0)+').</span> The rows sit only '+ang.toFixed(1)+
+      '&deg; apart, so the two measurements are nearly redundant. Errors in &Delta;A are amplified by up to &kappa; on their way into the recovered concentrations.'+
+      (sameSide?' Both wavelengths are on the same side of the isosbestic point at '+ISO.toFixed(1)+' nm, where the two spectra run close to parallel.':'');
+  } else if(k>12){
+    st.innerHTML='Workable but not comfortable (&kappa; = '+k.toFixed(1)+', rows '+ang.toFixed(1)+'&deg; apart). Noise in the measurement is amplified several-fold on its way into the concentration estimates.';
+  } else {
+    const straddle=(S.w1-ISO)*(S.w2-ISO)<0;
+    st.innerHTML='<span class="ok">Well conditioned</span> (&kappa; = '+k.toFixed(1)+', rows '+ang.toFixed(1)+'&deg; apart). '+
+      (straddle
+        ? 'The wavelengths straddle the isosbestic point at '+ISO.toFixed(1)+' nm, so each is dominated by a different species and the two equations carry genuinely independent information.'
+        : 'The two rows are far enough apart in direction to be solved reliably, even though the wavelengths do not straddle the isosbestic point at '+ISO.toFixed(1)+' nm.');
+  }
+}
+
+/* ============================================================
+   Panel 3 - simulated recording
+   ============================================================ */
+function drawStimBands(ctx,X,pad,H){
+  ctx.fillStyle=css('--muted','#666'); ctx.globalAlpha=0.12;
+  for(let k=0;k<BLOCKS.length;k++) ctx.fillRect(X(BLOCKS[k][0]),pad.t,X(BLOCKS[k][1])-X(BLOCKS[k][0]),H-pad.t-pad.b);
+  ctx.globalAlpha=1;
+}
+
+function drawRun(){
+  const sim=simulate();
+  const t=[]; for(let i=0;i<N;i++) t.push(i*DT);
+
+  {
+    const c=document.getElementById('odPlot'), ctx=c.getContext('2d');
+    const W=c.width, H=c.height, pad={l:66,r:14,t:12,b:32};
+    const all=sim.dA1.concat(sim.dA2).filter(isFinite);
+    let lo=Math.min.apply(null,all), hi=Math.max.apply(null,all);
+    const m=Math.max(1e-5,(hi-lo)*0.15); lo-=m; hi+=m;
+    const ax=axes(ctx,W,H,pad,[0,TEND],[lo,hi],'time (s)','\u0394A (optical density)',
+                  {xticks:6, yfmt:function(v){ return (v*1000).toFixed(1)+'m'; }});
+    drawStimBands(ctx,ax.X,pad,H);
+    ctx.strokeStyle=css('--border','#ddd'); ctx.globalAlpha=0.8;
+    ctx.beginPath(); ctx.moveTo(pad.l,ax.Y(0)); ctx.lineTo(W-pad.r,ax.Y(0)); ctx.stroke(); ctx.globalAlpha=1;
+    line(ctx,t,sim.dA1,ax.X,ax.Y,css('--l1','#7c3aed'),1.7);
+    line(ctx,t,sim.dA2,ax.X,ax.Y,css('--l2','#0d9488'),1.7);
+  }
+
+  {
+    const c=document.getElementById('concPlot'), ctx=c.getContext('2d');
+    const W=c.width, H=c.height, pad={l:66,r:14,t:12,b:32};
+    const fin=sim.recO.concat(sim.recR).filter(isFinite);
+    const truth=sim.trueO.concat(sim.trueR);
+    const tlo=Math.min.apply(null,truth), thi=Math.max.apply(null,truth), span=(thi-tlo)||1;
+    let lo=Math.min.apply(null,truth.concat(fin)), hi=Math.max.apply(null,truth.concat(fin));
+    // a wild recovery must not flatten the truth beyond recognition
+    lo=Math.max(lo, tlo-6*span); hi=Math.min(hi, thi+6*span);
+    const m=Math.max(0.02,(hi-lo)*0.12); lo-=m; hi+=m;
+    const ax=axes(ctx,W,H,pad,[0,TEND],[lo,hi],'time (s)','\u0394 concentration (\u00B5M)',
+                  {xticks:6, yfmt:function(v){ return v.toFixed(2); }});
+    drawStimBands(ctx,ax.X,pad,H);
+    ctx.strokeStyle=css('--border','#ddd'); ctx.globalAlpha=0.8;
+    ctx.beginPath(); ctx.moveTo(pad.l,ax.Y(0)); ctx.lineTo(W-pad.r,ax.Y(0)); ctx.stroke(); ctx.globalAlpha=1;
+    line(ctx,t,sim.recO,ax.X,ax.Y,css('--hbo','#dc2626'),1.7);
+    line(ctx,t,sim.recR,ax.X,ax.Y,css('--hbr','#2563eb'),1.7);
+    line(ctx,t,sim.trueO,ax.X,ax.Y,css('--muted','#666'),1.4,[4,3]);
+    line(ctx,t,sim.trueR,ax.X,ax.Y,css('--muted','#666'),1.4,[4,3]);
+  }
+
+  const k=cond2(buildMatrix().M);
+  const pct=100*sim.rmse/S.amp;
+  const st=document.getElementById('recStatus');
+  if(!isFinite(sim.rmse)){
+    st.innerHTML='<span class="warn">The system is singular and cannot be solved.</span> Move the two wavelengths apart.';
+  } else {
+    const verdict = pct<10 ? '<span class="ok">the recovery tracks the truth</span>'
+                  : pct<40 ? 'the recovery is visibly degraded'
+                  : '<span class="warn">the recovery has essentially fallen apart</span>';
+    st.innerHTML='RMS error in recovered &Delta;[HbO&#8322;] is <strong>'+sim.rmse.toFixed(3)+' &micro;M</strong>, '+
+      pct.toFixed(0)+'&#37; of the '+S.amp.toFixed(2)+' &micro;M true peak &mdash; '+verdict+'. '+
+      'Condition number &kappa; = '+(isFinite(k)?k.toFixed(1):'&infin;')+', detector noise &sigma; = '+
+      (S.noise*1e4).toFixed(1)+'&times;10<sup>&minus;4</sup> OD.';
+  }
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+function redrawAll(){ drawSpectra(); updateMatrix(); drawRun(); }
+
+function bind(id, key, fmt){
+  const s=document.getElementById(id), out=document.getElementById(id+'Val');
+  const apply=function(){ S[key]=+s.value; if(out) out.innerHTML=fmt(+s.value); redrawAll(); };
+  s.addEventListener('input', apply);
+  S[key]=+s.value; if(out) out.innerHTML=fmt(+s.value);
+}
+bind('w1','w1', function(v){ return v+' nm'; });
+bind('w2','w2', function(v){ return v+' nm'; });
+bind('sep','sep', function(v){ return v.toFixed(1)+' cm'; });
+bind('dpf1','dpf1', function(v){ return v.toFixed(1); });
+bind('dpf2','dpf2', function(v){ return v.toFixed(1); });
+bind('amp','amp', function(v){ return v.toFixed(2)+' &micro;M'; });
+bind('ratio','ratio', function(v){ return '&minus;'+v.toFixed(2)+' &times; &Delta;[HbO&#8322;]'; });
+bind('noise','noise', function(v){ return (v*1e4).toFixed(1)+'&times;10<sup>&minus;4</sup> OD'; });
+
+const pairBtns=document.querySelectorAll('[data-pair]');
+for(let i=0;i<pairBtns.length;i++){
+  pairBtns[i].addEventListener('click', function(){
+    const parts=this.dataset.pair.split(',').map(Number);
+    document.getElementById('w1').value=parts[0];
+    document.getElementById('w2').value=parts[1];
+    S.w1=parts[0]; S.w2=parts[1];
+    document.getElementById('w1Val').innerHTML=parts[0]+' nm';
+    document.getElementById('w2Val').innerHTML=parts[1]+' nm';
+    redrawAll();
+  });
+}
+
+document.getElementById('reroll').addEventListener('click', function(){
+  noiseSeed=(noiseSeed*1103515245+12345)>>>0;
+  drawRun();
+});
+
+redrawAll();
+</script>
+</body>
+</html>
