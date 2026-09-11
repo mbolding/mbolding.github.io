@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sensor Engineering & Array Architecture (Slides) — IDNE 701</title>
+
+    <!-- Reveal.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 for Reveal.js -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.35);
+            --accent-light: #34d399;
+            --bg-dark: #090a0d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.12);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        .reveal {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 21px; /* Proportional scaling */
+            color: var(--text-main);
+            background-color: var(--bg-dark);
+        }
+
+        .reveal .slides section {
+            padding: 40px 30px 24px 30px !important;
+            box-sizing: border-box;
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3,
+        .reveal h4 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: none;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+        }
+
+        .reveal h1 {
+            font-size: 1.85em;
+            line-height: 1.15;
+            margin-bottom: 12px;
+        }
+
+        .reveal h2 {
+            font-size: 1.35em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h3 {
+            font-size: 1.05em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h4 {
+            font-size: 0.88em;
+            margin-bottom: 6px;
+        }
+
+        .reveal h1 em,
+        .reveal h2 em,
+        .reveal h3 em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .reveal p {
+            font-size: 0.72em;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+        }
+
+        .reveal li {
+            font-size: 0.72em;
+            line-height: 1.45;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .reveal strong {
+            color: #ffffff;
+        }
+
+        .reveal a {
+            color: var(--accent-light);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--accent);
+            transition: all 0.2s;
+        }
+
+        .reveal a:hover {
+            color: #ffffff;
+            border-bottom-style: solid;
+        }
+
+        /* Top Nav Bar Overlay */
+        .slide-nav-bar {
+            position: fixed;
+            top: 12px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            background: rgba(15, 17, 23, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: #ffffff;
+            border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .nav-pills {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Cards & Grid Containers */
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            text-align: left;
+            margin-top: 12px;
+        }
+
+        .card-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .card-grid-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            backdrop-filter: blur(6px);
+            font-size: 0.76em;
+            line-height: 1.45;
+        }
+
+        .slide-card h4 {
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .slide-card .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            background: var(--accent);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        /* Stats Row */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 14px 0 10px 0;
+        }
+
+        .stat-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.55em;
+            font-weight: 800;
+            color: var(--accent-light);
+            display: block;
+            line-height: 1.1;
+        }
+
+        .stat-desc {
+            font-size: 0.64em;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Code/Formula blocks */
+        .formula-box {
+            background: rgba(16, 185, 129, 0.06);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .formula-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            color: var(--accent-light);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+
+        /* MathJax sizing */
+        .reveal mjx-container {
+            font-size: 88% !important;
+            margin: 0.3em 0 !important;
+        }
+        .reveal mjx-container[jax="CHTML"][display="true"] {
+            margin: 0.3em 0 !important;
+        }
+
+        /* Two column layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            text-align: left;
+            align-items: start;
+            margin-top: 10px;
+        }
+
+        /* Comparison Table */
+        .slide-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.62em;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .slide-table th {
+            color: var(--accent-light);
+            border-bottom: 2px solid var(--border);
+            padding: 6px 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        .slide-table td {
+            border-bottom: 1px solid var(--border);
+            padding: 6px 8px;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        .slide-table tr:hover td {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .slide-list {
+            text-align: left;
+            padding-left: 18px;
+            margin: 0 0 10px 0;
+        }
+
+        .slide-list li {
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Persistent Navigation Bar -->
+    <div class="slide-nav-bar">
+        <div>
+            <a href="IDNE701_FA2026.html#week-5" class="nav-link">← Week 5 Course Timeline</a>
+        </div>
+        <div class="nav-pills">
+            <a href="sensor_engineering_arrays.html" class="nav-link">📄 Lecture Notes</a>
+            <a href="worksheet_sensor_hardware.html" class="nav-link">📝 Worksheet 5.1</a>
+            <a href="simulation_contrast_physics.html" class="nav-link">🔬 Simulation Sandbox</a>
+        </div>
+    </div>
+
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title Slide -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px;">
+                    IDNE 701 · Fall 2026 · Week 5 Lecture
+                </div>
+                <h1 style="font-size: 1.8em; margin-bottom: 14px; line-height: 1.15;">
+                    Sensor Engineering: <em>Front-End Noise &amp; Array Architecture</em>
+                </h1>
+                <h3 style="font-size: 0.95em; font-weight: 300; color: #d1d5db; max-width: 850px; margin: 0 auto 24px auto;">
+                    Johnson-Nyquist Limits, Geometric Decoupling &amp; Sensitivity Fields
+                </h3>
+                <div style="font-size: 0.72em; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+                    Mark Bolding, PhD · Department of Biomedical Engineering
+                </div>
+            </section>
+
+            <!-- SLIDE 2: The Physical Transduction Problem -->
+            <section>
+                <h2>The <em>Transduction Interface</em></h2>
+                <p>Converting microscopic biophysical perturbations into clean microvolt electrical signals:</p>
+
+                <div class="card-grid card-grid-4">
+                    <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                        <h4><span class="badge" style="background: #3b82f6;">MRI</span> Faraday Induction</h4>
+                        <p>Precessing spins induce EMF in conductive copper loop:</p>
+                        <p style="color: var(--accent-light); font-size: 0.9em; margin: 4px 0;">\(\mathcal{E} = -\frac{\partial}{\partial t}\int \vec{B}_1^- \cdot \vec{M} dV\)</p>
+                        <p style="margin-bottom: 0;">Principle of Reciprocity</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4><span class="badge" style="background: #f59e0b;">fNIRS</span> Optical Detection</h4>
+                        <p>Photons generate electron-hole pairs in SiPM/APD:</p>
+                        <p style="color: var(--accent-light); font-size: 0.9em; margin: 4px 0;">\(I_{\text{photo}} = \mathcal{R} \cdot P_{\text{opt}}\)</p>
+                        <p style="margin-bottom: 0;">Internal avalanche gain (\(M \sim 10^6\))</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4><span class="badge" style="background: #10b981;">EEG</span> Redox Interface</h4>
+                        <p>Scalp ionic current converts to wire electron flux:</p>
+                        <p style="color: var(--accent-light); font-size: 0.9em; margin: 4px 0;">\(\text{Ag} + \text{Cl}^- \rightleftharpoons \text{AgCl} + e^-\)</p>
+                        <p style="margin-bottom: 0;">Reversible half-cell potential</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #ec4899;">
+                        <h4><span class="badge" style="background: #ec4899;">fUS</span> Piezoelectric</h4>
+                        <p>Acoustic strain waves deform crystal lattice:</p>
+                        <p style="color: var(--accent-light); font-size: 0.9em; margin: 4px 0;">\(V = g_{33} \cdot T \cdot t_{\text{crystal}}\)</p>
+                        <p style="margin-bottom: 0;">PZT / CMUT resonance</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Johnson-Nyquist Thermal Noise -->
+            <section>
+                <h2>Johnson-Nyquist <em>Thermal Noise</em></h2>
+                <div class="two-col">
+                    <div>
+                        <p>
+                            Every dissipative resistance \(R\) generates spontaneous voltage fluctuations due to thermal agitation of electrons:
+                        </p>
+                        <div class="formula-box">
+                            <div class="formula-title">Thermal Noise Voltage</div>
+                            $$V_n = \sqrt{4 k_B T R \Delta f}$$
+                            <div style="font-size: 0.65em; color: var(--text-muted); margin-top: 2px;">
+                                Spectral density: \(S_v(f) = 4 k_B T R \quad (\text{V}^2/\text{Hz})\)
+                            </div>
+                        </div>
+                        <p>
+                            At \(310\,\text{K}\) (body temp), a \(50\,\Omega\) resistor yields <strong>\(0.93\,\text{nV}/\sqrt{\text{Hz}}\)</strong>. Over \(25\,\text{kHz}\) bandwidth, this equals \(147\,\text{nV}_{\text{rms}}\).
+                        </p>
+                    </div>
+                    <div>
+                        <div class="slide-card">
+                            <h4>Noise Resistance Decomposition</h4>
+                            $$R_{\text{total}} = R_{\text{sensor}} + R_{\text{sample}}$$
+                            <p style="margin-top: 6px;">
+                                <strong>\(R_{\text{sensor}}\):</strong> Ohmic resistance of copper coils, electrodes, or semiconductor bulk.
+                            </p>
+                            <p style="margin-bottom: 0;">
+                                <strong>\(R_{\text{sample}}\):</strong> Dissipation from induced eddy currents circulating inside the conductive human brain (\(\sigma \sim 0.4\,\text{S/m}\)).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Sample-Noise Dominance Crossover -->
+            <section>
+                <h2>The <em>Sample-Noise Crossover</em></h2>
+                <div class="formula-box">
+                    $$\frac{Q_{\text{unloaded}}}{Q_{\text{loaded}}} = 1 + \frac{R_{\text{sample}}}{R_{\text{coil}}}$$
+                </div>
+
+                <div class="card-grid card-grid-3" style="margin-top: 14px;">
+                    <div class="slide-card" style="border-top: 3px solid #ef4444;">
+                        <h4>Coil-Dominated Regime</h4>
+                        <p><strong>\(Q_U / Q_L < 1.5\)</strong></p>
+                        <p>Noise originates in coil resistance. Common at low magnetic fields (\(< 0.1\,\text{T}\)) or with sub-millimeter microcoils.</p>
+                        <p style="color: var(--accent-light);">Cooling to 77 K boosts SNR!</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4>Sample-Dominated Regime</h4>
+                        <p><strong>\(Q_U / Q_L \ge 2.5 - 5.0\)</strong></p>
+                        <p>Body tissue eddy currents generate \(>80\%\) of total noise. Standard in clinical MRI (\(1.5\,\text{T} - 7\,\text{T}\)).</p>
+                        <p style="color: var(--accent-light); margin-bottom: 0;">The patient is the dominant noise source!</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4>Design Implication</h4>
+                        <p>When sample-noise dominated, reducing coil wire resistance yields negligible returns.</p>
+                        <p style="margin-bottom: 0;">Instead, optimize <strong>filling factor</strong> and <strong>array channel count</strong>.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Preamplifier Noise Figure & Friis Formula -->
+            <section>
+                <h2>Preamplifier Noise: <em>The Friis Formula</em></h2>
+                <div class="two-col">
+                    <div>
+                        <div class="formula-box">
+                            <div class="formula-title">Cascaded Noise Factor</div>
+                            $$F_{\text{total}} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \dots$$
+                        </div>
+                        <ul class="slide-list">
+                            <li>The <strong>first active stage ($F_1$)</strong> establishes the receiver noise floor.</li>
+                            <li>High preamplifier gain (\(G_1 \ge 25\,\text{dB}\)) crushes noise from downstream cables, filters, and ADCs.</li>
+                            <li>Target: Noise Figure <strong>\(\text{NF}_1 \le 0.4 - 0.6\,\text{dB}\)</strong>.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="slide-card">
+                            <h4>Proximity Requirement</h4>
+                            <p>Every centimeter of coaxial cable between sensor and LNA adds capacitive loading and insertion loss (\(0.1\,\text{dB/m}\)).</p>
+                            <p style="color: var(--accent-light); font-weight: 700;">Rule of Thumb:</p>
+                            <p style="margin-bottom: 0;">Place preamplifiers directly on the coil/sensor housing. Never route raw microvolt RF signals through long patient cables!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 6: The Multi-Channel Array Advantage -->
+            <section>
+                <h2>Why Arrays? <em>Localized Noise Integration</em></h2>
+                <div class="two-col">
+                    <div>
+                        <h4>Volume Coil vs. Surface Array</h4>
+                        <ul class="slide-list">
+                            <li><strong>Large Volume Coil:</strong> Uniform sensitivity, but integrates sample resistance from the entire brain volume: \(R_{\text{sample}} \propto r^5\).</li>
+                            <li><strong>Small Surface Array:</strong> High local \(B_1^-\) near the cortex, integrating thermal noise strictly from a small local sub-volume: \(R_{\text{sample}} \propto r^3\).</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="slide-card">
+                            <h4>The \(\sqrt{N}\) SNR Bonus</h4>
+                            <p>Combining \(N\) decoupled array elements with Roemer optimal weightings yields up to <strong>\(2\times - 5\times\) higher SNR</strong> in the cerebral cortex than any single volume resonator.</p>
+                            <div class="formula-box">
+                                $$\text{SNR}_{\text{combined}} = \sqrt{\mathbf{S}^H \mathbf{\Psi}^{-1} \mathbf{S}}$$
+                            </div>
+                            <p style="margin-bottom: 0; font-size: 0.7em; color: var(--text-muted);">\(\mathbf{\Psi}\) is the noise covariance matrix.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 7: Parallel Imaging Acceleration -->
+            <section>
+                <h2>Parallel Imaging &amp; <em>The g-Factor</em></h2>
+                <p>Arrays replace slow gradient phase-encoding steps with spatial sensitivity encoding (SENSE / GRAPPA):</p>
+
+                <div class="formula-box">
+                    $$\text{SNR}_{\text{accelerated}}(\vec{r}) = \frac{\text{SNR}_{\text{unaccelerated}}(\vec{r})}{g(\vec{r}) \cdot \sqrt{R}}$$
+                </div>
+
+                <div class="two-col" style="margin-top: 14px;">
+                    <div class="slide-card">
+                        <h4>Acceleration Factor (\(R\))</h4>
+                        <p>Undersampling k-space by factor \(R\) speeds up image acquisition by \(R\)-fold.</p>
+                        <p style="color: var(--accent-light);">Penalty: \(\sqrt{R}\) loss from fewer sampled data points.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Geometry Factor (\(g \ge 1\))</h4>
+                        <p>Quantifies noise amplification from ill-conditioned sensitivity profile inversion.</p>
+                        <p style="color: var(--accent-light);">Design Goal: \(g \le 1.15 - 1.30\) across brain cortex.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 8: The Threat of Mutual Coupling -->
+            <section>
+                <h2>The Threat of <em>Mutual Inductance</em></h2>
+                <div class="two-col">
+                    <div>
+                        <p>
+                            When two resonant loops sit adjacent to one another, mutual inductance \(M_{12}\) causes severe <strong>resonance splitting</strong>:
+                        </p>
+                        <div class="formula-box">
+                            $$\omega_\pm = \frac{\omega_0}{\sqrt{1 \pm \frac{M_{12}}{L}}}$$
+                        </div>
+                        <ul class="slide-list">
+                            <li>Tuning splits into two unworkable peaks.</li>
+                            <li>Power transfer collapses; SNR drops precipitously.</li>
+                            <li>Channels are no longer statistically independent.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="slide-card" style="border-top: 3px solid #ef4444;">
+                            <h4>The Isolation Target</h4>
+                            <p>To operate a phased array as independent channels, inter-element isolation must satisfy:</p>
+                            <p style="font-family: 'JetBrains Mono', monospace; font-size: 1.1em; color: var(--accent-light); text-align: center; margin: 10px 0;">
+                                \(S_{21} \le -18\,\text{dB}\) (loaded)
+                            </p>
+                            <p style="margin-bottom: 0;">Less than \(1.5\%\) power transfer between adjacent channels.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Decoupling: Geometric Overlap -->
+            <section>
+                <h2>Decoupling 1: <em>Critical Geometric Overlap</em></h2>
+                <div class="two-col">
+                    <div>
+                        <p>
+                            Adjacent loop coils are overlapped by a critical distance <strong>\(d_{\text{overlap}} \approx 0.1 \times \text{diameter}\)</strong>.
+                        </p>
+                        <ul class="slide-list">
+                            <li>Shared overlap area intercepts magnetic flux with opposite polarity to non-overlapping area.</li>
+                            <li>Net mutual flux integrates to zero:
+                                $$\Phi_{\text{net}} = \int_{\text{loop 2}} \vec{B}_1 \cdot d\vec{A} = 0 \implies M_{12} = 0$$
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="slide-card">
+                            <h4>Geometric Overlap Envelope</h4>
+                            <p>Achieves <strong>\(S_{21} < -25\,\text{dB}\)</strong> between immediate neighbors.</p>
+                            <p style="color: #f59e0b; font-weight: 700;">Limitation:</p>
+                            <p style="margin-bottom: 0;">Only decouples nearest neighbors! Cannot decouple next-nearest neighbors across a curved helmet.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Decoupling: Preamplifier Decoupling -->
+            <section>
+                <h2>Decoupling 2: <em>Preamplifier Decoupling</em></h2>
+                <p>The groundbreaking technique introduced by Roemer et al. (1990) to decouple non-adjacent coils:</p>
+
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>1. Low Input Impedance</h4>
+                        <p>The LNA is designed with a very low input impedance:</p>
+                        <p style="color: var(--accent-light); font-weight: 700; text-align: center;">\(Z_{\text{in}} \approx 1 - 3\,\Omega\)</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>2. Impedance Inversion</h4>
+                        <p>A \(\lambda/4\) coaxial cable or lumped \(\pi\)-matching network transforms \(Z_{\text{in}}\) into a parallel high impedance:</p>
+                        <p style="color: var(--accent-light); font-weight: 700; text-align: center;">\(Z_{\text{coil\_open}} \gg 1000\,\Omega\)</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>3. Current Suppression</h4>
+                        <p>Blocks circulating RF current in the loop (\(I_{\text{loop}} \approx 0\)), suppressing secondary magnetic field re-radiation to all other coils!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 11: Decoupling: Optical & EEG Active Shielding -->
+            <section>
+                <h2>Decoupling 3: <em>Optical &amp; EEG Methods</em></h2>
+                <div class="two-col">
+                    <div class="slide-card">
+                        <h4>fNIRS Optical Crosstalk</h4>
+                        <p>When multiple sources and detectors illuminate the scalp simultaneously, detectors can confuse light from adjacent optodes.</p>
+                        <p style="color: var(--accent-light); font-weight: 700;">Solutions:</p>
+                        <ul style="padding-left: 16px; margin-bottom: 0;">
+                            <li><strong>Time-Division Multiplexing (TDM):</strong> Fire optodes sequentially at \(50 - 100\,\text{Hz}\).</li>
+                            <li><strong>Frequency-Division Multiplexing (FDM):</strong> Modulate laser diodes at orthogonal frequencies (\(2 - 8\,\text{kHz}\)) with lock-in detection.</li>
+                        </ul>
+                    </div>
+                    <div class="slide-card">
+                        <h4>EEG Common-Mode &amp; 60 Hz Hum</h4>
+                        <p>High skin-electrode contact impedance (\(5 - 20\,\text{k}\Omega\)) converts environmental 60 Hz electric field noise into differential voltage.</p>
+                        <p style="color: var(--accent-light); font-weight: 700;">Solutions:</p>
+                        <ul style="padding-left: 16px; margin-bottom: 0;">
+                            <li><strong>Active Electrodes:</strong> Buffer amplifier mounted directly on the scalp electrode.</li>
+                            <li><strong>Driven-Right-Leg (DRL):</strong> Inverts common-mode scalp voltage and drives it back to cancel noise (\(\text{CMRR} > 110\,\text{dB}\)).</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 12: Bench Characterization: S-Parameters -->
+            <section>
+                <h2>RF Bench Testing: <em>S-Parameters</em></h2>
+                <table class="slide-table">
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Setup</th>
+                            <th>Target Spec</th>
+                            <th>Physical Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Return Loss (\(S_{11}\))</strong></td>
+                            <td>Reflection on loaded coil port</td>
+                            <td>\(&lt; -20\,\text{dB}\)</td>
+                            <td>Impedance matched to \(50\,\Omega\); minimal reflected signal</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Isolation (\(S_{21}\))</strong></td>
+                            <td>Transmission between ports</td>
+                            <td>\(&lt; -18\,\text{dB}\)</td>
+                            <td>Channel decoupling; suppression of inductive crosstalk</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Loaded \(Q\) (\(Q_L\))</strong></td>
+                            <td>\(-3\,\text{dB}\) bandwidth with phantom</td>
+                            <td>\(f_0 / \Delta f_{-3\text{dB}}\)</td>
+                            <td>Measures total system dissipation (coil + head tissue)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>\(Q\)-Ratio (\(Q_U / Q_L\))</strong></td>
+                            <td>Unloaded vs loaded \(Q\)</td>
+                            <td>\(&gt; 2.5 - 4.0\)</td>
+                            <td>Confirms sample-noise dominated operation</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- SLIDE 13: Hardware Design Studio Preview -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <h2>Hardware Design Studio: <em>Worksheet 5.1</em></h2>
+                <p>Use our interactive hardware budget engine to configure your team's sensor array:</p>
+
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>1. Front-End Noise Budget</h4>
+                        <p style="margin-bottom: 0;">Calculate thermal Johnson noise \(V_n\), spectral density (\(\text{nV}/\sqrt{\text{Hz}}\)), and check your \(Q_U / Q_L\) noise regime.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>2. Decoupling Architecture</h4>
+                        <p style="margin-bottom: 0;">Formulate critical overlap, preamplifier decoupling, or active DRL shielding to hit \(S_{21} < -18\,\text{dB}\).</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>3. Sensitivity Field Model</h4>
+                        <p style="margin-bottom: 0;">Simulate depth roll-off ($1/r^2$ or optical diffusion) and estimate parallel imaging $g$-factor bounds.</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 18px;">
+                    <a href="worksheet_sensor_hardware.html" class="nav-link" style="font-size: 0.8em; padding: 8px 18px; background: var(--accent); color: #000; font-weight: 700;">
+                        📝 Open Worksheet 5.1 Hardware Budget →
+                    </a>
+                </div>
+            </section>
+
+            <!-- SLIDE 14: Foundational Literature -->
+            <section>
+                <h2>Required <em>Sensor Literature</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                        <h4><span class="badge" style="background: #3b82f6;">Arrays</span> Roemer et al. (1990)</h4>
+                        <p><strong>Magn. Reson. Med., 16(2): 192–225</strong><br>
+                        <em>The landmark paper establishing NMR phased arrays, preamplifier decoupling, and SNR combination.</em></p>
+                        <a href="https://doi.org/10.1002/mrm.1910160203" target="_blank" rel="noopener">DOI: 10.1002/mrm.1910160203 →</a>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4><span class="badge" style="background: #10b981;">SNR</span> Hoult &amp; Richards (1976)</h4>
+                        <p><strong>J. Magn. Reson., 24(1): 71–85</strong><br>
+                        <em>The foundational derivation of the NMR reciprocity theorem and fundamental thermal noise limits.</em></p>
+                        <a href="https://doi.org/10.1016/0022-2364(76)90233-X" target="_blank" rel="noopener">DOI: 10.1016/0022-2364(76)90233-X →</a>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4><span class="badge" style="background: #f59e0b;">Speed</span> Pruessmann et al. (1999)</h4>
+                        <p><strong>Magn. Reson. Med., 42(5): 952–962</strong><br>
+                        <em>SENSE parallel imaging, mathematical unfolding of sensitivity fields, and geometry factor derivation.</em></p>
+                        <a href="https://doi.org/10.1002/(SICI)1522-2594(199911)42:5<952::AID-MRM16>3.0.CO;2-S" target="_blank" rel="noopener">DOI: SENSE Paper →</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 15: Looking Ahead -->
+            <section data-background-gradient="radial-gradient(circle at center, #134e4a 0%, #090a0d 100%)">
+                <h2>Looking Ahead to <em>Week 6</em></h2>
+                <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 20px;">
+                    Next: <strong>Optical Imaging &amp; In-Class fNIRS Demonstration</strong>
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="worksheet_sensor_hardware.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📝 Complete Worksheet 5.1</a>
+                    <a href="sensor_engineering_arrays.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📄 Read Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-6" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📅 View Week 6 Outline</a>
+                </div>
+                <div style="margin-top: 30px; font-size: 0.65em; font-family: 'JetBrains Mono', monospace; color: #6b7280;">
+                    IDNE 701: Introduction to Neuroengineering · Department of Biomedical Engineering
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Reveal.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            controls: true,
+            progress: true,
+            center: true,
+            touch: true,
+            keyboard: true,
+            overview: true,
+            width: 1200,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 1.5
+        });
+
+        // Trigger MathJax re-render after slide transition if necessary
+        Reveal.on('slidechanged', event => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worksheet 5.1: Sensor Architecture & Front-End Noise Budget — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0c;
+            --bg-secondary: #121215;
+            --bg-tertiary: #1a1a1f;
+            --text-primary: #f0f0f2;
+            --text-secondary: #9da0aa;
+            --text-muted: #646772;
+            --accent: #10b981; /* Phase 2 Emerald */
+            --accent-glow: rgba(16, 185, 129, 0.25);
+            --accent-dark: #059669;
+            --accent-light: #34d399;
+            --phase1: #ff3300;
+            --phase2: #10b981;
+            --phase3: #0066ff;
+            --phase4: #a855f7;
+            --border-light: rgba(255, 255, 255, 0.08);
+            --border-focus: var(--accent);
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #16161b;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent: #059669;
+            --accent-glow: rgba(5, 150, 105, 0.15);
+            --accent-dark: #047857;
+            --accent-light: #10b981;
+            --border-light: rgba(0, 0, 0, 0.1);
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            --input-bg: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--sans-font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.65;
+            padding-bottom: 5rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Top Bar */
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 10, 12, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-light);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        [data-theme="light"] .top-nav {
+            background: rgba(255, 255, 255, 0.94);
+        }
+
+        .nav-brand {
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-brand span {
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-light);
+        }
+
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            padding: 0.35rem 0.65rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            color: var(--text-primary);
+            border-color: var(--accent);
+        }
+
+        /* Navigation Tabs Bar */
+        .tabs-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 0 2rem;
+        }
+
+        .tabs-inner {
+            display: flex;
+            gap: 0.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tab-link {
+            display: inline-block;
+            padding: 0.75rem 1rem;
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-link:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-link.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2.5rem 2rem;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 2.5rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent-light);
+            background: rgba(16, 185, 129, 0.12);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: 2.35rem;
+            font-weight: 400;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.75rem;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent-light);
+        }
+
+        .header-meta {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            max-width: 900px;
+            line-height: 1.6;
+        }
+
+        /* Action Toolbar */
+        .action-toolbar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.85rem 1.25rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent-light);
+            transform: translateY(-1px);
+        }
+
+        .btn.primary {
+            background: var(--accent-dark);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        .btn.primary:hover {
+            background: var(--accent);
+        }
+
+        .save-indicator {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            color: var(--accent-light);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Worksheet Sections */
+        .worksheet-section {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 1.75rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section-header {
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-num {
+            font-family: var(--code-font);
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .section-desc {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+
+        /* Forms and Inputs */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-family: var(--code-font);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+
+        .field-hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 0.65rem 0.85rem;
+            color: var(--text-primary);
+            font-family: var(--sans-font);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        /* Callout Box */
+        .callout {
+            border-left: 3px solid var(--accent);
+            background: rgba(16, 185, 129, 0.05);
+            padding: 1rem 1.25rem;
+            border-radius: 0 6px 6px 0;
+            margin: 1rem 0;
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+
+        .callout strong {
+            color: var(--text-primary);
+        }
+
+        .callout.warning {
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        /* Interactive Calculator Box */
+        .calc-panel {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .calc-title {
+            font-family: var(--code-font);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-light);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .calc-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .metric-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 0.85rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-family: var(--code-font);
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        .metric-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            font-family: var(--code-font);
+            text-transform: uppercase;
+        }
+
+        /* Tables */
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin: 1rem 0;
+        }
+
+        .spec-table th {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-family: var(--code-font);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.65rem 0.85rem;
+            border-bottom: 2px solid var(--border-light);
+        }
+
+        .spec-table td {
+            padding: 0.65rem 0.85rem;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .spec-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Print formatting */
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 0;
+            }
+            .top-nav, .tabs-bar, .action-toolbar, .theme-toggle, .btn {
+                display: none !important;
+            }
+            .worksheet-section {
+                border: 1px solid #cccccc !important;
+                background: #ffffff !important;
+                page-break-inside: avoid;
+            }
+            input, textarea, select {
+                border: 1px solid #999999 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sticky Top Navigation -->
+    <nav class="top-nav">
+        <a href="IDNE701_FA2026.html" class="nav-brand">
+            IDNE 701 · <span>Neuroengineering</span>
+        </a>
+        <div class="nav-links">
+            <a href="IDNE701_FA2026.html#week-5">← Syllabus Week 5</a>
+            <a href="sensor_engineering_arrays.html">📖 Week 5 Lecture</a>
+            <a href="sensor_engineering_arrays_slides.html">🖥️ Week 5 Slides</a>
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️ Light</button>
+        </div>
+    </nav>
+
+    <!-- Navigation Tabs Bar -->
+    <div class="tabs-bar">
+        <div class="tabs-inner">
+            <a href="worksheet_pathology_mapping.html" class="tab-link">2.1 Pathology &amp; Biomarkers</a>
+            <a href="worksheet_stakeholder_interview.html" class="tab-link">2.2 Stakeholder Protocol</a>
+            <a href="worksheet_target_specifications.html" class="tab-link">2.3 Target Specifications</a>
+            <a href="worksheet_precedent_benchmarking.html" class="tab-link">3.1 Precedent Benchmarking</a>
+            <a href="worksheet_biophysical_modeling.html" class="tab-link">4.1 Forward Modeling</a>
+            <a href="simulation_contrast_physics.html" class="tab-link">🔬 Physics Sandbox</a>
+            <a href="worksheet_sensor_hardware.html" class="tab-link active">5.1 Sensor Architecture</a>
+            <a href="sensor_engineering_arrays.html" class="tab-link">📖 Week 5 Lecture</a>
+            <a href="clinical_needs_spec_template.html" class="tab-link">Needs Spec Template</a>
+            <a href="IDNE701_FA2026.html#week-5" class="tab-link">← Syllabus Week 5</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <span class="phase-badge">Phase 2 · Sensor Architecture &amp; Front-End Design</span>
+            <h1>Worksheet 5.1: <em>Sensor Array Architecture &amp; Front-End Noise Budget</em></h1>
+            <p class="header-meta">
+                Translate governing biophysical equations into physical transducer hardware. Design your multi-channel sensor geometry, determine decoupling schemes to suppress mutual coupling crosstalk, calculate your complete front-end Johnson-Nyquist thermal noise budget, and simulate 3D spatial sensitivity profiles ($B_1^-$, optical banana, or lead fields).
+            </p>
+        </header>
+
+        <!-- Action Toolbar -->
+        <div class="action-toolbar">
+            <div class="tool-group">
+                <button class="btn primary" onclick="saveToLocalStorage()">💾 Save Progress</button>
+                <button class="btn" onclick="exportJSON()">📥 Export JSON</button>
+                <label class="btn" style="margin-bottom:0; cursor:pointer;">
+                    📤 Import JSON <input type="file" id="importFile" style="display:none" onchange="importJSON(event)">
+                </label>
+                <button class="btn" onclick="generateMarkdownReport()">📄 Generate Report</button>
+                <button class="btn" onclick="window.print()">🖨️ Print / PDF</button>
+            </div>
+            <div class="save-indicator" id="saveIndicator">
+                <span>●</span> Auto-saving locally
+            </div>
+        </div>
+
+        <!-- Section 1: Transducer Modality & Array Topology -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <h2><span class="section-num">01.</span> Transducer Modality &amp; Array Topology</h2>
+            </div>
+            <p class="section-desc">
+                Specify the physical transducer modality and multi-channel array topology engineered to intercept the biophysical neural contrast modeled in Worksheet 4.1.
+            </p>
+
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="projectTitle">Project Title / Team Identifier</label>
+                    <input type="text" id="projectTitle" placeholder="e.g., Team OptoPulse: Wearable Prefrontal fNIRS">
+                </div>
+                <div class="form-group">
+                    <label for="modalityType">Transducer Modality</label>
+                    <select id="modalityType" onchange="updateModalityDefaults()">
+                        <option value="rf_coil">Phased-Array RF Receive Coils (MRI / fMRI)</option>
+                        <option value="optode_array">Near-Infrared Optode Array: VCSEL / SiPM (fNIRS)</option>
+                        <option value="eeg_electrodes">Active / Dry Ag-AgCl Electrodes (High-Density EEG)</option>
+                        <option value="meg_opm">Optically Pumped Magnetometers (OPM-MEG)</option>
+                        <option value="fus_array">PZT / CMUT Ultrasound Phased Array (fUS / FUS)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="channelCount">Channel Count ($N_{\text{channels}}$)</label>
+                    <input type="number" id="channelCount" placeholder="e.g., 32, 64, 128" value="32">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="arrayGeometry">Array Mechanical &amp; Spatial Montage</label>
+                <div class="field-hint">Describe layout geometry (e.g., rigid helmet, conformal stretchable cap, curved saddle coil), element spacing, inter-element distance, and anatomical landmark alignment (10-20 system, cranial fiducials).</div>
+                <textarea id="arrayGeometry" placeholder="Specify physical dimensions, radius of curvature, spacing pitch, and mechanical substrate (flex-PCB, 3D-printed SLA scaffold, stretchable elastomer)..."></textarea>
+            </div>
+        </div>
+
+        <!-- Section 2: Analog Front-End & Transduction Physics -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <h2><span class="section-num">02.</span> Transduction Physics &amp; Analog Front-End (AFE)</h2>
+            </div>
+            <p class="section-desc">
+                Formulate the analog signal conditioning chain from raw energy transduction to analog-to-digital conversion (ADC).
+            </p>
+
+            <table class="spec-table">
+                <thead>
+                    <tr>
+                        <th>Hardware Stage</th>
+                        <th>Component Selection / Topology</th>
+                        <th>Target Specification</th>
+                        <th>Engineering Trade-Off / Justification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Transducer Element</strong></td>
+                        <td><input type="text" id="transducerComp" placeholder="e.g., Etched Cu loop, SiPM S13360-3050"></td>
+                        <td><input type="text" id="transducerSpec" placeholder="e.g., Q_unloaded = 220, Responsivity 0.4 A/W"></td>
+                        <td><input type="text" id="transducerJust" placeholder="e.g., Maximize filling factor; minimize coil resistance"></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Impedance Matching</strong></td>
+                        <td><input type="text" id="matchComp" placeholder="e.g., Non-magnetic discrete L-C network, 50 Ω"></td>
+                        <td><input type="text" id="matchSpec" placeholder="e.g., Return loss S11 < -20 dB loaded"></td>
+                        <td><input type="text" id="matchJust" placeholder="e.g., Power transfer and preamplifier noise matching"></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Preamplifier / TIA</strong></td>
+                        <td><input type="text" id="preampComp" placeholder="e.g., GaAs low-noise FET, OPA855 transimpedance"></td>
+                        <td><input type="text" id="preampSpec" placeholder="e.g., NF < 0.5 dB, en < 0.98 nV/√Hz, Gain = 26 dB"></td>
+                        <td><input type="text" id="preampJust" placeholder="e.g., Set receiver noise floor before cabling losses"></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Filtering &amp; Anti-Aliasing</strong></td>
+                        <td><input type="text" id="filterComp" placeholder="e.g., 4th-order active Butterworth low-pass"></td>
+                        <td><input type="text" id="filterSpec" placeholder="e.g., Cutoff fc = 100 Hz, stopband > 60 dB"></td>
+                        <td><input type="text" id="filterJust" placeholder="e.g., Prevent high-frequency aliasing and mains 60 Hz hum"></td>
+                    </tr>
+                    <tr>
+                        <td><strong>ADC Digitization</strong></td>
+                        <td><input type="text" id="adcComp" placeholder="e.g., 24-bit delta-sigma ADS1299 / LTC2208"></td>
+                        <td><input type="text" id="adcSpec" placeholder="e.g., 24-bit, Dynamic Range > 115 dB, fs = 1 kSPS"></td>
+                        <td><input type="text" id="adcJust" placeholder="e.g., Capture microvolt neural signals atop large physiological DC offset"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 3: Mutual Coupling & Decoupling Scheme -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <h2><span class="section-num">03.</span> Mutual Coupling &amp; Inter-Channel Decoupling</h2>
+            </div>
+            <p class="section-desc">
+                Multi-channel arrays inevitably suffer from inter-element crosstalk. Formulate your isolation mechanisms to preserve independent spatial information channels.
+            </p>
+
+            <div class="callout">
+                <strong>Physics Principle:</strong> In RF arrays, inductive coupling ($M_{ij}$) splits resonant frequencies and degrades SNR. In fNIRS, overlapping optode sensitivity volumes cause crosstalk unless time/frequency/wavelength multiplexed. In EEG, volume conduction spreads voltages conductively.
+            </div>
+
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="decouplingScheme">Primary Decoupling Strategy</label>
+                    <select id="decouplingScheme">
+                        <option value="geometric_overlap">Critical Geometric Overlap (Mutual Inductance M_ij = 0)</option>
+                        <option value="preamp_decoupling">Preamplifier Decoupling (Low-Input-Impedance Transform)</option>
+                        <option value="capacitive_network">Capacitive / Inductive Decoupling Networks</option>
+                        <option value="active_shielding">Active Cable Shielding & Driven-Right-Leg (EEG)</option>
+                        <option value="tdm_fdm">Time-Domain / Frequency-Domain Multiplexing (fNIRS)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="isolationTarget">Target Inter-Channel Isolation ($S_{21}$)</label>
+                    <input type="text" id="isolationTarget" placeholder="e.g., < -18 dB adjacent, < -25 dB non-adjacent" value="< -18 dB">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="decouplingAnalysis">Analytical &amp; Empirical Decoupling Plan</label>
+                <div class="field-hint">Quantify how the decoupling scheme will be tuned and verified across subject anatomical variations.</div>
+                <textarea id="decouplingAnalysis" placeholder="Describe tuning protocol (e.g., bench S-parameter sweep under head loading phantom, capacitive trimming, driven-shield cable design)..."></textarea>
+            </div>
+        </div>
+
+        <!-- Section 4: Interactive Front-End Noise Budget Calculator -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <h2><span class="section-num">04.</span> Interactive Front-End Thermal Noise Budget</h2>
+            </div>
+            <p class="section-desc">
+                Calculate the fundamental Johnson-Nyquist thermal noise limit of your transducer and evaluate whether your instrumentation operates in the desirable <em>sample-noise-dominated</em> regime ($R_{\text{sample}} \gg R_{\text{coil/sensor}}$).
+            </p>
+
+            <div class="calc-panel">
+                <div class="calc-title">⚡ Real-Time Thermal Noise &amp; SNR Budget Calculator</div>
+
+                <div class="input-grid">
+                    <div class="form-group">
+                        <label for="calcTemp">Operating Temperature $T$ (K)</label>
+                        <input type="number" id="calcTemp" value="310" step="1" oninput="runNoiseCalc()">
+                        <div class="field-hint">Human body: 310 K; Room temp: 295 K</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="calcRes">Source Resistance $R_{\text{source}}$ ($\Omega$)</label>
+                        <input type="number" id="calcRes" value="50" step="1" oninput="runNoiseCalc()">
+                        <div class="field-hint">Coil AC loss, electrode skin impedance, or optical load</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="calcBW">Noise Bandwidth $\Delta f$ (Hz)</label>
+                        <input type="number" id="calcBW" value="10000" step="100" oninput="runNoiseCalc()">
+                        <div class="field-hint">fMRI ADC filter: 10–50 kHz; EEG: 100–500 Hz</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="calcNF">Preamp Noise Figure $\text{NF}$ (dB)</label>
+                        <input type="number" id="calcNF" value="0.5" step="0.1" oninput="runNoiseCalc()">
+                        <div class="field-hint">High-end RF LNA: 0.3–0.8 dB; EEG amp: 1.0–2.0 dB</div>
+                    </div>
+                </div>
+
+                <div class="input-grid" style="margin-top: 1rem;">
+                    <div class="form-group">
+                        <label for="calcSignal">Expected Peak Input Signal $V_{\text{sig}}$ ($\mu\text{V}$)</label>
+                        <input type="number" id="calcSignal" value="5.0" step="0.1" oninput="runNoiseCalc()">
+                        <div class="field-hint">Raw induced RF voltage, scalp EEG spike, or optical photodiode swing</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="calcQRatio">Loaded vs. Unloaded Quality Factor Ratio ($Q_U / Q_L$)</label>
+                        <input type="number" id="calcQRatio" value="4.5" step="0.1" oninput="runNoiseCalc()">
+                        <div class="field-hint">\(Q_U / Q_L > 2\) indicates sample-noise dominance</div>
+                    </div>
+                </div>
+
+                <div class="calc-results-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="resJohnsonNoise">-- nV</div>
+                        <div class="metric-label">Thermal Johnson Noise (\(V_n\))</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="resNoiseDensity">-- nV/√Hz</div>
+                        <div class="metric-label">Spectral Noise Density</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="resTotalNoise">-- nV</div>
+                        <div class="metric-label">Total Input-Referred Noise</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="resSNRMargin">-- dB</div>
+                        <div class="metric-label">Theoretical Front-End SNR</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="resNoiseRegime">--</div>
+                        <div class="metric-label">Operating Noise Regime</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="noiseBudgetJustification">Noise Budget Interpretation &amp; Mitigation Strategy</label>
+                <div class="field-hint">Explain how your front-end will preserve signal integrity against 60 Hz mains hum, motion artifacts, or cable capacitance.</div>
+                <textarea id="noiseBudgetJustification" placeholder="State how your noise floor satisfies the detection thresholds established in Worksheet 2.3 and Worksheet 4.1..."></textarea>
+            </div>
+        </div>
+
+        <!-- Section 5: Spatial Sensitivity Field Modeling -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <h2><span class="section-num">05.</span> Spatial Sensitivity Field Modeling</h2>
+            </div>
+            <p class="section-desc">
+                Model the spatial sensitivity profile of your individual sensor elements and combined array across 3D brain coordinates.
+            </p>
+
+            <div class="form-group">
+                <label for="sensitivityOperator">Mathematical Formulation of Sensitivity Field</label>
+                <div class="field-hint">Specify the mathematical operator: $B_1^-(\vec{r})$ receive field via Biot-Savart, adjoint photon fluence $\Phi^*(\vec{r})$ via Monte Carlo, or EEG lead-field vector $\vec{L}(\vec{r})$ via Poisson boundary elements.</div>
+                <textarea id="sensitivityOperator" placeholder="State the governing sensitivity equation and forward mapping matrix linking tissue voxel state to sensor channel..."></textarea>
+            </div>
+
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="depthRollOff">Depth Attenuation Roll-Off Exponent</label>
+                    <input type="text" id="depthRollOff" placeholder="e.g., 1/r^2 (Biot-Savart loop), exp(-mu_eff * z) (fNIRS)">
+                </div>
+                <div class="form-group">
+                    <label for="gFactorMax">Maximum Expected Geometry Factor ($g$-factor)</label>
+                    <input type="number" id="gFactorMax" placeholder="e.g., 1.25 for SENSE R=2 acceleration" value="1.25" step="0.05">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="spatialUniformity">Array Spatial Coverage &amp; Uniformity Verification</label>
+                <div class="field-hint">Explain how the multi-channel array combines individual element fields to achieve uniform volumetric or cortical sensitivity.</div>
+                <textarea id="spatialUniformity" placeholder="Detail combining algorithm (e.g., sum-of-squares, optimal SNR Roemer coil combination, spatial filtering beamformer)..."></textarea>
+            </div>
+        </div>
+
+        <!-- Section 6: Safety, Regulatory & Phase 2 Integration -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <h2><span class="section-num">06.</span> Hardware Safety, Regulatory Limits &amp; Phase 2 Sign-Off</h2>
+            </div>
+            <p class="section-desc">
+                Evaluate transducer patient safety constraints against FDA and IEC standards (IEC 60601-1 electrical safety, SAR limits, laser MPE limits).
+            </p>
+
+            <table class="spec-table">
+                <thead>
+                    <tr>
+                        <th>Safety / Regulatory Domain</th>
+                        <th>Applicable Standard</th>
+                        <th>Permissible Exposure Limit</th>
+                        <th>Engineering Safety Interlock / Mechanism</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Electrical Isolation &amp; Leakage</strong></td>
+                        <td>IEC 60601-1 (Type BF / CF)</td>
+                        <td>Auxiliary patient leakage &lt; 10 µA (normal), &lt; 50 µA (single-fault)</td>
+                        <td><input type="text" id="safeElec" placeholder="e.g., Optoisolators, medical-grade DC-DC isolation barrier"></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Thermal / Energy Deposition</strong></td>
+                        <td>FDA SAR / Ultrasound ISPTA / Laser MPE</td>
+                        <td>Head SAR &lt; 3.2 W/kg; Laser MPE &lt; Class 1 / IEC 60825-1</td>
+                        <td><input type="text" id="safeTherm" placeholder="e.g., RF power monitors, hardware optical current limiter diodes"></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Biocompatibility</strong></td>
+                        <td>ISO 10993-5 / 10993-10</td>
+                        <td>Non-cytotoxic, non-irritating to human scalp epidermis</td>
+                        <td><input type="text" id="safeBio" placeholder="e.g., Medical silicone encapsulation, sintered Ag/AgCl pins"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="input-grid" style="margin-top: 1.5rem;">
+                <div class="form-group">
+                    <label for="leadEngineer">Lead Hardware Engineer</label>
+                    <input type="text" id="leadEngineer" placeholder="Student Full Name">
+                </div>
+                <div class="form-group">
+                    <label for="signDate">Sign-Off Date</label>
+                    <input type="text" id="signDate" value="2026-09-25">
+                </div>
+                <div class="form-group">
+                    <label for="reviewStatus">Milestone Review Status</label>
+                    <select id="reviewStatus">
+                        <option value="draft">Draft - In Progress</option>
+                        <option value="review_ready">Ready for Instructor Review</option>
+                        <option value="approved">Approved &amp; Locked</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Engine -->
+    <script>
+        const STORAGE_KEY = "IDNE701_Worksheet_5_1_Data";
+
+        // Collect all form input IDs
+        const fieldIds = [
+            "projectTitle", "modalityType", "channelCount", "arrayGeometry",
+            "transducerComp", "transducerSpec", "transducerJust",
+            "matchComp", "matchSpec", "matchJust",
+            "preampComp", "preampSpec", "preampJust",
+            "filterComp", "filterSpec", "filterJust",
+            "adcComp", "adcSpec", "adcJust",
+            "decouplingScheme", "isolationTarget", "decouplingAnalysis",
+            "calcTemp", "calcRes", "calcBW", "calcNF", "calcSignal", "calcQRatio",
+            "noiseBudgetJustification",
+            "sensitivityOperator", "depthRollOff", "gFactorMax", "spatialUniformity",
+            "safeElec", "safeTherm", "safeBio",
+            "leadEngineer", "signDate", "reviewStatus"
+        ];
+
+        // Modality Preset Profiles
+        const modalityPresets = {
+            rf_coil: {
+                count: 32,
+                temp: 310,
+                res: 50,
+                bw: 25000,
+                nf: 0.45,
+                sig: 15.0,
+                qratio: 4.5,
+                decoupling: "preamp_decoupling",
+                isolation: "< -20 dB",
+                depth: "1/r^2 (Biot-Savart field)",
+                gfactor: 1.25
+            },
+            optode_array: {
+                count: 48,
+                temp: 300,
+                res: 1000,
+                bw: 500,
+                nf: 1.2,
+                sig: 250.0,
+                qratio: 1.2,
+                decoupling: "tdm_fdm",
+                isolation: "< -40 dB optical crosstalk",
+                depth: "exp(-mu_eff * z) diffusion",
+                gfactor: 1.05
+            },
+            eeg_electrodes: {
+                count: 64,
+                temp: 310,
+                res: 5000,
+                bw: 250,
+                nf: 1.5,
+                sig: 30.0,
+                qratio: 1.1,
+                decoupling: "active_shielding",
+                isolation: "< -30 dB cross-coupling",
+                depth: "1/r^2 resistive attenuation",
+                gfactor: 1.40
+            },
+            meg_opm: {
+                count: 64,
+                temp: 300,
+                res: 50,
+                bw: 150,
+                nf: 0.8,
+                sig: 2.0,
+                qratio: 1.0,
+                decoupling: "geometric_overlap",
+                isolation: "< -25 dB",
+                depth: "1/r^3 dipole magnetic flux",
+                gfactor: 1.15
+            },
+            fus_array: {
+                count: 128,
+                temp: 310,
+                res: 50,
+                bw: 2000000,
+                nf: 2.0,
+                sig: 50.0,
+                qratio: 3.0,
+                decoupling: "capacitive_network",
+                isolation: "< -25 dB acoustic crosstalk",
+                depth: "exp(-2*alpha*z) acoustic loss",
+                gfactor: 1.10
+            }
+        };
+
+        function updateModalityDefaults() {
+            const mod = document.getElementById("modalityType").value;
+            const p = modalityPresets[mod];
+            if (!p) return;
+
+            document.getElementById("channelCount").value = p.count;
+            document.getElementById("calcTemp").value = p.temp;
+            document.getElementById("calcRes").value = p.res;
+            document.getElementById("calcBW").value = p.bw;
+            document.getElementById("calcNF").value = p.nf;
+            document.getElementById("calcSignal").value = p.sig;
+            document.getElementById("calcQRatio").value = p.qratio;
+            document.getElementById("decouplingScheme").value = p.decoupling;
+            document.getElementById("isolationTarget").value = p.isolation;
+            document.getElementById("depthRollOff").value = p.depth;
+            document.getElementById("gFactorMax").value = p.gfactor;
+
+            runNoiseCalc();
+            saveToLocalStorage();
+        }
+
+        // Noise Calculation Engine
+        function runNoiseCalc() {
+            const T = parseFloat(document.getElementById("calcTemp").value) || 310;
+            const R = parseFloat(document.getElementById("calcRes").value) || 50;
+            const BW = parseFloat(document.getElementById("calcBW").value) || 10000;
+            const NF = parseFloat(document.getElementById("calcNF").value) || 0.5;
+            const Vsig_uV = parseFloat(document.getElementById("calcSignal").value) || 5.0;
+            const QRatio = parseFloat(document.getElementById("calcQRatio").value) || 4.5;
+
+            const kB = 1.380649e-23; // Boltzmann constant
+            // Johnson Noise voltage: V_n = sqrt(4 * kB * T * R * BW)
+            const Vn_volts = Math.sqrt(4 * kB * T * R * BW);
+            const Vn_nV = Vn_volts * 1e9;
+            const spectralDensity_nV = (Math.sqrt(4 * kB * T * R)) * 1e9;
+
+            // Total noise including Preamp Noise Figure
+            // Noise factor F = 10^(NF / 10)
+            const F = Math.pow(10, NF / 10);
+            const totalVn_nV = Vn_nV * Math.sqrt(F);
+
+            // Signal to noise in dB
+            const Vsig_nV = Vsig_uV * 1000;
+            const snrLinear = Vsig_nV / totalVn_nV;
+            const snr_dB = 20 * Math.log10(Math.max(snrLinear, 0.001));
+
+            // Format results
+            document.getElementById("resJohnsonNoise").textContent = Vn_nV < 1000 ? Vn_nV.toFixed(1) + " nV" : (Vn_nV / 1000).toFixed(2) + " µV";
+            document.getElementById("resNoiseDensity").textContent = spectralDensity_nV.toFixed(2) + " nV/√Hz";
+            document.getElementById("resTotalNoise").textContent = totalVn_nV < 1000 ? totalVn_nV.toFixed(1) + " nV" : (totalVn_nV / 1000).toFixed(2) + " µV";
+            document.getElementById("resSNRMargin").textContent = (snr_dB > 0 ? "+" : "") + snr_dB.toFixed(1) + " dB";
+
+            const regimeCard = document.getElementById("resNoiseRegime");
+            if (QRatio >= 2.0) {
+                regimeCard.textContent = "Sample Dominated";
+                regimeCard.style.color = "var(--accent-light)";
+            } else if (QRatio >= 1.2) {
+                regimeCard.textContent = "Coil / Sensor Near";
+                regimeCard.style.color = "#f59e0b";
+            } else {
+                regimeCard.textContent = "Electronics Dominated";
+                regimeCard.style.color = "#ef4444";
+            }
+        }
+
+        // Auto-save & LocalStorage
+        function saveToLocalStorage() {
+            const data = {};
+            fieldIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) data[id] = el.value;
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            showSaveStatus("Saved to browser");
+        }
+
+        function loadFromLocalStorage() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+                runNoiseCalc();
+                return;
+            }
+            try {
+                const data = JSON.parse(raw);
+                fieldIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && data[id] !== undefined) el.value = data[id];
+                });
+                showSaveStatus("Loaded auto-saved progress");
+            } catch (e) {
+                console.error("Error loading saved data", e);
+            }
+            runNoiseCalc();
+        }
+
+        function showSaveStatus(msg) {
+            const el = document.getElementById("saveIndicator");
+            if (!el) return;
+            el.innerHTML = `<span>●</span> ${msg}`;
+            setTimeout(() => {
+                el.innerHTML = `<span>●</span> Auto-saving locally`;
+            }, 3000);
+        }
+
+        // Auto-save listener on inputs
+        document.addEventListener("DOMContentLoaded", () => {
+            loadFromLocalStorage();
+            fieldIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener("input", () => {
+                        saveToLocalStorage();
+                    });
+                }
+            });
+        });
+
+        // JSON Export / Import
+        function exportJSON() {
+            const data = {};
+            fieldIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) data[id] = el.value;
+            });
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const title = (document.getElementById("projectTitle").value || "Worksheet_5_1").replace(/\s+/g, "_");
+            a.href = url;
+            a.download = `${title}_Sensor_Architecture.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    fieldIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && data[id] !== undefined) el.value = data[id];
+                    });
+                    saveToLocalStorage();
+                    runNoiseCalc();
+                    alert("Worksheet 5.1 JSON loaded successfully!");
+                } catch (err) {
+                    alert("Invalid JSON file.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Markdown Report Generator
+        function generateMarkdownReport() {
+            const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : "";
+            const md = `# IDNE 701 — Worksheet 5.1: Sensor Architecture & Front-End Noise Budget
+**Project Title:** ${getVal("projectTitle")}
+**Transducer Modality:** ${getVal("modalityType")}
+**Channel Count:** ${getVal("channelCount")} channels
+**Lead Hardware Engineer:** ${getVal("leadEngineer")} | **Date:** ${getVal("signDate")}
+**Status:** ${getVal("reviewStatus")}
+
+---
+
+## 1. Array Mechanical & Spatial Montage
+${getVal("arrayGeometry")}
+
+---
+
+## 2. Analog Front-End Specifications
+- **Transducer Component:** ${getVal("transducerComp")} (${getVal("transducerSpec")})
+- **Impedance Matching:** ${getVal("matchComp")} (${getVal("matchSpec")})
+- **Preamplification (LNA/TIA):** ${getVal("preampComp")} (${getVal("preampSpec")})
+- **Filtering & Conditioning:** ${getVal("filterComp")} (${getVal("filterSpec")})
+- **ADC Digitization:** ${getVal("adcComp")} (${getVal("adcSpec")})
+
+---
+
+## 3. Mutual Coupling & Decoupling Scheme
+- **Primary Decoupling Scheme:** ${getVal("decouplingScheme")}
+- **Isolation Target (S21):** ${getVal("isolationTarget")}
+- **Decoupling Strategy & Tuning Plan:**
+${getVal("decouplingAnalysis")}
+
+---
+
+## 4. Front-End Noise Budget & Thermal Limits
+- **Temperature:** ${getVal("calcTemp")} K
+- **Source Impedance:** ${getVal("calcRes")} Ω
+- **Bandwidth:** ${getVal("calcBW")} Hz
+- **Preamp Noise Figure:** ${getVal("calcNF")} dB
+- **Thermal Johnson Noise:** ${document.getElementById("resJohnsonNoise").textContent}
+- **Input-Referred Noise:** ${document.getElementById("resTotalNoise").textContent}
+- **Front-End SNR Margin:** ${document.getElementById("resSNRMargin").textContent}
+- **Noise Regime:** ${document.getElementById("resNoiseRegime").textContent}
+
+### Noise Budget Analysis:
+${getVal("noiseBudgetJustification")}
+
+---
+
+## 5. Spatial Sensitivity Field Modeling
+- **Sensitivity Operator:** ${getVal("sensitivityOperator")}
+- **Depth Attenuation Roll-Off:** ${getVal("depthRollOff")}
+- **Max Expected g-Factor:** ${getVal("gFactorMax")}
+- **Array Coverage & Sensitivity Uniformity:**
+${getVal("spatialUniformity")}
+
+---
+
+## 6. Safety & Regulatory Compliance
+- **Electrical Isolation (IEC 60601-1):** ${getVal("safeElec")}
+- **Thermal / Energy Deposition (SAR/MPE):** ${getVal("safeTherm")}
+- **Biocompatibility (ISO 10993):** ${getVal("safeBio")}
+`;
+
+            const blob = new Blob([md], { type: "text/markdown" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const title = (getVal("projectTitle") || "Worksheet_5_1").replace(/\s+/g, "_");
+            a.href = url;
+            a.download = `${title}_Sensor_Hardware_Report.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Theme Toggle
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById("themeToggle");
+            if (body.getAttribute("data-theme") === "light") {
+                body.removeAttribute("data-theme");
+                btn.textContent = "☀️ Light";
+            } else {
+                body.setAttribute("data-theme", "light");
+                btn.textContent = "🌙 Dark";
+            }
+        }
+    </script>
+</body>
+
+</html>

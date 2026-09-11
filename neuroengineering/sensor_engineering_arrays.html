@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Engineering: Front-End Noise, Geometric Decoupling & Array Design — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #10b981;
+            --accent-dark: #059669;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #ecfdf5;
+            --tag-bg: #e0e7ff;
+            --tag-color: #3730a3;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        /* Top Bar Navigation */
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .btn-nav {
+            background: var(--accent-color);
+            color: #ffffff !important;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none !important;
+            box-shadow: var(--shadow-sm);
+            transition: background 0.2s;
+        }
+
+        .btn-nav:hover {
+            background: var(--accent-dark);
+        }
+
+        /* Header */
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--accent-dark);
+            border-bottom-style: solid;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent-dark);
+            background: var(--highlight-bg);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: 42px;
+            font-weight: 400;
+            line-height: 1.15;
+            margin: 0 0 16px 0;
+            letter-spacing: -0.5px;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 820px;
+            margin: 0 0 1.5rem 0;
+            line-height: 1.6;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            flex-wrap: wrap;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1.25rem;
+        }
+
+        .lecture-meta span strong {
+            color: var(--text-color);
+        }
+
+        /* Action buttons */
+        .lecture-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            padding: 0.5rem 0.9rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-color);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-dark);
+            transform: translateY(-1px);
+        }
+
+        .action-btn.primary {
+            background: var(--text-color);
+            color: #ffffff;
+            border-color: var(--text-color);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-dark);
+            border-color: var(--accent-dark);
+            color: #ffffff;
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--text-color);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        h2 .sec-num {
+            font-family: var(--code-font);
+            font-size: 1rem;
+            color: var(--accent-dark);
+            font-weight: 700;
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 2.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-color);
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            margin-bottom: 1.25rem;
+            color: #27272a;
+            font-size: 1rem;
+            line-height: 1.75;
+        }
+
+        /* Callout Boxes */
+        .callout {
+            border-left: 4px solid var(--accent-color);
+            background: var(--highlight-bg);
+            border-radius: 0 8px 8px 0;
+            padding: 1.25rem 1.5rem;
+            margin: 1.75rem 0;
+        }
+
+        .callout.warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .callout.pitfall {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .callout-title {
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .callout p {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Math equation styling */
+        .equation-block {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
+        .equation-caption {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            color: var(--secondary-text);
+            text-align: right;
+            margin-top: 0.5rem;
+        }
+
+        /* Tables */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.88rem;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .comparison-table th {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-weight: 600;
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .comparison-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--secondary-text);
+            vertical-align: top;
+        }
+
+        .comparison-table tr:hover td {
+            background-color: rgba(16, 185, 129, 0.02);
+        }
+
+        .comparison-table td strong {
+            color: var(--text-color);
+        }
+
+        /* Modality Grid */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 2rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.05rem;
+            color: var(--text-color);
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: var(--secondary-text);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        /* Reading list */
+        .reading-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .reading-list li {
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .reading-list li strong {
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
+        .reading-list .authors {
+            font-size: 0.88rem;
+            color: var(--secondary-text);
+            margin-top: 0.25rem;
+            display: block;
+        }
+
+        .reading-list .journal {
+            font-size: 0.85rem;
+            color: var(--accent-dark);
+            font-style: italic;
+        }
+
+        .reading-list .doi-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            font-family: var(--code-font);
+            font-size: 0.78rem;
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .reading-list .doi-link:hover {
+            color: var(--accent-dark);
+            border-bottom-style: solid;
+        }
+
+        .tag-pill {
+            font-family: var(--code-font);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            float: right;
+            background: var(--tag-bg);
+            color: var(--tag-color);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--accent-dark);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            .top-nav {
+                padding: 0.5rem 1rem;
+            }
+            h1 {
+                font-size: 32px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sticky Top Navigation -->
+    <nav class="top-nav">
+        <div style="font-weight: 700; color: var(--text-color);">
+            IDNE 701 · <span style="color: var(--accent-dark);">Week 5 Lecture</span>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-5">← Week 5 Syllabus</a>
+            <a href="worksheet_sensor_hardware.html">Worksheet 5.1</a>
+            <a href="simulation_contrast_physics.html">Simulation Sandbox</a>
+            <a href="sensor_engineering_arrays_slides.html" class="btn-nav">🖥️ Open Slides</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Breadcrumb & Header -->
+        <div class="breadcrumb">
+            <a href="IDNE701_FA2026.html">IDNE 701</a> &gt; 
+            <a href="IDNE701_FA2026.html#week-5">Phase 2: Biophysics &amp; Sensors</a> &gt; 
+            Lecture Notes
+        </div>
+
+        <header>
+            <span class="phase-badge">Phase 2 · Sensor Engineering</span>
+            <h1>Sensor Engineering: <em>Front-End Noise, Geometric Decoupling &amp; Multi-Channel Array Design</em></h1>
+            <p class="subtitle">
+                How raw biophysical perturbation fields are transduced into microvolt signals: Johnson-Nyquist thermal limits, the sample-noise crossover, preamplifier decoupling, S-parameter characterization, and spatial sensitivity field formulation.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Sep 25, 2026 (Week 5)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+                <span><strong>Prerequisites:</strong> Electromagnetic Induction, Circuit Analysis, Complex Impedance</span>
+            </div>
+
+            <div class="lecture-actions">
+                <a href="sensor_engineering_arrays_slides.html" class="action-btn primary">🖥️ Presentation Slide Deck</a>
+                <a href="worksheet_sensor_hardware.html" class="action-btn">📝 Worksheet 5.1 (Hardware Budget)</a>
+                <a href="simulation_contrast_physics.html" class="action-btn">🔬 Biophysical Sandbox</a>
+                <a href="IDNE701_FA2026.html#week-5" class="action-btn">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: The Transduction Interface -->
+        <section>
+            <h2><span class="sec-num">01.</span> The Transduction Interface: Intercepting the Field</h2>
+            <p>
+                In Week 4, we formulated the differential forward physics that generate neural contrast—precessing magnetic moments $\vec{M}(\vec{r})$, diffuse photon fluence $\Phi(\vec{r})$, ionic volume currents $\vec{J}_p(\vec{r})$, and acoustic pressure waves $p(\vec{r})$.
+            </p>
+            <p>
+                The task of <strong>sensor engineering</strong> is to convert these microscopic physical perturbation fields into calibrated, high-fidelity electrical currents and voltages while adding the minimum possible electronic noise.
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🧲 Magnetic Induction (RF Coils)</h4>
+                    <p>
+                        By Faraday's law of induction and the Principle of Reciprocity (Hoult &amp; Richards 1976), precessing transverse magnetization induces an electromotive force (EMF) $\mathcal{E}$ in a closed conductive loop:
+                    </p>
+                    <div class="equation-block" style="margin: 8px 0; padding: 8px;">
+                        $$\mathcal{E}(t) = -\frac{\partial}{\partial t} \int_{\text{sample}} \vec{B}_1^-(\vec{r}) \cdot \vec{M}(\vec{r}, t) \, dV$$
+                    </div>
+                    <p>where $\vec{B}_1^-(\vec{r})$ is the coil's receive sensitivity field per unit current.</p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>💡 Optical Detection (SiPM / APD)</h4>
+                    <p>
+                        Diffuse photons exiting the scalp strike a semiconductor junction, generating electron-hole pairs. In Silicon Photomultipliers (SiPMs), avalanche breakdown yields massive internal gain ($M \sim 10^6$):
+                    </p>
+                    <div class="equation-block" style="margin: 8px 0; padding: 8px;">
+                        $$I_{\text{photo}}(t) = \mathcal{R}(\lambda) \cdot P_{\text{opt}}(t) = \frac{\eta q}{h\nu} M \cdot P_{\text{opt}}(t)$$
+                    </div>
+                    <p>where $\eta$ is quantum efficiency and $\mathcal{R}$ is responsivity ($\text{A/W}$).</p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ Ionic Contact (Ag/AgCl Electrodes)</h4>
+                    <p>
+                        Volume conduction currents in the scalp are ionic ($\text{Na}^+, \text{K}^+, \text{Cl}^-$). Transduction into electronic current in copper wires requires a reversible redox half-cell reaction at the electrode interface:
+                    </p>
+                    <div class="equation-block" style="margin: 8px 0; padding: 8px;">
+                        $$\text{Ag} + \text{Cl}^- \rightleftharpoons \text{AgCl} + e^-$$
+                    </div>
+                    <p>Non-polarizable $\text{Ag/AgCl}$ maintains a stable electrode half-cell potential with minimal baseline drift.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Noise Physics & Thermal Limits -->
+        <section>
+            <h2><span class="sec-num">02.</span> The Physics of Front-End Noise &amp; Thermal Limits</h2>
+            <p>
+                The ultimate sensitivity of any non-invasive instrument is bounded by fundamental thermodynamics. Every dissipative resistance $R$ in the measurement chain generates spontaneous voltage fluctuations due to thermal agitation of charge carriers (Johnson-Nyquist noise).
+            </p>
+
+            <h3>Johnson-Nyquist Thermal Noise Formulation</h3>
+            <p>
+                The single-sided spectral density of thermal noise voltage across an impedance with real part $R$ is:
+            </p>
+            <div class="equation-block">
+                $$S_v(f) = 4 k_B T R \quad (\text{V}^2/\text{Hz}) \implies V_n = \sqrt{4 k_B T R \Delta f} \quad (\text{V}_{\text{rms}})$$
+                <div class="equation-caption">Equation 1: Johnson-Nyquist thermal noise voltage across bandwidth \(\Delta f\)</div>
+            </div>
+            <p>
+                At body temperature ($T = 310\,\text{K}$), a $50\,\Omega$ resistance generates $0.93\,\text{nV}/\sqrt{\text{Hz}}$ of noise. Over a $25\,\text{kHz}$ MRI receiver bandwidth, this equates to $147\,\text{nV}_{\text{rms}}$ of intrinsic thermal noise.
+            </p>
+
+            <h3>The Fundamental Sample-Noise Crossover</h3>
+            <p>
+                In high-frequency neuroimaging (MRI and high-frequency ultrasound), the total resistance seen by the front-end is the sum of two distinct dissipation mechanisms:
+            </p>
+            <div class="equation-block">
+                $$R_{\text{total}} = R_{\text{coil}} + R_{\text{sample}} = R_{\text{ohmic}} + R_{\text{dielectric}} + R_{\text{inductive\_eddy}}$$
+                <div class="equation-caption">Equation 2: Decomposition into sensor copper losses and patient body tissue losses</div>
+            </div>
+            <p>
+                When a coil is placed near conductive biological tissue ($\sigma \approx 0.3 - 0.7\,\text{S/m}$), alternating RF magnetic fields induce circular eddy currents in the brain. By Joule heating, these eddy currents dissipate power, reflected into the coil as an equivalent resistance $R_{\text{sample}}$.
+            </p>
+
+            <div class="callout">
+                <div class="callout-title" style="color: var(--accent-dark);">The Golden Rule of RF Coil Design: Sample-Noise Dominance</div>
+                <p>
+                    A sensor is <strong>sample-noise dominated</strong> when $R_{\text{sample}} \gg R_{\text{coil}}$. Experimentally, this is verified by measuring the unloaded quality factor ($Q_U$) on the bench vs. the loaded quality factor ($Q_L$) against a saline head phantom:
+                </p>
+                <div class="equation-block" style="margin: 0.75rem 0;">
+                    $$\frac{Q_U}{Q_L} = 1 + \frac{R_{\text{sample}}}{R_{\text{coil}}}$$
+                </div>
+                <p style="margin: 0;">
+                    When $Q_U / Q_L > 2 - 3$, the predominant source of noise is the thermal motion of ions inside the subject's own brain. In this regime, cooling the coil to cryogenic temperatures or using superconducting wire yields negligible SNR improvement, because the patient is the dominant noise generator!
+                </p>
+            </div>
+
+            <h3>Preamplifier Noise Figure ($\text{NF}$) &amp; Noise Temperature</h3>
+            <p>
+                The first active amplification stage inevitably introduces additional noise. We quantify this degradation using the <strong>Noise Factor</strong> $F$ and <strong>Noise Figure</strong> $\text{NF}$:
+            </p>
+            <div class="equation-block">
+                $$F = \frac{\text{SNR}_{\text{in}}}{\text{SNR}_{\text{out}}} = 1 + \frac{T_e}{T_0} \ge 1, \quad \text{NF} = 10 \log_{10}(F) \quad (\text{dB})$$
+                <div class="equation-caption">Equation 3: Preamplifier Noise Factor and equivalent noise temperature \(T_e\)</div>
+            </div>
+            <p>
+                By the <strong>Friis formula</strong> for cascaded stages, the total noise factor of a multi-stage receiver chain is dominated by the first amplifier:
+            </p>
+            <div class="equation-block">
+                $$F_{\text{total}} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \dots$$
+                <div class="equation-caption">Equation 4: Friis Formula for Cascaded Receiver Front-End Noise</div>
+            </div>
+            <p>
+                Therefore, the Low-Noise Amplifier (LNA) must be placed as close to the physical transducer as possible, with high gain ($G_1 \ge 20 - 30\,\text{dB}$) and sub-decibel noise figure ($\text{NF} \le 0.5\,\text{dB}$), rendering subsequent cable and ADC digitization losses negligible.
+            </p>
+        </section>
+
+        <!-- Section 3: The Multi-Channel Array Advantage -->
+        <section>
+            <h2><span class="sec-num">03.</span> The Multi-Channel Array Advantage &amp; Acceleration</h2>
+            <p>
+                Why not simply build one large, monolithic detector covering the entire head? The answer lies in the fundamental physics of localized noise integration and spatial encoding.
+            </p>
+
+            <h3>Localized Sensitivity vs. Volume Noise Integration</h3>
+            <p>
+                Consider a surface RF coil loop of radius $a$. The receive sensitivity directly beneath the loop center decays as $B_1^- \propto \frac{a^2}{(a^2 + z^2)^{3/2}}$.
+            </p>
+            <ul>
+                <li><strong>Large single coil:</strong> Interrogates the entire head volume, but its sample resistance integrates thermal noise from the entire volume of tissue ($R_{\text{sample}} \propto a^3$ or $a^5$).</li>
+                <li><strong>Array of small coils:</strong> Each element receives signals with high sensitivity from adjacent cortex while integrating thermal noise strictly from a small, localized sub-volume ($R_{\text{sample}} \propto a_{\text{small}}^3$).</li>
+            </ul>
+            <p>
+                When signals from an $N$-channel array are combined using optimal SNR weightings (Roemer et al. 1990), peripheral cortical SNR increases by a factor of $\sim \sqrt{N}$ over a volume coil.
+            </p>
+
+            <h3>Parallel Imaging Acceleration &amp; The Geometry Factor ($g$-factor)</h3>
+            <p>
+                In addition to boosting baseline SNR, multi-channel arrays enable <strong>parallel imaging acceleration</strong> (SENSE, GRAPPA) by using spatial variations in coil sensitivity profiles to replace slow gradient phase-encoding steps:
+            </p>
+            <div class="equation-block">
+                $$\text{SNR}_{\text{accelerated}}(\vec{r}) = \frac{\text{SNR}_{\text{unaccelerated}}(\vec{r})}{g(\vec{r}) \cdot \sqrt{R}}$$
+                <div class="equation-caption">Equation 5: Accelerated SNR penalty governed by acceleration factor \(R\) and geometry factor \(g\)</div>
+            </div>
+            <p>
+                The <strong>geometry factor ($g \ge 1$)</strong> quantifies noise amplification caused by mathematical ill-conditioning when inverting overlapping coil sensitivity profiles. Designing arrays with sharp spatial orthogonality minimizes $g$, allowing 2× to 4× faster acquisition with minimal noise penalty.
+            </p>
+        </section>
+
+        <!-- Section 4: Mutual Coupling & Decoupling -->
+        <section>
+            <h2><span class="sec-num">04.</span> Mutual Coupling &amp; Decoupling Mechanisms</h2>
+            <p>
+                When multiple resonant inductive loops or optical channels are packed tightly onto the cranium, mutual coupling poses a severe engineering challenge. In RF coils, inductive mutual coupling ($M_{ij}$) splits resonant frequencies, distorts current distributions, and degrades SNR.
+            </p>
+
+            <h3>Mutual Inductance &amp; Resonance Splitting</h3>
+            <p>
+                Two identical resonant loops tuned to frequency $\omega_0$ coupled by mutual inductance $M_{12}$ exhibit two split resonant modes:
+            </p>
+            <div class="equation-block">
+                $$\omega_\pm = \frac{\omega_0}{\sqrt{1 \pm \frac{M_{12}}{L}}}$$
+                <div class="equation-caption">Equation 6: Resonant frequency splitting due to mutual inductive coupling</div>
+            </div>
+            <p>
+                If $M_{12} \neq 0$, the array cannot be simultaneously tuned and matched at the Larmor frequency, destroying power transfer and ruining image quality.
+            </p>
+
+            <!-- Decoupling Strategies Grid -->
+            <div class="card-grid">
+                <div class="slide-card" style="border-top: 3px solid var(--accent);">
+                    <h4>1. Critical Geometric Overlap</h4>
+                    <p>
+                        Adjacent circular loops are overlapped by approximately <strong>$10\%$ of their diameter ($d \approx 0.9 \cdot 2r$)</strong>.
+                    </p>
+                    <p style="margin-top: 0.5rem;">
+                        The magnetic flux shared through the overlapping region opposes the mutual flux in the non-overlapping region, cancelling net mutual inductance ($M_{12} = 0$).
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                    <h4>2. Preamplifier Decoupling</h4>
+                    <p>
+                        Introduced by Roemer (1990). The receive loop is matched through a network to transform a very low preamplifier input impedance ($Z_{\text{in}} \approx 1 - 3\,\Omega$) into a <strong>high-impedance parallel resonant block</strong> across the coil terminals.
+                    </p>
+                    <p style="margin-top: 0.5rem;">
+                        This eliminates circulating RF current in the loop ($I_{\text{loop}} \approx 0$), suppressing inductive cross-talk to non-adjacent coils by &gt;20 dB.
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                    <h4>3. Capacitive Decoupling Networks</h4>
+                    <p>
+                        For non-overlapping coils separated by a physical gap, discrete bridge capacitors or shared decoupling inductors are inserted between loop perimeters.
+                    </p>
+                    <p style="margin-top: 0.5rem;">
+                        The capacitive bridge injects a counter-current that precisely neutralizes inductive mutual coupling ($-\frac{1}{\omega C} + \omega M = 0$).
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: Bench Verification & S-Parameters -->
+        <section>
+            <h2><span class="sec-num">05.</span> RF Bench Characterization &amp; S-Parameters</h2>
+            <p>
+                Every sensor array must be empirically verified on the RF bench using a calibrated <strong>Vector Network Analyzer (VNA)</strong> before connecting to imaging spectrometers.
+            </p>
+
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Measurement Setup</th>
+                        <th>Target Specification</th>
+                        <th>Physical Meaning</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Return Loss ($S_{11}$)</strong></td>
+                        <td>Single port reflection on loaded coil</td>
+                        <td>$&lt; -20\,\text{dB}$ at $f_0$</td>
+                        <td>Impedance matched to $50\,\Omega$; $&lt; 1\%$ reflected power</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Isolation ($S_{21}$)</strong></td>
+                        <td>Transmission between adjacent channels</td>
+                        <td>$&lt; -18\,\text{dB}$ loaded</td>
+                        <td>Cross-channel coupling suppressed; independent spatial channels</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Loaded Q ($Q_L$)</strong></td>
+                        <td>$-3\,\text{dB}$ bandwidth with saline head phantom</td>
+                        <td>$Q_L = f_0 / \Delta f_{-3\text{dB}}$</td>
+                        <td>Measures total loaded system dissipation (coil + head tissue)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Q-Ratio ($Q_U / Q_L$)</strong></td>
+                        <td>Ratio of unloaded to loaded Q</td>
+                        <td>$&gt; 2.5 - 4.0$</td>
+                        <td>Confirms operation in the desirable sample-noise dominated regime</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 6: Required Reading -->
+        <section>
+            <h2><span class="sec-num">06.</span> Required Foundational Literature</h2>
+            <ul class="reading-list">
+                <li>
+                    <span class="tag-pill">Required · Phased Arrays</span>
+                    <strong>The NMR phased array</strong><br>
+                    <span class="authors">Roemer, P. B., Edelstein, W. A., Hayes, C. E., Souza, S. P., &amp; Mueller, O. M.</span><br>
+                    <span class="journal">Magnetic Resonance in Medicine, 16(2), 192–225 (1990).</span>
+                    <a href="https://doi.org/10.1002/mrm.1910160203" target="_blank" rel="noopener" class="doi-link">DOI: 10.1002/mrm.1910160203 →</a>
+                </li>
+                <li>
+                    <span class="tag-pill">Required · Reciprocity & SNR</span>
+                    <strong>The signal-to-noise ratio of the nuclear magnetic resonance experiment</strong><br>
+                    <span class="authors">Hoult, D. I. &amp; Richards, R. E.</span><br>
+                    <span class="journal">Journal of Magnetic Resonance, 24(1), 71–85 (1976).</span>
+                    <a href="https://doi.org/10.1016/0022-2364(76)90233-X" target="_blank" rel="noopener" class="doi-link">DOI: 10.1016/0022-2364(76)90233-X →</a>
+                </li>
+                <li>
+                    <span class="tag-pill">Required · Parallel Imaging</span>
+                    <strong>SENSE: Sensitivity encoding for fast MRI</strong><br>
+                    <span class="authors">Pruessmann, K. P., Weiger, M., Scheidegger, M. B., &amp; Boesiger, P.</span><br>
+                    <span class="journal">Magnetic Resonance in Medicine, 42(5), 952–962 (1999).</span>
+                    <a href="https://doi.org/10.1002/(SICI)1522-2594(199911)42:5<952::AID-MRM16>3.0.CO;2-S" target="_blank" rel="noopener" class="doi-link">DOI: 10.1002/(SICI)1522-2594(199911)42:5<952::AID-MRM16>3.0.CO;2-S →</a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-5">← Back to Course Timeline</a>
+                <a href="sensor_engineering_arrays_slides.html">🖥️ Open Presentation Slides</a>
+                <a href="worksheet_sensor_hardware.html">📝 Open Worksheet 5.1</a>
+                <a href="simulation_contrast_physics.html">🔬 Open Simulation Sandbox →</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>
