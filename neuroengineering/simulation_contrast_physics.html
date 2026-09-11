@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biophysical Contrast Simulation Sandbox – IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- MathJax 3 for rendering LaTeX math formulas -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #10b981;
+            --accent-soft: rgba(16, 185, 129, 0.08);
+            --border: #e5e5e5;
+            --border-focus: #10b981;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --code-font: 'Space Mono', monospace;
+            --serif-font: 'Instrument Serif', serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --phase1: #3b82f6;
+            --phase2: #10b981;
+            --phase3: #f59e0b;
+            --phase4: #8b5cf6;
+            --phase5: #ec4899;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #18181b;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #34d399;
+            --accent-soft: rgba(52, 211, 153, 0.15);
+            --border: #27272a;
+            --border-focus: #34d399;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #1f1f23;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--code-font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding-bottom: 5rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            font-family: var(--code-font);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-brand span {
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--accent);
+        }
+
+        .theme-toggle-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Tabs Navigation Bar */
+        .tabs-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem 1.5rem;
+            overflow-x: auto;
+        }
+
+        .tabs-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .tab-link {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 4px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+
+        .tab-link:hover {
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
+
+        .tab-link.active {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border-color: var(--accent);
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        header {
+            margin-bottom: 2rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--phase2);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: 2.3rem;
+            font-weight: 400;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.75rem;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        .header-meta {
+            font-family: var(--sans-font);
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            max-width: 900px;
+            line-height: 1.6;
+        }
+
+        /* Simulator Selection Tabs */
+        .sim-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .sim-tab-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sim-tab-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .sim-tab-btn.active {
+            background: var(--accent);
+            color: #000000;
+            font-weight: 700;
+            border-color: var(--accent);
+        }
+
+        /* Simulator Card */
+        .sim-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .sim-card.active {
+            display: block;
+        }
+
+        .sim-header {
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .sim-title {
+            font-family: var(--serif-font);
+            font-size: 1.6rem;
+            font-weight: 400;
+            margin-bottom: 0.35rem;
+        }
+
+        .sim-desc {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Interactive Grid: Canvas + Controls */
+        .sim-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .sim-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .canvas-container {
+            background: #0d0d11;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            max-height: 420px;
+            display: block;
+        }
+
+        .controls-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .control-val {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.25rem;
+        }
+
+        .btn-preset {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            font-family: var(--code-font);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-preset:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .metrics-readout {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .readout-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .readout-val {
+            font-family: var(--code-font);
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        /* Theory Note */
+        .theory-box {
+            background: var(--bg-secondary);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 4px 4px 0;
+            padding: 1rem;
+            margin-top: 1.25rem;
+            font-family: var(--sans-font);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Global Header -->
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="IDNE701_FA2026.html" class="nav-brand">
+                <span>IDNE 701</span> · Biophysical Simulation Sandbox
+            </a>
+            <div class="nav-links">
+                <a href="IDNE701_FA2026.html" class="nav-link">Syllabus</a>
+                <a href="worksheet_biophysical_modeling.html" class="nav-link">Worksheet 4.1</a>
+                <a href="clinical_needs_spec_template.html" class="nav-link">Dossier Template</a>
+                <button type="button" class="theme-toggle-btn" id="themeToggle" aria-label="Toggle dark/light mode">◐ Dark Mode</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Navigation Tabs Bar -->
+    <div class="tabs-bar">
+        <div class="tabs-inner">
+            <a href="worksheet_pathology_mapping.html" class="tab-link">2.1 Pathology &amp; Biomarkers</a>
+            <a href="worksheet_stakeholder_interview.html" class="tab-link">2.2 Stakeholder Protocol</a>
+            <a href="worksheet_target_specifications.html" class="tab-link">2.3 Target Specifications</a>
+            <a href="worksheet_precedent_benchmarking.html" class="tab-link">3.1 Precedent Benchmarking</a>
+            <a href="worksheet_biophysical_modeling.html" class="tab-link">4.1 Forward Modeling</a>
+            <a href="simulation_contrast_physics.html" class="tab-link active">🔬 Simulation Sandbox</a>
+            <a href="biophysical_foundations_contrast.html" class="tab-link">📖 Week 4 Lecture</a>
+            <a href="clinical_needs_spec_template.html" class="tab-link">Needs Spec Template</a>
+            <a href="IDNE701_FA2026.html#week-4" class="tab-link">← Syllabus Week 4</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <span class="phase-badge">Phase 2 · In Silico Physics Workbench</span>
+            <h1>Biophysical Contrast <em>Simulation Sandbox</em></h1>
+            <p class="header-meta">
+                Interactive computational workbench for exploring the physical governing equations of neural contrast. Simulate spin magnetization relaxation (Bloch equations), optical photon diffusion (Beer-Lambert transport), and electromagnetic dipole volume conduction in real time.
+            </p>
+        </header>
+
+        <!-- Simulator Tabs -->
+        <div class="sim-nav">
+            <button class="sim-tab-btn active" data-tab="bloch">1. Bloch NMR Spin Precession &amp; Relaxation</button>
+            <button class="sim-tab-btn" data-tab="fnirs">2. Diffuse Photon Migration (fNIRS / DOT)</button>
+            <button class="sim-tab-btn" data-tab="dipole">3. Neural Dipole Volume Conduction (EEG vs MEG)</button>
+        </div>
+
+        <!-- SIMULATOR 1: BLOCH NMR EQUATIONS -->
+        <div class="sim-card active" id="sim-bloch">
+            <div class="sim-header">
+                <div class="sim-title">Nuclear Magnetic Resonance (Bloch Equation Simulator)</div>
+                <div class="sim-desc">
+                    Simulate how magnetic field strength \(B_0\), radiofrequency (RF) pulse flip angle \(\alpha\), and tissue-specific \(T_1 / T_2^*\) relaxation times dictate transverse decay \(M_{xy}(t)\) and longitudinal recovery \(M_z(t)\).
+                </div>
+            </div>
+
+            <div class="sim-layout">
+                <div class="canvas-container">
+                    <canvas id="blochCanvas" width="650" height="380"></canvas>
+                </div>
+
+                <div class="controls-panel">
+                    <div class="control-group">
+                        <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase;">Tissue Compartment Presets</span>
+                        <div class="preset-buttons">
+                            <button type="button" class="btn-preset" id="presetGM">Gray Matter</button>
+                            <button type="button" class="btn-preset" id="presetWM">White Matter</button>
+                            <button type="button" class="btn-preset" id="presetCSF">CSF</button>
+                            <button type="button" class="btn-preset" id="presetBlood">Venous Blood</button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Main Magnetic Field (\(B_0\))</span>
+                            <span class="control-val" id="b0Val">3.0 Tesla</span>
+                        </div>
+                        <input type="range" id="b0Slider" min="0.05" max="7.0" step="0.05" value="3.0">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>RF Flip Angle (\(\alpha\))</span>
+                            <span class="control-val" id="alphaVal">90°</span>
+                        </div>
+                        <input type="range" id="alphaSlider" min="10" max="180" step="5" value="90">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Spin-Lattice Relaxation (\(T_1\))</span>
+                            <span class="control-val" id="t1Val">1,300 ms</span>
+                        </div>
+                        <input type="range" id="t1Slider" min="200" max="4000" step="50" value="1300">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Transverse Relaxation (\(T_2^*\))</span>
+                            <span class="control-val" id="t2Val">45 ms</span>
+                        </div>
+                        <input type="range" id="t2Slider" min="5" max="250" step="1" value="45">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Echo Time (TE) Marker</span>
+                            <span class="control-val" id="teVal">30 ms</span>
+                        </div>
+                        <input type="range" id="teSlider" min="5" max="100" step="1" value="30">
+                    </div>
+
+                    <div class="metrics-readout">
+                        <div class="readout-row">
+                            <span>Larmor Frequency (\(\omega_0 / 2\pi\)):</span>
+                            <span class="readout-val" id="larmorVal">127.7 MHz</span>
+                        </div>
+                        <div class="readout-row">
+                            <span>Signal at Echo Time \(M_{xy}(\text{TE})\):</span>
+                            <span class="readout-val" id="sigAtTe">51.3%</span>
+                        </div>
+                        <div class="readout-row">
+                            <span>Equilibrium Magnetization \(M_0 \propto B_0\):</span>
+                            <span class="readout-val" id="m0Val">3.00 a.u.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="theory-box">
+                <strong>Bloch Governing Equations:</strong>
+                $$\frac{dM_x}{dt} = \gamma (\mathbf{M} \times \mathbf{B})_x - \frac{M_x}{T_2^*}, \quad \frac{dM_y}{dt} = \gamma (\mathbf{M} \times \mathbf{B})_y - \frac{M_y}{T_2^*}, \quad \frac{dM_z}{dt} = \gamma (\mathbf{M} \times \mathbf{B})_z - \frac{M_z - M_0}{T_1}$$
+                In a standard Gradient Recalled Echo (GRE) pulse sequence, initial transverse magnetization is \(M_{xy}(0) = M_0 \sin(\alpha)\). At time \(t = \text{TE}\), the recorded free induction decay (FID) signal is \(S(\text{TE}) = M_0 \sin(\alpha) e^{-\text{TE} / T_2^*}\). BOLD functional MRI relies upon localized microvascular deoxygenation shifting \(\Delta T_2^*\).
+            </div>
+        </div>
+
+        <!-- SIMULATOR 2: FNIRS PHOTON TRANSPORT -->
+        <div class="sim-card" id="sim-fnirs">
+            <div class="sim-header">
+                <div class="sim-title">Diffuse Optical Spectroscopy &amp; Photon Migration (fNIRS)</div>
+                <div class="sim-desc">
+                    Explore photon banana trajectories through scalp, skull, CSF, and cerebral cortex under the diffusion approximation of radiative transport.
+                </div>
+            </div>
+
+            <div class="sim-layout">
+                <div class="canvas-container">
+                    <canvas id="fnirsCanvas" width="650" height="380"></canvas>
+                </div>
+
+                <div class="controls-panel">
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Source-Detector Distance (\(d\))</span>
+                            <span class="control-val" id="optodeDistVal">30 mm</span>
+                        </div>
+                        <input type="range" id="optodeDistSlider" min="15" max="50" step="1" value="30">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Scalp &amp; Skull Thickness</span>
+                            <span class="control-val" id="skullThickVal">12 mm</span>
+                        </div>
+                        <input type="range" id="skullThickSlider" min="6" max="20" step="1" value="12">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Cortical \(\Delta[\text{HbO}]\) Activation</span>
+                            <span class="control-val" id="hboVal">+4.5 μM</span>
+                        </div>
+                        <input type="range" id="hboSlider" min="-5" max="15" step="0.5" value="4.5">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Cortical \(\Delta[\text{HbR}]\) Deactivation</span>
+                            <span class="control-val" id="hbrVal">-1.8 μM</span>
+                        </div>
+                        <input type="range" id="hbrSlider" min="-10" max="5" step="0.5" value="-1.8">
+                    </div>
+
+                    <div class="metrics-readout">
+                        <div class="readout-row">
+                            <span>Mean Photon Penetration Depth (\(\approx d/2\)):</span>
+                            <span class="readout-val" id="penDepthVal">15.0 mm</span>
+                        </div>
+                        <div class="readout-row">
+                            <span>Cortical Sensitivity Fraction:</span>
+                            <span class="readout-val" id="cortexSensVal">18.4%</span>
+                        </div>
+                        <div class="readout-row">
+                            <span>Optical Density Shift \(\Delta \text{OD}_{850\text{nm}}\):</span>
+                            <span class="readout-val" id="od850Val">+0.042</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="theory-box">
+                <strong>Modified Beer-Lambert Law (MBLL):</strong>
+                $$\Delta \text{OD}(\lambda) = \left[ \epsilon_{\text{HbO}}(\lambda) \Delta [\text{HbO}] + \epsilon_{\text{HbR}}(\lambda) \Delta [\text{HbR}] \right] \cdot d \cdot \text{DPF}(\lambda) + G$$
+                Because near-infrared light (\(700\text{–}900\text{ nm}\)) undergoes thousands of forward scattering events (\(\mu_s' \gg \mu_a\)), photons travel in an arcuate "banana-shaped" probability volume. Light only probes the cerebral cortex if the source-detector distance \(d\) exceeds approximately \(2.5 \times\) the skull-scalp thickness.
+            </div>
+        </div>
+
+        <!-- SIMULATOR 3: NEURAL DIPOLE & VOLUME CONDUCTION -->
+        <div class="sim-card" id="sim-dipole">
+            <div class="sim-header">
+                <div class="sim-title">Neuronal Dipole Volume Conduction (EEG vs. MEG)</div>
+                <div class="sim-desc">
+                    Compare scalp electrical potential \(V(\mathbf{r})\) and external magnetic flux \(B(\mathbf{r})\) as a function of dipole depth, orientation (radial vs tangential), and volume conductor conductivity.
+                </div>
+            </div>
+
+            <div class="sim-layout">
+                <div class="canvas-container">
+                    <canvas id="dipoleCanvas" width="650" height="380"></canvas>
+                </div>
+
+                <div class="controls-panel">
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Dipole Depth from Inner Skull (\(z\))</span>
+                            <span class="control-val" id="dipDepthVal">15 mm</span>
+                        </div>
+                        <input type="range" id="dipDepthSlider" min="2" max="50" step="1" value="15">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Dipole Orientation Angle (\(\theta\))</span>
+                            <span class="control-val" id="dipAngleVal">90° (Tangential)</span>
+                        </div>
+                        <input type="range" id="dipAngleSlider" min="0" max="90" step="5" value="90">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Dipole Moment (\(Q\))</span>
+                            <span class="control-val" id="dipMomentVal">25 nA·m</span>
+                        </div>
+                        <input type="range" id="dipMomentSlider" min="5" max="100" step="5" value="25">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Skull Conductivity Ratio (\(\sigma_{\text{brain}} / \sigma_{\text{skull}}\))</span>
+                            <span class="control-val" id="condRatioVal">30:1 (Normal)</span>
+                        </div>
+                        <input type="range" id="condRatioSlider" min="10" max="80" step="5" value="30">
+                    </div>
+
+                    <div class="metrics-readout">
+                        <div class="readout-row">
+                            <span>Peak Scalp Electric Potential (\(V_{\text{max}}\)):</span>
+                            <span class="readout-val" id="eegPeakVal">3.4 μV</span>
+                        </div>
+                        <div class="readout-row">
+                            <span>Peak External Magnetic Field (\(B_{\text{max}}\)):</span>
+                            <span class="readout-val" id="megPeakVal">148.2 fT</span>
+                        </div>
+                        <div class="readout-row">
+                            <span>Radial vs. Tangential Field Cancellation:</span>
+                            <span class="readout-val" id="radialCancelVal">0% (Pure Tangential)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="theory-box">
+                <strong>Volume Conduction &amp; Dipolar Symmetries:</strong>
+                In a spherically symmetric volume conductor, a purely <strong>radial current dipole</strong> produces an external magnetic field of exactly \(\mathbf{B} = 0\) everywhere outside the sphere, because primary source fields are perfectly cancelled by volume return currents! In contrast, a <strong>tangential dipole</strong> produces symmetric bipolar magnetic flux loops with minimal skull smearing. EEG detects both radial and tangential dipoles but suffers severe spatial smearing from the low conductivity of the skull (\(\sigma \approx 0.01\text{ S/m}\)).
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching logic
+        const tabBtns = document.querySelectorAll('.sim-tab-btn');
+        const simCards = {
+            'bloch': document.getElementById('sim-bloch'),
+            'fnirs': document.getElementById('sim-fnirs'),
+            'dipole': document.getElementById('sim-dipole')
+        };
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const target = btn.getAttribute('data-tab');
+                Object.keys(simCards).forEach(k => {
+                    if (k === target) {
+                        simCards[k].classList.add('active');
+                    } else {
+                        simCards[k].classList.remove('active');
+                    }
+                });
+
+                if (target === 'bloch') drawBloch();
+                if (target === 'fnirs') drawFNIRS();
+                if (target === 'dipole') drawDipole();
+            });
+        });
+
+        // ==========================================
+        // 1. BLOCH SIMULATION
+        // ==========================================
+        const blochCanvas = document.getElementById('blochCanvas');
+        const bCtx = blochCanvas.getContext('2d');
+
+        const b0Slider = document.getElementById('b0Slider');
+        const alphaSlider = document.getElementById('alphaSlider');
+        const t1Slider = document.getElementById('t1Slider');
+        const t2Slider = document.getElementById('t2Slider');
+        const teSlider = document.getElementById('teSlider');
+
+        function drawBloch() {
+            const B0 = parseFloat(b0Slider.value);
+            const alphaDeg = parseFloat(alphaSlider.value);
+            const alphaRad = alphaDeg * Math.PI / 180;
+            const T1 = parseFloat(t1Slider.value);
+            const T2 = parseFloat(t2Slider.value);
+            const TE = parseFloat(teSlider.value);
+
+            document.getElementById('b0Val').textContent = `${B0.toFixed(2)} Tesla`;
+            document.getElementById('alphaVal').textContent = `${alphaDeg}°`;
+            document.getElementById('t1Val').textContent = `${T1.toLocaleString()} ms`;
+            document.getElementById('t2Val').textContent = `${T2} ms`;
+            document.getElementById('teVal').textContent = `${TE} ms`;
+
+            // Larmor frequency: 42.58 MHz / T
+            const larmor = B0 * 42.577;
+            document.getElementById('larmorVal').textContent = `${larmor.toFixed(2)} MHz`;
+
+            // M0 proportional to B0
+            const M0 = B0;
+            document.getElementById('m0Val').textContent = `${M0.toFixed(2)} a.u.`;
+
+            // Signal at TE
+            const sigFraction = Math.sin(alphaRad) * Math.exp(-TE / T2);
+            document.getElementById('sigAtTe').textContent = `${(sigFraction * 100).toFixed(1)}%`;
+
+            // Render
+            const w = blochCanvas.width;
+            const h = blochCanvas.height;
+            bCtx.clearRect(0, 0, w, h);
+
+            // Background grid
+            bCtx.strokeStyle = '#1e1e24';
+            bCtx.lineWidth = 1;
+            for (let x = 60; x < w - 20; x += 50) {
+                bCtx.beginPath();
+                bCtx.moveTo(x, 20);
+                bCtx.lineTo(x, h - 40);
+                bCtx.stroke();
+            }
+            for (let y = 30; y < h - 40; y += 40) {
+                bCtx.beginPath();
+                bCtx.moveTo(60, y);
+                bCtx.lineTo(w - 20, y);
+                bCtx.stroke();
+            }
+
+            // Axes
+            bCtx.strokeStyle = '#555';
+            bCtx.lineWidth = 2;
+            bCtx.beginPath();
+            bCtx.moveTo(60, 20);
+            bCtx.lineTo(60, h - 40);
+            bCtx.lineTo(w - 20, h - 40);
+            bCtx.stroke();
+
+            // Axis labels
+            bCtx.fillStyle = '#888';
+            bCtx.font = '11px Space Mono';
+            bCtx.fillText('Time (0 to 200 ms)', w / 2 - 40, h - 15);
+            bCtx.save();
+            bCtx.translate(25, h / 2 + 30);
+            bCtx.rotate(-Math.PI / 2);
+            bCtx.fillText('Magnetization (M/M0)', 0, 0);
+            bCtx.restore();
+
+            // Draw curves: Mxy(t) decay and Mz(t) recovery
+            const timeSpan = 200; // ms
+            const plotW = w - 80;
+            const plotH = h - 70;
+
+            // Transverse decay Mxy(t) = M0 * sin(alpha) * exp(-t / T2)
+            bCtx.strokeStyle = '#10b981';
+            bCtx.lineWidth = 3;
+            bCtx.beginPath();
+            for (let px = 0; px <= plotW; px++) {
+                const t = (px / plotW) * timeSpan;
+                const mxy = Math.sin(alphaRad) * Math.exp(-t / T2);
+                const py = (h - 40) - (mxy * plotH);
+                if (px === 0) bCtx.moveTo(60 + px, py);
+                else bCtx.lineTo(60 + px, py);
+            }
+            bCtx.stroke();
+
+            // Longitudinal recovery Mz(t) = M0 * (1 - (1 - cos(alpha)) * exp(-t / T1))
+            bCtx.strokeStyle = '#3b82f6';
+            bCtx.lineWidth = 2;
+            bCtx.setLineDash([4, 4]);
+            bCtx.beginPath();
+            for (let px = 0; px <= plotW; px++) {
+                const t = (px / plotW) * timeSpan;
+                const mz = 1.0 - (1.0 - Math.cos(alphaRad)) * Math.exp(-t / T1);
+                const py = (h - 40) - (mz * plotH);
+                if (px === 0) bCtx.moveTo(60 + px, py);
+                else bCtx.lineTo(60 + px, py);
+            }
+            bCtx.stroke();
+            bCtx.setLineDash([]);
+
+            // Mark Echo Time TE
+            const tePx = (TE / timeSpan) * plotW;
+            if (tePx <= plotW) {
+                bCtx.strokeStyle = '#f59e0b';
+                bCtx.lineWidth = 2;
+                bCtx.setLineDash([2, 2]);
+                bCtx.beginPath();
+                bCtx.moveTo(60 + tePx, 25);
+                bCtx.lineTo(60 + tePx, h - 40);
+                bCtx.stroke();
+                bCtx.setLineDash([]);
+
+                // Dot on Mxy
+                const mxyAtTe = Math.sin(alphaRad) * Math.exp(-TE / T2);
+                const pyTe = (h - 40) - (mxyAtTe * plotH);
+                bCtx.fillStyle = '#f59e0b';
+                bCtx.beginPath();
+                bCtx.arc(60 + tePx, pyTe, 5, 0, 2 * Math.PI);
+                bCtx.fill();
+
+                bCtx.fillStyle = '#f59e0b';
+                bCtx.font = '10px Space Mono';
+                bCtx.fillText(`TE = ${TE}ms`, 60 + tePx + 6, pyTe - 8);
+            }
+
+            // Legend
+            bCtx.fillStyle = '#10b981';
+            bCtx.fillRect(w - 220, 30, 14, 4);
+            bCtx.fillStyle = '#aaa';
+            bCtx.font = '10px Space Mono';
+            bCtx.fillText('M_xy (Transverse FID)', w - 198, 35);
+
+            bCtx.fillStyle = '#3b82f6';
+            bCtx.fillRect(w - 220, 48, 14, 2);
+            bCtx.fillStyle = '#aaa';
+            bCtx.fillText('M_z (Longitudinal T1)', w - 198, 53);
+        }
+
+        [b0Slider, alphaSlider, t1Slider, t2Slider, teSlider].forEach(s => s.addEventListener('input', drawBloch));
+
+        // Presets
+        document.getElementById('presetGM').addEventListener('click', () => {
+            t1Slider.value = 1300;
+            t2Slider.value = 45;
+            drawBloch();
+        });
+        document.getElementById('presetWM').addEventListener('click', () => {
+            t1Slider.value = 850;
+            t2Slider.value = 35;
+            drawBloch();
+        });
+        document.getElementById('presetCSF').addEventListener('click', () => {
+            t1Slider.value = 4000;
+            t2Slider.value = 180;
+            drawBloch();
+        });
+        document.getElementById('presetBlood').addEventListener('click', () => {
+            t1Slider.value = 1600;
+            t2Slider.value = 25;
+            drawBloch();
+        });
+
+        // ==========================================
+        // 2. FNIRS DIFFUSION SIMULATION
+        // ==========================================
+        const fnirsCanvas = document.getElementById('fnirsCanvas');
+        const fCtx = fnirsCanvas.getContext('2d');
+
+        const optodeDistSlider = document.getElementById('optodeDistSlider');
+        const skullThickSlider = document.getElementById('skullThickSlider');
+        const hboSlider = document.getElementById('hboSlider');
+        const hbrSlider = document.getElementById('hbrSlider');
+
+        function drawFNIRS() {
+            const dist_mm = parseFloat(optodeDistSlider.value);
+            const skull_mm = parseFloat(skullThickSlider.value);
+            const hbo = parseFloat(hboSlider.value);
+            const hbr = parseFloat(hbrSlider.value);
+
+            document.getElementById('optodeDistVal').textContent = `${dist_mm} mm`;
+            document.getElementById('skullThickVal').textContent = `${skull_mm} mm`;
+            document.getElementById('hboVal').textContent = `${hbo >= 0 ? '+' : ''}${hbo.toFixed(1)} μM`;
+            document.getElementById('hbrVal').textContent = `${hbr >= 0 ? '+' : ''}${hbr.toFixed(1)} μM`;
+
+            const penDepth = dist_mm * 0.5;
+            document.getElementById('penDepthVal').textContent = `${penDepth.toFixed(1)} mm`;
+
+            // Cortical fraction
+            const cortexOverlap = Math.max(0, penDepth - skull_mm);
+            const sensFraction = Math.min(65, (cortexOverlap / penDepth) * 55);
+            document.getElementById('cortexSensVal').textContent = `${sensFraction.toFixed(1)}%`;
+
+            // Delta OD at 850nm (extinction: e_HbO ~ 1.05, e_HbR ~ 0.78 / mM*cm)
+            const dpf = 6.0;
+            const d_cm = dist_mm / 10.0;
+            const deltaOD = (1.05 * hbo + 0.78 * hbr) * 1e-3 * d_cm * dpf;
+            document.getElementById('od850Val').textContent = `${deltaOD >= 0 ? '+' : ''}${deltaOD.toFixed(3)}`;
+
+            const w = fnirsCanvas.width;
+            const h = fnirsCanvas.height;
+            fCtx.clearRect(0, 0, w, h);
+
+            // Draw Head Layers
+            const scalpY = 90;
+            const skullY = scalpY + (skull_mm * 3.5);
+            const cortexY = skullY + 15;
+
+            // Scalp
+            fCtx.fillStyle = '#2b2320';
+            fCtx.fillRect(40, scalpY, w - 80, skullY - scalpY);
+
+            // Skull
+            fCtx.fillStyle = '#423c38';
+            fCtx.fillRect(40, skullY, w - 80, cortexY - skullY);
+
+            // Cortex / Brain
+            fCtx.fillStyle = '#1c222b';
+            fCtx.fillRect(40, cortexY, w - 80, h - cortexY - 30);
+
+            // Layer Labels
+            fCtx.fillStyle = '#888';
+            fCtx.font = '10px Space Mono';
+            fCtx.fillText('Scalp / Skin', 45, scalpY + 18);
+            fCtx.fillText('Cranial Skull Bone (High Scattering)', 45, skullY + 12);
+            fCtx.fillText('Cerebral Cortex (Hemodynamic Absorption)', 45, cortexY + 25);
+
+            // Source and Detector Optodes
+            const centerX = w / 2;
+            const sepPx = dist_mm * 5.5;
+            const srcX = centerX - sepPx / 2;
+            const detX = centerX + sepPx / 2;
+
+            // Draw Source (Red)
+            fCtx.fillStyle = '#ef4444';
+            fCtx.beginPath();
+            fCtx.arc(srcX, scalpY, 8, 0, 2 * Math.PI);
+            fCtx.fill();
+            fCtx.fillStyle = '#fff';
+            fCtx.fillText('S (NIR Laser)', srcX - 35, scalpY - 14);
+
+            // Draw Detector (Blue)
+            fCtx.fillStyle = '#3b82f6';
+            fCtx.beginPath();
+            fCtx.arc(detX, scalpY, 8, 0, 2 * Math.PI);
+            fCtx.fill();
+            fCtx.fillStyle = '#fff';
+            fCtx.fillText('D (SiPM Detector)', detX - 45, scalpY - 14);
+
+            // Photon Banana Gradient Field
+            const bananaDepthPx = penDepth * 4.2;
+            const grad = fCtx.createRadialGradient(centerX, scalpY, 10, centerX, scalpY + bananaDepthPx / 2, bananaDepthPx);
+            grad.addColorStop(0, 'rgba(239, 68, 68, 0.45)');
+            grad.addColorStop(0.5, 'rgba(245, 158, 11, 0.25)');
+            grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+            fCtx.fillStyle = grad;
+            fCtx.beginPath();
+            fCtx.moveTo(srcX, scalpY);
+            fCtx.bezierCurveTo(srcX, scalpY + bananaDepthPx * 1.5, detX, scalpY + bananaDepthPx * 1.5, detX, scalpY);
+            fCtx.closePath();
+            fCtx.fill();
+
+            // Streamlines
+            fCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            fCtx.lineWidth = 1.5;
+            fCtx.setLineDash([3, 4]);
+            fCtx.beginPath();
+            fCtx.moveTo(srcX, scalpY);
+            fCtx.quadraticCurveTo(centerX, scalpY + bananaDepthPx, detX, scalpY);
+            fCtx.stroke();
+            fCtx.setLineDash([]);
+        }
+
+        [optodeDistSlider, skullThickSlider, hboSlider, hbrSlider].forEach(s => s.addEventListener('input', drawFNIRS));
+
+        // ==========================================
+        // 3. DIPOLE & VOLUME CONDUCTION
+        // ==========================================
+        const dipoleCanvas = document.getElementById('dipoleCanvas');
+        const dCtx = dipoleCanvas.getContext('2d');
+
+        const dipDepthSlider = document.getElementById('dipDepthSlider');
+        const dipAngleSlider = document.getElementById('dipAngleSlider');
+        const dipMomentSlider = document.getElementById('dipMomentSlider');
+        const condRatioSlider = document.getElementById('condRatioSlider');
+
+        function drawDipole() {
+            const depth_mm = parseFloat(dipDepthSlider.value);
+            const angleDeg = parseFloat(dipAngleSlider.value);
+            const angleRad = angleDeg * Math.PI / 180;
+            const Q_nAm = parseFloat(dipMomentSlider.value);
+            const condRatio = parseFloat(condRatioSlider.value);
+
+            document.getElementById('dipDepthVal').textContent = `${depth_mm} mm`;
+            document.getElementById('dipAngleVal').textContent = `${angleDeg}° (${angleDeg === 90 ? 'Pure Tangential' : angleDeg === 0 ? 'Pure Radial' : 'Mixed'})`;
+            document.getElementById('dipMomentVal').textContent = `${Q_nAm} nA·m`;
+            document.getElementById('condRatioVal').textContent = `${condRatio}:1`;
+
+            // Tangential component drives external MEG, radial drives EEG
+            const tangentialFraction = Math.sin(angleRad);
+            const radialFraction = Math.cos(angleRad);
+
+            // Fall-off distance to sensor (head radius ~90 mm, sensor at 95 mm)
+            const r_eff = 95 - (90 - depth_mm); // mm
+            const r_m = r_eff * 1e-3;
+
+            // MEG B field peak in fT
+            const B_peak = (1e-7 * (Q_nAm * 1e-9 * tangentialFraction) / (r_m * r_m)) * 1e15;
+            document.getElementById('megPeakVal').textContent = `${B_peak.toFixed(1)} fT`;
+
+            // EEG V peak in uV (smeared by skull condRatio)
+            const V_peak = ((Q_nAm * 1e-9) / (4 * Math.PI * 0.33 * (r_m * r_m))) * (40.0 / condRatio) * 1e6;
+            document.getElementById('eegPeakVal').textContent = `${V_peak.toFixed(1)} μV`;
+
+            const cancelPct = (1.0 - tangentialFraction) * 100;
+            document.getElementById('radialCancelVal').textContent = `${cancelPct.toFixed(0)}% (Radial null in MEG)`;
+
+            const w = dipoleCanvas.width;
+            const h = dipoleCanvas.height;
+            dCtx.clearRect(0, 0, w, h);
+
+            // Draw Head Shells (Center at bottom)
+            const cx = w / 2;
+            const cy = h + 100;
+            const rBrain = 260;
+            const rSkull = 290;
+            const rScalp = 310;
+            const rSensor = 340;
+
+            // Brain
+            dCtx.fillStyle = '#1c222b';
+            dCtx.beginPath();
+            dCtx.arc(cx, cy, rBrain, Math.PI, 2 * Math.PI);
+            dCtx.fill();
+
+            // Skull
+            dCtx.strokeStyle = '#423c38';
+            dCtx.lineWidth = 14;
+            dCtx.beginPath();
+            dCtx.arc(cx, cy, (rBrain + rSkull) / 2, Math.PI, 2 * Math.PI);
+            dCtx.stroke();
+
+            // Scalp
+            dCtx.strokeStyle = '#2b2320';
+            dCtx.lineWidth = 10;
+            dCtx.beginPath();
+            dCtx.arc(cx, cy, (rSkull + rScalp) / 2, Math.PI, 2 * Math.PI);
+            dCtx.stroke();
+
+            // Sensor Arc
+            dCtx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+            dCtx.lineWidth = 3;
+            dCtx.setLineDash([4, 4]);
+            dCtx.beginPath();
+            dCtx.arc(cx, cy, rSensor, Math.PI * 1.15, Math.PI * 1.85);
+            dCtx.stroke();
+            dCtx.setLineDash([]);
+
+            // Dipole Location
+            const dipY = cy - rBrain + (depth_mm * 2.2);
+            const dipX = cx;
+
+            // Draw Dipole Arrow
+            const arrowLen = 32;
+            const dx = arrowLen * Math.sin(angleRad);
+            const dy = -arrowLen * Math.cos(angleRad);
+
+            dCtx.strokeStyle = '#ef4444';
+            dCtx.lineWidth = 4;
+            dCtx.beginPath();
+            dCtx.moveTo(dipX - dx / 2, dipY - dy / 2);
+            dCtx.lineTo(dipX + dx / 2, dipY + dy / 2);
+            dCtx.stroke();
+
+            // Arrow head
+            dCtx.fillStyle = '#ef4444';
+            dCtx.beginPath();
+            dCtx.arc(dipX + dx / 2, dipY + dy / 2, 5, 0, 2 * Math.PI);
+            dCtx.fill();
+
+            // Magnetic Flux loops if tangential
+            if (tangentialFraction > 0.1) {
+                dCtx.strokeStyle = `rgba(16, 185, 129, ${tangentialFraction * 0.7})`;
+                dCtx.lineWidth = 2;
+                dCtx.beginPath();
+                dCtx.ellipse(dipX - 60, dipY - 30, 40, 60, 0, 0, 2 * Math.PI);
+                dCtx.stroke();
+
+                dCtx.strokeStyle = `rgba(245, 158, 11, ${tangentialFraction * 0.7})`;
+                dCtx.beginPath();
+                dCtx.ellipse(dipX + 60, dipY - 30, 40, 60, 0, 0, 2 * Math.PI);
+                dCtx.stroke();
+
+                dCtx.fillStyle = '#10b981';
+                dCtx.font = '10px Space Mono';
+                dCtx.fillText('⊙ B out (Flux +)', dipX - 110, dipY - 80);
+                dCtx.fillStyle = '#f59e0b';
+                dCtx.fillText('⊗ B in (Flux -)', dipX + 45, dipY - 80);
+            }
+
+            // Labels
+            dCtx.fillStyle = '#aaa';
+            dCtx.font = '10px Space Mono';
+            dCtx.fillText('Cranial Scalp Surface', 60, 60);
+            dCtx.fillText('Sensor Helmet Array Plane', 60, 35);
+            dCtx.fillText(`Neural Dipole Q (${depth_mm}mm depth)`, dipX + 15, dipY + 5);
+        }
+
+        [dipDepthSlider, dipAngleSlider, dipMomentSlider, condRatioSlider].forEach(s => s.addEventListener('input', drawDipole));
+
+        // Initialize First Simulator
+        drawBloch();
+
+        // Theme Toggle
+        const themeBtn = document.getElementById('themeToggle');
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+                themeBtn.textContent = '☼ Light Mode';
+            } else {
+                document.body.classList.remove('dark');
+                themeBtn.textContent = '◐ Dark Mode';
+            }
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            themeBtn.textContent = isDark ? '☼ Light Mode' : '◐ Dark Mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        initTheme();
+    </script>
+</body>
+
+</html>

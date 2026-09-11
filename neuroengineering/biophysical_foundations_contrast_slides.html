@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Biophysical Foundations of Neural Contrast (Slides) — IDNE 701</title>
+
+    <!-- Reveal.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 for Reveal.js -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.35);
+            --accent-light: #34d399;
+            --bg-dark: #090a0d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.12);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        /* Set a restrained base font size on the reveal canvas */
+        .reveal {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 21px; /* Scaled down from default 40px */
+            color: var(--text-main);
+            background-color: var(--bg-dark);
+        }
+
+        /* Pad slides so they never clip under the fixed top navigation bar */
+        .reveal .slides section {
+            padding: 40px 30px 24px 30px !important;
+            box-sizing: border-box;
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3,
+        .reveal h4 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: none;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+        }
+
+        .reveal h1 {
+            font-size: 1.9em;
+            line-height: 1.15;
+            margin-bottom: 12px;
+        }
+
+        .reveal h2 {
+            font-size: 1.35em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h3 {
+            font-size: 1.05em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h4 {
+            font-size: 0.88em;
+            margin-bottom: 6px;
+        }
+
+        .reveal h1 em,
+        .reveal h2 em,
+        .reveal h3 em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .reveal p {
+            font-size: 0.72em;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+        }
+
+        .reveal li {
+            font-size: 0.72em;
+            line-height: 1.45;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .reveal strong {
+            color: #ffffff;
+        }
+
+        .reveal a {
+            color: var(--accent-light);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--accent);
+            transition: all 0.2s;
+        }
+
+        .reveal a:hover {
+            color: #ffffff;
+            border-bottom-style: solid;
+        }
+
+        /* Top Nav Bar Overlay */
+        .slide-nav-bar {
+            position: fixed;
+            top: 12px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            background: rgba(15, 17, 23, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: #ffffff;
+            border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .nav-pills {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Cards & Grid Containers */
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            text-align: left;
+            margin-top: 12px;
+        }
+
+        .card-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .card-grid-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            backdrop-filter: blur(6px);
+            font-size: 0.76em;
+            line-height: 1.45;
+        }
+
+        .slide-card h4 {
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .slide-card .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            background: var(--accent);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        /* Stats Row */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 14px 0 10px 0;
+        }
+
+        .stat-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.55em;
+            font-weight: 800;
+            color: var(--accent-light);
+            display: block;
+            line-height: 1.1;
+        }
+
+        .stat-desc {
+            font-size: 0.64em;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Code/Formula blocks */
+        .formula-box {
+            background: rgba(16, 185, 129, 0.06);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .formula-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            color: var(--accent-light);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+
+        /* Compact MathJax formula rendering on slides */
+        .reveal mjx-container {
+            font-size: 88% !important;
+            margin: 0.3em 0 !important;
+        }
+        .reveal mjx-container[jax="CHTML"][display="true"] {
+            margin: 0.3em 0 !important;
+        }
+
+        /* Two column layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            text-align: left;
+            align-items: start;
+            margin-top: 10px;
+        }
+
+        .two-col.unequal {
+            grid-template-columns: 1.15fr 0.85fr;
+        }
+
+        /* Comparison Table */
+        .slide-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.62em;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .slide-table th {
+            color: var(--accent-light);
+            border-bottom: 2px solid var(--border);
+            padding: 6px 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        .slide-table td {
+            border-bottom: 1px solid var(--border);
+            padding: 6px 8px;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        .slide-table tr:hover td {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* List styling */
+        .slide-list {
+            text-align: left;
+            padding-left: 18px;
+            margin: 0 0 10px 0;
+        }
+
+        .slide-list li {
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Persistent Navigation Bar -->
+    <div class="slide-nav-bar">
+        <div>
+            <a href="IDNE701_FA2026.html#week-4" class="nav-link">← Week 4 Course Timeline</a>
+        </div>
+        <div class="nav-pills">
+            <a href="biophysical_foundations_contrast.html" class="nav-link">📄 Lecture Notes</a>
+            <a href="simulation_contrast_physics.html" class="nav-link">🔬 Simulation Sandbox</a>
+            <a href="worksheet_biophysical_modeling.html" class="nav-link">📝 Worksheet 4.1</a>
+        </div>
+    </div>
+
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title Slide -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px;">
+                    IDNE 701 · Fall 2026 · Week 4 Lecture
+                </div>
+                <h1 style="font-size: 1.85em; margin-bottom: 14px; line-height: 1.15;">
+                    Biophysical Foundations of <em>Neural Contrast</em>
+                </h1>
+                <h3 style="font-size: 0.95em; font-weight: 300; color: #d1d5db; max-width: 850px; margin: 0 auto 24px auto;">
+                    From Quantum Spins to Photons, Volume Conduction &amp; Acoustic Waves
+                </h3>
+                <div style="font-size: 0.72em; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+                    Mark Bolding, PhD · Department of Biomedical Engineering
+                </div>
+            </section>
+
+            <!-- SLIDE 2: The Physical Scale Gap -->
+            <section>
+                <h2>The <em>6-Order-of-Magnitude</em> Gap</h2>
+                <p>Non-invasive neuroengineering bridges microscopic physiology to macroscopic external sensors:</p>
+
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span class="stat-num">1 µm</span>
+                        <div class="stat-desc">Axon &amp; Dendrite Caliber</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">1 pA</span>
+                        <div class="stat-desc">Single Channel Current</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">1 ms</span>
+                        <div class="stat-desc">Action Potential Duration</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">15 mm</span>
+                        <div class="stat-desc">Distance Through Cranium</div>
+                    </div>
+                </div>
+
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>Microscopic Reality</h4>
+                        <p>Individual ion channel gating and action potentials produce quadrupole current fields that decay as <strong>\(1/r^3\)</strong>, undetectable outside the dura mater.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Macroscopic Observation</h4>
+                        <p>We measure coherent spatial summations: <strong>synchronized postsynaptic dipoles</strong>, bulk water proton magnetization, or scattered diffuse photon flux.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: The Four Physical Modalities -->
+            <section>
+                <h2>The <em>Four Physical Modalities</em></h2>
+                <p>Every non-invasive brain technology operates via one of four physical carrier channels:</p>
+
+                <div class="card-grid card-grid-4">
+                    <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                        <h4><span class="badge" style="background: #3b82f6;">MRI</span> Nuclear Spins</h4>
+                        <p>Water proton precession (\(^1\text{H}\)) in field \(B_0\). BOLD detects paramagnetic deoxyhemoglobin (\(\Delta\chi\)) dephasing.</p>
+                        <p style="color: var(--accent-light); margin-top: 6px; margin-bottom: 0;"><strong>Law:</strong> Bloch Equations</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4><span class="badge" style="background: #f59e0b;">fNIRS</span> Photons</h4>
+                        <p>NIR light (\(650 - 950\,\text{nm}\)) in optical window. Mie scattering (\(\mu_s' \gg \mu_a\)) and chromophore absorption.</p>
+                        <p style="color: var(--accent-light); margin-top: 6px; margin-bottom: 0;"><strong>Law:</strong> Modified Beer-Lambert</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4><span class="badge" style="background: #10b981;">EEG</span> Ionic Currents</h4>
+                        <p>Synchronous EPSPs in Layer V pyramidal neurons. Quasi-static volume conduction through resistive skull.</p>
+                        <p style="color: var(--accent-light); margin-top: 6px; margin-bottom: 0;"><strong>Law:</strong> Poisson &amp; Biot-Savart</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #ec4899;">
+                        <h4><span class="badge" style="background: #ec4899;">fUS</span> Acoustic Waves</h4>
+                        <p>High-frequency plane-wave ultrasound (\(1 - 15\,\text{MHz}\)). Doppler tracking of red blood cell backscatter.</p>
+                        <p style="color: var(--accent-light); margin-top: 6px; margin-bottom: 0;"><strong>Law:</strong> Wave &amp; Doppler</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Quantum Spins & NMR Physics -->
+            <section>
+                <h2>Quantum Spins &amp; <em>Zeeman Splitting</em></h2>
+                <div class="two-col">
+                    <div>
+                        <p>
+                            Hydrogen nuclei (\(^1\text{H}\), protons) possess spin \(I = 1/2\). An external field \(B_0\) breaks degeneracy into two energy levels:
+                        </p>
+                        <div class="formula-box">
+                            <div class="formula-title">Zeeman Energy Splitting</div>
+                            $$\Delta E = \gamma \hbar B_0$$
+                            <div style="font-size: 0.65em; color: var(--text-muted); margin-top: 2px;">
+                                \(\gamma / 2\pi = 42.58\,\text{MHz/T}\) for \(^1\text{H}\)
+                            </div>
+                        </div>
+                        <p>
+                            Thermal equilibrium produces a slight excess of parallel spins governed by the <strong>Boltzmann distribution</strong>.
+                        </p>
+                    </div>
+                    <div>
+                        <div class="formula-box">
+                            <div class="formula-title">Curie's Law (Net Magnetization)</div>
+                            $$M_0 = \frac{N_s \gamma^2 \hbar^2}{4 k_B T} B_0$$
+                        </div>
+                        <div class="slide-card">
+                            <h4>Field Strength Scaling</h4>
+                            <p>At \(3.0\,\text{T}\), only \(\sim 10\) spins per million contribute to net magnetization \(M_0\).</p>
+                            <p style="margin-bottom: 0;">Because \(M_0 \propto B_0\) and induction \(\propto \omega_0\), raw SNR scales superlinearly: <strong>\(\text{SNR} \propto B_0^{1.5 - 2.0}\)</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: The Bloch Equations -->
+            <section>
+                <h2>The <em>Vector Bloch Equations</em></h2>
+                <p>Governing the relaxation and precession of macroscopic magnetization \(\vec{M}(t)\):</p>
+
+                <div class="formula-box">
+                    $$\frac{d\vec{M}}{dt} = \gamma \vec{M} \times \vec{B} - \frac{M_x \hat{i} + M_y \hat{j}}{T_2} - \frac{(M_z - M_0)\hat{k}}{T_1}$$
+                </div>
+
+                <div class="two-col">
+                    <div class="slide-card">
+                        <h4>Longitudinal Relaxation (\(T_1\))</h4>
+                        $$M_z(t) = M_0 - [M_0 - M_z(0)] e^{-t / T_1}$$
+                        <p style="margin-top: 6px; margin-bottom: 0;">Spin-lattice energy dissipation to molecular lattice. \(T_1 \approx 800 - 1800\,\text{ms}\) in brain tissue.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Transverse Relaxation (\(T_2, T_2^*\))</h4>
+                        $$M_{xy}(t) = M_{xy}(0) e^{-t / T_2^*} e^{-i \omega_0 t}$$
+                        <p style="margin-top: 6px; margin-bottom: 0;">Spin-spin phase decoherence from molecular dipolar interactions + field gradients. \(T_2^* \approx 30 - 60\,\text{ms}\).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 6: The BOLD Mechanism -->
+            <section>
+                <h2>The <em>BOLD Effect</em> in fMRI</h2>
+                <div class="two-col unequal">
+                    <div>
+                        <ul class="slide-list">
+                            <li><strong>Diamagnetic \(\text{HbO}_2\):</strong> All electrons paired (\(S = 0\)). Volumetric susceptibility matches tissue (\(\Delta\chi \approx 0\)).</li>
+                            <li><strong>Paramagnetic \(\text{HbR}\):</strong> 4 unpaired \(d\)-electrons (\(S = 2\)). Creates microscopic field gradients (\(\Delta\chi \approx +0.2\,\text{ppm}\)).</li>
+                            <li><strong>Dephasing:</strong> Water protons diffusing through gradients dephase faster, shortening \(T_2^*\).</li>
+                        </ul>
+                        <div class="formula-box">
+                            $$\Delta R_2^* = \frac{1}{T_2^*} - \frac{1}{T_2} \propto [\text{HbR}] \cdot B_0^\beta$$
+                        </div>
+                    </div>
+                    <div class="slide-card">
+                        <h4>The Hyperemic Paradox</h4>
+                        <p>Neural activation triggers local vasodilation via nitric oxide and adenosine.</p>
+                        <p><strong>Cerebral blood flow surges \(30 - 60\%\)</strong>, vastly outpacing oxygen consumption (\(5 - 15\%\)).</p>
+                        <p style="color: var(--accent-light); margin-bottom: 0;">Result: Venous \([\text{HbR}]\) drops, \(T_2^*\) lengthens, and MR signal <em>increases</em> (\(1 - 5\%\)).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 7: Diffuse Optical Physics -->
+            <section>
+                <h2>Diffuse Optical Physics (<em>fNIRS</em>)</h2>
+                <p>Optical interrogation relies on the <strong>diagnostic optical window</strong> (\(650 - 950\,\text{nm}\)):</p>
+
+                <div class="two-col">
+                    <div>
+                        <div class="slide-card">
+                            <h4>Turbid Tissue Regime</h4>
+                            <p>Scattering completely dominates absorption:</p>
+                            <ul style="padding-left: 16px; margin: 0;">
+                                <li>\(\mu_a \approx 0.01\,\text{mm}^{-1}\) (absorption path \(\sim 100\,\text{mm}\))</li>
+                                <li>\(\mu_s \approx 10\,\text{mm}^{-1}\) (scattering path \(\sim 0.1\,\text{mm}\))</li>
+                                <li>Anisotropy \(g \approx 0.9\) (forward Mie scattering)</li>
+                            </ul>
+                        </div>
+                        <div class="formula-box">
+                            $$\mu_s' = \mu_s(1 - g) \approx 1.0\,\text{mm}^{-1}$$
+                        </div>
+                    </div>
+                    <div>
+                        <div class="formula-box">
+                            <div class="formula-title">Photon Diffusion Equation</div>
+                            $$\frac{1}{c} \frac{\partial \Phi}{\partial t} - D \nabla^2 \Phi + \mu_a \Phi = S(\vec{r}, t)$$
+                        </div>
+                        <div class="slide-card">
+                            <h4>Banana-Shaped Sensitivity</h4>
+                            <p>Surface optodes separated by \(d_{\text{SD}} = 30\,\text{mm}\) yield a curvilinear migration profile:</p>
+                            <p style="color: var(--accent-light); font-weight: 700; margin-bottom: 4px;">\(z_{\text{max}} \approx \frac{1}{2} d_{\text{SD}} \approx 12 - 15\,\text{mm}\)</p>
+                            <p style="margin-bottom: 0;">Interrogates only the superficial gyral crowns.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 8: Modified Beer-Lambert Law -->
+            <section>
+                <h2><em>Modified Beer-Lambert Law</em> (MBLL)</h2>
+                <p>Unmixing oxy- and deoxyhemoglobin concentrations from multi-wavelength optical density changes:</p>
+
+                <div class="formula-box">
+                    $$\Delta\text{OD}(\lambda) = \left[ \varepsilon_{\text{HbO}_2}(\lambda) \Delta[\text{HbO}_2] + \varepsilon_{\text{HbR}}(\lambda) \Delta[\text{HbR}] \right] \cdot d_{\text{SD}} \cdot \text{DPF}(\lambda)$$
+                </div>
+
+                <div class="two-col">
+                    <div class="slide-card">
+                        <h4>Dual-Wavelength Solution</h4>
+                        <p>Measuring at \(\lambda_1 = 760\,\text{nm}\) (HbR dominant) and \(\lambda_2 = 850\,\text{nm}\) (\(\text{HbO}_2\) dominant):</p>
+                        $$\begin{bmatrix} \Delta[\text{HbO}_2] \\ \Delta[\text{HbR}] \end{bmatrix} = \frac{1}{d_{\text{SD}}} \mathbf{E}^{-1} \begin{bmatrix} \Delta\text{OD}_1 \\ \Delta\text{OD}_2 \end{bmatrix}$$
+                    </div>
+                    <div class="slide-card" style="border-left: 3px solid #ef4444;">
+                        <h4>Scalp Contamination Challenge</h4>
+                        <p>Up to \(80\%\) of the raw optical signal originates from scalp/skull blood flow.</p>
+                        <p style="color: var(--accent-light); margin-bottom: 0;"><strong>Solution:</strong> Short-separation channels (\(8\,\text{mm}\)) + regression/Kalman filtering.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Electrodynamics & Pyramidal Dipoles -->
+            <section>
+                <h2>Electrodynamics: <em>Pyramidal Dipoles</em></h2>
+                <div class="two-col">
+                    <div>
+                        <h4>Why Postsynaptic Potentials?</h4>
+                        <ul class="slide-list">
+                            <li><strong>Action potentials</strong> are quadrupole traveling fields with duration \(\sim 1\,\text{ms}\); they cancel destructively.</li>
+                            <li><strong>EPSPs</strong> last \(10 - 50\,\text{ms}\) and create stationary dipoles along apical dendrites (\(\approx 1\,\text{mm}\) separation).</li>
+                            <li>Layer V pyramidal cells form an <strong>open-field architecture</strong> perpendicular to cortex.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="formula-box">
+                            <div class="formula-title">Elementary Current Dipole</div>
+                            $$\vec{p} = I \cdot \vec{d} \approx 20\,\text{fA}\cdot\text{m}$$
+                        </div>
+                        <div class="slide-card">
+                            <h4>Population Coherence</h4>
+                            <p>To register a measurable scalp signal (\(10 - 50\,\mu\text{V}\)), approximately <strong>\(10^4 - 10^5\) contiguous pyramidal neurons</strong> must fire synchronously.</p>
+                            <p style="margin-bottom: 0;">$$\vec{Q}_{\text{net}} = \sum_{k} \vec{p}_k \sim 10 - 100\,\text{nA}\cdot\text{m}$$</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Volume Conduction & Skull Smearing -->
+            <section>
+                <h2>Volume Conduction: <em>Poisson's Law</em></h2>
+                <p>In biological tissue at neurophysiological frequencies (\(&lt; 1000\,\text{Hz}\)), quasi-static conditions hold:</p>
+
+                <div class="formula-box">
+                    $$\nabla \cdot (\sigma(\vec{r}) \nabla \Phi) = \nabla \cdot \vec{J}_p = I_s(\vec{r})$$
+                    <div style="font-size: 0.65em; color: var(--text-muted); margin-top: 2px;">
+                        Poisson's Equation of Volume Conduction
+                    </div>
+                </div>
+
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>Brain Tissue</h4>
+                        <p>\(\sigma \approx 0.33\,\text{S/m}\). High conductivity electrolyte bath permitting easy current flow.</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4>Skull Bone</h4>
+                        <p>\(\sigma \approx 0.005\,\text{S/m}\). <strong>Resistivity ratio \(\sim 60:1\)</strong>. Acts as severe spatial low-pass filter!</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Scalp Tissue</h4>
+                        <p>\(\sigma \approx 0.33\,\text{S/m}\). Spreads current horizontally, smearing localized cortical spikes over \(20 - 30\,\text{mm}\).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 11: EEG vs MEG -->
+            <section>
+                <h2>EEG vs. MEG: <em>The Physical Distinction</em></h2>
+                <table class="slide-table">
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Electroencephalography (EEG)</th>
+                            <th>Magnetoencephalography (MEG)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Signal Measured</strong></td>
+                            <td>Scalar electric potential \(\Phi(\vec{r})\)</td>
+                            <td>Vector magnetic flux density \(\vec{B}(\vec{r})\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Primary Source</strong></td>
+                            <td>Both radial (gyral) &amp; tangential (sulcal)</td>
+                            <td>Strictly <strong>tangential dipoles</strong> in sulcal walls</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Skull Effect</strong></td>
+                            <td>Severe spatial blurring &amp; attenuation</td>
+                            <td><strong>Completely transparent</strong> (\(\mu_r \approx 1.0\))</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Spatial Resolution</strong></td>
+                            <td>\(20 - 30\,\text{mm}\) (without high-density montage)</td>
+                            <td>\(3 - 5\,\text{mm}\) (with anatomical MRI prior)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sensor Physics</strong></td>
+                            <td>Ag/AgCl conductive contact electrodes</td>
+                            <td>SQUID magnetometers / OPM quantum vapors</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Environmental Noise</strong></td>
+                            <td>50/60 Hz mains, motion artifacts</td>
+                            <td>Earth's magnetic field (\(10^6 \times\) signal magnitude!)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- SLIDE 12: Ultrasound & Acoustic Waves -->
+            <section>
+                <h2>Acoustic Waves &amp; <em>Functional Ultrasound</em></h2>
+                <div class="two-col">
+                    <div>
+                        <h4>Transcranial Bone Challenges</h4>
+                        <ul class="slide-list">
+                            <li><strong>Acoustic Mismatch:</strong> Bone impedance \(Z \approx 6.0 \times 10^6\,\text{Rayl}\) vs brain \(1.54 \times 10^6\,\text{Rayl}\).</li>
+                            <li><strong>Severe Attenuation:</strong> \(\approx 10 - 20\,\text{dB/cm/MHz}\) causes cranial heating.</li>
+                            <li><strong>Phase Aberration:</strong> Variable skull thickness defocuses acoustic focal spot.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="slide-card">
+                            <h4>Ultrafast Plane-Wave Doppler (fUS)</h4>
+                            <p>Transmits unfocused plane waves at <strong>\(5 - 20\,\text{kHz}\) PRF</strong>. Compound angles yield frame rates \(&gt; 1\,\text{kHz}\).</p>
+                            <div class="formula-box">
+                                $$\text{PD} \propto \text{Cerebral Blood Volume (CBV)}$$
+                            </div>
+                            <p>SVD filtering isolates capillary blood backscatter from tissue clutter.</p>
+                            <p style="color: var(--accent-light); font-weight: 700; margin-bottom: 0;">Spatial resolution: \(100\,\mu\text{m}\)!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 13: Unified Resolution Envelope -->
+            <section>
+                <h2>The Unified <em>Trade-Off Landscape</em></h2>
+                <div class="slide-card" style="margin-bottom: 12px; padding: 10px 14px;">
+                    <div style="display: flex; justify-content: space-around; text-align: center;">
+                        <div>
+                            <span style="font-size: 1.4em; font-weight: 800; color: #3b82f6;">fMRI</span>
+                            <div style="font-size: 0.65em; color: var(--text-muted);">0.5 mm · 1-2 s · Whole Brain</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 1.4em; font-weight: 800; color: #f59e0b;">fNIRS</span>
+                            <div style="font-size: 0.65em; color: var(--text-muted);">15 mm · 10 ms · Cortex (15 mm)</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 1.4em; font-weight: 800; color: #10b981;">EEG</span>
+                            <div style="font-size: 0.65em; color: var(--text-muted);">25 mm · &lt;1 ms · Surface Gyri</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 1.4em; font-weight: 800; color: #a855f7;">MEG</span>
+                            <div style="font-size: 0.65em; color: var(--text-muted);">4 mm · &lt;1 ms · Sulcal Cortex</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="two-col">
+                    <div class="slide-card">
+                        <h4>Spatial Uncertainty Principle</h4>
+                        <p style="margin-bottom: 0;">Penetration depth through bone or turbid tissue inevitably compromises high spatial frequency information unless invasive windows are used.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Temporal vs. Metabolic Decoupling</h4>
+                        <p style="margin-bottom: 0;">Electrophysiology tracks instantaneous thought (\(&lt; 1\,\text{ms}\)); hemodynamics tracks sluggish vascular infrastructure (\(1 - 5\,\text{s}\)).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 14: In Silico Simulation Sandbox -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <h2>Hands-On: <em>The Simulation Sandbox</em></h2>
+                <p>This week's workshop puts these mathematical derivations directly into code:</p>
+
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>Bloch Vector Dynamics</h4>
+                        <p style="margin-bottom: 0;">Tune \(B_0\) from \(0.05\,\text{T}\) to \(7.0\,\text{T}\). Watch longitudinal recovery and \(T_2^*\) decay curves evolve with flip angle and TR.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>fNIRS Photon Migration</h4>
+                        <p style="margin-bottom: 0;">Adjust \(\mu_s', \mu_a\), and separation \(d_{\text{SD}}\). Observe the banana profile and dual-wavelength hemodynamic unmixing.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Volume Conduction Dipole</h4>
+                        <p style="margin-bottom: 0;">Translate a cortical current dipole in depth and orientation. See the skull low-pass filter spread the scalp potential.</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 18px;">
+                    <a href="simulation_contrast_physics.html" class="nav-link" style="font-size: 0.8em; padding: 8px 18px; background: var(--accent); color: #000; font-weight: 700;">
+                        🔬 Open Biophysical Simulation Sandbox →
+                    </a>
+                </div>
+            </section>
+
+            <!-- SLIDE 15: Required Reading -->
+            <section>
+                <h2>Required <em>Foundational Literature</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                        <h4><span class="badge" style="background: #3b82f6;">fMRI</span> Ogawa et al. (1990)</h4>
+                        <p><strong>Magn. Reson. Med., 14(1): 68–78</strong><br>
+                        <em>The landmark discovery of BOLD contrast and deoxyhemoglobin magnetic susceptibility gradients.</em></p>
+                        <a href="https://doi.org/10.1002/mrm.1910140108" target="_blank" rel="noopener">DOI: 10.1002/mrm.1910140108 →</a>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4><span class="badge" style="background: #f59e0b;">fNIRS</span> Villringer et al. (1993)</h4>
+                        <p><strong>Neurosci. Lett., 154(1-2): 101–104</strong><br>
+                        <em>First demonstration of functional near-infrared spectroscopy through intact human skull.</em></p>
+                        <a href="https://doi.org/10.1016/0304-3940(93)90181-J" target="_blank" rel="noopener">DOI: 10.1016/0304-3940(93)90181-J →</a>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4><span class="badge" style="background: #10b981;">EEG</span> Nunez &amp; Srinivasan (2006)</h4>
+                        <p><strong>Electric Fields of the Brain (2nd Ed.)</strong><br>
+                        <em>The definitive treatise on postsynaptic pyramidal dipoles and head volume conduction.</em></p>
+                        <a href="https://doi.org/10.1093/acprof:oso/9780195050387.001.0001" target="_blank" rel="noopener">Oxford University Press →</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 16: Looking Ahead -->
+            <section data-background-gradient="radial-gradient(circle at center, #134e4a 0%, #090a0d 100%)">
+                <h2>Looking Ahead to <em>Week 5</em></h2>
+                <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 20px;">
+                    Next: <strong>Sensor Hardware, Transduction Physics &amp; Array Architecture</strong>
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="worksheet_biophysical_modeling.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📝 Start Worksheet 4.1</a>
+                    <a href="simulation_contrast_physics.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">🔬 Practice in Sandbox</a>
+                    <a href="biophysical_foundations_contrast.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📄 Read Full Lecture Notes</a>
+                </div>
+                <div style="margin-top: 30px; font-size: 0.65em; font-family: 'JetBrains Mono', monospace; color: #6b7280;">
+                    IDNE 701: Introduction to Neuroengineering · Department of Biomedical Engineering
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Reveal.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            controls: true,
+            progress: true,
+            center: true,
+            touch: true,
+            keyboard: true,
+            overview: true,
+            width: 1200,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 1.5
+        });
+
+        // Trigger MathJax re-render after slide transition if necessary
+        Reveal.on('slidechanged', event => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worksheet 4.1: Biophysical Forward Modeling & Signal Transduction – IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- MathJax 3 for rendering LaTeX math formulas -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #10b981;
+            --accent-soft: rgba(16, 185, 129, 0.08);
+            --border: #e5e5e5;
+            --border-focus: #10b981;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #ffffff;
+            --code-font: 'Space Mono', monospace;
+            --serif-font: 'Instrument Serif', serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --phase1: #3b82f6;
+            --phase2: #10b981;
+            --phase3: #f59e0b;
+            --phase4: #8b5cf6;
+            --phase5: #ec4899;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+        }
+
+        .dark {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-card: #18181b;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #34d399;
+            --accent-soft: rgba(52, 211, 153, 0.15);
+            --border: #27272a;
+            --border-focus: #34d399;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #1f1f23;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--code-font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding-bottom: 5rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            font-family: var(--code-font);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-brand span {
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--accent);
+        }
+
+        .theme-toggle-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Navigation Tabs Bar */
+        .tabs-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem 1.5rem;
+            overflow-x: auto;
+        }
+
+        .tabs-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .tab-link {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 4px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+
+        .tab-link:hover {
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
+
+        .tab-link.active {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border-color: var(--accent);
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        header {
+            margin-bottom: 2rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--phase2);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: 2.3rem;
+            font-weight: 400;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.75rem;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        .header-meta {
+            font-family: var(--sans-font);
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            max-width: 900px;
+            line-height: 1.6;
+        }
+
+        /* Action Toolbar */
+        .action-toolbar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s;
+        }
+
+        .btn-sm:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .save-status {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .save-status.saved {
+            color: var(--success);
+        }
+
+        /* Guidance Box */
+        .guide-box {
+            background: var(--accent-soft);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 2rem;
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .guide-box strong {
+            color: var(--text-primary);
+        }
+
+        .guide-box ul {
+            margin-left: 1.25rem;
+            margin-top: 0.5rem;
+        }
+
+        .guide-box li {
+            margin-bottom: 0.35rem;
+        }
+
+        /* Card container */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-family: var(--serif-font);
+            font-size: 1.5rem;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .step-num {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            background: var(--accent);
+            color: #000000;
+            border-radius: 50%;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .card-desc {
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-primary);
+        }
+
+        input[type="text"],
+        select,
+        textarea {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 4px;
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--border-focus);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 95px;
+            line-height: 1.5;
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+        }
+
+        /* Physics Equation Preset Box */
+        .equation-preset-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .equation-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+
+        .equation-display {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 1.05rem;
+            margin: 0.5rem 0;
+            overflow-x: auto;
+        }
+
+        /* Interactive SNR & Attenuation Calculator */
+        .calc-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 800px) {
+            .calc-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .slider-val {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .calc-results-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.75rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+        }
+
+        .metric-badge {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed var(--border);
+            font-size: 0.8rem;
+        }
+
+        .metric-badge strong {
+            font-family: var(--code-font);
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        .snr-verdict {
+            font-family: var(--sans-font);
+            font-size: 0.8rem;
+            line-height: 1.5;
+            padding: 0.75rem;
+            border-radius: 4px;
+            background: var(--accent-soft);
+            border-left: 3px solid var(--accent);
+            color: var(--text-secondary);
+        }
+
+        @media print {
+            .top-nav,
+            .tabs-bar,
+            .action-toolbar {
+                display: none !important;
+            }
+
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding-bottom: 0 !important;
+            }
+
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Global Header -->
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="IDNE701_FA2026.html" class="nav-brand">
+                <span>IDNE 701</span> · Worksheet 4.1
+            </a>
+            <div class="nav-links">
+                <a href="IDNE701_FA2026.html" class="nav-link">Syllabus</a>
+                <a href="clinical_needs_spec_template.html" class="nav-link">Phase 1 Dossier</a>
+                <a href="grading_rubrics.html" class="nav-link">Rubrics</a>
+                <button type="button" class="theme-toggle-btn" id="themeToggle" aria-label="Toggle dark/light mode">◐ Dark Mode</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Navigation Tabs Bar -->
+    <div class="tabs-bar">
+        <div class="tabs-inner">
+            <a href="worksheet_pathology_mapping.html" class="tab-link">2.1 Pathology &amp; Biomarkers</a>
+            <a href="worksheet_stakeholder_interview.html" class="tab-link">2.2 Stakeholder Protocol</a>
+            <a href="worksheet_target_specifications.html" class="tab-link">2.3 Target Specifications</a>
+            <a href="worksheet_precedent_benchmarking.html" class="tab-link">3.1 Precedent Benchmarking</a>
+            <a href="worksheet_biophysical_modeling.html" class="tab-link active">4.1 Biophysical Modeling</a>
+            <a href="simulation_contrast_physics.html" class="tab-link">🔬 Simulation Sandbox</a>
+            <a href="biophysical_foundations_contrast.html" class="tab-link">📖 Week 4 Lecture</a>
+            <a href="clinical_needs_spec_template.html" class="tab-link">Needs Spec Template</a>
+            <a href="IDNE701_FA2026.html#week-4" class="tab-link">← Syllabus Week 4</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <span class="phase-badge">Phase 2 · Biophysics &amp; Sensors</span>
+            <h1>Worksheet 4.1: <em>Biophysical Forward Modeling &amp; Signal Transduction</em></h1>
+            <p class="header-meta">
+                Derive the first-principles forward physics linking microscopic cellular pathology to external non-invasive sensor signals. Establish the differential governing equations, quantify depth-dependent signal attenuation, model theoretical Signal-to-Noise Ratio (SNR) boundaries, and formulate your in silico simulation test bench.
+            </p>
+        </header>
+
+        <!-- Action Toolbar -->
+        <div class="action-toolbar">
+            <div class="tool-group">
+                <button type="button" class="btn-sm" id="saveDraftBtn">💾 Save Draft</button>
+                <button type="button" class="btn-sm" id="loadExampleBtn">✨ Load Clinical Exemplar (EpiFocus Forward Model)</button>
+                <button type="button" class="btn-sm" id="copyMarkdownBtn">📋 Copy Markdown</button>
+                <button type="button" class="btn-sm" id="exportJsonBtn">⬇ Export JSON</button>
+                <button type="button" class="btn-sm" id="printBtn">🖨️ Print / PDF</button>
+                <button type="button" class="btn-sm" id="resetBtn" style="color: var(--danger);">↺ Reset</button>
+            </div>
+            <div class="save-status" id="saveStatus">
+                <span>●</span> Draft synced locally
+            </div>
+        </div>
+
+        <!-- Instructional Guidance -->
+        <div class="guide-box">
+            <strong>The Role of Forward Modeling in Neuroengineering:</strong> Before designing physical sensor arrays or writing reconstruction algorithms, engineers must build an accurate mathematical forward model:
+            $$\mathbf{y} = \mathcal{F}(\mathbf{x}) + \mathbf{n}$$
+            where \(\mathbf{x}\) represents the underlying neural source state, \(\mathcal{F}\) represents the biophysical forward operator (Maxwell's equations, Bloch equations, diffusion equations), \(\mathbf{n}\) is physical noise, and \(\mathbf{y}\) is the raw recorded sensor vector. If your forward model is unphysical or violates conservation laws, your inverse reconstruction will yield nonsensical artifacts.
+        </div>
+
+        <form id="worksheetForm">
+            <!-- Section 1: Modality & Neural Event Framing -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">1</span> Sensing Modality &amp; Biological Source Event</span>
+                </div>
+                <div class="card-desc">
+                    Specify your selected neuroimaging modality, physical energy form, and the microscopic physiological event acting as your signal generator.
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="teamName">Team / Project Identifier</label>
+                        <input type="text" id="teamName" placeholder="e.g., Team EpiFocus · OPM-MEG / Low-Field MRI Hybrid">
+                    </div>
+                    <div class="form-group">
+                        <label for="studentNames">Engineering Modeling Leads</label>
+                        <input type="text" id="studentNames" placeholder="e.g., Sarah Jenkins (Biophysics), David Wu (Signal Processing)">
+                    </div>
+                    <div class="form-group">
+                        <label for="primaryModality">Primary Biophysical Sensing Modality</label>
+                        <select id="primaryModality">
+                            <option value="Biomagnetic Field Sensing (OPM-MEG / SQUID)" selected>Biomagnetic Field Sensing (OPM-MEG / SQUID)</option>
+                            <option value="Nuclear Magnetic Resonance (fMRI / High/Low-Field NMR)">Nuclear Magnetic Resonance (fMRI / High/Low-Field NMR)</option>
+                            <option value="Diffuse Optical Tomography (fNIRS / TD-NIRS)">Diffuse Optical Tomography (fNIRS / TD-NIRS)</option>
+                            <option value="Electrophysiological Surface Potential (High-Density EEG)">Electrophysiological Surface Potential (High-Density EEG)</option>
+                            <option value="Acoustic Wave & Microbubble Dynamics (Focused Ultrasound)">Acoustic Wave &amp; Microbubble Dynamics (Focused Ultrasound)</option>
+                            <option value="Multi-Modal Hybrid System">Multi-Modal Hybrid System</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="energyDomain">Physical Energy Domain &amp; Spectrum</label>
+                        <input type="text" id="energyDomain" placeholder="e.g., Quasi-static quasi-DC to 1 kHz magnetic fields (10^-15 to 10^-12 Tesla)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="microscopicEvent">Microscopic Neural Event (Source Generator)</label>
+                        <textarea id="microscopicEvent" placeholder="Describe the biological source generator at the cellular scale. E.g., 'Synchronized post-synaptic pyramidal cell intracellular dendritic currents producing a net equivalent current dipole Q = I · d (typically 10–100 nA·m per patch of 10,000 to 50,000 co-activated neurons) firing fast interictal paroxysmal sharp waves (80–250 Hz).'"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: Mathematical Governing Equations & Boundary Conditions -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">2</span> Mathematical Forward Equations &amp; Boundary Conditions</span>
+                </div>
+                <div class="card-desc">
+                    Formalize the differential or integral equations governing the propagation of your signal from the brain source through skull and scalp to the detector surface.
+                </div>
+
+                <!-- Equation Presets -->
+                <div class="equation-preset-card">
+                    <div class="equation-title">Canonical Governing Law (Selected Modality Reference)</div>
+                    <div class="equation-display" id="equationDisplay">
+                        $$\mathbf{B}(\mathbf{r}) = \frac{\mu_0}{4\pi} \int \frac{\mathbf{J}(\mathbf{r}') \times (\mathbf{r} - \mathbf{r}')}{|\mathbf{r} - \mathbf{r}'|^3} \, d^3\mathbf{r}'$$
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-muted); font-family:var(--sans-font); text-align:center;" id="equationCaption">
+                        Biot-Savart Law for quasi-static magnetic field propagation from primary neuronal current density \(\mathbf{J}_p\) and volume return currents \(\sigma \nabla V\).
+                    </p>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="governingEquations">Your Explicit Analytical or Numerical Formulation</label>
+                        <textarea id="governingEquations" style="min-height: 110px;" placeholder="Write out the exact differential or integral equations governing your system. E.g. For MEG: B(r) = (μ₀/4π) ∮ [J_p(r') × (r - r') / |r - r'|³] dr' - (μ₀/4π) ∑ (σ_k - σ_k+1) ∬ V(r') [n_k(r') × (r - r') / |r - r'|³] dS_k. For MRI: dM/dt = γ M × B - (Mx i + My j)/T2 - (Mz - M0) k / T1."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="boundaryConditions">Volume Conductor Geometry &amp; Boundary Conditions</label>
+                        <input type="text" id="boundaryConditions" placeholder="e.g., 3-compartment Boundary Element Method (BEM) mesh: Brain (0.33 S/m), Skull (0.01 S/m), Scalp (0.33 S/m); Neumann zero current flux at scalp-air interface">
+                    </div>
+                    <div class="form-group">
+                        <label for="physicalConstants">Key Biophysical Constants &amp; Tissue Parameters</label>
+                        <input type="text" id="physicalConstants" placeholder="e.g., μ₀ = 4π×10^-7 H/m; σ_brain = 0.33 S/m; skull conductivity ratio 1:30; gyromagnetic ratio γ = 42.58 MHz/T">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Interactive Signal Attenuation & SNR Budget Calculator -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">3</span> Interactive Signal Attenuation &amp; SNR Budget Calculator</span>
+                </div>
+                <div class="card-desc">
+                    Adjust the biophysical source depth, generator amplitude, and detector noise floor to verify that your neural signal exceeds the physical noise floor at the sensor plane.
+                </div>
+
+                <div class="calc-container">
+                    <!-- Left: Interactive Sliders -->
+                    <div class="calc-inputs">
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Source Depth from Sensor Plane (\(r\))</span>
+                                <span class="slider-val" id="depthDisplay">20 mm</span>
+                            </div>
+                            <input type="range" id="sliderDepth" min="5" max="80" step="1" value="20">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">Scalp thickness + skull + CSF + cortical depth</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Source Current Dipole Moment (\(Q\))</span>
+                                <span class="slider-val" id="dipoleDisplay">25 nA·m</span>
+                            </div>
+                            <input type="range" id="sliderDipole" min="1" max="100" step="1" value="25">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">Synchronized neural patch activity</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Sensor White Noise Floor (\(S_n^{1/2}\))</span>
+                                <span class="slider-val" id="noiseDisplay">15 fT/√Hz</span>
+                            </div>
+                            <input type="range" id="sliderNoise" min="2" max="60" step="1" value="15">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">Transducer intrinsic noise limit</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span>Recording Bandwidth (\(\Delta f\))</span>
+                                <span class="slider-val" id="bwDisplay">250 Hz</span>
+                            </div>
+                            <input type="range" id="sliderBw" min="10" max="1000" step="10" value="250">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">Nyquist acquisition frequency range</span>
+                        </div>
+                    </div>
+
+                    <!-- Right: Results & Sanity Check -->
+                    <div class="calc-results-box">
+                        <div class="metric-badge">
+                            <span>Predicted Magnetic Field at Sensor (\(B\)):</span>
+                            <strong id="calcField">312.5 fT</strong>
+                        </div>
+                        <div class="metric-badge">
+                            <span>Total Integrated RMS Noise (\(\sigma_n\)):</span>
+                            <strong id="calcNoiseRMS">237.2 fT</strong>
+                        </div>
+                        <div class="metric-badge">
+                            <span>Single-Trial Signal-to-Noise Ratio (SNR):</span>
+                            <strong id="calcSNR" style="color:var(--success);">1.32 (2.4 dB)</strong>
+                        </div>
+                        <div class="metric-badge">
+                            <span>Required Averaging Epochs for SNR ≥ 5:</span>
+                            <strong id="calcAverages">15 epochs</strong>
+                        </div>
+                        <div class="snr-verdict" id="snrVerdict">
+                            <strong>Detection Feasibility:</strong> Feasible with minimal averaging. Signal amplitude at 20 mm exceeds the single-trial sensor noise floor.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 4: Spatiotemporal Resolution Limits -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">4</span> Physical Spatiotemporal Resolution Bounds</span>
+                </div>
+                <div class="card-desc">
+                    Identify the fundamental physical limits that prevent your system from achieving infinitely fine spatial or temporal resolution (diffraction, volume conduction, acoustic attenuation).
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="spatialResolutionBound">Theoretical Spatial Resolution Limit</label>
+                        <input type="text" id="spatialResolutionBound" placeholder="e.g., 1.5 mm cortical surface dipole localization error (bounded by skull volume conduction and sensor grid pitch)">
+                    </div>
+                    <div class="form-group">
+                        <label for="temporalResolutionBound">Theoretical Temporal Resolution Limit</label>
+                        <input type="text" id="temporalResolutionBound" placeholder="e.g., 0.5 ms (1.0 kHz bandwidth bounded by OPM vapor cell spin-exchange relaxation rate)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="tradeoffAnalysis">The Fundamental Physics Trade-off Curve</label>
+                        <textarea id="tradeoffAnalysis" placeholder="Explain the physical trade-off governing your system. E.g. 'In OPM-MEG, decreasing sensor stand-off r increases captured flux as 1/r², improving spatial localization; however, moving closer to the scalp exposes sensors to cranial muscle artifact (EMG 20–300 Hz). In MRI, increasing gradient slew rate to shorten readouts increases PNS risk. In fNIRS, increasing source-detector distance increases brain penetration depth at the cost of exponential photon attenuation (exp(-μ_eff · d)).'"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 5: In Silico Simulation Plan -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">5</span> In Silico Forward Simulation Architecture</span>
+                </div>
+                <div class="card-desc">
+                    Outline the computational pipeline and simulation tools your team will deploy to generate synthetic ground-truth test data.
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="simEngine">Computational Simulation Platform / Framework</label>
+                        <input type="text" id="simEngine" placeholder="e.g., MNE-Python + FieldTrip BEM / SimNIBS + custom PyTorch forward solver">
+                    </div>
+                    <div class="form-group">
+                        <label for="phantomModel">Anatomical Head Model / Numerical Phantom</label>
+                        <input type="text" id="phantomModel" placeholder="e.g., Colin27 / ICBM152 realistic MRI segmented multi-layer mesh (50,000 vertices)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="simValidationPlan">Synthetic Benchmark &amp; Validation Protocol</label>
+                        <textarea id="simValidationPlan" placeholder="How will you verify your forward simulation against analytical ground truth? E.g., 'Simulate point dipoles placed at known cortical coordinates in gyral crests and sulcal banks. Generate synthetic sensor time-series with Gaussian white noise and 1/f biological background noise. Evaluate forward lead-field matrix condition number and compute relative error compared against closed-form spherical head models.'"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 6: Technical Dossier Synthesis -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title"><span class="step-num">6</span> Phase 2 Dossier Synthesis (Section 3: Biophysical Forward Model)</span>
+                </div>
+                <div class="card-desc">
+                    Synthesize your forward modeling derivation into formal technical prose for Section 3 of your Preliminary Design Concept (PDC) Dossier.
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="forwardModelProse">Executive Biophysical Forward Model Summary</label>
+                        <textarea id="forwardModelProse" style="min-height: 140px;" placeholder="Draft formal prose: 'The physical transduction architecture of EpiFocus is governed by quasi-static electromagnetic field propagation originating from synchronized pyramidal cell post-synaptic dendritic currents. Within the low-frequency electrophysiological spectrum (<1 kHz), displacement currents (ε ∂E/∂t) are negligibly small compared to resistive conduction currents (σE), reducing Maxwell's equations to the quasi-static Biot-Savart formulation. The magnetic flux density B(r) measured at each optically pumped magnetometer is modeled as a linear superposition of primary intra-neuronal currents and secondary volume conduction currents across a three-shell boundary element mesh...'"></textarea>
+                    </div>
+                </div>
+            </section>
+        </form>
+    </div>
+
+    <script>
+        // Modality Equation Presets
+        const modalityPresets = {
+            "Biomagnetic Field Sensing (OPM-MEG / SQUID)": {
+                eq: "$$\\mathbf{B}(\\mathbf{r}) = \\frac{\\mu_0}{4\\pi} \\int \\frac{\\mathbf{J}(\\mathbf{r}') \\times (\\mathbf{r} - \\mathbf{r}')}{|\\mathbf{r} - \\mathbf{r}'|^3} \\, d^3\\mathbf{r}'$$",
+                caption: "Biot-Savart Law for quasi-static magnetic field propagation from primary neuronal currents \\(\\mathbf{J}_p\\) and volume return currents \\(\\sigma \\nabla V\\)."
+            },
+            "Nuclear Magnetic Resonance (fMRI / High/Low-Field NMR)": {
+                eq: "$$\\frac{d\\mathbf{M}}{dt} = \\gamma \\mathbf{M} \\times \\mathbf{B} - \\frac{M_x\\mathbf{i} + M_y\\mathbf{j}}{T_2^*} - \\frac{(M_z - M_0)\\mathbf{k}}{T_1}$$",
+                caption: "Phenomenological Bloch Equations describing spin magnetization precession, RF nutation, and transverse/longitudinal relaxation."
+            },
+            "Diffuse Optical Tomography (fNIRS / TD-NIRS)": {
+                eq: "$$\\frac{1}{c} \\frac{\\partial \\Phi}{\\partial t} - \\nabla \\cdot [D(\\mathbf{r}) \\nabla \\Phi(\\mathbf{r}, t)] + \\mu_a(\\mathbf{r}) \\Phi(\\mathbf{r}, t) = S(\\mathbf{r}, t)$$",
+                caption: "Diffusion Approximation to the Radiative Transport Equation for photon migration through highly scattering cranial tissue."
+            },
+            "Electrophysiological Surface Potential (High-Density EEG)": {
+                eq: "$$\\nabla \\cdot [\\sigma(\\mathbf{r}) \\nabla V(\\mathbf{r})] = -I_{\\text{source}}(\\mathbf{r}) = \\nabla \\cdot \\mathbf{J}_p$$",
+                caption: "Poisson's Equation for Volume Conduction under the quasi-static boundary condition \\(\\sigma \\frac{\\partial V}{\\partial n} = 0\\) at the scalp-air interface."
+            },
+            "Acoustic Wave & Microbubble Dynamics (Focused Ultrasound)": {
+                eq: "$$\\nabla^2 p - \\frac{1}{c_0^2} \\frac{\\partial^2 p}{\\partial t^2} + \\frac{\\delta}{c_0^4} \\frac{\\partial^3 p}{\\partial t^3} + \\frac{\\beta}{\\rho_0 c_0^4} \\frac{\\partial^2 (p^2)}{\\partial t^2} = 0$$",
+                caption: "Westervelt Non-Linear Acoustic Wave Equation accounting for skull attenuation, diffraction, and microbubble cavitation pressure."
+            },
+            "Multi-Modal Hybrid System": {
+                eq: "$$\\mathbf{y}_{\\text{hybrid}} = \\begin{bmatrix} \\mathbf{L}_{\\text{mag}} \\\\ \\mathbf{L}_{\\text{opt}} \\end{bmatrix} \\mathbf{x}_{\\text{neural}} + \\begin{bmatrix} \\mathbf{n}_{\\text{mag}} \\\\ \\mathbf{n}_{\\text{opt}} \\end{bmatrix}$$",
+                caption: "Joint Multimodal Forward Matrix coupling electromagnetic lead-fields with optical sensitivity matrices."
+            }
+        };
+
+        const modalitySelect = document.getElementById('primaryModality');
+        modalitySelect.addEventListener('change', () => {
+            const selected = modalitySelect.value;
+            if (modalityPresets[selected]) {
+                document.getElementById('equationDisplay').innerHTML = modalityPresets[selected].eq;
+                document.getElementById('equationCaption').innerHTML = modalityPresets[selected].caption;
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise();
+                }
+            }
+        });
+
+        // Interactive SNR Calculator Logic
+        const sDepth = document.getElementById('sliderDepth');
+        const sDipole = document.getElementById('sliderDipole');
+        const sNoise = document.getElementById('sliderNoise');
+        const sBw = document.getElementById('sliderBw');
+
+        function updateSNRCalculator() {
+            const r_mm = parseFloat(sDepth.value);
+            const Q_nAm = parseFloat(sDipole.value);
+            const S_n_fT = parseFloat(sNoise.value);
+            const bw_Hz = parseFloat(sBw.value);
+
+            document.getElementById('depthDisplay').textContent = `${r_mm} mm`;
+            document.getElementById('dipoleDisplay').textContent = `${Q_nAm} nA·m`;
+            document.getElementById('noiseDisplay').textContent = `${S_n_fT} fT/√Hz`;
+            document.getElementById('bwDisplay').textContent = `${bw_Hz} Hz`;
+
+            // Biot-Savart dipole field B ~ (μ0 / 4π) * (Q / r^2) for tangential dipole
+            // r in meters: r_m = r_mm * 1e-3
+            // Q in A*m: Q_Am = Q_nAm * 1e-9
+            // B in Tesla: B = 1e-7 * Q_Am / (r_m^2)
+            // in fT (1e-15 T): B_fT = B * 1e15
+            const r_m = r_mm * 1e-3;
+            const Q_Am = Q_nAm * 1e-9;
+            const B_Tesla = (1e-7 * Q_Am) / (r_m * r_m);
+            const B_fT = B_Tesla * 1e15;
+
+            // RMS Noise in bandwidth: sigma_n = S_n * sqrt(BW)
+            const sigma_n_fT = S_n_fT * Math.sqrt(bw_Hz);
+
+            // SNR linear
+            const snr = sigma_n_fT > 0 ? (B_fT / sigma_n_fT) : 0;
+            const snr_dB = snr > 0 ? (20 * Math.log10(snr)) : -99;
+
+            document.getElementById('calcField').textContent = `${B_fT.toFixed(1)} fT`;
+            document.getElementById('calcNoiseRMS').textContent = `${sigma_n_fT.toFixed(1)} fT`;
+
+            const snrEl = document.getElementById('calcSNR');
+            snrEl.textContent = `${snr.toFixed(2)} (${snr_dB.toFixed(1)} dB)`;
+
+            // Required averages for target SNR = 5
+            const requiredN = snr > 0 ? Math.ceil(Math.pow(5.0 / snr, 2)) : 999;
+            document.getElementById('calcAverages').textContent = requiredN > 500 ? '>500 epochs' : `${requiredN} epoch${requiredN > 1 ? 's' : ''}`;
+
+            const verdict = document.getElementById('snrVerdict');
+            if (snr >= 3.0) {
+                snrEl.style.color = 'var(--success)';
+                verdict.innerHTML = `<strong>✓ High Detection Confidence:</strong> Single-trial signal (${B_fT.toFixed(1)} fT) strongly dominates the noise floor (SNR = ${snr.toFixed(2)}). Suitable for single-event fast ripple tracking without extensive averaging.`;
+            } else if (snr >= 1.0) {
+                snrEl.style.color = 'var(--accent)';
+                verdict.innerHTML = `<strong>Moderate Detection Feasibility:</strong> Single-trial signal is near the noise floor. Interictal spike detection is feasible with modest epoch averaging (N ≈ ${requiredN}).`;
+            } else {
+                snrEl.style.color = 'var(--danger)';
+                verdict.innerHTML = `<strong>⚠️ Low SNR Warning (${snr.toFixed(2)}):</strong> At a depth of ${r_mm} mm, 1/r² dipole attenuation drops the signal below the noise floor. Requires ≥ ${requiredN} averaging epochs or closer sensor placement.`;
+            }
+        }
+
+        [sDepth, sDipole, sNoise, sBw].forEach(s => s.addEventListener('input', () => {
+            updateSNRCalculator();
+            triggerAutoSave();
+        }));
+
+        // Exemplar Data (Team EpiFocus)
+        const exemplarData = {
+            teamName: "Team EpiFocus (Group 1)",
+            studentNames: "Tariq Vance (BME Lead), Sarah Jenkins (Neuroscience), David Wu (ECE)",
+            primaryModality: "Biomagnetic Field Sensing (OPM-MEG / SQUID)",
+            energyDomain: "Quasi-static magnetic induction (femtotesla regime: 10–1000 fT; bandwidth 0.1–500 Hz)",
+            microscopicEvent: "Synchronous excitatory post-synaptic potentials (EPSPs) in apical dendrites of ~25,000 pyramidal neurons aligned perpendicularly to the cortical mantle, generating net current dipoles Q ≈ 15–40 nA·m. Pathological paroxysmal depolarizing shifts in focal cortical dysplasia trigger fast ripples (250–500 Hz) that distinguish active seizure onset zones from healthy eloquent tissue.",
+            governingEquations: "Under the quasi-static approximation of Maxwell's equations (ω < 1 kHz, where conduction currents σE dominate displacement currents ε∂E/∂t by >10^5):\n\n1. Poisson equation for electric potential in inhomogeneous volume conductor:\n∇ · (σ ∇V) = ∇ · J_p\n\n2. Geselowitz integral formulation for magnetic field B(r):\nB(r) = (μ₀/4π) ∫ [J_p(r') × (r - r') / |r - r'|³] d³r' - (μ₀/4π) ∑ (σ_k^- - σ_k^+) ∬_S_k V(r') [n_k(r') × (r - r') / |r - r'|³] dS_k\n\nwhere J_p is the primary neural source current density, S_k are the tissue interface surfaces (brain, skull, scalp), and n_k is the surface normal.",
+            boundaryConditions: "Three-compartment realistic Boundary Element Method (BEM) mesh segmented from T1-weighted MRI: Brain/CSF (σ = 0.33 S/m), Skull (σ = 0.011 S/m; 1:30 ratio), and Scalp (σ = 0.33 S/m). Neumann boundary condition (σ ∂V/∂n = 0) enforced strictly at the scalp-air boundary.",
+            physicalConstants: "Permeability of free space μ₀ = 4π × 10^-7 H/m; intra-cortical conductivity σ_c = 0.33 S/m; skull conductivity σ_s = 0.011 S/m; OPM laser wavelength λ = 795 nm (Rb D1 line); rubidium-87 gyromagnetic ratio γ_Rb = 2π × 700 kHz/G.",
+            spatialResolutionBound: "1.5 mm localization precision at cortical surface; 3.2 mm for deep mesial structures (bounded by lead field matrix conditioning and sensor spacing).",
+            temporalResolutionBound: "0.5 ms sampling interval (1,000 Hz continuous acquisition, bounded by rubidium vapor cell spin relaxation damping time τ ≈ 1.2 ms).",
+            tradeoffAnalysis: "The dominant physical trade-off is distance-dependent magnetic field fall-off. For a dipolar source, magnetic field amplitude attenuates as B ∝ 1/r² (and higher multipoles as 1/r³). Reducing the scalp-to-sensor distance from 35 mm (cryogenic SQUID) to 4 mm (room-temperature OPM) increases field strength by a factor of (35/4)² ≈ 76× for superficial gyral crests, but only ~3.5× for deep mesial structures at r = 50 mm. Concurrently, placing sensors closer to the cranium increases susceptibility to scalp electromyographic (EMG) artifacts from temporalis muscle contraction.",
+            simEngine: "MNE-Python v1.6 forward lead-field generator coupled with custom PyTorch physics-informed dipole simulator; verified using OpenMEEG boundary element engine.",
+            phantomModel: "High-resolution segmented MNI/ICBM152 head mesh with 51,240 surface triangles and synthetic 3D calibrated current dipole phantom with known physical locations.",
+            simValidationPlan: "1. Analytical sphere validation: Compare numerical BEM lead-field outputs against Sarvas' closed-form analytical solution for a spherical conductor to confirm numerical error <1.5%.\n2. Depth sensitivity scan: Sweep simulated dipoles from 5 mm to 60 mm depth; evaluate reconstruction condition number and singular value spectrum.\n3. Synthetic noise injection: Overlay colored 1/f sensor noise (15 fT/√Hz) and 60 Hz powerline hum to benchmark minimum detectable dipole moment (target: Q_min ≤ 5 nA·m at 25 mm depth).",
+            forwardModelProse: "The physical transduction architecture of EpiFocus is grounded in the quasi-static approximation of Maxwell's equations. Because typical neural electrophysiological signals operate below 1 kHz, electromagnetic propagation delays are negligible across cranial dimensions (~15 cm), allowing electric and magnetic fields to be decoupled. Neuronal activity is modeled as an equivalent primary current dipole J_p originating from coordinated post-synaptic dendritic currents in pyramidal assemblies. Using Geselowitz's integral formulation over a three-compartment boundary element head mesh (brain, skull, scalp), the forward magnetic flux density B(r) at each optically pumped magnetometer is computed by integrating primary source contributions and secondary volume return currents. By eliminating cryogenic vacuum stand-offs, the forward transfer matrix achieves an average 5.8-fold increase in lead-field amplitude compared to conventional SQUID geometries, providing the high-fidelity input signal required for deep-sulcal epileptogenic zone localization."
+        };
+
+        // Collect Form Data
+        function collectFormData() {
+            return {
+                teamName: document.getElementById('teamName').value,
+                studentNames: document.getElementById('studentNames').value,
+                primaryModality: document.getElementById('primaryModality').value,
+                energyDomain: document.getElementById('energyDomain').value,
+                microscopicEvent: document.getElementById('microscopicEvent').value,
+                governingEquations: document.getElementById('governingEquations').value,
+                boundaryConditions: document.getElementById('boundaryConditions').value,
+                physicalConstants: document.getElementById('physicalConstants').value,
+                sliderDepth: sDepth.value,
+                sliderDipole: sDipole.value,
+                sliderNoise: sNoise.value,
+                sliderBw: sBw.value,
+                spatialResolutionBound: document.getElementById('spatialResolutionBound').value,
+                temporalResolutionBound: document.getElementById('temporalResolutionBound').value,
+                tradeoffAnalysis: document.getElementById('tradeoffAnalysis').value,
+                simEngine: document.getElementById('simEngine').value,
+                phantomModel: document.getElementById('phantomModel').value,
+                simValidationPlan: document.getElementById('simValidationPlan').value,
+                forwardModelProse: document.getElementById('forwardModelProse').value
+            };
+        }
+
+        // Populate Form
+        function populateForm(data) {
+            if (!data) return;
+            document.getElementById('teamName').value = data.teamName || '';
+            document.getElementById('studentNames').value = data.studentNames || '';
+            if (data.primaryModality) {
+                document.getElementById('primaryModality').value = data.primaryModality;
+                modalitySelect.dispatchEvent(new Event('change'));
+            }
+            document.getElementById('energyDomain').value = data.energyDomain || '';
+            document.getElementById('microscopicEvent').value = data.microscopicEvent || '';
+            document.getElementById('governingEquations').value = data.governingEquations || '';
+            document.getElementById('boundaryConditions').value = data.boundaryConditions || '';
+            document.getElementById('physicalConstants').value = data.physicalConstants || '';
+
+            if (data.sliderDepth) sDepth.value = data.sliderDepth;
+            if (data.sliderDipole) sDipole.value = data.sliderDipole;
+            if (data.sliderNoise) sNoise.value = data.sliderNoise;
+            if (data.sliderBw) sBw.value = data.sliderBw;
+            updateSNRCalculator();
+
+            document.getElementById('spatialResolutionBound').value = data.spatialResolutionBound || '';
+            document.getElementById('temporalResolutionBound').value = data.temporalResolutionBound || '';
+            document.getElementById('tradeoffAnalysis').value = data.tradeoffAnalysis || '';
+            document.getElementById('simEngine').value = data.simEngine || '';
+            document.getElementById('phantomModel').value = data.phantomModel || '';
+            document.getElementById('simValidationPlan').value = data.simValidationPlan || '';
+            document.getElementById('forwardModelProse').value = data.forwardModelProse || '';
+        }
+
+        // AutoSave Logic
+        let saveTimeout = null;
+        function triggerAutoSave() {
+            const status = document.getElementById('saveStatus');
+            status.innerHTML = '<span>●</span> Saving...';
+            status.classList.remove('saved');
+
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                const data = collectFormData();
+                localStorage.setItem('idne701_worksheet_4_1', JSON.stringify(data));
+                status.innerHTML = '<span>✓</span> Draft saved locally';
+                status.classList.add('saved');
+            }, 600);
+        }
+
+        document.getElementById('worksheetForm').addEventListener('input', triggerAutoSave);
+
+        // Load Saved
+        function loadSaved() {
+            const saved = localStorage.getItem('idne701_worksheet_4_1');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    populateForm(data);
+                } catch (e) {
+                    console.error('Failed to parse saved worksheet data', e);
+                    updateSNRCalculator();
+                }
+            } else {
+                updateSNRCalculator();
+            }
+        }
+
+        // Action Buttons
+        document.getElementById('saveDraftBtn').addEventListener('click', () => {
+            const data = collectFormData();
+            localStorage.setItem('idne701_worksheet_4_1', JSON.stringify(data));
+            const status = document.getElementById('saveStatus');
+            status.innerHTML = '<span>✓</span> Draft saved locally';
+            status.classList.add('saved');
+            alert('Worksheet 4.1 saved to browser storage.');
+        });
+
+        document.getElementById('loadExampleBtn').addEventListener('click', () => {
+            if (confirm('Load pre-filled Biophysical Forward Model exemplar (Team EpiFocus)? Any unsaved changes will be replaced.')) {
+                populateForm(exemplarData);
+                triggerAutoSave();
+            }
+        });
+
+        document.getElementById('printBtn').addEventListener('click', () => {
+            window.print();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Reset this entire worksheet? This cannot be undone.')) {
+                localStorage.removeItem('idne701_worksheet_4_1');
+                document.getElementById('worksheetForm').reset();
+                updateSNRCalculator();
+                triggerAutoSave();
+            }
+        });
+
+        // Export JSON
+        document.getElementById('exportJsonBtn').addEventListener('click', () => {
+            const data = collectFormData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `IDNE701_Worksheet_4_1_${(data.teamName || 'draft').replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Copy Markdown
+        document.getElementById('copyMarkdownBtn').addEventListener('click', () => {
+            const d = collectFormData();
+            let md = `# IDNE 701: Worksheet 4.1 – Biophysical Forward Modeling & Signal Transduction\n\n`;
+            md += `**Team:** ${d.teamName || 'N/A'}  \n`;
+            md += `**Members:** ${d.studentNames || 'N/A'}  \n`;
+            md += `**Modality:** ${d.primaryModality || 'N/A'}  \n`;
+            md += `**Energy Domain:** ${d.energyDomain || 'N/A'}  \n\n`;
+
+            md += `## 1. Microscopic Neural Source Event\n`;
+            md += `${d.microscopicEvent || 'None'}\n\n`;
+
+            md += `## 2. Governing Equations & Boundary Conditions\n`;
+            md += `**Governing Formulation:**\n${d.governingEquations || 'None'}\n\n`;
+            md += `- **Volume Conductor & Boundary Conditions:** ${d.boundaryConditions || 'N/A'}\n`;
+            md += `- **Biophysical Constants:** ${d.physicalConstants || 'N/A'}\n\n`;
+
+            md += `## 3. Signal-to-Noise Ratio (SNR) & Attenuation Budget\n`;
+            md += `- **Source Depth:** ${d.sliderDepth} mm\n`;
+            md += `- **Source Dipole/Strength:** ${d.sliderDipole} nA·m\n`;
+            md += `- **Sensor Noise Floor:** ${d.sliderNoise} fT/√Hz\n`;
+            md += `- **Acquisition Bandwidth:** ${d.sliderBw} Hz\n`;
+            md += `- **Predicted Sensor Field:** ${document.getElementById('calcField').textContent}\n`;
+            md += `- **Single-Trial SNR:** ${document.getElementById('calcSNR').textContent}\n`;
+            md += `- **Required Averages (Target SNR ≥ 5):** ${document.getElementById('calcAverages').textContent}\n\n`;
+
+            md += `## 4. Spatiotemporal Resolution Limits\n`;
+            md += `- **Spatial Resolution Bound:** ${d.spatialResolutionBound || 'N/A'}\n`;
+            md += `- **Temporal Resolution Bound:** ${d.temporalResolutionBound || 'N/A'}\n\n`;
+            md += `**Physical Trade-off Analysis:**\n${d.tradeoffAnalysis || 'None'}\n\n`;
+
+            md += `## 5. In Silico Simulation Architecture\n`;
+            md += `- **Simulation Platform:** ${d.simEngine || 'N/A'}\n`;
+            md += `- **Head Model / Phantom:** ${d.phantomModel || 'N/A'}\n\n`;
+            md += `**Benchmark Protocol:**\n${d.simValidationPlan || 'None'}\n\n`;
+
+            md += `## 6. Technical Dossier Synthesis\n`;
+            md += `${d.forwardModelProse || 'None'}\n`;
+
+            navigator.clipboard.writeText(md).then(() => {
+                alert('Formatted Markdown copied to clipboard! You can paste this directly into Section 3 of your Technical Design Dossier.');
+            }).catch(err => {
+                console.error('Copy failed', err);
+                alert('Could not auto-copy. Please use Export JSON.');
+            });
+        });
+
+        // Theme Toggle
+        const themeBtn = document.getElementById('themeToggle');
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+                themeBtn.textContent = '☼ Light Mode';
+            } else {
+                document.body.classList.remove('dark');
+                themeBtn.textContent = '◐ Dark Mode';
+            }
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            themeBtn.textContent = isDark ? '☼ Light Mode' : '◐ Dark Mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        // Initialize
+        initTheme();
+        loadSaved();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biophysical Foundations of Neural Contrast — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #10b981; /* Phase 2 emerald theme */
+            --accent-dark: #059669;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #ecfdf5;
+            --tag-bg: #e0e7ff;
+            --tag-color: #3730a3;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        /* Top Bar Navigation */
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .btn-nav {
+            background: var(--accent-color);
+            color: #ffffff !important;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none !important;
+            box-shadow: var(--shadow-sm);
+            transition: background 0.2s;
+        }
+
+        .btn-nav:hover {
+            background: var(--accent-dark);
+        }
+
+        /* Header */
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--accent-dark);
+            border-bottom-style: solid;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent-dark);
+            background: var(--highlight-bg);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--serif-font);
+            font-size: 44px;
+            font-weight: 400;
+            line-height: 1.15;
+            margin: 0 0 16px 0;
+            letter-spacing: -0.5px;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 820px;
+            margin: 0 0 1.5rem 0;
+            line-height: 1.6;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            flex-wrap: wrap;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1.25rem;
+        }
+
+        .lecture-meta span strong {
+            color: var(--text-color);
+        }
+
+        /* Action bar */
+        .lecture-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            padding: 0.5rem 0.9rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-color);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-dark);
+            transform: translateY(-1px);
+        }
+
+        .action-btn.primary {
+            background: var(--text-color);
+            color: #ffffff;
+            border-color: var(--text-color);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-dark);
+            border-color: var(--accent-dark);
+            color: #ffffff;
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--text-color);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        h2 .sec-num {
+            font-family: var(--code-font);
+            font-size: 1rem;
+            color: var(--accent-dark);
+            font-weight: 700;
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 2.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-color);
+            letter-spacing: -0.01em;
+        }
+
+        h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        p {
+            margin-bottom: 1.25rem;
+            color: #27272a;
+            font-size: 1rem;
+            line-height: 1.75;
+        }
+
+        /* Callout Boxes */
+        .callout {
+            border-left: 4px solid var(--accent-color);
+            background: var(--highlight-bg);
+            border-radius: 0 8px 8px 0;
+            padding: 1.25rem 1.5rem;
+            margin: 1.75rem 0;
+        }
+
+        .callout.warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .callout.clinical {
+            border-left-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .callout.pitfall {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .callout-title {
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .callout p {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Math equation styling */
+        .equation-block {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
+        .equation-caption {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            color: var(--secondary-text);
+            text-align: right;
+            margin-top: 0.5rem;
+        }
+
+        /* Tables */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.88rem;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .comparison-table th {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-weight: 600;
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .comparison-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--secondary-text);
+            vertical-align: top;
+        }
+
+        .comparison-table tr:hover td {
+            background-color: rgba(16, 185, 129, 0.02);
+        }
+
+        .comparison-table td strong {
+            color: var(--text-color);
+        }
+
+        /* Modality Grid */
+        .modality-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin: 2rem 0;
+        }
+
+        .modality-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .modality-card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .modality-card .modality-icon {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .modality-card h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+            color: var(--text-color);
+        }
+
+        .modality-card .modality-tag {
+            font-family: var(--code-font);
+            font-size: 0.7rem;
+            color: var(--accent-dark);
+            background: var(--highlight-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+        }
+
+        .modality-card p {
+            font-size: 0.88rem;
+            color: var(--secondary-text);
+            margin: 0 0 0.75rem 0;
+            line-height: 1.5;
+        }
+
+        .modality-card ul {
+            padding-left: 1.25rem;
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+        }
+
+        .modality-card ul li {
+            margin-bottom: 0.25rem;
+        }
+
+        /* Interactive Demo Callout */
+        .interactive-banner {
+            background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+            color: #ffffff;
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .interactive-banner h3 {
+            color: #ffffff;
+            margin: 0 0 0.5rem 0;
+            font-size: 1.35rem;
+        }
+
+        .interactive-banner p {
+            color: #a7f3d0;
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .interactive-banner .banner-btn {
+            background: #ffffff;
+            color: #065f46;
+            font-family: var(--code-font);
+            font-weight: 700;
+            padding: 0.75rem 1.25rem;
+            border-radius: 6px;
+            text-decoration: none;
+            white-space: nowrap;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .interactive-banner .banner-btn:hover {
+            background: #d1fae5;
+            transform: translateY(-2px);
+        }
+
+        /* Reading list */
+        .reading-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .reading-list li {
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .reading-list li strong {
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
+        .reading-list .authors {
+            font-size: 0.88rem;
+            color: var(--secondary-text);
+            margin-top: 0.25rem;
+            display: block;
+        }
+
+        .reading-list .journal {
+            font-size: 0.85rem;
+            color: var(--accent-dark);
+            font-style: italic;
+        }
+
+        .reading-list .doi-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            font-family: var(--code-font);
+            font-size: 0.78rem;
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .reading-list .doi-link:hover {
+            color: var(--accent-dark);
+            border-bottom-style: solid;
+        }
+
+        .tag-pill {
+            font-family: var(--code-font);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            float: right;
+            background: var(--tag-bg);
+            color: var(--tag-color);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--accent-dark);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            .interactive-banner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .top-nav {
+                padding: 0.5rem 1rem;
+            }
+            h1 {
+                font-size: 32px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sticky Top Navigation -->
+    <nav class="top-nav">
+        <div style="font-weight: 700; color: var(--text-color);">
+            IDNE 701 · <span style="color: var(--accent-dark);">Week 4 Lecture</span>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-4">← Week 4 Syllabus</a>
+            <a href="worksheet_biophysical_modeling.html">Worksheet 4.1</a>
+            <a href="simulation_contrast_physics.html">Simulation Sandbox</a>
+            <a href="biophysical_foundations_contrast_slides.html" class="btn-nav">🖥️ Open Slides</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Breadcrumb & Header -->
+        <div class="breadcrumb">
+            <a href="IDNE701_FA2026.html">IDNE 701</a> &gt; 
+            <a href="IDNE701_FA2026.html#week-4">Phase 2: Biophysics &amp; Sensors</a> &gt; 
+            Lecture Notes
+        </div>
+
+        <header>
+            <span class="phase-badge">Phase 2 · Forward Physics</span>
+            <h1>Biophysical Foundations of <em>Neural Contrast</em></h1>
+            <p class="subtitle">
+                From quantum spins and diffuse photon transport to electrodynamic volume conduction and microbubble acoustics: the first-principles mathematical and physical laws governing non-invasive neural signal detection.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Sep 18, 2026 (Week 4)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+                <span><strong>Prerequisites:</strong> Vector Calculus, Basic Electromagnetism &amp; Neurophysiology</span>
+            </div>
+
+            <div class="lecture-actions">
+                <a href="biophysical_foundations_contrast_slides.html" class="action-btn primary">🖥️ Presentation Slide Deck</a>
+                <a href="simulation_contrast_physics.html" class="action-btn">🔬 Contrast Physics Sandbox</a>
+                <a href="worksheet_biophysical_modeling.html" class="action-btn">📝 Worksheet 4.1</a>
+                <a href="IDNE701_FA2026.html#week-4" class="action-btn">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Executive Summary / Core Thesis -->
+        <section>
+            <h2><span class="sec-num">01.</span> The Central Dilemma of Non-Invasive Neurotechnology</h2>
+            <p>
+                Every neural recording or neuromodulation technology must confront a profound physical reality: <strong>the fundamental unit of computation in the mammalian nervous system occurs at the sub-micrometer, microvolt, and millisecond scale</strong>. An action potential propagates along an axon of diameter $0.2 - 2\,\mu\text{m}$, creating a transmembrane potential swing of $\approx 100\,\text{mV}$ across a $5\,\text{nm}$ lipid bilayer, driven by elementary ion channel currents on the order of $10^{-12}\,\text{A}$ ($1\,\text{pA}$).
+            </p>
+            <p>
+                Yet, to observe or manipulate this activity non-invasively, our sensors must sit outside the cranial protective capsule. We are separated from the cortex by the arachnoid mater, pia mater, cerebrospinal fluid (CSF), porous cranial bone, galea aponeurotica, and scalp skin—a barrier ranging from $8\,\text{mm}$ to over $20\,\text{mm}$ in thickness.
+            </p>
+
+            <div class="callout">
+                <div class="callout-title" style="color: var(--accent-dark);">The Core Neuroengineering Thesis</div>
+                <p>
+                    Non-invasive brain sensing is inherently an <strong>ill-posed physical inverse problem</strong>. We do not measure single spikes directly; instead, we measure macroscopic physical perturbations—magnetic field disturbances, phase shifts in precessing nuclear spins, photons traversing multiple scattering paths, or attenuated ionic potentials conductively smeared through resistive cranial bone. Engineering a high-performance neurodiagnostic instrument requires deriving the exact forward physical operator linking microscopic cellular pathology to external detector signals.
+                </p>
+            </div>
+
+            <!-- Modality Grid -->
+            <div class="modality-grid">
+                <div class="modality-card">
+                    <div class="modality-icon">🧲</div>
+                    <span class="modality-tag">Nuclear Spins</span>
+                    <h4>Magnetic Resonance (MRI / fMRI)</h4>
+                    <p>Perturbing the precession of water proton nuclear spins (\(^1\text{H}\)) in strong static magnetic fields. Sensing magnetic susceptibility shifts (\(\Delta\chi\)) induced by paramagnetic deoxyhemoglobin.</p>
+                    <ul>
+                        <li><strong>Carrier:</strong> RF photons (\(1 - 300\,\text{MHz}\))</li>
+                        <li><strong>Resolution:</strong> \(0.5 - 2.0\,\text{mm}\), \(0.5 - 2.0\,\text{s}\)</li>
+                        <li><strong>Governing Law:</strong> Bloch Equations</li>
+                    </ul>
+                </div>
+
+                <div class="modality-card">
+                    <div class="modality-icon">💡</div>
+                    <span class="modality-tag">Diffuse Photons</span>
+                    <h4>Near-Infrared Spectroscopy (fNIRS)</h4>
+                    <p>Injecting NIR light (\(650 - 950\,\text{nm}\)) into the tissue diagnostic window. Measuring differential absorption between oxy- and deoxyhemoglobin across highly scattering paths.</p>
+                    <ul>
+                        <li><strong>Carrier:</strong> Optical photons (\(300 - 450\,\text{THz}\))</li>
+                        <li><strong>Resolution:</strong> \(10 - 20\,\text{mm}\), \(0.01 - 0.1\,\text{s}\)</li>
+                        <li><strong>Governing Law:</strong> Modified Beer-Lambert / Diffusion</li>
+                    </ul>
+                </div>
+
+                <div class="modality-card">
+                    <div class="modality-icon">⚡</div>
+                    <span class="modality-tag">Ionic Currents</span>
+                    <h4>Electrophysiology (EEG / MEG)</h4>
+                    <p>Detecting extracellular volume currents and associated magnetic flux generated by synchronous postsynaptic currents in aligned cortical pyramidal assemblies.</p>
+                    <ul>
+                        <li><strong>Carrier:</strong> Quasi-static EM fields (\(0 - 1000\,\text{Hz}\))</li>
+                        <li><strong>Resolution:</strong> \(5 - 20\,\text{mm}\), \(&lt; 1\,\text{ms}\)</li>
+                        <li><strong>Governing Law:</strong> Poisson's &amp; Biot-Savart Laws</li>
+                    </ul>
+                </div>
+
+                <div class="modality-card">
+                    <div class="modality-icon">🔊</div>
+                    <span class="modality-tag">Acoustic Waves</span>
+                    <h4>Ultrasound (fUS / FUS)</h4>
+                    <p>Transmitting high-frequency mechanical pressure waves through cranial windows or microbubbles to track red blood cell backscatter or deliver focused mechanical force.</p>
+                    <ul>
+                        <li><strong>Carrier:</strong> Acoustic strain waves (\(0.5 - 15\,\text{MHz}\))</li>
+                        <li><strong>Resolution:</strong> \(100\,\mu\text{m} - 1\,\text{mm}\), \(10 - 100\,\text{ms}\)</li>
+                        <li><strong>Governing Law:</strong> Westervelt / Wave Equation</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Quantum Spins & NMR Physics -->
+        <section>
+            <h2><span class="sec-num">02.</span> Quantum Spins &amp; Nuclear Magnetic Resonance (fMRI / BOLD)</h2>
+            <p>
+                Magnetic Resonance Imaging relies on the intrinsic magnetic dipole moment $\vec{\mu}$ of hydrogen nuclei (protons, $^1\text{H}$) omnipresent in tissue water ($\approx 70 - 80\%$ of brain mass). The proton possesses spin angular momentum $\vec{S}$ with spin quantum number $I = 1/2$.
+            </p>
+
+            <h3>Zeeman Splitting and Net Equilibrium Magnetization</h3>
+            <p>
+                In the absence of an external magnetic field, nuclear spin orientations are isotropically disordered, producing zero net macroscopic magnetization. When placed inside an external static magnetic field $\vec{B}_0 = B_0 \hat{k}$, the degeneracy of the magnetic energy levels splits into two eigenstates (Zeeman splitting):
+            </p>
+            <div class="equation-block">
+                $$E = -\vec{\mu} \cdot \vec{B}_0 = -\gamma \hbar m_I B_0 = \mp \frac{1}{2} \gamma \hbar B_0$$
+                <div class="equation-caption">Equation 1: Zeeman energy splitting for spin-1/2 nucleus (\(m_I = \pm 1/2\))</div>
+            </div>
+            <p>
+                where $\gamma$ is the gyromagnetic ratio ($\gamma/2\pi \approx 42.576\,\text{MHz/T}$ for $^1\text{H}$) and $\hbar$ is the reduced Planck constant. The population ratio between parallel ($N_\uparrow$, lower energy) and antiparallel ($N_\downarrow$, higher energy) states follows the Boltzmann distribution:
+            </p>
+            <div class="equation-block">
+                $$\frac{N_\downarrow}{N_\uparrow} = \exp\left(-\frac{\Delta E}{k_B T}\right) = \exp\left(-\frac{\gamma \hbar B_0}{k_B T}\right)$$
+                <div class="equation-caption">Equation 2: Boltzmann thermal distribution of nuclear spin states</div>
+            </div>
+            <p>
+                At physiological temperature ($T = 310\,\text{K}$) and $B_0 = 3.0\,\text{T}$, $\Delta E \ll k_B T$. A first-order Taylor expansion reveals an excess of only $\approx 10$ protons per million in the lower energy state. Summed over $N_s$ spins per unit volume, this quantum thermal bias produces the macroscopic net equilibrium magnetization vector $\vec{M}_0$:
+            </p>
+            <div class="equation-block">
+                $$M_0 = \|\vec{M}_0\| = \frac{N_s \gamma^2 \hbar^2 I(I+1)}{3 k_B T} B_0 = \frac{N_s \gamma^2 \hbar^2}{4 k_B T} B_0$$
+                <div class="equation-caption">Equation 3: Curie's Law for nuclear equilibrium magnetization</div>
+            </div>
+
+            <div class="callout">
+                <div class="callout-title">Key Scaling Insight: The Fundamental Field Advantage</div>
+                <p>
+                    Because $M_0 \propto B_0$ and the induced Faraday voltage in an RF receiver coil scales with precession frequency $\omega_0 = \gamma B_0$, the intrinsic MR Signal-to-Noise Ratio (SNR) scales superlinearly: $\text{SNR} \propto B_0^\alpha$, where $\alpha \approx 1.5 - 2.0$ depending on whether body noise or coil resistance dominates. Moving from low-field ($0.05\,\text{T}$) to clinical high-field ($3.0\,\text{T}$) yields a $\sim 60\times$ increase in raw magnetization.
+                </p>
+            </div>
+
+            <h3>The Phenomenological Bloch Equations</h3>
+            <p>
+                Applying a resonant radiofrequency field $\vec{B}_1(t)$ at the Larmor frequency $\omega_0$ tips the magnetization vector into the transverse plane ($x\text{-}y$). Once perturbed, the evolution of $\vec{M}(t)$ is governed by the phenomenological <strong>Bloch Equations</strong>:
+            </p>
+            <div class="equation-block">
+                $$\frac{d\vec{M}(t)}{dt} = \gamma \vec{M}(t) \times \vec{B}(t) - \frac{M_x(t)\hat{i} + M_y(t)\hat{j}}{T_2} - \frac{(M_z(t) - M_0)\hat{k}}{T_1}$$
+                <div class="equation-caption">Equation 4: The Vector Bloch Differential Equation</div>
+            </div>
+            <p>
+                Decomposed into longitudinal ($M_z$) and transverse ($M_{xy} = M_x + i M_y$) components in a reference frame rotating at $\omega_0$:
+            </p>
+            <div class="equation-block">
+                $$M_z(t) = M_0 - [M_0 - M_z(0)] e^{-t / T_1}$$
+                $$M_{xy}(t) = M_{xy}(0) e^{-t / T_2^*} e^{-i \Delta\omega t}$$
+                <div class="equation-caption">Equation 5: Longitudinal (spin-lattice) and Transverse (spin-spin) relaxation solutions</div>
+            </div>
+            <p>
+                Here, $T_1$ represents spin-lattice energy dissipation to thermal lattice vibrations, while $T_2$ represents irreversible spin-spin dephasing due to microscopic molecular dipolar interactions.
+            </p>
+
+            <h3>The BOLD Contrast Mechanism: Paramagnetic Deoxyhemoglobin</h3>
+            <p>
+                Functional MRI does not measure neural firing directly; it exploits the <strong>Blood Oxygenation Level Dependent (BOLD)</strong> effect discovered by Seiji Ogawa in 1990.
+            </p>
+            <p>
+                The molecular basis is iron electronic spin configuration in hemoglobin:
+            </p>
+            <ul>
+                <li><strong>Oxyhemoglobin ($\text{HbO}_2$):</strong> The low-spin iron ($\text{Fe}^{2+}$) has all six $d$-electrons paired ($S = 0$), rendering the molecule <em>diamagnetic</em> with a volumetric magnetic susceptibility virtually identical to surrounding tissue ($\Delta\chi \approx 0$).</li>
+                <li><strong>Deoxyhemoglobin ($\text{HbR}$):</strong> Loss of oxygen leaves four unpaired $d$-electrons ($S = 2$), making the heme group intensely <em>paramagnetic</em> ($\Delta\chi \approx +0.18 - 0.27\,\text{ppm}$ relative to water).</li>
+            </ul>
+            <p>
+                When red blood cells carrying HbR flow through microvessels (capillaries and venules), they generate microscopic spatial gradients in the local magnetic field $\Delta B(\vec{r}) \propto \Delta\chi \cdot B_0$. Water protons diffusing through these inhomogeneous field gradients experience different precession rates and rapidly dephase, shortening the effective transverse relaxation time $T_2^*$:
+            </p>
+            <div class="equation-block">
+                $$\frac{1}{T_2^*} = \frac{1}{T_2} + \frac{1}{T_2'} = \frac{1}{T_2} + \gamma \Delta B_{\text{inhomogeneous}}$$
+                $$\Delta R_2^* = \frac{1}{T_2^*} - \frac{1}{T_2} \propto [\text{HbR}] \cdot B_0^\beta \quad (\beta \approx 1 \text{ for large vessels, } 2 \text{ for microvessels})$$
+                <div class="equation-caption">Equation 6: Transverse relaxation rate augmentation by paramagnetic susceptibility gradients</div>
+            </div>
+
+            <div class="callout clinical">
+                <div class="callout-title">The Neurovascular Overcompensation Paradox</div>
+                <p>
+                    When a cortical neural circuit activates, oxygen consumption ($\text{CMRO}_2$) increases, initially producing a brief surge in HbR (the "initial dip"). However, within $1 - 2$ seconds, local neurovascular coupling mechanisms release vasoactive mediators (nitric oxide, adenosine, arachidonic acid metabolites) that dilate feeding pial arterioles. Cerebral blood flow ($\text{CBF}$) surges by $30 - 60\%$, vastly outstripping the modest $5 - 15\%$ increase in oxygen consumption.
+                </p>
+                <p style="margin-top: 0.5rem;">
+                    This "hyperemic flush" <strong>dilutes venous deoxyhemoglobin</strong>, causing $[\text{HbR}]$ to drop below baseline. Consequently, $T_2^*$ lengthens, dephasing diminishes, and the $T_2^*$-weighted gradient echo MR signal increases by $1 - 5\%$ at $3\,\text{T}$.
+                </p>
+            </div>
+        </section>
+
+        <!-- Section 3: Diffuse Optical Physics & fNIRS -->
+        <section>
+            <h2><span class="sec-num">03.</span> Near-Infrared Diffuse Optical Physics (fNIRS)</h2>
+            <p>
+                Functional Near-Infrared Spectroscopy illuminates the head with low-power continuous wave (CW) or frequency-domain NIR light. Optical imaging of deep tissue is made possible by the <strong>diagnostic optical window</strong> ($650 - 950\,\text{nm}$), where water and lipid absorption reach their spectral minima, allowing photons to penetrate several centimeters into tissue before being absorbed.
+            </p>
+
+            <h3>The Radiative Transfer Equation &amp; The Diffusion Approximation</h3>
+            <p>
+                Biological tissue is a turbid medium where scattering vastly exceeds absorption. Typical brain tissue parameters in the near-infrared are:
+            </p>
+            <ul>
+                <li>Absorption coefficient: $\mu_a \approx 0.01 - 0.02\,\text{mm}^{-1}$ (mean absorption free path $\approx 50 - 100\,\text{mm}$).</li>
+                <li>Scattering coefficient: $\mu_s \approx 10 - 20\,\text{mm}^{-1}$ (mean scattering free path $\approx 0.05 - 0.1\,\text{mm}$).</li>
+                <li>Anisotropy factor: $g = \langle \cos\theta \rangle \approx 0.9$ (strongly forward-peaked Mie scattering by cellular mitochondria and myelin sheaths).</li>
+            </ul>
+            <p>
+                Because photons undergo hundreds of scattering events before absorption, their transport is governed by the <strong>reduced scattering coefficient</strong>:
+            </p>
+            <div class="equation-block">
+                $$\mu_s' = \mu_s (1 - g) \approx 1.0 - 2.0\,\text{mm}^{-1}$$
+                <div class="equation-caption">Equation 7: Reduced scattering coefficient accounting for forward-peaked anisotropy</div>
+            </div>
+            <p>
+                Under the diffusion approximation ($\mu_s' \gg \mu_a$), the full Boltzmann Radiative Transfer Equation simplifies to the parabolic photon diffusion equation for photon fluence rate $\Phi(\vec{r}, t)$:
+            </p>
+            <div class="equation-block">
+                $$\frac{1}{c} \frac{\partial \Phi(\vec{r}, t)}{\partial t} - D \nabla^2 \Phi(\vec{r}, t) + \mu_a \Phi(\vec{r}, t) = S(\vec{r}, t)$$
+                <div class="equation-caption">Equation 8: Photon Diffusion Equation in Turbid Tissue (\(D = \frac{1}{3(\mu_a + \mu_s')}\approx \frac{1}{3\mu_s'}\))</div>
+            </div>
+
+            <h3>The Banana-Shaped Sensitivity Profile &amp; Depth Penetration</h3>
+            <p>
+                For an optical source and detector placed on the scalp surface separated by distance $d_{\text{SD}}$, the spatial sensitivity distribution of detected photons follows a curvilinear, banana-shaped photon migration path.
+            </p>
+            <div class="equation-block">
+                $$z_{\text{max}} \approx \frac{1}{2} \sqrt{d_{\text{SD}} \cdot \left(\frac{D}{\mu_a}\right)^{1/2}} \approx \frac{1}{2} d_{\text{SD}}$$
+                <div class="equation-caption">Equation 9: Empirical rule-of-thumb for maximum photon penetration depth</div>
+            </div>
+            <p>
+                At standard adult optode spacing of $d_{\text{SD}} = 30\,\text{mm}$, photons penetrate to a mean depth of $\approx 12 - 15\,\text{mm}$, grazing the superficial gray matter of the gyral crowns. Widening the separation to $40\,\text{mm}$ increases cortical interrogation but penalizes detected optical power exponentially ($e^{-\mu_{\text{eff}} d_{\text{SD}}}$), demanding high-dynamic-range avalanche photodiodes (APDs) or silicon photomultipliers (SiPMs).
+            </p>
+
+            <h3>The Modified Beer-Lambert Law (MBLL)</h3>
+            <p>
+                In a purely absorbing non-scattering medium, light attenuation follows the classic Beer-Lambert law $A = \log_{10}(I_0 / I) = \varepsilon \cdot C \cdot d$. In scattering tissue, the optical path length is elongated by a <strong>Differential Pathlength Factor (DPF)</strong> ($\approx 6.0$ in adult head), and an intensity loss factor $G$ arises from geometric scattering loss:
+            </p>
+            <div class="equation-block">
+                $$\text{OD}(\lambda) = -\ln\left(\frac{I(\lambda)}{I_0(\lambda)}\right) = \sum_{i} \varepsilon_i(\lambda) C_i \cdot d_{\text{SD}} \cdot \text{DPF}(\lambda) + G(\lambda)$$
+                <div class="equation-caption">Equation 10: Modified Beer-Lambert Law for turbid tissue</div>
+            </div>
+            <p>
+                Taking temporal differential optical density relative to a baseline eliminates the unknown geometry factor $G$:
+            </p>
+            <div class="equation-block">
+                $$\Delta\text{OD}(\lambda, t) = \left[ \varepsilon_{\text{HbO}_2}(\lambda) \Delta[\text{HbO}_2](t) + \varepsilon_{\text{HbR}}(\lambda) \Delta[\text{HbR}](t) \right] \cdot d_{\text{SD}} \cdot \text{DPF}(\lambda)$$
+                <div class="equation-caption">Equation 11: Differential optical density formulation</div>
+            </div>
+            <p>
+                By measuring at two strategically chosen wavelengths—typically straddling the isosbestic point ($\approx 805\,\text{nm}$ where $\varepsilon_{\text{HbO}_2} = \varepsilon_{\text{HbR}}$), such as $760\,\text{nm}$ (sensitive to HbR) and $850\,\text{nm}$ (sensitive to $\text{HbO}_2$)—we solve the linear matrix system to unmix absolute molar concentration changes:
+            </p>
+            <div class="equation-block">
+                $$\begin{bmatrix} \Delta[\text{HbO}_2] \\ \Delta[\text{HbR}] \end{bmatrix} = \frac{1}{d_{\text{SD}}} \begin{bmatrix} \varepsilon_{\text{HbO}_2}(\lambda_1) \text{DPF}_1 & \varepsilon_{\text{HbR}}(\lambda_1) \text{DPF}_1 \\ \varepsilon_{\text{HbO}_2}(\lambda_2) \text{DPF}_2 & \varepsilon_{\text{HbR}}(\lambda_2) \text{DPF}_2 \end{bmatrix}^{-1} \begin{bmatrix} \Delta\text{OD}(\lambda_1) \\ \Delta\text{OD}(\lambda_2) \end{bmatrix}$$
+                <div class="equation-caption">Equation 12: Dual-wavelength chromophore spectral unmixing matrix</div>
+            </div>
+
+            <div class="callout pitfall">
+                <div class="callout-title" style="color: #ef4444;">Engineering Pitfall: Extracerebral Contamination</div>
+                <p>
+                    Because photons must pass twice through the scalp and skull (once going in, once coming out), up to $80\%$ of the detected optical attenuation change can arise from systemic scalp hemodynamics (cardiac pulsation, respiratory Mayer waves, autonomic skin vasoconstriction). Modern fNIRS instrumentation requires <strong>short-separation channels</strong> ($d_{\text{SD}} \approx 8\,\text{mm}$) that measure only superficial scalp blood flow, which is then subtracted from the long channel ($30\,\text{mm}$) via adaptive Kalman filtering.
+                </p>
+            </div>
+        </section>
+
+        <!-- Section 4: Electrodynamics & Volume Conduction -->
+        <section>
+            <h2><span class="sec-num">04.</span> Electrodynamics &amp; Volume Conduction (EEG / MEG)</h2>
+            <p>
+                Unlike fMRI and fNIRS, which measure slow metabolic and hemodynamic byproducts of neural activity ($1 - 5\,\text{s}$ lag), electroencephalography (EEG) and magnetoencephalography (MEG) measure the instantaneous electric and magnetic fields generated directly by neuronal transmembrane currents ($&lt; 1\,\text{ms}$).
+            </p>
+
+            <h3>Microscopic Origin: The Pyramidal Postsynaptic Dipole</h3>
+            <p>
+                A common misconception is that EEG reflects action potentials. In reality, an action potential consists of two equal and opposite current loops propagating in opposite directions down an axon over $1\,\text{ms}$; the quadrupole field decays with distance as $1/r^3$, vanishing before reaching the scalp.
+            </p>
+            <p>
+                Instead, EEG and MEG are driven by <strong>excitatory postsynaptic potentials (EPSPs)</strong> on the apical dendrites of Layer V cortical pyramidal cells:
+            </p>
+            <ul>
+                <li>When glutamate binds at an apical dendritic synapse, $\text{Na}^+$ ions rush into the cell, creating a local current <em>sink</em> ($I_{\text{in}}$).</li>
+                <li>To conserve charge, passive outward current leaks across the soma and basal dendrites, creating a distributed current <em>source</em> ($I_{\text{out}}$).</li>
+                <li>This spatial separation ($\sim 500 - 1000\,\mu\text{m}$) creates a microscopic <strong>current dipole</strong> with dipole moment $\vec{p} = I \cdot \vec{d}$ ($10 - 20\,\text{fA}\cdot\text{m}$).</li>
+            </ul>
+            <p>
+                Because cortical pyramidal cells are arranged in perpendicular, columnar palisades (an "open-field" architecture), thousands of synchronized synaptic events summate constructively:
+            </p>
+            <div class="equation-block">
+                $$\vec{Q}_{\text{net}} = \sum_{k=1}^{N_{\text{active}}} \vec{p}_k \approx N_{\text{active}} \cdot \langle \vec{p} \rangle$$
+                <div class="equation-caption">Equation 13: Macroscopic dipole moment from coherent neuronal assembly (\(N \ge 10^4 - 10^5\) neurons)</div>
+            </div>
+
+            <h3>Maxwell's Equations in the Quasi-Static Regime</h3>
+            <p>
+                For neural signals of interest ($f &lt; 1000\,\text{Hz}$), the electromagnetic wavelength in tissue is $\lambda = c / (f \sqrt{\varepsilon_r}) \approx 300\,\text{km}$, which dwarfs head dimensions ($0.2\,\text{m}$). The capacitive displacement current $\partial \vec{D}/\partial t$ is negligible compared to ohmic conduction current $\vec{J} = \sigma \vec{E}$ ($\omega \varepsilon / \sigma \sim 10^{-4}$). Therefore, Maxwell's equations reduce to the <strong>quasi-static formulation</strong>:
+            </p>
+            <div class="equation-block">
+                $$\nabla \times \vec{E} = 0 \implies \vec{E} = -\nabla \Phi$$
+                $$\nabla \cdot \vec{J}_{\text{total}} = 0 \implies \nabla \cdot (\sigma(\vec{r}) \nabla \Phi) = \nabla \cdot \vec{J}_p = I_s(\vec{r})$$
+                <div class="equation-caption">Equation 14: Poisson's Equation of Volume Conduction in Heterogeneous Conductive Tissue</div>
+            </div>
+            <p>
+                where $\sigma(\vec{r})$ is tissue electrical conductivity and $\vec{J}_p$ is the primary impressed biological current density.
+            </p>
+
+            <h3>The Three-Shell Spherical Conductor Model</h3>
+            <p>
+                The human head is modeled as concentric conductive shells: brain ($\sigma_b \approx 0.33\,\text{S/m}$), skull ($\sigma_s \approx 0.0042 - 0.01\,\text{S/m}$), and scalp ($\sigma_{\text{sc}} \approx 0.33\,\text{S/m}$). The skull acts as an electrical insulator with a conductivity ratio $\sigma_{\text{brain}} / \sigma_{\text{skull}} \approx 20:1 - 80:1$.
+            </p>
+            <div class="equation-block">
+                $$\Phi(\vec{r}_{\text{scalp}}) = \frac{1}{4\pi \sigma} \int_{\Omega} \frac{\vec{J}_p(\vec{r}') \cdot (\vec{r} - \vec{r}')}{\|\vec{r} - \vec{r}'\|^3} d\vec{r}' + \text{Boundary Integral Corrections}$$
+                <div class="equation-caption">Equation 15: Scalp surface potential from volume conductor integration</div>
+            </div>
+
+            <!-- EEG vs MEG Comparison -->
+            <div class="callout clinical">
+                <div class="callout-title">EEG vs. MEG: The Physical Distinction</div>
+                <p>
+                    <strong>EEG</strong> measures electric potentials $\Phi$ that must conduct through the resistive skull. The skull acts as a spatial low-pass filter, spreading point currents outward into broad, blurred voltage topographies on the scalp ($20 - 30\,\text{mm}$ resolution).
+                </p>
+                <p style="margin-top: 0.5rem;">
+                    <strong>MEG</strong> measures magnetic flux densities $\vec{B}$ via SQUIDs or optically pumped magnetometers (OPMs). Because biological tissue has magnetic permeability $\mu_r \approx 1.000000$ (identical to vacuum), magnetic fields pass through the skull and scalp completely unrefracted and undistorted. By the Biot-Savart law:
+                </p>
+                <div class="equation-block" style="margin: 0.75rem 0;">
+                    $$\vec{B}(\vec{r}) = \frac{\mu_0}{4\pi} \int \frac{(\vec{J}_p(\vec{r}') + \sigma \vec{E}(\vec{r}')) \times (\vec{r} - \vec{r}')}{\|\vec{r} - \vec{r}'\|^3} d\vec{r}'$$
+                </div>
+                <p style="margin: 0;">
+                    In a spherical conductor, radial currents produce zero external magnetic field ($\vec{B}_{\text{radial}} = 0$). MEG is exclusively sensitive to <strong>tangential dipoles</strong> located in the sulcal walls, providing sharper spatial localization ($3 - 5\,\text{mm}$) than scalp EEG.
+                </p>
+            </div>
+        </section>
+
+        <!-- Section 5: Acoustic Wave Physics & Ultrasound -->
+        <section>
+            <h2><span class="sec-num">05.</span> Acoustic Wave Mechanics &amp; Microbubble Dynamics (fUS / FUS)</h2>
+            <p>
+                Ultrasound introduces mechanical stress waves into neural tissue. In functional ultrasound (fUS), high-frame-rate plane-wave Doppler imaging tracks microvascular red blood cell velocity with sub-millimeter resolution. In focused ultrasound neuromodulation (FUS), concentrated acoustic radiation force opens mechanosensitive ion channels or transiently alters lipid bilayer capacitance.
+            </p>
+
+            <h3>The Acoustic Wave Equation &amp; Cranial Bone Attenuation</h3>
+            <p>
+                Compressional acoustic waves traveling through viscoelastic brain tissue obey the linear wave equation with thermoviscous attenuation:
+            </p>
+            <div class="equation-block">
+                $$\nabla^2 p - \frac{1}{c_0^2} \frac{\partial^2 p}{\partial t^2} - \frac{2\alpha_0}{c_0} \frac{\partial p}{\partial t} = 0$$
+                <div class="equation-caption">Equation 16: Acoustic pressure wave equation with attenuation factor \(\alpha = \alpha_0 f^\eta\)</div>
+            </div>
+            <p>
+                While soft brain tissue has acoustic impedance $Z = \rho c \approx 1.54 \times 10^6\,\text{Rayl}$ and modest attenuation ($\approx 0.5\,\text{dB/cm/MHz}$), cranial cortical bone is an extreme acoustic mismatch ($Z \approx 6.0 \times 10^6\,\text{Rayl}$, attenuation $\approx 10 - 20\,\text{dB/cm/MHz}$). Transcranial ultrasound encounters:
+            </p>
+            <ol>
+                <li><strong>Severe reflection losses</strong> at the scalp-bone interface ($R \approx 30 - 40\%$).</li>
+                <li><strong>Phase aberration</strong> due to skull thickness and speed-of-sound variations ($c_{\text{bone}} \approx 2800 - 3200\,\text{m/s}$ vs. $c_{\text{brain}} \approx 1540\,\text{m/s}$), defocusing the acoustic focal beam.</li>
+                <li><strong>Bone absorption heating</strong>, strictly capping allowable acoustic intensities by FDA limits ($\text{ISPTA} \le 720\,\text{mW/cm}^2$, Mechanical Index $\text{MI} \le 1.9$).</li>
+            </ol>
+
+            <h3>Functional Ultrasound (fUS): Power Doppler &amp; Ultrafast Plane Waves</h3>
+            <p>
+                Conventional clinical ultrasound uses focused scan lines ($50\,\text{Hz}$ frame rate), which lack the sensitivity to detect slow microvascular blood flow ($&lt; 1\,\text{mm/s}$) in small parenchymal capillaries.
+            </p>
+            <p>
+                fUS overcomes this barrier by emitting <strong>unfocused tilted plane waves</strong> at $5 - 20\,\text{kHz}$ pulse repetition frequency (PRF). Coherent compounding of multiple angles (e.g., $-10^\circ$ to $+10^\circ$) boosts SNR while sustaining frame rates above $1\,\text{kHz}$:
+            </p>
+            <div class="equation-block">
+                $$\text{PD}(\vec{r}) = \int_{f_{\text{cutoff}}}^{\text{PRF}/2} |S(f, \vec{r})|^2 df \propto \text{CBV}(\vec{r})$$
+                <div class="equation-caption">Equation 17: Power Doppler integral proportional to local Cerebral Blood Volume (CBV)</div>
+            </div>
+            <p>
+                Applying advanced spatio-temporal Singular Value Decomposition (SVD) filters separates the slow-moving red blood cell backscatter from high-amplitude tissue pulsatile clutter, achieving a $50\times$ sensitivity gain over standard Doppler, resolving $100\,\mu\text{m}$ microvascular changes in awake mobile subjects.
+            </p>
+        </section>
+
+        <!-- Section 6: Interactive Simulation Banner -->
+        <section>
+            <div class="interactive-banner">
+                <div>
+                    <h3>Hands-On Numerical Simulation Workbench</h3>
+                    <p>
+                        Explore the differential equations derived in this lecture in real time. Manipulate $B_0$ fields, $T_1/T_2$ decay curves, fNIRS scattering lengths, and scalp dipole potentials in our interactive WebGL sandbox.
+                    </p>
+                </div>
+                <a href="simulation_contrast_physics.html" class="banner-btn">🔬 Launch Contrast Physics Sandbox →</a>
+            </div>
+        </section>
+
+        <!-- Section 7: Unified Comparative Framework -->
+        <section>
+            <h2><span class="sec-num">06.</span> Unified Biophysical Comparison &amp; Trade-Off Envelope</h2>
+            <p>
+                No single neuroimaging modality can conquer all physical dimensions simultaneously. Every sensing architecture accepts an inescapable trade-off between penetration depth, spatial resolution, temporal fidelity, and patient invasiveness dictated by its underlying carrier physics.
+            </p>
+
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Modality</th>
+                        <th>Biophysical Origin</th>
+                        <th>Spatial Limit</th>
+                        <th>Temporal Limit</th>
+                        <th>Depth Limit</th>
+                        <th>Fundamental SNR Constraint</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>fMRI (BOLD)</strong></td>
+                        <td>Magnetic susceptibility gradient ($\Delta\chi$) of HbR; $T_2^*$ spin dephasing</td>
+                        <td>$\sim 0.5 - 1.5\,\text{mm}$ (capillary bed point spread)</td>
+                        <td>$\sim 1 - 2\,\text{s}$ (hemodynamic impulse response)</td>
+                        <td>Full human brain ($15 - 20\,\text{cm}$)</td>
+                        <td>Thermal Johnson noise in tissue; $\text{SNR} \propto B_0 \cdot \Delta V \cdot \sqrt{t_{\text{acq}}}$</td>
+                    </tr>
+                    <tr>
+                        <td><strong>fNIRS / DOT</strong></td>
+                        <td>Mie photon scattering ($\mu_s'$) &amp; chromophore absorption ($\mu_a$)</td>
+                        <td>$\sim 10 - 20\,\text{mm}$ (diffusive spatial spreading)</td>
+                        <td>$\sim 10 - 100\,\text{ms}$ (detector sampling rate)</td>
+                        <td>$\sim 15 - 25\,\text{mm}$ ($z \approx \frac{1}{2} d_{\text{SD}}$)</td>
+                        <td>Photon shot noise; exponential attenuation ($e^{-\mu_{\text{eff}} d}$)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>EEG</strong></td>
+                        <td>Pyramidal apical EPSPs; ionic volume currents through skull</td>
+                        <td>$\sim 20 - 30\,\text{mm}$ (skull resistive blurring)</td>
+                        <td>$&lt; 1\,\text{ms}$ (instantaneous quasi-static field)</td>
+                        <td>Surface cortex (deep sources severely attenuated)</td>
+                        <td>Electrode-skin impedance, thermal electronic noise, environmental 60 Hz</td>
+                    </tr>
+                    <tr>
+                        <td><strong>MEG</strong></td>
+                        <td>Intracellular primary currents in sulcal gyri; magnetic flux $\vec{B}$</td>
+                        <td>$\sim 3 - 5\,\text{mm}$ (high sensor density + MRI prior)</td>
+                        <td>$&lt; 1\,\text{ms}$ (instantaneous electromagnetic)</td>
+                        <td>Gyral cortex ($\sim 3 - 5\,\text{cm}$; falls as $1/r^2$)</td>
+                        <td>Environmental ambient magnetic noise ($10^6 \times$ signal); SQUID noise</td>
+                    </tr>
+                    <tr>
+                        <td><strong>fUS</strong></td>
+                        <td>Acoustic backscatter from moving red blood cells (Power Doppler)</td>
+                        <td>$\sim 100 - 200\,\mu\text{m}$ (acoustic diffraction limit $\lambda/2$)</td>
+                        <td>$\sim 10 - 100\,\text{ms}$ (ultrafast plane-wave compounding)</td>
+                        <td>$\sim 3 - 10\,\text{cm}$ (requires cranial window in adults)</td>
+                        <td>Bone acoustic attenuation ($\approx 15\,\text{dB/cm/MHz}$) and thermal limits</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 8: In Silico Forward Modeling Guidelines -->
+        <section>
+            <h2><span class="sec-num">07.</span> In Silico Modeling Guidelines for Student Teams</h2>
+            <p>
+                In <strong>Worksheet 4.1</strong>, your engineering team is required to build a computational forward model for your chosen clinical diagnosis. Follow this rigorous 4-step workflow:
+            </p>
+            <ol style="padding-left: 1.5rem; line-height: 1.8; color: var(--secondary-text);">
+                <li>
+                    <strong style="color: var(--text-color);">Geometry &amp; Mesh Formulation:</strong> Extract or synthesize realistic tissue geometry. If modeling optical or electrical fields, construct a minimum 4-shell layered domain (scalp, skull, CSF, gray matter). Assign verified anisotropic physical tensors (conductivity $\sigma$ or optical properties $\mu_a, \mu_s'$).
+                </li>
+                <li>
+                    <strong style="color: var(--text-color);">Primary Source Imposition:</strong> Inject realistic physiological excitation. For electrophysiology, place an equivalent current dipole $\vec{p}$ ($10 - 100\,\text{nA}\cdot\text{m}$) in the cortical gray matter. For optics, launch Gaussian beam photon distributions. For MRI, define baseline $T_1, T_2, \Delta\chi$ maps.
+                </li>
+                <li>
+                    <strong style="color: var(--text-color);">Differential Solver Execution:</strong> Solve the governing boundary value problem using Finite Element Methods (FEM in SimNIBS, COMSOL, or FEniCS), Monte Carlo photon transport (MCX / MCmatlab), or discrete time-domain Bloch solvers.
+                </li>
+                <li>
+                    <strong style="color: var(--text-color);">Verification Against Empirical Boundaries:</strong> Verify that your simulated external sensor amplitude falls within verified empirical detection windows ($10 - 100\,\mu\text{V}$ for scalp EEG, $50 - 500\,\text{fT}$ for MEG, $\Delta\text{OD} \sim 10^{-3} - 10^{-2}$ for fNIRS, $\Delta S/S_0 \sim 1 - 3\%$ for 3T fMRI).
+                </li>
+            </ol>
+        </section>
+
+        <!-- Reading List -->
+        <section>
+            <h2><span class="sec-num">08.</span> Required &amp; Recommended Literature</h2>
+
+            <h3>Required Foundational Readings (Week 4)</h3>
+            <ul class="reading-list">
+                <li>
+                    <span class="tag-pill">Required · fMRI / BOLD</span>
+                    <strong>Oxygenation-sensitive contrast in magnetic resonance image of rodent brain at high magnetic fields</strong><br>
+                    <span class="authors">Ogawa, S., Lee, T. M., Nayak, A. S., &amp; Glynn, P.</span><br>
+                    <span class="journal">Magnetic Resonance in Medicine, 14(1), 68–78 (1990).</span>
+                    <a href="https://doi.org/10.1002/mrm.1910140108" target="_blank" rel="noopener" class="doi-link">DOI: 10.1002/mrm.1910140108 →</a>
+                </li>
+                <li>
+                    <span class="tag-pill">Required · fNIRS</span>
+                    <strong>Near infrared spectroscopy (NIRS): A new approach to functional neuroimaging</strong><br>
+                    <span class="authors">Villringer, A., Planck, J., Hock, C., Schleinkofer, L., &amp; Dirnagl, U.</span><br>
+                    <span class="journal">Neuroscience Letters, 154(1-2), 101–104 (1993).</span>
+                    <a href="https://doi.org/10.1016/0304-3940(93)90181-J" target="_blank" rel="noopener" class="doi-link">DOI: 10.1016/0304-3940(93)90181-J →</a>
+                </li>
+                <li>
+                    <span class="tag-pill">Required · EEG / MEG</span>
+                    <strong>Electric Fields of the Brain: The Neurophysics of EEG (2nd Edition)</strong><br>
+                    <span class="authors">Nunez, P. L. &amp; Srinivasan, R.</span><br>
+                    <span class="journal">Oxford University Press, Chapters 1–3 (2006).</span>
+                    <a href="https://doi.org/10.1093/acprof:oso/9780195050387.001.0001" target="_blank" rel="noopener" class="doi-link">DOI: 10.1093/acprof:oso/9780195050387.001.0001 →</a>
+                </li>
+            </ul>
+
+            <h3>Recommended Engineering Deep Dives</h3>
+            <ul class="reading-list">
+                <li>
+                    <strong>Functional ultrasound neuroimaging: a review of the state of the art</strong><br>
+                    <span class="authors">Deffieux, T., Demene, C., Pernot, M., &amp; Tanter, M.</span><br>
+                    <span class="journal">Current Opinion in Neurobiology, 50, 128–135 (2018).</span>
+                    <a href="https://doi.org/10.1016/j.conb.2018.02.001" target="_blank" rel="noopener" class="doi-link">DOI: 10.1016/j.conb.2018.02.001 →</a>
+                </li>
+                <li>
+                    <strong>Noise in MRI</strong><br>
+                    <span class="authors">Macovski, A.</span><br>
+                    <span class="journal">Magnetic Resonance in Medicine, 36(3), 494–497 (1996).</span>
+                    <a href="https://doi.org/10.1002/mrm.1910360327" target="_blank" rel="noopener" class="doi-link">DOI: 10.1002/mrm.1910360327 →</a>
+                </li>
+                <li>
+                    <strong>Monte Carlo Extreme (MCX) -- massively parallel photon transport simulation in complex turbid media</strong><br>
+                    <span class="authors">Fang, Q. &amp; Boas, D. A.</span><br>
+                    <span class="journal">Optics Express, 17(22), 20178–20190 (2009).</span>
+                    <a href="https://doi.org/10.1364/OE.17.020178" target="_blank" rel="noopener" class="doi-link">DOI: 10.1364/OE.17.020178 →</a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-4">← Back to Course Timeline</a>
+                <a href="biophysical_foundations_contrast_slides.html">🖥️ Open Presentation Slides</a>
+                <a href="worksheet_biophysical_modeling.html">📝 Open Worksheet 4.1</a>
+                <a href="simulation_contrast_physics.html">🔬 Open Simulation Sandbox →</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>
