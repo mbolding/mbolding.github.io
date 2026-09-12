@@ -1,0 +1,2386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cellular Automata on Directed Graphs &mdash; A Small Language</title>
+<meta name="description" content="A single-page domain specific language and interpreter for experimenting with cellular automata on directed graphs.">
+<style>
+/* ============================================================
+   Graph Automata Workbench
+   A Tufte-flavoured sheet: warm paper, et-book, ragged right,
+   generous margin reserved for notes and apparatus.
+   ============================================================ */
+
+@font-face {
+    font-family: 'et-book';
+    src: url('https://edwardtufte.github.io/tufte-css/et-book/et-book-roman-line-figures/et-book-roman-line-figures.woff') format('woff');
+    font-weight: normal; font-style: normal;
+}
+@font-face {
+    font-family: 'et-book';
+    src: url('https://edwardtufte.github.io/tufte-css/et-book/et-book-display-italic-old-style-figures/et-book-display-italic-old-style-figures.woff') format('woff');
+    font-weight: normal; font-style: italic;
+}
+@font-face {
+    font-family: 'et-book';
+    src: url('https://edwardtufte.github.io/tufte-css/et-book/et-book-bold-line-figures/et-book-bold-line-figures.woff') format('woff');
+    font-weight: bold; font-style: normal;
+}
+
+:root {
+    --paper: #fffff8;
+    --ink: #111111;
+    --quiet: #5a5a52;
+    --rule: #dddad0;
+    --panel: #faf9f0;
+    --accent: #a8402c;
+    --mono: 'SF Mono', 'Menlo', 'DejaVu Sans Mono', 'Consolas', monospace;
+}
+
+html { font-size: 15px; }
+
+body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: 'et-book', 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 1.4rem;
+    line-height: 2;
+    margin: 0;
+    padding: 0;
+    counter-reset: sidenote-counter;
+}
+
+article {
+    padding: 4rem 12% 6rem 10%;
+    max-width: 1500px;
+}
+
+section { counter-reset: none; }
+
+h1 {
+    font-weight: 400;
+    font-size: 3.1rem;
+    line-height: 1.05;
+    margin: 1rem 0 1.4rem 0;
+    width: 90%;
+}
+
+h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 2.1rem;
+    line-height: 1.2;
+    margin: 3.4rem 0 0.6rem 0;
+}
+
+h3 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6rem;
+    margin: 2.2rem 0 0.2rem 0;
+}
+
+p, ol, ul, table, dl { width: 55%; }
+p { margin: 1.2rem 0; }
+li { margin: 0.4rem 0; padding-left: 0.2rem; }
+
+.subtitle {
+    display: block;
+    font-style: italic;
+    font-size: 1.7rem;
+    color: #3a3a34;
+    margin: 0 0 2.4rem 0;
+    width: 55%;
+}
+
+.epigraph {
+    width: 55%;
+    margin: 2.6rem 0 3.4rem 0;
+    font-style: italic;
+    color: #33332c;
+}
+.epigraph p { width: 100%; margin: 0; line-height: 1.7; }
+.epigraph footer { font-style: normal; font-size: 1.1rem; color: var(--quiet); margin-top: 0.4rem; }
+
+a { color: var(--ink); text-decoration: underline; text-decoration-color: #c9c6bb; }
+a:hover { text-decoration-color: var(--ink); }
+
+hr { border: none; border-top: 1px solid var(--rule); margin: 3rem 0; width: 100%; }
+
+/* ---------- Sidenotes ---------- */
+
+.sidenote, .marginnote {
+    float: right;
+    clear: right;
+    margin-right: -60%;
+    width: 50%;
+    margin-top: 0.3rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    line-height: 1.45;
+    vertical-align: baseline;
+    position: relative;
+    color: #33332c;
+}
+.sidenote-number { counter-increment: sidenote-counter; }
+.sidenote-number:after, .sidenote:before {
+    position: relative;
+    vertical-align: baseline;
+}
+.sidenote-number:after {
+    content: counter(sidenote-counter);
+    font-size: 1rem;
+    top: -0.5rem;
+    left: 0.1rem;
+}
+.sidenote:before {
+    content: counter(sidenote-counter) " ";
+    font-size: 1rem;
+    top: -0.5rem;
+}
+.marginnote code, .sidenote code { font-size: 0.95em; }
+
+/* ---------- Full width apparatus ---------- */
+
+.fullwidth { width: 100%; max-width: 1180px; clear: both; }
+
+figure { margin: 2.4rem 0; padding: 0; }
+figcaption {
+    font-size: 1.1rem;
+    line-height: 1.45;
+    color: var(--quiet);
+    width: 60%;
+    margin-top: 0.6rem;
+}
+
+code, .mono { font-family: var(--mono); font-size: 0.82em; }
+p code, li code, td code { background: #f3f1e6; padding: 0 0.22em; }
+
+pre.sample {
+    font-family: var(--mono);
+    font-size: 1rem;
+    line-height: 1.6;
+    background: var(--panel);
+    border-left: 2px solid var(--rule);
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    width: 55%;
+    box-sizing: border-box;
+}
+
+/* ---------- Workbench ---------- */
+
+.bench {
+    display: grid;
+    grid-template-columns: minmax(380px, 0.92fr) minmax(400px, 1.08fr);
+    gap: 1.6rem;
+    align-items: start;
+}
+
+.panel {
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    box-sizing: border-box;
+}
+
+.panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.35rem 0.7rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--panel);
+    font-size: 1rem;
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+    color: var(--quiet);
+}
+.panel-head .hint { font-variant: normal; letter-spacing: 0; font-style: italic; font-size: 0.95rem; }
+
+/* Editor: highlighted <pre> beneath a transparent <textarea> */
+
+.editor-wrap {
+    position: relative;
+    height: 460px;
+    overflow: hidden;
+    background: var(--paper);
+}
+.editor-wrap pre, .editor-wrap textarea {
+    margin: 0;
+    padding: 0.8rem 0.9rem;
+    border: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.62;
+    tab-size: 2;
+    -moz-tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+    word-wrap: normal;
+    letter-spacing: 0;
+}
+.editor-wrap pre {
+    position: absolute;
+    inset: 0;
+    color: var(--ink);
+    pointer-events: none;
+    overflow: hidden;
+}
+.editor-wrap textarea {
+    position: relative;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--accent);
+    resize: none;
+    outline: none;
+    display: block;
+}
+.editor-wrap textarea::selection { background: #d9e2ea; }
+
+.tk-com { color: #9b978a; font-style: italic; }
+.tk-sec { color: #1c1c1c; font-weight: bold; }
+.tk-key { color: #3c5a78; }
+.tk-num { color: #a8402c; }
+.tk-arr { color: #8a7b2f; }
+.tk-col { color: #4f7a6f; }
+
+/* Controls */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.6rem 0.7rem;
+    border-top: 1px solid var(--rule);
+    background: var(--panel);
+}
+
+button {
+    font-family: 'et-book', Palatino, serif;
+    font-size: 1.12rem;
+    line-height: 1;
+    padding: 0.35rem 0.7rem;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid #cbc8bc;
+    cursor: pointer;
+}
+button:hover { background: #f1efe2; border-color: #8d8a7e; }
+button:active { background: #e7e4d5; }
+button.primary { border-color: #8d8a7e; font-weight: bold; }
+button[disabled] { color: #aaa; border-color: #e3e0d5; cursor: default; background: var(--paper); }
+
+.controls label { font-size: 1.05rem; color: var(--quiet); display: inline-flex; align-items: center; gap: 0.35rem; }
+input[type=range] { width: 110px; accent-color: #6b6b60; vertical-align: middle; }
+select {
+    font-family: 'et-book', Palatino, serif;
+    font-size: 1.05rem;
+    background: var(--paper);
+    border: 1px solid #cbc8bc;
+    padding: 0.25rem 0.3rem;
+    color: var(--ink);
+}
+
+.params { padding: 0.5rem 0.7rem; border-top: 1px solid var(--rule); font-size: 1.05rem; }
+.params:empty { display: none; }
+.param-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0.2rem 0; }
+.pnote { font-style: italic; color: #8d8a7e; white-space: nowrap; }
+.param-row .pname { font-family: var(--mono); font-size: 0.95rem; min-width: 7.5em; }
+.param-row .pval { font-family: var(--mono); font-size: 0.95rem; color: var(--accent); min-width: 4em; text-align: right; }
+
+.errbox {
+    display: none;
+    border-top: 1px solid var(--rule);
+    background: #fdf3ef;
+    padding: 0.6rem 0.8rem;
+    font-size: 1.05rem;
+    color: #7c2d18;
+}
+.errbox.on { display: block; }
+.errbox pre { font-family: var(--mono); font-size: 0.95rem; margin: 0.35rem 0 0 0; color: #5a2313; white-space: pre; overflow-x: auto; }
+
+/* Canvases */
+
+.stage { display: block; width: 100%; background: var(--paper); }
+#graphStage { height: 460px; cursor: crosshair; }
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    padding: 0.5rem 0.7rem;
+    border-top: 1px solid var(--rule);
+    font-size: 1.05rem;
+    align-items: center;
+}
+.swatch { display: inline-block; width: 0.78em; height: 0.78em; border: 1px solid #8d8a7e; margin-right: 0.35em; vertical-align: -0.05em; }
+.legend .count { font-family: var(--mono); font-size: 0.92rem; color: var(--quiet); }
+.readout {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    color: var(--quiet);
+    text-align: right;
+}
+
+.strip { margin-top: 1.6rem; }
+#rasterStage { height: 300px; }
+#popStage { height: 92px; border-top: 1px solid var(--rule); }
+
+/* Reference tables */
+
+table { border-collapse: collapse; font-size: 1.15rem; line-height: 1.5; margin: 1.2rem 0 2rem 0; }
+table.wide { width: 100%; }
+.tablewrap { width: 78%; overflow-x: auto; }
+th, td { text-align: left; vertical-align: top; padding: 0.3rem 1.2rem 0.3rem 0; border-bottom: 1px solid #eceadf; }
+th { font-weight: 400; font-style: italic; color: var(--quiet); border-bottom: 1px solid var(--rule); }
+td:first-child { font-family: var(--mono); font-size: 0.88rem; white-space: nowrap; padding-right: 1.6rem; }
+
+.examples { list-style: none; padding: 0; width: 78%; }
+.examples li { display: flex; gap: 1rem; align-items: baseline; margin: 0.1rem 0; padding: 0.35rem 0; border-bottom: 1px solid #eceadf; }
+.examples .ex-name { min-width: 12rem; }
+.examples .ex-desc { font-size: 1.15rem; color: #33332c; line-height: 1.4; }
+
+footer.colophon {
+    margin-top: 5rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+    font-size: 1.1rem;
+    color: var(--quiet);
+    width: 78%;
+}
+
+@media (max-width: 1100px) {
+    article { padding: 2.5rem 6%; }
+    p, ol, ul, table, dl, .subtitle, .epigraph, pre.sample { width: 100%; box-sizing: border-box; }
+    ol, ul { padding-left: 1.4rem; }
+    .examples { padding-left: 0; }
+    .sidenote, .marginnote {
+        float: none; clear: both; display: block;
+        margin: 1rem 0 1.2rem 5%; width: 92%;
+        border-left: 2px solid var(--rule); padding-left: 0.8rem;
+    }
+    .bench { grid-template-columns: 1fr; }
+    figcaption, .examples, .tablewrap, footer.colophon { width: 100%; }
+    #graphStage { height: 380px; }
+}
+@media (max-width: 700px) {
+    html { font-size: 14px; }
+    .editor-wrap { height: 340px; }
+    .examples li { flex-direction: column; gap: 0.1rem; }
+    .pnote { display: none; }
+}
+</style>
+</head>
+
+<body>
+<article>
+
+<h1>Cellular Automata on Directed Graphs</h1>
+<p class="subtitle">A small language, and an interpreter for it, built for experiment rather than proof</p>
+
+<div class="epigraph">
+<p>&ldquo;The lattice is not the world. It is the one neighbourhood structure we could draw on graph paper.&rdquo;</p>
+<footer>&mdash; a complaint one eventually makes about Conway</footer>
+</div>
+
+<p>A cellular automaton is usually presented on a grid, and the grid does two things at once that are worth separating. It fixes <em>who talks to whom</em>, and it makes that relation symmetric: if I am your neighbour, you are mine. Nearly every system we actually care about violates the second condition. A neuron drives its postsynaptic partners and is not driven back by them. A citation points one way. Gossip travels downhill through an organisation chart. A gene represses another gene that has no say in the matter.</p>
+
+<p><span class="sidenote-number"></span><span class="sidenote">On a symmetric lattice the two coincide, which is exactly why the distinction is invisible in the classical treatment. Recovering Conway's Life here is a matter of declaring a <code>moore</code> graph, whose edges are laid down in both directions.</span>Once you drop symmetry, a node has two distinct neighbourhoods: the <em>in-neighbourhood</em>, which is the set of nodes that can influence it, and the <em>out-neighbourhood</em>, the set it influences. A local rule is a function of the first. The second determines how the node's own state propagates. Direction turns a static picture into a plumbing diagram, and the interesting questions become questions about flow: where does activity accumulate, which cycles sustain themselves, what happens at a node whose in-degree is one and out-degree is forty.</p>
+
+<p>The page below is a workbench for asking those questions. It contains a domain specific language for describing a directed graph, an initial condition, and an update rule, together with a complete interpreter &mdash; lexer, parser, compiler, and evaluator &mdash; written for this page alone. Nothing is fetched; nothing is stored on a server. Edit the program on the left, press <em>Build &amp; Run</em>, and watch.</p>
+
+<h2>The workbench</h2>
+
+<figure class="fullwidth">
+<div class="bench">
+
+    <div class="panel">
+        <div class="panel-head">
+            <span>Program</span>
+            <span class="hint">&#8984;/Ctrl + Enter to build</span>
+        </div>
+        <div class="editor-wrap">
+            <pre id="highlight" aria-hidden="true"></pre>
+            <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Automaton program"></textarea>
+        </div>
+        <div class="controls">
+            <button id="btnBuild" class="primary">Build &amp; Run</button>
+            <button id="btnPlay">Pause</button>
+            <button id="btnStep">Step</button>
+            <button id="btnReset">Reset</button>
+            <label>rate <input type="range" id="speed" min="1" max="60" value="14"><span id="speedRead" class="mono"></span></label>
+            <label>example
+                <select id="examples"></select>
+            </label>
+            <button id="btnLink">Copy link</button>
+        </div>
+        <div class="params" id="params"></div>
+        <div class="errbox" id="errbox"></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <span>Graph</span>
+            <span class="hint">click a node to cycle its state; hover to trace its edges</span>
+        </div>
+        <canvas id="graphStage" class="stage"></canvas>
+        <div class="legend" id="legend"></div>
+    </div>
+
+</div>
+
+<div class="panel strip fullwidth">
+    <div class="panel-head">
+        <span>Space&ndash;time</span>
+        <span class="hint">one row per node, time runs left to right; beneath it, the population of each state</span>
+    </div>
+    <canvas id="rasterStage" class="stage"></canvas>
+    <canvas id="popStage" class="stage"></canvas>
+</div>
+
+<figcaption>The raster is the honest record. A directed graph drawn as a ball of arrows will hide almost anything; a node ordered by index, plotted against time, will not. Vertical banding means synchrony, diagonal streaks mean travelling waves along the index order, and a static horizontal line means a node has found a fixed point its in-neighbours cannot dislodge.</figcaption>
+</figure>
+
+<h3>The examples in the menu</h3>
+
+<ul class="examples" id="exampleList"></ul>
+
+<h2>The language in one page</h2>
+
+<p>A program is a sequence of declarations. Order does not matter between blocks, and within a block one statement occupies one line. Comments begin with <code>#</code>, except when a <code>#</code> is immediately followed by three or six hexadecimal digits, in which case it is a colour.</p>
+
+<pre class="sample">
+seed 7                       # fix the random stream
+param density = 0.18 [0, 1]  # a slider will appear
+
+states { quiet #e8e4d9, firing #1c1c1c, spent #a8402c }
+
+graph {
+  ring 96                    # 96 nodes, i -> i+1
+  chord 37                   # and i -> i+37 (mod n)
+}
+
+init {
+  all quiet
+  random firing density
+}
+
+rules {
+  quiet  -> firing when in(firing) >= 1
+  firing -> spent
+  spent  -> quiet  when age >= 2
+}
+</pre>
+
+<p><span class="sidenote-number"></span><span class="sidenote">This is the Greenberg&ndash;Hastings excitable medium: a refractory period that forbids an excitation from running backwards into the tissue it just came from. On a ring with a chord it produces a wave that survives or dies depending on whether the chord lets the wavefront outrun its own refractory tail.</span>The first state declared is the default: every node begins there before the <code>init</code> block runs. Each rule is a guarded transition, and the rules are tried in the order written. The first rule whose source state matches and whose guard is true is the one that fires; if none matches, the node keeps its state. A rule with no <code>when</code> clause always matches.</p>
+
+<h3>Blocks</h3>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Declaration</th><th>Meaning</th></tr>
+<tr><td>states { a, b #hex, … }</td><td>Names the state set, in order. The first is the quiescent default. Colours are optional and drawn from a fixed palette otherwise.</td></tr>
+<tr><td>graph { … }</td><td>Builds the directed graph by applying generators and operators in sequence.</td></tr>
+<tr><td>init { … }</td><td>Sets the initial configuration. Re-run by <em>Reset</em>.</td></tr>
+<tr><td>rules { … }</td><td>The ordered list of guarded transitions.</td></tr>
+<tr><td>param p = v [lo, hi]</td><td>A named constant with a slider. The bounds are optional. Values used by <code>rules</code> take effect immediately; values used by <code>graph</code> take effect on the next build.</td></tr>
+<tr><td>seed n</td><td>Seeds the deterministic generator used for graph construction, initial conditions, and stochastic rules.</td></tr>
+<tr><td>update sync</td><td>Every node is updated from the same snapshot (the default).</td></tr>
+<tr><td>update async <var>k</var></td><td>One step performs <var>n</var> updates at uniformly random nodes, each visible to the next. Order matters, and on a directed graph it matters a great deal. An optional count replaces <var>n</var>, for a slower sweep.</td></tr>
+<tr><td>layout circle | grid | force | auto</td><td>How to place the nodes for drawing. <code>auto</code> reads the generators and guesses.</td></tr>
+</table></div>
+
+<h3>Graph generators and operators</h3>
+
+<p>Generators create nodes; operators act on whatever exists. They compose, so <code>ring 64</code> followed by <code>rewire 0.1</code> is a directed small world, and <code>torus 20 20</code> followed by <code>bidirect</code> is an ordinary undirected lattice.</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Statement</th><th>Effect</th></tr>
+<tr><td>nodes n</td><td>Ensure at least <var>n</var> nodes exist.</td></tr>
+<tr><td>ring n</td><td><var>n</var> nodes, edge <var>i</var> &rarr; <var>i</var>+1 (mod <var>n</var>).</td></tr>
+<tr><td>path n</td><td>As above without the closing edge.</td></tr>
+<tr><td>chord k</td><td>For every existing node, edge <var>i</var> &rarr; <var>i</var>+<var>k</var> (mod <var>n</var>).</td></tr>
+<tr><td>grid w h</td><td><var>w</var>&times;<var>h</var> nodes, edges to the right and down, no wrap.</td></tr>
+<tr><td>torus w h</td><td>The same with wrap: every node has in-degree and out-degree 2.</td></tr>
+<tr><td>vonneumann w h</td><td>Wrapped 4-neighbourhood, edges in both directions.</td></tr>
+<tr><td>moore w h</td><td>Wrapped 8-neighbourhood, both directions. The classical substrate.</td></tr>
+<tr><td>complete n</td><td>Every ordered pair.</td></tr>
+<tr><td>star n</td><td>Node 0 broadcasts to all others.</td></tr>
+<tr><td>tree b d</td><td>Branching factor <var>b</var>, depth <var>d</var>, edges parent &rarr; child.</td></tr>
+<tr><td>random n p</td><td><var>n</var> nodes; each ordered pair becomes an edge with probability <var>p</var>.</td></tr>
+<tr><td>outdeg n k</td><td><var>n</var> nodes, each given exactly <var>k</var> distinct random out-edges.</td></tr>
+<tr><td>scalefree n m</td><td>Preferential attachment: each newcomer is adopted by <var>m</var> established nodes, which point at it. A few hubs acquire enormous out-degree and become broadcasters.</td></tr>
+<tr><td>edge a -&gt; b</td><td>One explicit edge, creating nodes as needed.</td></tr>
+<tr><td>bidirect</td><td>Add the reverse of every edge, making the graph symmetric.</td></tr>
+<tr><td>reverse</td><td>Reverse every edge. Sources become sinks.</td></tr>
+<tr><td>rewire p</td><td>Each edge keeps its source and, with probability <var>p</var>, takes a uniformly random new target.</td></tr>
+<tr><td>selfloops</td><td>Give every node an edge to itself, so it sees its own state in <code>in()</code>.</td></tr>
+</table></div>
+
+<h3>Initial conditions</h3>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Statement</th><th>Effect</th></tr>
+<tr><td>all s</td><td>Every node to state <var>s</var>.</td></tr>
+<tr><td>node i s</td><td>A single node by index.</td></tr>
+<tr><td>random s p</td><td>Each node independently to <var>s</var> with probability <var>p</var>.</td></tr>
+<tr><td>pick k s</td><td>Exactly <var>k</var> distinct nodes chosen uniformly.</td></tr>
+<tr><td>set s where <var>expr</var></td><td>Every node whose expression is non-zero. The expression may use <code>id</code>, <code>indeg</code>, <code>outdeg</code>, <code>n</code>, <code>rand()</code>.</td></tr>
+</table></div>
+
+<h3>Rules</h3>
+
+<pre class="sample">
+from -> to [when <var>guard</var>] [with prob <var>p</var>]
+</pre>
+
+<p>where <code>from</code> is a state name or <code>_</code> for any state, and <code>to</code> is a state name or <code>self</code> to stay put. The optional probability is evaluated per node per step. <span class="sidenote-number"></span><span class="sidenote">Note the conflict rule: if a transition matches but its coin comes up tails, the node holds its state and no later rule is consulted. This keeps the semantics of an ordered rule list unambiguous, at the cost of making two competing probabilistic rules for the same source state behave as a cascade rather than a lottery.</span></p>
+
+<h3>Expressions</h3>
+
+<p>Guards are arithmetic. Comparisons yield 1 and 0, <code>and</code>, <code>or</code>, <code>not</code> work on those, and a state name evaluates to its index &mdash; so <code>self == firing</code> is a legal and occasionally useful thing to write.</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Name</th><th>Value at the node being updated</th></tr>
+<tr><td>self</td><td>Its current state.</td></tr>
+<tr><td>age</td><td>Steps elapsed since it last changed state.</td></tr>
+<tr><td>id</td><td>Its index, 0-based.</td></tr>
+<tr><td>step</td><td>The current time step.</td></tr>
+<tr><td>n</td><td>The number of nodes.</td></tr>
+<tr><td>indeg, outdeg, deg</td><td>In-degree, out-degree, and their sum.</td></tr>
+<tr><td>in(s), out(s), nbr(s)</td><td>How many in-neighbours, out-neighbours, or either, are in state <var>s</var>.</td></tr>
+<tr><td>fin(s), fout(s), fnbr(s)</td><td>The same as a fraction of the relevant degree; zero when the degree is zero.</td></tr>
+<tr><td>count(s), frac(s)</td><td>The global population of state <var>s</var>, as a count and as a fraction of <var>n</var>. Global coupling, for mean-field experiments.</td></tr>
+<tr><td>rand(), randint(k)</td><td>Uniform on [0,1), and a uniform integer in [0,<var>k</var>).</td></tr>
+<tr><td>if(c, a, b)</td><td>Conditional. Both branches are evaluated.</td></tr>
+<tr><td>min max abs floor ceil round sqrt exp log sin cos pow clamp mod sgn</td><td>The usual arithmetic.</td></tr>
+</table></div>
+
+<p>The argument of <code>in()</code> is an ordinary expression, not a keyword, which means <code>in(self)</code> counts the in-neighbours that agree with you &mdash; the whole of the voter model in five characters.</p>
+
+<h2>Things worth trying</h2>
+
+<p>The examples in the dropdown are starting points rather than results. A few suggestions for pulling on them:</p>
+
+<ul>
+<li><strong>Break the symmetry and watch a rule die.</strong> Load <em>Life on a Moore torus</em>, change <code>moore</code> to <code>torus</code>, and rebuild. The same rule now reads a two-node in-neighbourhood; gliders are no longer expressible and the population collapses. Life is a statement about its lattice at least as much as about its thresholds.</li>
+<li><strong>Add a shortcut.</strong> In the excitable ring, raise <code>chord</code> from nothing to a moderate value. Below a threshold the wave circulates forever; above it, the shortcut delivers the excitation into tissue that is still refractory and the wave annihilates itself.</li>
+<li><strong>Change only the update order.</strong> Take any example and switch <code>update sync</code> to <code>update async</code>. Synchronous updating is a physical assumption &mdash; a global clock &mdash; and most of the striking patterns in the literature depend on it. Blinkers stop blinking. Waves become fronts.</li>
+<li><strong>Reverse the arrows.</strong> Add <code>reverse</code> as the last line of a <code>graph</code> block built by <code>scalefree</code>. The hub stops broadcasting and starts listening, and a model of contagion becomes a model of aggregation with no other change.</li>
+<li><strong>Look for the sinks.</strong> Nodes with out-degree zero are graveyards for activity, and nodes with in-degree zero are unconditional dictators of their own trajectory. Use <code>set s where outdeg == 0</code> in the <code>init</code> block to find them.</li>
+</ul>
+
+<h2>How the interpreter works</h2>
+
+<p><span class="marginnote">The whole thing is roughly nine hundred lines of ordinary JavaScript in the source of this page: view source and read from <code>function lex</code>.</span>The pipeline is the textbook one, kept small enough to read in a sitting. A <strong>lexer</strong> turns the source into tokens, preserving line and column so that errors can point at something. Newlines survive as tokens, because a statement-per-line rule is what lets <code>ring 30</code> and <code>chord 11</code> be two statements rather than one four-argument confusion. A <strong>recursive-descent parser</strong> reads the block structure and hands expressions to a precedence climber. The result is an abstract syntax tree.</p>
+
+<p>The tree is then <strong>compiled to closures</strong>: each expression node becomes a JavaScript function of one argument, the evaluation context, and a guard is a single call rather than a walk over a tree. Identifier resolution happens once, at compile time, which is where undefined names and misspelled states are caught. The <strong>runtime</strong> keeps the graph as two adjacency lists, in and out, and at each node recomputes a small table of how many in- and out-neighbours occupy each state before evaluating that node's guards. That is one pass over the edges per step, which is the right complexity and fast enough that the bottleneck is the drawing, not the automaton.</p>
+
+<p>Randomness runs through one seeded generator, so a program with a <code>seed</code> line is reproducible down to the pixel: the same graph, the same initial condition, the same coin flips. A program without one still gets a fixed default seed, on the theory that an experiment you cannot repeat is an anecdote.</p>
+
+<footer class="colophon">
+<p>Written as a single file, with no dependencies, no build step, and no network calls after the typeface loads. The source is the documentation. &mdash; <a href="../index.html">Commonplace Book</a></p>
+</footer>
+
+</article>
+
+<script>
+"use strict";
+/* ============================================================
+   1. Utilities
+   ============================================================ */
+
+function mulberry32(a) {
+    return function () {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+
+function dslError(msg, line, col) {
+    var e = new Error(msg);
+    e.dsl = true; e.line = line; e.col = col;
+    return e;
+}
+
+var PALETTE = ['#e8e4d9', '#1c1c1c', '#a8402c', '#3c5a78', '#8a7b2f', '#4f7a6f', '#6b5b95', '#b5651d', '#7a2e3b', '#2f5d50'];
+
+/* ============================================================
+   2. Lexer
+   Emits newlines: one statement per line is what keeps the
+   argument lists of the graph generators unambiguous.
+   ============================================================ */
+
+var PUNCT2 = ['->', '==', '!=', '<=', '>='];
+var PUNCT1 = '{}()[],;=<>+-*/%:';
+
+function lex(src) {
+    var toks = [], i = 0, line = 1, col = 1, N = src.length;
+    function push(type, value) { toks.push({ type: type, value: value, line: line, col: col }); }
+    while (i < N) {
+        var c = src[i];
+        if (c === '\n') { push('nl', '\n'); i++; line++; col = 1; continue; }
+        if (c === ' ' || c === '\t' || c === '\r') { i++; col++; continue; }
+        if (c === '#') {
+            var m = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/.exec(src.slice(i, i + 9));
+            if (m) { push('color', m[0]); i += m[0].length; col += m[0].length; continue; }
+            while (i < N && src[i] !== '\n') { i++; col++; }
+            continue;
+        }
+        if (c >= '0' && c <= '9' || (c === '.' && /[0-9]/.test(src[i + 1] || ''))) {
+            var mn = /^[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?/.exec(src.slice(i));
+            push('num', parseFloat(mn[0])); i += mn[0].length; col += mn[0].length; continue;
+        }
+        if (/[A-Za-z_]/.test(c)) {
+            var mi = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
+            push('id', mi[0]); i += mi[0].length; col += mi[0].length; continue;
+        }
+        var two = src.substr(i, 2);
+        if (PUNCT2.indexOf(two) >= 0) { push('op', two); i += 2; col += 2; continue; }
+        if (PUNCT1.indexOf(c) >= 0) { push('op', c); i++; col++; continue; }
+        throw dslError('unexpected character ' + JSON.stringify(c), line, col);
+    }
+    push('eof', null);
+    return toks;
+}
+
+/* ============================================================
+   3. Parser
+   ============================================================ */
+
+var GRAPH_OPS = {
+    nodes: 1, ring: 1, path: 1, chord: 1, grid: 2, torus: 2, vonneumann: 2, moore: 2,
+    complete: 1, star: 1, tree: 2, random: 2, outdeg: 2, scalefree: 2,
+    bidirect: 0, reverse: 0, rewire: 1, selfloops: 0
+};
+
+function parse(src) {
+    var toks = lex(src), p = 0;
+
+    function peek(k) { return toks[p + (k || 0)]; }
+    function at(type, value) {
+        var t = toks[p];
+        return t.type === type && (value === undefined || t.value === value);
+    }
+    function eat(type, value) { return at(type, value) ? toks[p++] : null; }
+    function describe(t) {
+        if (t.type === 'eof') return 'end of program';
+        if (t.type === 'nl') return 'end of line';
+        return '"' + t.value + '"';
+    }
+    function expect(type, value, what) {
+        var t = eat(type, value);
+        if (!t) throw dslError('expected ' + (what || value || type) + ', found ' + describe(peek()), peek().line, peek().col);
+        return t;
+    }
+    function skipNl() { while (at('nl')) p++; }
+    function endStatement() {
+        if (at('nl') || at('op', ';')) { p++; skipNl(); return; }
+        if (at('op', '}') || at('eof')) return;
+        throw dslError('unexpected ' + describe(peek()) + ' at end of statement', peek().line, peek().col);
+    }
+
+    var prog = {
+        states: [], stateIndex: {}, params: [], paramIndex: {},
+        seed: 20260912, update: 'sync', asyncPerStep: null, layout: 'auto',
+        graph: [], init: [], rules: [], source: src
+    };
+
+    /* ---- expressions: precedence climbing ---- */
+
+    function primary() {
+        var t = peek();
+        if (t.type === 'num') { p++; return { k: 'num', v: t.value, line: t.line, col: t.col }; }
+        if (t.type === 'op' && t.value === '(') {
+            p++; var e = expression(); expect('op', ')', '")"'); return e;
+        }
+        if (t.type === 'op' && (t.value === '-' || t.value === '+')) {
+            p++; return { k: 'un', op: t.value, a: unary(), line: t.line, col: t.col };
+        }
+        if (t.type === 'id' && t.value === 'not') {
+            p++; return { k: 'un', op: 'not', a: unary(), line: t.line, col: t.col };
+        }
+        if (t.type === 'id') {
+            p++;
+            if (at('op', '(')) {
+                p++;
+                var args = [];
+                if (!at('op', ')')) {
+                    do { args.push(expression()); } while (eat('op', ','));
+                }
+                expect('op', ')', '")" to close ' + t.value + '(');
+                return { k: 'call', name: t.value, args: args, line: t.line, col: t.col };
+            }
+            return { k: 'var', name: t.value, line: t.line, col: t.col };
+        }
+        throw dslError('expected a value, found ' + describe(t), t.line, t.col);
+    }
+
+    function unary() { return primary(); }
+
+    function binaryLevel(level) {
+        var LEVELS = [
+            ['or'], ['and'], ['==', '!='], ['<', '<=', '>', '>='], ['+', '-'], ['*', '/', '%']
+        ];
+        if (level >= LEVELS.length) return unary();
+        var ops = LEVELS[level];
+        var left = binaryLevel(level + 1);
+        for (;;) {
+            var t = peek(), match = null;
+            if (t.type === 'op' && ops.indexOf(t.value) >= 0) match = t.value;
+            else if (t.type === 'id' && ops.indexOf(t.value) >= 0) match = t.value;
+            if (!match) return left;
+            p++;
+            var right = binaryLevel(level + 1);
+            left = { k: 'bin', op: match, a: left, b: right, line: t.line, col: t.col };
+        }
+    }
+
+    function expression() { return binaryLevel(0); }
+
+    /* ---- blocks ---- */
+
+    function openBlock(name) {
+        skipNl();
+        expect('op', '{', '"{" after ' + name);
+        skipNl();
+    }
+
+    function parseStates() {
+        openBlock('states');
+        while (!at('op', '}')) {
+            var t = expect('id', undefined, 'a state name');
+            if (prog.stateIndex.hasOwnProperty(t.value)) throw dslError('state "' + t.value + '" declared twice', t.line, t.col);
+            var color = null;
+            if (at('color')) color = toks[p++].value;
+            prog.stateIndex[t.value] = prog.states.length;
+            prog.states.push({ name: t.value, color: color });
+            skipNl();
+            if (eat('op', ',')) { skipNl(); continue; }
+            skipNl();
+        }
+        expect('op', '}', '"}" to close states');
+    }
+
+    function parseGraph() {
+        openBlock('graph');
+        while (!at('op', '}')) {
+            var t = expect('id', undefined, 'a graph statement');
+            if (t.value === 'edge') {
+                var a = expression();
+                expect('op', '->', '"->" in an edge statement');
+                var b = expression();
+                prog.graph.push({ op: 'edge', args: [a, b], line: t.line, col: t.col });
+            } else {
+                if (!GRAPH_OPS.hasOwnProperty(t.value)) {
+                    throw dslError('unknown graph statement "' + t.value + '"', t.line, t.col);
+                }
+                var want = GRAPH_OPS[t.value], args = [];
+                while (args.length < want) args.push(expression());
+                prog.graph.push({ op: t.value, args: args, line: t.line, col: t.col });
+            }
+            endStatement();
+        }
+        expect('op', '}', '"}" to close graph');
+    }
+
+    function stateRef(what) {
+        var t = expect('id', undefined, what || 'a state name');
+        if (!prog.stateIndex.hasOwnProperty(t.value)) {
+            throw dslError('unknown state "' + t.value + '"; declare it in a states block', t.line, t.col);
+        }
+        return prog.stateIndex[t.value];
+    }
+
+    function parseInit() {
+        openBlock('init');
+        while (!at('op', '}')) {
+            var t = expect('id', undefined, 'an init statement');
+            var op = t.value, entry = null;
+            if (op === 'all') entry = { op: 'all', state: stateRef(), line: t.line };
+            else if (op === 'node') entry = { op: 'node', index: expression(), state: stateRef(), line: t.line };
+            else if (op === 'random') entry = { op: 'random', state: stateRef(), prob: expression(), line: t.line };
+            else if (op === 'pick') entry = { op: 'pick', count: expression(), state: stateRef(), line: t.line };
+            else if (op === 'set') {
+                var st = stateRef();
+                var w = expect('id', 'where', '"where"');
+                entry = { op: 'where', state: st, cond: expression(), line: w.line };
+            } else throw dslError('unknown init statement "' + op + '"', t.line, t.col);
+            prog.init.push(entry);
+            endStatement();
+        }
+        expect('op', '}', '"}" to close init');
+    }
+
+    function parseRules() {
+        openBlock('rules');
+        while (!at('op', '}')) {
+            var t = expect('id', undefined, 'a state name or "_"');
+            var from;
+            if (t.value === '_' || t.value === 'any') from = -1;
+            else if (prog.stateIndex.hasOwnProperty(t.value)) from = prog.stateIndex[t.value];
+            else throw dslError('unknown state "' + t.value + '" on the left of a rule', t.line, t.col);
+            expect('op', '->', '"->" in a rule');
+            var tt = expect('id', undefined, 'a state name or "self"');
+            var to;
+            if (tt.value === 'self' || tt.value === 'stay') to = -1;
+            else if (prog.stateIndex.hasOwnProperty(tt.value)) to = prog.stateIndex[tt.value];
+            else throw dslError('unknown state "' + tt.value + '" on the right of a rule', tt.line, tt.col);
+            var guard = null, prob = null;
+            if (at('id', 'when')) { p++; guard = expression(); }
+            else if (at('id', 'always')) { p++; }
+            if (at('id', 'with')) {
+                p++;
+                expect('id', 'prob', '"prob" after "with"');
+                prob = expression();
+            }
+            prog.rules.push({ from: from, to: to, guard: guard, prob: prob, line: t.line });
+            endStatement();
+        }
+        expect('op', '}', '"}" to close rules');
+    }
+
+    /* ---- top level ---- */
+
+    skipNl();
+    while (!at('eof')) {
+        var t = peek();
+        if (t.type !== 'id') throw dslError('expected a declaration, found ' + describe(t), t.line, t.col);
+        var kw = t.value;
+        if (kw === 'states') { p++; parseStates(); }
+        else if (kw === 'graph') { p++; parseGraph(); }
+        else if (kw === 'init') { p++; parseInit(); }
+        else if (kw === 'rules' || kw === 'rule') { p++; parseRules(); }
+        else if (kw === 'param') {
+            p++;
+            var nameTok = expect('id', undefined, 'a parameter name');
+            expect('op', '=', '"=" in a param declaration');
+            var neg = eat('op', '-') ? -1 : 1;
+            var valTok = expect('num', undefined, 'a number');
+            var lo = null, hi = null;
+            if (eat('op', '[')) {
+                var lneg = eat('op', '-') ? -1 : 1;
+                lo = lneg * expect('num', undefined, 'a number').value;
+                expect('op', ',', '","');
+                var hneg = eat('op', '-') ? -1 : 1;
+                hi = hneg * expect('num', undefined, 'a number').value;
+                expect('op', ']', '"]"');
+            }
+            if (prog.paramIndex.hasOwnProperty(nameTok.value)) throw dslError('parameter "' + nameTok.value + '" declared twice', nameTok.line, nameTok.col);
+            prog.paramIndex[nameTok.value] = prog.params.length;
+            prog.params.push({ name: nameTok.value, value: neg * valTok.value, lo: lo, hi: hi });
+        }
+        else if (kw === 'seed') { p++; prog.seed = expect('num', undefined, 'a number').value | 0; }
+        else if (kw === 'update') {
+            p++;
+            var mode = expect('id', undefined, '"sync" or "async"');
+            if (mode.value !== 'sync' && mode.value !== 'async') throw dslError('update must be sync or async', mode.line, mode.col);
+            prog.update = mode.value;
+            if (at('num')) prog.asyncPerStep = toks[p++].value | 0;
+        }
+        else if (kw === 'layout') {
+            p++;
+            var lay = expect('id', undefined, 'circle, grid, force, or auto');
+            if (['circle', 'grid', 'force', 'auto'].indexOf(lay.value) < 0) throw dslError('unknown layout "' + lay.value + '"', lay.line, lay.col);
+            prog.layout = lay.value;
+        }
+        else throw dslError('unknown declaration "' + kw + '"', t.line, t.col);
+        endStatement();
+        skipNl();
+    }
+
+    if (!prog.states.length) throw dslError('no states declared; add a states block', 1, 1);
+    if (!prog.rules.length) throw dslError('no rules declared; add a rules block', 1, 1);
+    return prog;
+}
+
+/* ============================================================
+   4. Compiler: syntax tree to closures over an evaluation context
+   ============================================================ */
+
+var FN_ARITY = {
+    'in': 1, out: 1, nbr: 1, fin: 1, fout: 1, fnbr: 1, count: 1, frac: 1,
+    min: 2, max: 2, abs: 1, floor: 1, ceil: 1, round: 1, sqrt: 1, exp: 1, log: 1,
+    sin: 1, cos: 1, pow: 2, clamp: 3, mod: 2, sgn: 1, 'if': 3, rand: 0, randint: 1
+};
+
+function compileExpr(ast, prog) {
+    var S = prog.states.length;
+
+    function comp(node) {
+        switch (node.k) {
+            case 'num': {
+                var v = node.v;
+                return function () { return v; };
+            }
+            case 'un': {
+                var a = comp(node.a);
+                if (node.op === '-') return function (c) { return -a(c); };
+                if (node.op === '+') return a;
+                return function (c) { return a(c) === 0 ? 1 : 0; };
+            }
+            case 'bin': {
+                var x = comp(node.a), y = comp(node.b);
+                switch (node.op) {
+                    case '+': return function (c) { return x(c) + y(c); };
+                    case '-': return function (c) { return x(c) - y(c); };
+                    case '*': return function (c) { return x(c) * y(c); };
+                    case '/': return function (c) { var d = y(c); return d === 0 ? 0 : x(c) / d; };
+                    case '%': return function (c) { var d = y(c); return d === 0 ? 0 : x(c) % d; };
+                    case '==': return function (c) { return x(c) === y(c) ? 1 : 0; };
+                    case '!=': return function (c) { return x(c) !== y(c) ? 1 : 0; };
+                    case '<': return function (c) { return x(c) < y(c) ? 1 : 0; };
+                    case '<=': return function (c) { return x(c) <= y(c) ? 1 : 0; };
+                    case '>': return function (c) { return x(c) > y(c) ? 1 : 0; };
+                    case '>=': return function (c) { return x(c) >= y(c) ? 1 : 0; };
+                    case 'and': return function (c) { return (x(c) !== 0 && y(c) !== 0) ? 1 : 0; };
+                    case 'or': return function (c) { return (x(c) !== 0 || y(c) !== 0) ? 1 : 0; };
+                }
+                throw dslError('unknown operator "' + node.op + '"', node.line, node.col);
+            }
+            case 'var': {
+                var nm = node.name;
+                if (prog.paramIndex.hasOwnProperty(nm)) {
+                    var pi = prog.paramIndex[nm];
+                    return function (c) { return c.params[pi]; };
+                }
+                if (prog.stateIndex.hasOwnProperty(nm)) {
+                    var si = prog.stateIndex[nm];
+                    return function () { return si; };
+                }
+                switch (nm) {
+                    case 'self': return function (c) { return c.self; };
+                    case 'age': return function (c) { return c.age; };
+                    case 'id': return function (c) { return c.id; };
+                    case 'step': return function (c) { return c.step; };
+                    case 'n': return function (c) { return c.n; };
+                    case 'indeg': return function (c) { return c.indeg; };
+                    case 'outdeg': return function (c) { return c.outdeg; };
+                    case 'deg': return function (c) { return c.indeg + c.outdeg; };
+                    case 'pi': return function () { return Math.PI; };
+                    case 'e': return function () { return Math.E; };
+                    case 'true': return function () { return 1; };
+                    case 'false': return function () { return 0; };
+                }
+                throw dslError('unknown name "' + nm + '"', node.line, node.col);
+            }
+            case 'call': {
+                var name = node.name;
+                if (!FN_ARITY.hasOwnProperty(name)) throw dslError('unknown function "' + name + '()"', node.line, node.col);
+                var want = FN_ARITY[name], got = node.args.length;
+                if (want !== got) {
+                    throw dslError(name + '() takes ' + want + ' argument' + (want === 1 ? '' : 's') + ', given ' + got, node.line, node.col);
+                }
+                var a = node.args.map(comp);
+                switch (name) {
+                    case 'in': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S) ? c.inC[k] : 0; };
+                    case 'out': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S) ? c.outC[k] : 0; };
+                    case 'nbr': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S) ? c.inC[k] + c.outC[k] : 0; };
+                    case 'fin': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S && c.indeg) ? c.inC[k] / c.indeg : 0; };
+                    case 'fout': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S && c.outdeg) ? c.outC[k] / c.outdeg : 0; };
+                    case 'fnbr': return function (c) {
+                        var k = a[0](c) | 0, d = c.indeg + c.outdeg;
+                        return (k >= 0 && k < S && d) ? (c.inC[k] + c.outC[k]) / d : 0;
+                    };
+                    case 'count': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S) ? c.pop[k] : 0; };
+                    case 'frac': return function (c) { var k = a[0](c) | 0; return (k >= 0 && k < S && c.n) ? c.pop[k] / c.n : 0; };
+                    case 'rand': return function (c) { return c.rng(); };
+                    case 'randint': return function (c) { var k = a[0](c); return k <= 0 ? 0 : Math.floor(c.rng() * k); };
+                    case 'min': return function (c) { return Math.min(a[0](c), a[1](c)); };
+                    case 'max': return function (c) { return Math.max(a[0](c), a[1](c)); };
+                    case 'pow': return function (c) { return Math.pow(a[0](c), a[1](c)); };
+                    case 'mod': return function (c) { var d = a[1](c); return d === 0 ? 0 : ((a[0](c) % d) + d) % d; };
+                    case 'clamp': return function (c) { return Math.min(Math.max(a[0](c), a[1](c)), a[2](c)); };
+                    case 'sgn': return function (c) { var v = a[0](c); return v > 0 ? 1 : (v < 0 ? -1 : 0); };
+                    case 'if': return function (c) { return a[0](c) !== 0 ? a[1](c) : a[2](c); };
+                    default: {
+                        var f = Math[name];
+                        return function (c) { return f(a[0](c)); };
+                    }
+                }
+            }
+        }
+        throw dslError('malformed expression', node.line || 1, node.col || 1);
+    }
+
+    return comp(ast);
+}
+
+/* ============================================================
+   5. Graph construction
+   ============================================================ */
+
+function buildGraph(prog, params, rng) {
+    var g = {
+        n: 0, out: [], inn: [], edges: [], seen: Object.create(null),
+        gridW: 0, gridH: 0, isGrid: false, isCircle: false, isFree: false
+    };
+    var ctx = { params: params, self: 0, age: 0, id: 0, step: 0, n: 0, indeg: 0, outdeg: 0, rng: rng };
+
+    function val(ast) {
+        var v = compileExpr(ast, prog)(ctx);
+        if (!isFinite(v)) throw dslError('this argument is not a finite number', ast.line, ast.col);
+        return v;
+    }
+    function count(ast, min) {
+        var v = Math.round(val(ast));
+        if (v < (min === undefined ? 1 : min)) throw dslError('expected a count of at least ' + (min === undefined ? 1 : min) + ', got ' + v, ast.line, ast.col);
+        if (v > 4000) throw dslError('that would make ' + v + ' nodes; the ceiling here is 4000', ast.line, ast.col);
+        return v;
+    }
+    function ensure(k) {
+        if (k > 4000) throw dslError('that would make ' + k + ' nodes; the ceiling here is 4000', 1, 1);
+        while (g.n < k) { g.out.push([]); g.inn.push([]); g.n++; }
+    }
+    var allowSelf = false;
+    function addEdge(a, b) {
+        if (a < 0 || b < 0 || a >= g.n || b >= g.n) return;
+        if (a === b && !allowSelf) return;
+        var key = a * 100003 + b;
+        if (g.seen[key]) return;
+        g.seen[key] = 1;
+        g.out[a].push(b); g.inn[b].push(a);
+        g.edges.push(a, b);
+    }
+    function removeAllEdges() {
+        g.seen = Object.create(null);
+        g.edges = [];
+        for (var i = 0; i < g.n; i++) { g.out[i] = []; g.inn[i] = []; }
+    }
+
+    for (var s = 0; s < prog.graph.length; s++) {
+        var st = prog.graph[s], A = st.args, i, j, x, y, w, h, k, m;
+        switch (st.op) {
+            case 'nodes': ensure(count(A[0])); break;
+            case 'ring': {
+                var nr = count(A[0], 2); ensure(nr); g.isCircle = true;
+                for (i = 0; i < nr; i++) addEdge(i, (i + 1) % nr);
+                break;
+            }
+            case 'path': {
+                var np = count(A[0], 2); ensure(np); g.isCircle = true;
+                for (i = 0; i + 1 < np; i++) addEdge(i, i + 1);
+                break;
+            }
+            case 'chord': {
+                k = Math.round(val(A[0])); g.isCircle = true;
+                if (g.n === 0) throw dslError('chord needs nodes; add a ring or nodes statement first', st.line, st.col);
+                for (i = 0; i < g.n; i++) addEdge(i, ((i + k) % g.n + g.n) % g.n);
+                break;
+            }
+            case 'grid': case 'torus': case 'vonneumann': case 'moore': {
+                w = count(A[0], 1); h = count(A[1], 1);
+                ensure(w * h); g.isGrid = true; g.gridW = w; g.gridH = h;
+                var wrap = st.op !== 'grid';
+                var offs = (st.op === 'grid' || st.op === 'torus')
+                    ? [[1, 0], [0, 1]]
+                    : (st.op === 'vonneumann' ? [[1, 0], [-1, 0], [0, 1], [0, -1]]
+                        : [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]);
+                for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+                    for (var o = 0; o < offs.length; o++) {
+                        var nx = x + offs[o][0], ny = y + offs[o][1];
+                        if (wrap) { nx = ((nx % w) + w) % w; ny = ((ny % h) + h) % h; }
+                        else if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                        addEdge(y * w + x, ny * w + nx);
+                    }
+                }
+                break;
+            }
+            case 'complete': {
+                var nc = count(A[0], 2);
+                if (nc > 400) throw dslError('a complete graph on ' + nc + ' nodes has too many edges to draw; keep it under 400', st.line, st.col);
+                ensure(nc); g.isCircle = true;
+                for (i = 0; i < nc; i++) for (j = 0; j < nc; j++) if (i !== j) addEdge(i, j);
+                break;
+            }
+            case 'star': {
+                var ns = count(A[0], 2); ensure(ns); g.isCircle = true;
+                for (i = 1; i < ns; i++) addEdge(0, i);
+                break;
+            }
+            case 'tree': {
+                var b = count(A[0], 1), d = count(A[1], 1), total = 1, level = 1;
+                for (i = 0; i < d; i++) { level *= b; total += level; }
+                if (total > 4000) throw dslError('that tree would have ' + total + ' nodes', st.line, st.col);
+                ensure(total); g.isFree = true;
+                for (i = 0; i < total; i++) for (j = 1; j <= b; j++) {
+                    var child = i * b + j;
+                    if (child < total) addEdge(i, child);
+                }
+                break;
+            }
+            case 'random': {
+                var nn = count(A[0], 1), pr = val(A[1]);
+                if (nn > 1500) throw dslError('random needs to consider every ordered pair; keep it under 1500 nodes', st.line, st.col);
+                ensure(nn); g.isFree = true;
+                for (i = 0; i < nn; i++) for (j = 0; j < nn; j++) {
+                    if (i !== j && rng() < pr) addEdge(i, j);
+                }
+                break;
+            }
+            case 'outdeg': {
+                var no = count(A[0], 1); k = count(A[1], 0); ensure(no); g.isFree = true;
+                for (i = 0; i < no; i++) {
+                    var tries = 0, made = 0;
+                    while (made < k && tries < k * 20 + 50) {
+                        tries++;
+                        j = Math.floor(rng() * no);
+                        if (j === i) continue;
+                        var key = i * 100003 + j;
+                        if (g.seen[key]) continue;
+                        addEdge(i, j); made++;
+                    }
+                }
+                break;
+            }
+            case 'scalefree': {
+                var nf = count(A[0], 2); m = count(A[1], 1); ensure(nf); g.isFree = true;
+                if (m >= nf) m = Math.max(1, nf - 1);
+                var pool = [];
+                for (i = 0; i < m; i++) { pool.push(i); if (i > 0) { addEdge(i - 1, i); pool.push(i - 1); } }
+                for (i = m; i < nf; i++) {
+                    var picked = Object.create(null), made2 = 0, guard = 0;
+                    while (made2 < m && guard < 200) {
+                        guard++;
+                        var src = pool.length ? pool[Math.floor(rng() * pool.length)] : Math.floor(rng() * i);
+                        if (src === i || picked[src]) continue;
+                        picked[src] = 1; made2++;
+                        addEdge(src, i);      /* the established node broadcasts to the newcomer */
+                        pool.push(src); pool.push(i);
+                    }
+                }
+                break;
+            }
+            case 'edge': {
+                var a = Math.round(val(A[0])), bb = Math.round(val(A[1]));
+                if (a < 0 || bb < 0) throw dslError('node indices start at 0', st.line, st.col);
+                ensure(Math.max(a, bb) + 1); g.isFree = true;
+                allowSelf = true; addEdge(a, bb); allowSelf = false;
+                break;
+            }
+            case 'bidirect': {
+                var snapshot = g.edges.slice();
+                for (i = 0; i < snapshot.length; i += 2) addEdge(snapshot[i + 1], snapshot[i]);
+                break;
+            }
+            case 'reverse': {
+                var old = g.edges.slice();
+                removeAllEdges();
+                for (i = 0; i < old.length; i += 2) addEdge(old[i + 1], old[i]);
+                break;
+            }
+            case 'rewire': {
+                var pw = val(A[0]), old2 = g.edges.slice();
+                removeAllEdges();
+                for (i = 0; i < old2.length; i += 2) {
+                    var src2 = old2[i], dst2 = old2[i + 1];
+                    if (rng() < pw) {
+                        var t2 = Math.floor(rng() * g.n);
+                        if (t2 !== src2) dst2 = t2;
+                    }
+                    addEdge(src2, dst2);
+                }
+                break;
+            }
+            case 'selfloops': {
+                allowSelf = true;
+                for (i = 0; i < g.n; i++) addEdge(i, i);
+                allowSelf = false;
+                break;
+            }
+        }
+    }
+
+    if (g.n === 0) throw dslError('the graph has no nodes; add a generator to the graph block', 1, 1);
+    return g;
+}
+
+/* ============================================================
+   6. Runtime
+   ============================================================ */
+
+var MAX_HISTORY = 1600;
+
+function Automaton(prog) {
+    this.prog = prog;
+    this.S = prog.states.length;
+    this.params = new Float64Array(prog.params.length);
+    for (var i = 0; i < prog.params.length; i++) this.params[i] = prog.params[i].value;
+    this.build();
+}
+
+Automaton.prototype.build = function () {
+    var prog = this.prog;
+    var seed = prog.seed | 0;
+    this.g = buildGraph(prog, this.params, mulberry32(seed ^ 0x1f123bb5));
+    this.n = this.g.n;
+
+    /* compile the rules and the init conditions once */
+    var i;
+    this.rules = prog.rules.map(function (r) {
+        return {
+            from: r.from, to: r.to,
+            guard: r.guard ? compileExpr(r.guard, prog) : null,
+            prob: r.prob ? compileExpr(r.prob, prog) : null
+        };
+    });
+    this.initOps = prog.init.map(function (op) {
+        var o = { op: op.op, state: op.state };
+        if (op.index) o.index = compileExpr(op.index, prog);
+        if (op.prob) o.prob = compileExpr(op.prob, prog);
+        if (op.count) o.count = compileExpr(op.count, prog);
+        if (op.cond) o.cond = compileExpr(op.cond, prog);
+        return o;
+    });
+
+    this.state = new Uint8Array(this.n);
+    this.nextState = new Uint8Array(this.n);
+    this.age = new Int32Array(this.n);
+    this.pop = new Int32Array(this.S);
+
+    this.ctx = {
+        params: this.params, self: 0, age: 0, id: 0, step: 0, n: this.n,
+        indeg: 0, outdeg: 0, inC: new Int32Array(this.S), outC: new Int32Array(this.S),
+        pop: this.pop, rng: null
+    };
+
+    this.reset();
+};
+
+Automaton.prototype.reset = function () {
+    var seed = this.prog.seed | 0, i, k;
+    this.rngInit = mulberry32(seed ^ 0x9e3779b9);
+    this.rngRun = mulberry32(seed ^ 0x85ebca6b);
+    this.ctx.rng = this.rngRun;
+    this.step = 0;
+    this.state.fill(0);
+    this.age.fill(0);
+
+    var c = this.ctx, n = this.n;
+    c.rng = this.rngInit;
+    c.step = 0;
+
+    for (var o = 0; o < this.initOps.length; o++) {
+        var op = this.initOps[o];
+        if (op.op === 'all') {
+            this.state.fill(op.state);
+        } else if (op.op === 'node') {
+            this.prepContext(0);
+            k = Math.round(op.index(c));
+            if (k >= 0 && k < n) this.state[k] = op.state;
+        } else if (op.op === 'random') {
+            this.prepContext(0);
+            var pr = op.prob(c);
+            for (i = 0; i < n; i++) if (this.rngInit() < pr) this.state[i] = op.state;
+        } else if (op.op === 'pick') {
+            this.prepContext(0);
+            var want = Math.min(n, Math.max(0, Math.round(op.count(c))));
+            var order = [];
+            for (i = 0; i < n; i++) order.push(i);
+            for (i = n - 1; i > 0; i--) {
+                var j = Math.floor(this.rngInit() * (i + 1));
+                var tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+            }
+            for (i = 0; i < want; i++) this.state[order[i]] = op.state;
+        } else if (op.op === 'where') {
+            for (i = 0; i < n; i++) {
+                this.prepContext(i);
+                if (op.cond(c) !== 0) this.state[i] = op.state;
+            }
+        }
+    }
+
+    c.rng = this.rngRun;
+    this.recount();
+    this.history = [];
+    this.series = [];
+    this.record();
+};
+
+/* Fill the evaluation context for node i: state, age, degrees,
+   and the tally of in- and out-neighbours by state. */
+Automaton.prototype.prepContext = function (i) {
+    var c = this.ctx, st = this.state, g = this.g;
+    var inn = g.inn[i], out = g.out[i], k;
+    c.self = st[i]; c.age = this.age[i]; c.id = i;
+    c.indeg = inn.length; c.outdeg = out.length;
+    c.inC.fill(0); c.outC.fill(0);
+    for (k = 0; k < inn.length; k++) c.inC[st[inn[k]]]++;
+    for (k = 0; k < out.length; k++) c.outC[st[out[k]]]++;
+};
+
+Automaton.prototype.applyRules = function (i) {
+    this.prepContext(i);
+    var c = this.ctx, rules = this.rules, cur = c.self;
+    for (var r = 0; r < rules.length; r++) {
+        var rule = rules[r];
+        if (rule.from >= 0 && rule.from !== cur) continue;
+        if (rule.guard && rule.guard(c) === 0) continue;
+        if (rule.prob && this.rngRun() >= rule.prob(c)) return cur;
+        return rule.to < 0 ? cur : rule.to;
+    }
+    return cur;
+};
+
+Automaton.prototype.recount = function () {
+    this.pop.fill(0);
+    for (var i = 0; i < this.n; i++) this.pop[this.state[i]]++;
+};
+
+Automaton.prototype.advance = function () {
+    var n = this.n, i, v;
+    this.ctx.step = this.step;
+    if (this.prog.update === 'async') {
+        var k = this.prog.asyncPerStep ? this.prog.asyncPerStep : n;
+        for (var t = 0; t < k; t++) {
+            i = Math.floor(this.rngRun() * n);
+            v = this.applyRules(i);
+            if (v !== this.state[i]) {
+                this.pop[this.state[i]]--; this.pop[v]++;
+                this.state[i] = v; this.age[i] = 0;
+            } else this.age[i]++;
+        }
+    } else {
+        for (i = 0; i < n; i++) this.nextState[i] = this.applyRules(i);
+        for (i = 0; i < n; i++) {
+            v = this.nextState[i];
+            if (v !== this.state[i]) { this.state[i] = v; this.age[i] = 0; }
+            else this.age[i]++;
+        }
+        this.recount();
+    }
+    this.step++;
+    this.record();
+};
+
+Automaton.prototype.record = function () {
+    this.history.push(this.state.slice());
+    this.series.push(this.pop.slice());
+    if (this.history.length > MAX_HISTORY) { this.history.shift(); this.series.shift(); }
+};
+
+/* A crude measure of whether anything is still happening. */
+Automaton.prototype.isStatic = function () {
+    var h = this.history, L = h.length;
+    if (L < 3) return false;
+    var a = h[L - 1], b = h[L - 2];
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+};
+
+/* ============================================================
+   7. Layout
+   ============================================================ */
+
+function layoutGraph(g, mode, seed) {
+    var n = g.n, pos = new Float64Array(n * 2), i;
+    var rng = mulberry32((seed | 0) ^ 0xc2b2ae35);
+
+    if (mode === 'auto') {
+        mode = g.isGrid ? 'grid' : (g.isFree ? 'force' : 'circle');
+    }
+    if (mode === 'grid' && !g.isGrid) mode = 'circle';
+    if (mode === 'force' && n > 900) mode = 'circle';
+
+    if (mode === 'grid') {
+        var w = g.gridW || Math.ceil(Math.sqrt(n)), h = g.gridH || Math.ceil(n / w);
+        for (i = 0; i < n; i++) {
+            pos[i * 2] = ((i % w) + 0.5) / w;
+            pos[i * 2 + 1] = ((Math.floor(i / w) % h) + 0.5) / h;
+        }
+        return { pos: pos, mode: mode, w: w, h: h };
+    }
+
+    if (mode === 'circle') {
+        for (i = 0; i < n; i++) {
+            var a = (i / n) * Math.PI * 2 - Math.PI / 2;
+            pos[i * 2] = 0.5 + 0.44 * Math.cos(a);
+            pos[i * 2 + 1] = 0.5 + 0.44 * Math.sin(a);
+        }
+        return { pos: pos, mode: mode };
+    }
+
+    /* spring embedder, seeded on a circle so runs are reproducible */
+    for (i = 0; i < n; i++) {
+        var ang = (i / n) * Math.PI * 2;
+        pos[i * 2] = 0.5 + 0.3 * Math.cos(ang) + (rng() - 0.5) * 0.02;
+        pos[i * 2 + 1] = 0.5 + 0.3 * Math.sin(ang) + (rng() - 0.5) * 0.02;
+    }
+    var iters = Math.max(40, Math.min(300, Math.round(24000 / Math.max(1, n))));
+    var kRep = 0.9 / Math.sqrt(n), kAtt = 0.06;
+    var dx = new Float64Array(n), dy = new Float64Array(n);
+    var E = g.edges;
+    for (var it = 0; it < iters; it++) {
+        dx.fill(0); dy.fill(0);
+        for (i = 0; i < n; i++) {
+            for (var j = i + 1; j < n; j++) {
+                var ax = pos[i * 2] - pos[j * 2], ay = pos[i * 2 + 1] - pos[j * 2 + 1];
+                var d2 = ax * ax + ay * ay + 1e-6;
+                var f = kRep * kRep / d2;
+                if (f > 0.4) f = 0.4;
+                dx[i] += ax * f; dy[i] += ay * f;
+                dx[j] -= ax * f; dy[j] -= ay * f;
+            }
+        }
+        for (var eI = 0; eI < E.length; eI += 2) {
+            var a2 = E[eI], b2 = E[eI + 1];
+            var bx = pos[b2 * 2] - pos[a2 * 2], by = pos[b2 * 2 + 1] - pos[a2 * 2 + 1];
+            dx[a2] += bx * kAtt; dy[a2] += by * kAtt;
+            dx[b2] -= bx * kAtt; dy[b2] -= by * kAtt;
+        }
+        var cool = 0.08 * (1 - it / iters) + 0.012;
+        for (i = 0; i < n; i++) {
+            var gx = 0.5 - pos[i * 2], gy = 0.5 - pos[i * 2 + 1];
+            pos[i * 2] += (dx[i] + gx * 0.02) * cool;
+            pos[i * 2 + 1] += (dy[i] + gy * 0.02) * cool;
+        }
+    }
+    /* normalise into the unit square with a margin */
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (i = 0; i < n; i++) {
+        minX = Math.min(minX, pos[i * 2]); maxX = Math.max(maxX, pos[i * 2]);
+        minY = Math.min(minY, pos[i * 2 + 1]); maxY = Math.max(maxY, pos[i * 2 + 1]);
+    }
+    var sx = (maxX - minX) || 1, sy = (maxY - minY) || 1, sc = 0.88 / Math.max(sx, sy);
+    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    for (i = 0; i < n; i++) {
+        pos[i * 2] = 0.5 + (pos[i * 2] - cx) * sc;
+        pos[i * 2 + 1] = 0.5 + (pos[i * 2 + 1] - cy) * sc;
+    }
+    return { pos: pos, mode: 'force' };
+}
+
+/* ============================================================
+   8. Drawing
+   ============================================================ */
+
+var EDGE_DRAW_LIMIT = 6000;
+
+var view = {
+    canvas: null, ctx: null, edgeLayer: null,
+    pos: null, sx: null, sy: null, radius: 6, mode: 'circle',
+    hover: -1, dirty: true, w: 0, h: 0
+};
+
+function fitCanvas(cv) {
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return false;
+    var W = Math.round(w * dpr), H = Math.round(h * dpr);
+    if (cv.width !== W || cv.height !== H) {
+        cv.width = W; cv.height = H;
+        return true;
+    }
+    return false;
+}
+
+function stateColor(prog, i) {
+    var s = prog.states[i];
+    return (s && s.color) || PALETTE[i % PALETTE.length];
+}
+
+function computeScreenPositions() {
+    var cv = view.canvas, dpr = window.devicePixelRatio || 1;
+    var w = cv.width / dpr, h = cv.height / dpr;
+    var pad = view.radius + 10;
+    var n = view.pos.length / 2;
+    view.sx = new Float64Array(n);
+    view.sy = new Float64Array(n);
+    var size = Math.min(w, h);
+    var ox = (w - size) / 2, oy = (h - size) / 2;
+    if (view.mode === 'grid') { ox = (w - size) / 2; oy = (h - size) / 2; }
+    for (var i = 0; i < n; i++) {
+        view.sx[i] = ox + pad + view.pos[i * 2] * (size - 2 * pad);
+        view.sy[i] = oy + pad + view.pos[i * 2 + 1] * (size - 2 * pad);
+    }
+    view.w = w; view.h = h;
+}
+
+function drawEdgeLayer(auto) {
+    var dpr = window.devicePixelRatio || 1;
+    var cv = view.canvas;
+    if (!view.edgeLayer) view.edgeLayer = document.createElement('canvas');
+    var lay = view.edgeLayer;
+    lay.width = cv.width; lay.height = cv.height;
+    var c = lay.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, view.w, view.h);
+    var E = auto.g.edges, nE = E.length / 2;
+    if (nE > EDGE_DRAW_LIMIT) return;
+    var r = view.radius;
+    var heads = nE < 900;
+    c.strokeStyle = 'rgba(120,116,102,' + (nE > 1200 ? 0.16 : (nE > 400 ? 0.3 : 0.5)) + ')';
+    c.fillStyle = 'rgba(120,116,102,0.55)';
+    c.lineWidth = nE > 1200 ? 0.5 : 0.8;
+    for (var e = 0; e < E.length; e += 2) {
+        drawArrow(c, E[e], E[e + 1], r, heads, false);
+    }
+}
+
+function drawArrow(c, a, b, r, head, emphatic) {
+    var x1 = view.sx[a], y1 = view.sy[a], x2 = view.sx[b], y2 = view.sy[b];
+    if (a === b) {
+        c.beginPath();
+        c.arc(x1, y1 - r * 1.2, r * 0.9, 0.4 * Math.PI, 2.7 * Math.PI);
+        c.stroke();
+        return;
+    }
+    var dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 1;
+    var ux = dx / d, uy = dy / d;
+    var sx = x1 + ux * (r + 0.5), sy = y1 + uy * (r + 0.5);
+    var ex = x2 - ux * (r + 2.5), ey = y2 - uy * (r + 2.5);
+    var bend = 0.11;
+    var mx = (sx + ex) / 2 - (ey - sy) * bend, my = (sy + ey) / 2 + (ex - sx) * bend;
+    c.beginPath();
+    c.moveTo(sx, sy);
+    c.quadraticCurveTo(mx, my, ex, ey);
+    c.stroke();
+    if (!head) return;
+    var tx = ex - mx, ty = ey - my, tl = Math.hypot(tx, ty) || 1;
+    tx /= tl; ty /= tl;
+    var size = emphatic ? 6 : 4.6;
+    c.beginPath();
+    c.moveTo(ex, ey);
+    c.lineTo(ex - tx * size - ty * size * 0.5, ey - ty * size + tx * size * 0.5);
+    c.lineTo(ex - tx * size + ty * size * 0.5, ey - ty * size - tx * size * 0.5);
+    c.closePath();
+    c.fill();
+}
+
+function drawGraph(auto) {
+    var cv = view.canvas, c = view.ctx, dpr = window.devicePixelRatio || 1;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, view.w, view.h);
+    if (view.edgeLayer) c.drawImage(view.edgeLayer, 0, 0, view.w, view.h);
+
+    var prog = auto.prog, n = auto.n, r = view.radius, i;
+
+    /* trace the edges of the hovered node: out in rust, in in slate */
+    if (view.hover >= 0 && view.hover < n && auto.g.edges.length / 2 <= EDGE_DRAW_LIMIT) {
+        var h = view.hover, g = auto.g, k;
+        c.lineWidth = 1.4;
+        c.strokeStyle = '#3c5a78'; c.fillStyle = '#3c5a78';
+        for (k = 0; k < g.inn[h].length; k++) drawArrow(c, g.inn[h][k], h, r, true, true);
+        c.strokeStyle = '#a8402c'; c.fillStyle = '#a8402c';
+        for (k = 0; k < g.out[h].length; k++) drawArrow(c, h, g.out[h][k], r, true, true);
+    }
+
+    var square = view.mode === 'grid' && n > 400;
+    c.lineWidth = 1;
+    for (i = 0; i < n; i++) {
+        c.fillStyle = stateColor(prog, auto.state[i]);
+        if (square) {
+            c.fillRect(view.sx[i] - r, view.sy[i] - r, r * 2, r * 2);
+        } else {
+            c.beginPath();
+            c.arc(view.sx[i], view.sy[i], r, 0, Math.PI * 2);
+            c.fill();
+            if (r >= 3) { c.strokeStyle = 'rgba(90,88,78,0.65)'; c.stroke(); }
+        }
+    }
+    if (view.hover >= 0 && view.hover < n) {
+        c.beginPath();
+        c.arc(view.sx[view.hover], view.sy[view.hover], r + 3.5, 0, Math.PI * 2);
+        c.strokeStyle = '#111'; c.lineWidth = 1.2; c.stroke();
+    }
+}
+
+/* ---- the space-time raster, appended one column at a time ---- */
+
+var raster = { off: null, ctx: null, W: 720, H: 600, col: 0, drawn: 0, colW: 1 };
+
+function rasterReset(auto) {
+    if (!raster.off) {
+        raster.off = document.createElement('canvas');
+        raster.off.width = raster.W; raster.off.height = raster.H;
+        raster.ctx = raster.off.getContext('2d');
+    }
+    raster.ctx.fillStyle = '#fffff8';
+    raster.ctx.fillRect(0, 0, raster.W, raster.H);
+    raster.col = 0;
+    raster.drawn = 0;
+    raster.colW = auto.n <= 4 ? 3 : 1;
+    rasterAppend(auto);
+}
+
+function rasterAppend(auto) {
+    var hist = auto.history, total = auto.step + 1;
+    var pending = Math.min(total - raster.drawn, hist.length);
+    if (pending <= 0) return;
+    var c = raster.ctx, prog = auto.prog, n = auto.n;
+    var rowH = raster.H / n;
+    var colW = raster.colW;
+    for (var q = hist.length - pending; q < hist.length; q++) {
+        if (raster.col + colW > raster.W) {
+            var shift = Math.round(raster.W * 0.35);
+            c.globalCompositeOperation = 'copy';
+            c.drawImage(raster.off, -shift, 0);
+            c.globalCompositeOperation = 'source-over';
+            c.fillStyle = '#fffff8';
+            c.fillRect(raster.W - shift, 0, shift, raster.H);
+            raster.col -= shift;
+        }
+        var snap = hist[q];
+        for (var i = 0; i < n; i++) {
+            c.fillStyle = stateColor(prog, snap[i]);
+            c.fillRect(raster.col, i * rowH, colW, Math.max(rowH, 1));
+        }
+        raster.col += colW;
+    }
+    raster.drawn = total;
+}
+
+function drawRaster(cv) {
+    var c = cv.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var w = cv.width / dpr, h = cv.height / dpr;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = '#fffff8';
+    c.fillRect(0, 0, w, h);
+    if (!raster.off) return;
+    c.imageSmoothingEnabled = false;
+    c.drawImage(raster.off, 0, 0, raster.W, raster.H, 0, 0, w, h);
+}
+
+/* ---- population of each state over time ---- */
+
+function drawPopulation(cv, auto) {
+    var c = cv.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var w = cv.width / dpr, h = cv.height / dpr;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = '#fffff8';
+    c.fillRect(0, 0, w, h);
+    var series = auto.series, L = series.length;
+    if (L < 2) return;
+
+    /* share the raster's time axis exactly, so the two panels line up */
+    var scale = w / raster.W, colW = raster.colW;
+    var visible = Math.max(2, Math.floor(raster.col / colW));
+    var count = Math.min(visible, L);
+    var start = L - count;
+    var xs = function (k) { return (raster.col - (count - k) * colW) * scale; };
+
+    var S = auto.S, n = auto.n, prog = auto.prog, k;
+    var acc = new Float64Array(count);
+    for (var s = 0; s < S; s++) {
+        c.beginPath();
+        for (k = 0; k < count; k++) {
+            var y = h - (acc[k] / n) * h;
+            if (k === 0) c.moveTo(xs(k), y); else c.lineTo(xs(k), y);
+        }
+        for (k = count - 1; k >= 0; k--) {
+            acc[k] += series[start + k][s];
+            c.lineTo(xs(k), h - (acc[k] / n) * h);
+        }
+        c.closePath();
+        c.fillStyle = stateColor(prog, s);
+        c.fill();
+        /* a hairline along the top of each band keeps pale states legible */
+        c.beginPath();
+        for (k = 0; k < count; k++) {
+            var yt = h - (acc[k] / n) * h;
+            if (k === 0) c.moveTo(xs(k), yt); else c.lineTo(xs(k), yt);
+        }
+        c.strokeStyle = 'rgba(60,58,50,0.45)';
+        c.lineWidth = 0.6;
+        c.stroke();
+    }
+}
+
+/* ============================================================
+   9. Example programs
+   ============================================================ */
+
+var EXAMPLES = [
+{
+name: 'Excitable ring',
+desc: 'A Greenberg–Hastings medium on a ring with one shortcut. Raise the chord and the wave eventually runs into its own refractory tail.',
+src: [
+'# An excitable medium on a directed ring.',
+'# Excitation walks forward only, because the edges do.',
+'',
+'seed 7',
+'param spark = 0.04 [0, 0.4]',
+'param shortcut = 0 [0, 40]',
+'',
+'states { quiet #e8e4d9, firing #1c1c1c, spent #a8402c }',
+'',
+'graph {',
+'  ring 140',
+'  chord shortcut      # 0 means none; try 9, then 31',
+'}',
+'',
+'init {',
+'  all quiet',
+'  random firing spark',
+'}',
+'',
+'rules {',
+'  quiet  -> firing when in(firing) >= 1',
+'  firing -> spent',
+'  spent  -> quiet  when age >= 4',
+'}'
+].join('\n')
+},
+{
+name: 'Rule 90, recovered',
+desc: 'A ring plus its reverse chord gives every node two in-neighbours, unordered. Parity of the in-neighbourhood is rule 90, and a single seed draws the Sierpinski gasket down the raster.',
+src: [
+'# The classical elementary automaton is the special case',
+'# where the in-neighbourhood is {i-1, i+1}. Since our',
+'# neighbourhoods are sets, only totalistic rules survive:',
+'# parity of the two in-neighbours is exactly rule 90.',
+'',
+'seed 1',
+'states { off #f2efe4, on #1c1c1c }',
+'',
+'graph {',
+'  ring 201            # i -> i+1',
+'  chord -1            # and i -> i-1',
+'}',
+'',
+'init {',
+'  all off',
+'  node 100 on',
+'}',
+'',
+'rules {',
+'  _ -> on  when mod(in(on), 2) == 1',
+'  _ -> off',
+'}',
+'',
+'layout circle'
+].join('\n')
+},
+{
+name: 'Life on a Moore torus',
+desc: 'Conway, reconstructed. The moore generator lays every edge in both directions, which is the assumption the classical rule silently makes. Change it to torus and watch Life stop being Life.',
+src: [
+'# Conway\'s Life is a statement about its lattice as much',
+'# as about its thresholds. Swap moore for torus (a two-edge',
+'# in-neighbourhood, right and down) and nothing survives.',
+'',
+'seed 12',
+'param fill = 0.3 [0, 1]',
+'',
+'states { dead #f2efe4, alive #1c1c1c }',
+'',
+'graph { moore 34 34 }',
+'',
+'init {',
+'  all dead',
+'  random alive fill',
+'}',
+'',
+'rules {',
+'  alive -> dead  when in(alive) < 2 or in(alive) > 3',
+'  dead  -> alive when in(alive) == 3',
+'}',
+'',
+'layout grid'
+].join('\n')
+},
+{
+name: 'Cyclic automaton',
+desc: 'Four states in a cycle, each eaten by its successor. Random noise organises itself into rotating spirals, then into a single travelling phase.',
+src: [
+'# Rock, paper, scissors, lizard: each state is consumed by',
+'# the next one around the cycle whenever a single in-neighbour',
+'# holds it. Order out of a uniform mess.',
+'',
+'seed 3',
+'states { a #3c5a78, b #a8402c, c #8a7b2f, d #4f7a6f }',
+'',
+'graph { vonneumann 44 44 }',
+'',
+'init {',
+'  all a',
+'  set b where rand() < 0.34',
+'  set c where rand() < 0.34',
+'  set d where rand() < 0.34',
+'}',
+'',
+'rules {',
+'  a -> b when in(b) >= 1',
+'  b -> c when in(c) >= 1',
+'  c -> d when in(d) >= 1',
+'  d -> a when in(a) >= 1',
+'}',
+'',
+'layout grid'
+].join('\n')
+},
+{
+name: 'Voter model, asynchronous',
+desc: 'Each node copies a uniformly chosen in-neighbour. On a scale-free digraph the hubs are heard by everyone and consensus is theirs to decide.',
+src: [
+'# The voter model in two lines. The first rule fires with',
+'# probability equal to the blue fraction of the',
+'# in-neighbourhood; otherwise the second rule catches it.',
+'# Asynchronous updating: one sweep of n random nodes per step.',
+'',
+'seed 5',
+'states { blue #3c5a78, red #a8402c }',
+'',
+'graph {',
+'  scalefree 180 2',
+'  bidirect            # delete this line: consensus stops arriving',
+'}',
+'',
+'update async',
+'',
+'init { random blue 0.5 }',
+'',
+'rules {',
+'  _ -> blue when rand() < fin(blue)',
+'  _ -> red',
+'}'
+].join('\n')
+},
+{
+name: 'Threshold cascade',
+desc: 'Watts’ model of collective action: adopt once a fixed fraction of the people you listen to have adopted. Three seeds either fizzle or take the whole network.',
+src: [
+'# A monotone cascade on a random digraph where every node',
+'# listens to exactly four others. Nudge theta up and press Reset:',
+'# the transition from takeover to fizzle is startlingly sharp.',
+'',
+'seed 9',
+'param theta = 0.3 [0.01, 1]',
+'param seeds = 3 [1, 40]',
+'',
+'states { holdout #e8e4d9, adopted #1c1c1c }',
+'',
+'graph { outdeg 240 4 }',
+'',
+'init {',
+'  all holdout',
+'  pick seeds adopted',
+'}',
+'',
+'rules {',
+'  holdout -> adopted when fin(adopted) >= theta',
+'}'
+].join('\n')
+},
+{
+name: 'Pulse down a tree',
+desc: 'A strictly feedforward graph, driven by a pacemaker at the root. Every wave reaches the leaves and dies there, because nothing downstream can talk back.',
+src: [
+'# Direction in its purest form: a binary tree with edges from',
+'# parent to child only. Node 0 fires on a fixed period and the',
+'# excitation can only ever travel outward. Delete the pacemaker',
+'# rule and the system falls silent forever; a feedforward graph',
+'# has no memory. Add "edge 510 -> 0" to the graph block to close',
+'# one loop, and it never needs the pacemaker again.',
+'',
+'seed 2',
+'param period = 12 [2, 40]',
+'',
+'states { off #e8e4d9, on #1c1c1c, spent #a8402c }',
+'',
+'graph { tree 2 8 }',
+'',
+'init {',
+'  all off',
+'  node 0 on',
+'}',
+'',
+'rules {',
+'  off   -> on    when id == 0 and mod(step, period) == 0',
+'  off   -> on    when in(on) >= 1',
+'  on    -> spent',
+'  spent -> off   when age >= 2',
+'}'
+].join('\n')
+},
+{
+name: 'Majority with dissent',
+desc: 'Local majority on a directed small world, with a small probability of contrariness. The noise is what keeps it from freezing into stripes.',
+src: [
+'# Local majority, with a contrarian coin. Push noise up and',
+'# the domains dissolve; push rewiring up and the domains',
+'# stop being local at all.',
+'',
+'seed 4',
+'param noise = 0.03 [0, 0.3]',
+'param rewiring = 0.06 [0, 1]',
+'',
+'states { calm #e8e4d9, loud #1c1c1c }',
+'',
+'graph {',
+'  ring 220',
+'  chord 2',
+'  chord -1',
+'  chord -2',
+'  rewire rewiring',
+'}',
+'',
+'init { random loud 0.5 }',
+'',
+'rules {',
+'  _ -> loud when rand() < noise',
+'  _ -> calm when rand() < noise',
+'  _ -> loud when in(loud) > in(calm)',
+'  _ -> calm when in(calm) > in(loud)',
+'}'
+].join('\n')
+}
+];
+
+/* ============================================================
+   10. Syntax highlighting for the editor
+   ============================================================ */
+
+var SECTION_WORDS = ['states', 'graph', 'init', 'rules', 'rule', 'param', 'seed', 'update', 'layout'];
+var KEY_WORDS = ['when', 'with', 'prob', 'always', 'all', 'random', 'pick', 'node', 'nodes', 'set', 'where',
+    'and', 'or', 'not', 'self', 'stay', 'any', 'sync', 'async', 'circle', 'grid', 'force', 'auto',
+    'ring', 'path', 'chord', 'torus', 'vonneumann', 'moore', 'complete', 'star', 'tree', 'outdeg',
+    'scalefree', 'edge', 'bidirect', 'reverse', 'rewire', 'selfloops'];
+
+var HL_RE = new RegExp(
+    '(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\\b)' +
+    '|(#[^\\n]*)' +
+    '|(\\b\\d+(?:\\.\\d+)?\\b)' +
+    '|(->)' +
+    '|\\b(' + SECTION_WORDS.join('|') + ')\\b' +
+    '|\\b(' + KEY_WORDS.join('|') + ')\\b', 'g');
+
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlight(src) {
+    var out = '', last = 0, m;
+    HL_RE.lastIndex = 0;
+    while ((m = HL_RE.exec(src)) !== null) {
+        out += escapeHtml(src.slice(last, m.index));
+        if (m[1]) out += '<span class="tk-col">' + escapeHtml(m[1]) + '</span>';
+        else if (m[2]) out += '<span class="tk-com">' + escapeHtml(m[2]) + '</span>';
+        else if (m[3]) out += '<span class="tk-num">' + m[3] + '</span>';
+        else if (m[4]) out += '<span class="tk-arr">' + escapeHtml(m[4]) + '</span>';
+        else if (m[5]) out += '<span class="tk-sec">' + m[5] + '</span>';
+        else if (m[6]) out += '<span class="tk-key">' + m[6] + '</span>';
+        last = m.index + m[0].length;
+    }
+    out += escapeHtml(src.slice(last));
+    return out + '\n';
+}
+
+/* ============================================================
+   11. Wiring
+   ============================================================ */
+
+var el = {};
+var auto = null, running = false, rate = 14, lastFrame = 0, acc = 0;
+var STORE_KEY = 'graph-automata-program';
+
+function $(id) { return document.getElementById(id); }
+
+function showError(e, src) {
+    if (!e) { el.errbox.className = 'errbox'; el.errbox.innerHTML = ''; return; }
+    var html;
+    if (e.dsl) {
+        html = '<strong>line ' + e.line + '</strong> &middot; ' + escapeHtml(e.message);
+        var lines = (src || '').split('\n');
+        var text = lines[e.line - 1];
+        if (text !== undefined) {
+            var caret = new Array(Math.max(0, (e.col || 1) - 1) + 1).join(' ') + '^';
+            html += '<pre>' + escapeHtml(text.replace(/\t/g, '  ')) + '\n' + caret + '</pre>';
+        }
+    } else {
+        html = escapeHtml(e.message || String(e));
+    }
+    el.errbox.innerHTML = html;
+    el.errbox.className = 'errbox on';
+}
+
+function syncHighlight() {
+    el.highlight.innerHTML = highlight(el.editor.value);
+    el.highlight.scrollTop = el.editor.scrollTop;
+    el.highlight.scrollLeft = el.editor.scrollLeft;
+}
+
+/* Which parameters are read by the graph block, and which by init?
+   Those cannot take effect without rebuilding or resetting, so the
+   slider does it for you when you let go. */
+function collectNames(ast, into) {
+    if (!ast) return into;
+    if (ast.k === 'var') into[ast.name] = 1;
+    if (ast.k === 'un') collectNames(ast.a, into);
+    if (ast.k === 'bin') { collectNames(ast.a, into); collectNames(ast.b, into); }
+    if (ast.k === 'call') ast.args.forEach(function (x) { collectNames(x, into); });
+    return into;
+}
+
+function paramUsage(prog) {
+    var inGraph = {}, inInit = {};
+    prog.graph.forEach(function (st) { (st.args || []).forEach(function (a) { collectNames(a, inGraph); }); });
+    prog.init.forEach(function (op) { ['index', 'prob', 'count', 'cond'].forEach(function (f) { collectNames(op[f], inInit); }); });
+    return { graph: inGraph, init: inInit };
+}
+
+function buildParams(prog) {
+    el.params.innerHTML = '';
+    var usage = paramUsage(prog);
+    prog.params.forEach(function (pdef, idx) {
+        var lo = pdef.lo, hi = pdef.hi;
+        if (lo === null || hi === null) {
+            if (pdef.value >= 0 && pdef.value <= 1) { lo = 0; hi = 1; }
+            else { lo = 0; hi = Math.max(1, Math.abs(pdef.value) * 2); }
+        }
+        var integral = Number.isInteger(pdef.value) && (hi - lo) >= 4;
+        var step = integral ? 1 : (hi - lo) / 200;
+        var row = document.createElement('div');
+        row.className = 'param-row';
+        var name = document.createElement('span');
+        name.className = 'pname'; name.textContent = pdef.name;
+        var input = document.createElement('input');
+        input.type = 'range';
+        input.min = lo; input.max = hi; input.step = step; input.value = pdef.value;
+        var read = document.createElement('span');
+        read.className = 'pval';
+        var fmt = function (v) { return integral ? String(Math.round(v)) : (Math.round(v * 1000) / 1000).toFixed(3); };
+        read.textContent = fmt(pdef.value);
+        input.addEventListener('input', function () {
+            var v = parseFloat(input.value);
+            auto.params[idx] = v;
+            read.textContent = fmt(v);
+        });
+        var note = null;
+        if (usage.graph[pdef.name]) {
+            note = 'rebuilds the graph';
+            input.addEventListener('change', function () { rebuildWithParams(); });
+        } else if (usage.init[pdef.name]) {
+            note = 'reseeds on release';
+            input.addEventListener('change', function () { doReset(); });
+        }
+        row.appendChild(name); row.appendChild(input); row.appendChild(read);
+        if (note) {
+            var tag = document.createElement('span');
+            tag.className = 'pnote';
+            tag.textContent = note;
+            row.appendChild(tag);
+        }
+        el.params.appendChild(row);
+    });
+}
+
+function buildLegend(prog) {
+    el.legend.innerHTML = '';
+    el.counts = [];
+    prog.states.forEach(function (s, i) {
+        var span = document.createElement('span');
+        var sw = document.createElement('span');
+        sw.className = 'swatch';
+        sw.style.background = stateColor(prog, i);
+        var cnt = document.createElement('span');
+        cnt.className = 'count';
+        span.appendChild(sw);
+        span.appendChild(document.createTextNode(s.name + ' '));
+        span.appendChild(cnt);
+        el.legend.appendChild(span);
+        el.counts.push(cnt);
+    });
+    var read = document.createElement('span');
+    read.className = 'readout';
+    el.legend.appendChild(read);
+    el.readout = read;
+}
+
+function refreshLegend() {
+    if (!auto || !el.counts) return;
+    for (var i = 0; i < auto.S; i++) el.counts[i].textContent = auto.pop[i];
+    var nE = auto.g.edges.length / 2;
+    var txt = auto.n + ' nodes, ' + nE + ' edges';
+    if (nE > EDGE_DRAW_LIMIT) txt += ' (too many to draw)';
+    txt += '  ·  step ' + auto.step;
+    if (auto.isStatic()) txt += '  ·  fixed';
+    el.readout.textContent = txt;
+}
+
+function relayout() {
+    if (!auto) return;
+    var L = layoutGraph(auto.g, auto.prog.layout, auto.prog.seed);
+    view.pos = L.pos;
+    view.mode = L.mode;
+    var n = auto.n;
+
+    /* a first pass establishes the drawing area, a second sizes the
+       nodes to the space actually available to them */
+    view.radius = 6;
+    computeScreenPositions();
+    var span = Math.min(view.w, view.h) * 0.88;
+    if (view.mode === 'circle') {
+        view.radius = Math.max(1.4, Math.min(11, (Math.PI * span / Math.max(3, n)) * 0.42));
+    } else if (view.mode === 'grid') {
+        var cells = Math.max(L.w || 1, L.h || 1);
+        view.radius = Math.max(1.2, Math.min(11, (span / cells) * 0.5));
+    } else {
+        view.radius = Math.max(1.6, Math.min(11, 150 / Math.sqrt(n)));
+    }
+    computeScreenPositions();
+    drawEdgeLayer(auto);
+}
+
+function fitAll() {
+    var changed = false;
+    changed = fitCanvas(el.graph) || changed;
+    fitCanvas(el.raster);
+    fitCanvas(el.pop);
+    if (auto && changed) relayout();
+}
+
+function buildFromEditor(keepRunning) {
+    var src = el.editor.value;
+    try {
+        var prog = parse(src);
+        var a = new Automaton(prog);
+        auto = a;
+        showError(null);
+        buildParams(prog);
+        buildLegend(prog);
+        fitCanvas(el.graph); fitCanvas(el.raster); fitCanvas(el.pop);
+        view.hover = -1;
+        relayout();
+        rasterReset(auto);
+        try { localStorage.setItem(STORE_KEY, src); } catch (err) { /* private browsing */ }
+        if (!keepRunning) setRunning(true);
+        return true;
+    } catch (e) {
+        if (!e.dsl && window.console) console.error(e);
+        showError(e, src);
+        setRunning(false);
+        return false;
+    }
+}
+
+/* Re-run the graph generators with the current slider values,
+   without re-reading the editor (which would undo them). */
+function rebuildWithParams() {
+    if (!auto) return;
+    try {
+        auto.build();
+        showError(null);
+        relayout();
+        rasterReset(auto);
+        view.hover = -1;
+    } catch (e) {
+        showError(e, el.editor.value);
+        setRunning(false);
+    }
+}
+
+function setRunning(v) {
+    running = v;
+    el.play.textContent = v ? 'Pause' : 'Run';
+}
+
+function doReset() {
+    if (!auto) return;
+    auto.reset();
+    rasterReset(auto);
+    view.hover = -1;
+}
+
+function stepOnce() {
+    if (!auto) return;
+    auto.advance();
+    rasterAppend(auto);
+}
+
+function frame(now) {
+    if (!lastFrame) lastFrame = now;
+    var dt = Math.min(0.25, (now - lastFrame) / 1000);
+    lastFrame = now;
+    if (auto && running) {
+        acc += dt * rate;
+        var budget = Math.max(1, Math.ceil(rate / 8));
+        while (acc >= 1 && budget-- > 0) { auto.advance(); acc -= 1; }
+        if (acc > 3) acc = 3;
+        rasterAppend(auto);
+    }
+    if (auto) {
+        drawGraph(auto);
+        drawRaster(el.raster);
+        drawPopulation(el.pop, auto);
+        refreshLegend();
+    }
+    requestAnimationFrame(frame);
+}
+
+/* ---- pointer interaction on the graph ---- */
+
+function nodeAt(clientX, clientY) {
+    if (!auto || !view.sx) return -1;
+    var rect = el.graph.getBoundingClientRect();
+    var x = clientX - rect.left, y = clientY - rect.top;
+    var best = -1, bestD = Math.pow(Math.max(view.radius + 6, 9), 2);
+    for (var i = 0; i < auto.n; i++) {
+        var dx = view.sx[i] - x, dy = view.sy[i] - y;
+        var d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+}
+
+/* ---- permalinks ---- */
+
+function encodeProgram(src) {
+    try {
+        return btoa(unescape(encodeURIComponent(src))).replace(/\+/g, '-').replace(/\//g, '_');
+    } catch (e) { return ''; }
+}
+function decodeProgram(code) {
+    try {
+        return decodeURIComponent(escape(atob(code.replace(/-/g, '+').replace(/_/g, '/'))));
+    } catch (e) { return null; }
+}
+
+/* ---- boot ---- */
+
+function boot() {
+    el.editor = $('editor');
+    el.highlight = $('highlight');
+    el.errbox = $('errbox');
+    el.params = $('params');
+    el.legend = $('legend');
+    el.graph = $('graphStage');
+    el.raster = $('rasterStage');
+    el.pop = $('popStage');
+    el.play = $('btnPlay');
+    view.canvas = el.graph;
+    view.ctx = el.graph.getContext('2d');
+
+    /* example menu and the printed index of examples */
+    var sel = $('examples');
+    var list = $('exampleList');
+    EXAMPLES.forEach(function (ex, i) {
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = ex.name;
+        sel.appendChild(opt);
+        if (list) {
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = '#';
+            a.className = 'ex-name';
+            a.textContent = ex.name;
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                loadExample(i);
+                el.graph.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            var d = document.createElement('span');
+            d.className = 'ex-desc';
+            d.textContent = ex.desc;
+            li.appendChild(a); li.appendChild(d);
+            list.appendChild(li);
+        }
+    });
+
+    function loadExample(i) {
+        sel.value = String(i);
+        el.editor.value = EXAMPLES[i].src;
+        syncHighlight();
+        buildFromEditor(false);
+    }
+
+    sel.addEventListener('change', function () { loadExample(parseInt(sel.value, 10)); });
+
+    el.editor.addEventListener('input', syncHighlight);
+    el.editor.addEventListener('scroll', function () {
+        el.highlight.scrollTop = el.editor.scrollTop;
+        el.highlight.scrollLeft = el.editor.scrollLeft;
+    });
+    el.editor.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var s = el.editor.selectionStart, t = el.editor.selectionEnd, v = el.editor.value;
+            el.editor.value = v.slice(0, s) + '  ' + v.slice(t);
+            el.editor.selectionStart = el.editor.selectionEnd = s + 2;
+            syncHighlight();
+        }
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            buildFromEditor(false);
+        }
+    });
+
+    $('btnBuild').addEventListener('click', function () { buildFromEditor(false); });
+    el.play.addEventListener('click', function () { setRunning(!running); });
+    $('btnStep').addEventListener('click', function () { setRunning(false); stepOnce(); });
+    $('btnReset').addEventListener('click', doReset);
+
+    var speed = $('speed'), speedRead = $('speedRead');
+    function readSpeed() {
+        rate = parseInt(speed.value, 10);
+        speedRead.textContent = rate + '/s';
+    }
+    speed.addEventListener('input', readSpeed);
+    readSpeed();
+
+    var link = $('btnLink');
+    link.addEventListener('click', function () {
+        var url = location.origin + location.pathname + '#p=' + encodeProgram(el.editor.value);
+        history.replaceState(null, '', '#p=' + encodeProgram(el.editor.value));
+        var done = function () {
+            link.textContent = 'Copied';
+            setTimeout(function () { link.textContent = 'Copy link'; }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, function () { link.textContent = 'In the address bar'; });
+        } else { link.textContent = 'In the address bar'; }
+    });
+
+    el.graph.addEventListener('mousemove', function (e) {
+        var h = nodeAt(e.clientX, e.clientY);
+        view.hover = h;
+    });
+    el.graph.addEventListener('mouseleave', function () { view.hover = -1; });
+    el.graph.addEventListener('click', function (e) {
+        var h = nodeAt(e.clientX, e.clientY);
+        if (h < 0 || !auto) return;
+        var cur = auto.state[h];
+        var nxt = e.shiftKey ? 0 : (cur + 1) % auto.S;
+        auto.pop[cur]--; auto.pop[nxt]++;
+        auto.state[h] = nxt;
+        auto.age[h] = 0;
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.target === el.editor) return;
+        if (e.key === ' ') { e.preventDefault(); setRunning(!running); }
+        else if (e.key === 's') stepOnce();
+        else if (e.key === 'r') doReset();
+    });
+
+    window.addEventListener('resize', fitAll);
+
+    /* initial program: a permalink, then the last edit, then the first example */
+    var initial = null;
+    var m = /[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash || '');
+    if (m) initial = decodeProgram(m[1]);
+    if (!initial) { try { initial = localStorage.getItem(STORE_KEY); } catch (err) { initial = null; } }
+    if (!initial) initial = EXAMPLES[0].src;
+    el.editor.value = initial;
+    syncHighlight();
+
+    fitCanvas(el.graph); fitCanvas(el.raster); fitCanvas(el.pop);
+    buildFromEditor(false);
+    requestAnimationFrame(frame);
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+</body>
+</html>
