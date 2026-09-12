@@ -33,7 +33,7 @@
     --paper: #fffff8;
     --ink: #111111;
     --quiet: #5a5a52;
-    --fainter: #8d8a7e;
+    --fainter: #73705f;
     --rule: #dddad0;
     --hair: #e8e5d8;
     --panel: #faf9f0;
@@ -178,7 +178,7 @@ code, .mono { font-family: var(--mono); font-size: 0.82em; }
     padding: 0.15rem 0.1rem; width: 190px; color: var(--ink);
 }
 #search:focus { outline: none; border-bottom-color: var(--accent); }
-#search::placeholder { color: #b4b1a4; font-style: italic; }
+#search::placeholder { color: var(--fainter); font-style: italic; }
 
 .minibtn {
     background: none; border: 0; padding: 0; margin: 0 0.9rem 0 0;
@@ -219,7 +219,7 @@ code, .mono { font-family: var(--mono); font-size: 0.82em; }
 
 .c-z {
     position: absolute; top: 1px; left: 3px;
-    font-family: var(--mono); font-size: 7.4px; color: var(--fainter); line-height: 1;
+    font-family: var(--mono); font-size: 7.4px; color: var(--ink); line-height: 1;
 }
 .c-sym {
     font-size: 1.28rem; line-height: 1.12; margin-top: 8px;
@@ -227,21 +227,20 @@ code, .mono { font-family: var(--mono); font-size: 0.82em; }
 }
 .c-iso {
     font-family: var(--mono); font-size: 7.8px; line-height: 1.25;
-    color: var(--quiet); margin-top: 1px; white-space: nowrap;
+    color: var(--ink); margin-top: 1px; white-space: nowrap;
 }
 .c-val {
     font-family: var(--mono); font-size: 8.4px; line-height: 1.2;
     color: var(--ink); white-space: nowrap;
 }
-.c-val.none { color: #b8b5a8; }
+.c-val.none { color: #6f6c5e; }
 /* the sparkbar: receptivity on a log scale, drawn on the cell floor */
 .c-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--ink); opacity: 0.62; }
 .c-tag {
     position: absolute; top: 1px; right: 3px;
-    font-family: var(--mono); font-size: 7px; color: var(--fainter); line-height: 1;
+    font-family: var(--mono); font-size: 7px; color: var(--ink); line-height: 1;
 }
 .cell.ink .c-sym, .cell.ink .c-val, .cell.ink .c-iso, .cell.ink .c-z, .cell.ink .c-tag { color: var(--paper); }
-.cell.ink .c-iso, .cell.ink .c-z { color: #ded9c8; }
 .cell.ink .c-bar { background: var(--paper); }
 .cell.pinned:after {
     content: ''; position: absolute; top: 3px; right: 3px;
@@ -367,7 +366,7 @@ table.iso tr { cursor: pointer; }
 table.iso tr:hover td { background: #f5f3e6; }
 table.iso tr.on td { background: #f3ece4; box-shadow: inset 2px 0 0 var(--accent); }
 table.iso tr.on td:first-child { font-weight: bold; }
-table.iso td.faint { color: var(--fainter); }
+table.iso td.faint { color: var(--quiet); }
 table.iso td.neg { color: #7a3a2a; }
 
 .derived { margin-top: 0.6rem; }
@@ -393,11 +392,11 @@ dl.facts dd .gloss { font-family: 'et-book', Palatino, serif; font-size: 1.05rem
     width: auto; font-size: 1.15rem; line-height: 1.55; color: #33332c;
     max-width: 44rem; margin: 0.3rem 0 0 0;
 }
-#spectrum { display: block; width: 100%; height: 152px; }
+#spectrum { display: block; width: 100%; height: 164px; }
 #spectrum .sp-axis { stroke: var(--ink); stroke-width: 1; }
 #spectrum .sp-tick { stroke: var(--fainter); stroke-width: 0.75; }
 #spectrum .sp-ppm { font-family: var(--mono); font-size: 8.5px; fill: var(--quiet); text-anchor: middle; }
-#spectrum .sp-hz { font-family: var(--mono); font-size: 8px; fill: #a3a094; text-anchor: middle; }
+#spectrum .sp-hz { font-family: var(--mono); font-size: 8px; fill: var(--fainter); text-anchor: middle; }
 #spectrum .sp-unit { font-family: var(--mono); font-size: 8.5px; fill: var(--quiet); }
 #spectrum .sp-stem { stroke: #4a4740; stroke-width: 1.2; }
 #spectrum .sp-stem.zero { stroke: var(--accent); stroke-width: 1.6; }
@@ -438,7 +437,7 @@ dl.dfacts dd { margin: 0; font-size: 1.08rem; line-height: 1.5; }
 dl.dfacts dd .dnote { color: var(--quiet); font-style: italic; }
 dl.dfacts dd b { font-family: var(--mono); font-size: 0.94em; font-weight: normal; }
 
-.emptynote { color: var(--fainter); font-style: italic; font-size: 1.15rem; }
+.emptynote { color: var(--quiet); font-style: italic; font-size: 1.15rem; }
 
 /* pinned comparison tray */
 .tray { margin-top: 1.4rem; border-top: 1px solid var(--rule); padding-top: 0.5rem; }
@@ -842,17 +841,20 @@ function hex2rgb(h) {
 function rgb2css(c) {
   return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
 }
-function rampAt(stops, t) {
-  t = clamp(t, 0, 1);
-  const n = stops.length - 1, x = t * n, i = Math.min(Math.floor(x), n - 1), f = x - i;
-  const a = hex2rgb(stops[i]), b = hex2rgb(stops[i + 1]);
-  return rgb2css([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]);
+function stepIndex(stops, t) {
+  return Math.round(clamp(t, 0, 1) * (stops.length - 1));
 }
+function rampAt(stops, t) { return stops[stepIndex(stops, t)]; }
 
-/* A quiet slate ramp that sits happily on cream paper. */
-const RAMP_SEQ = ['#f7f5e6', '#e6e8d9', '#cfd9d2', '#b1c6c6', '#8db3b9', '#6e9aa6', '#527f90', '#3b6678', '#274c5e'];
+/* A quiet slate scale that sits happily on cream paper. */
+const RAMP_SEQ = ['#f7f5e6', '#e8eadc', '#d3dcd4', '#b7cac9', '#96b9be', '#7aa3ae', '#487387', '#33596c', '#22404f'];
 /* Diverging, for signed susceptibility: diamagnetic blue, paramagnetic rust. */
-const RAMP_DIV = ['#2f5c7d', '#5f87a4', '#9db9cb', '#dfe5e2', '#f3f1e2', '#eccfc2', '#d3a08d', '#bb6c53', '#a8402c'];
+const RAMP_DIV = ['#2b5675', '#4e7a99', '#8fb0c5', '#cfdbdf', '#f3f1e2', '#e8c8ba', '#cf9781', '#b05f45', '#93341f'];
+/* Which steps need paper-coloured text. Worked out from the relative luminance of each
+   step, not guessed: every combination below clears 4.5:1. */
+const INK_SEQ = [0, 0, 0, 0, 0, 0, 1, 1, 1];
+const INK_DIV = [1, 1, 0, 0, 0, 0, 0, 1, 1];
+function rampInk(stops, inks, t) { return !!inks[stepIndex(stops, t)]; }
 
 const ROLE_META = {
   'invivo-mrs':      {label: 'in-vivo MRS',     color: '#a8402c'},
@@ -964,6 +966,8 @@ function copperSkinDepth(f_MHz) { return 65.2 / Math.sqrt(f_MHz); }             
    4. State
    ============================================================ */
 
+let dragging = false;
+
 const state = {
   B0: 3,
   view: 'receptivity',
@@ -1031,7 +1035,7 @@ function encode(el) {
     case 'receptivity': {
       if (!iso || !(iso.recH > 0)) { out.value = '–'; out.valueMuted = true; break; }
       const t = clamp((log10(iso.recH) + 9) / 9, 0, 1);
-      out.bg = rampAt(RAMP_SEQ, t); out.ink = t > 0.66;
+      out.bg = rampAt(RAMP_SEQ, t); out.ink = rampInk(RAMP_SEQ, INK_SEQ, t);
       out.value = fmtRec(iso.recH);
       break;
     }
@@ -1040,7 +1044,7 @@ function encode(el) {
       if (!iso || iso.absGamma === null) { out.value = '–'; out.valueMuted = true; break; }
       const f = larmor(iso, state.B0);
       const t = clamp(iso.absGamma / GAMMA_H, 0, 1);
-      out.bg = rampAt(RAMP_SEQ, t); out.ink = t > 0.66;
+      out.bg = rampAt(RAMP_SEQ, t); out.ink = rampInk(RAMP_SEQ, INK_SEQ, t);
       out.value = (f >= 100 ? f.toFixed(1) : f >= 10 ? f.toFixed(2) : f.toFixed(3));
       break;
     }
@@ -1048,7 +1052,7 @@ function encode(el) {
     case 'spin': {
       if (!iso || iso.I === null) { out.value = '–'; out.valueMuted = true; break; }
       const t = clamp((iso.I - 0.5) / 4.0, 0, 1) * 0.88 + 0.06;
-      out.bg = rampAt(RAMP_SEQ, t); out.ink = t > 0.66;
+      out.bg = rampAt(RAMP_SEQ, t); out.ink = rampInk(RAMP_SEQ, INK_SEQ, t);
       out.value = 'I ' + spinGlyph(iso.I);
       break;
     }
@@ -1058,7 +1062,7 @@ function encode(el) {
       const a = iso.abundance;
       if (!(a > 0)) { out.value = 'synth'; out.valueMuted = true; break; }
       const t = clamp((log10(a) + 4) / 6, 0, 1);
-      out.bg = rampAt(RAMP_SEQ, t); out.ink = t > 0.66;
+      out.bg = rampAt(RAMP_SEQ, t); out.ink = rampInk(RAMP_SEQ, INK_SEQ, t);
       out.value = a >= 10 ? a.toFixed(1) + '%' : a >= 0.1 ? a.toFixed(2) + '%' : sig(a, 2) + '%';
       break;
     }
@@ -1076,14 +1080,17 @@ function encode(el) {
       if (!q) { out.value = '–'; out.valueMuted = true; break; }
       const aq = Math.abs(q.q);
       const t = clamp((log10(aq) + 1) / 3.7, 0, 1);
-      out.bg = rampAt(RAMP_SEQ, t); out.ink = t > 0.66;
+      out.bg = rampAt(RAMP_SEQ, t); out.ink = rampInk(RAMP_SEQ, INK_SEQ, t);
       out.value = aq >= 100 ? aq.toFixed(0) : aq >= 10 ? aq.toFixed(1) : aq.toFixed(2);
       break;
     }
 
     case 'invivo': {
       const t = TIER_T[el.tier] === undefined ? 0 : TIER_T[el.tier];
-      if (t > 0) { out.bg = rampAt(RAMP_SEQ, t * 0.92 + 0.08); out.ink = t * 0.92 + 0.08 > 0.66; }
+      if (t > 0) {
+        const u = t * 0.92 + 0.08;
+        out.bg = rampAt(RAMP_SEQ, u); out.ink = rampInk(RAMP_SEQ, INK_SEQ, u);
+      }
       out.value = TIER_SHORT[el.tier] || '';
       out.valueMuted = !t;
       break;
@@ -1110,7 +1117,7 @@ function encode(el) {
       if (x === null || x === undefined) { out.value = '–'; out.valueMuted = true; break; }
       const u = signedLog(x, 2e5);
       out.bg = rampAt(RAMP_DIV, (u + 1) / 2);
-      out.ink = Math.abs(u) > 0.72;
+      out.ink = rampInk(RAMP_DIV, INK_DIV, (u + 1) / 2);
       out.value = (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(Math.abs(x) < 100 ? 1 : 0);
       break;
     }
@@ -1895,10 +1902,10 @@ function paintSpectrum() {
     'aria-label': 'Chemical shifts of ' + act.key + ' resonances observed in vivo'});
   host.appendChild(svg);
 
-  const W = Math.max(520, host.clientWidth || 900), H = 152;
+  const W = Math.max(520, host.clientWidth || 900), H = 164;
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
-  const x0 = 46, x1 = W - 18, base = 108, stemMax = 62;
+  const x0 = 46, x1 = W - 18, base = 120, stemMax = 62;
   const lo = Math.min(tab.axisLo, tab.axisHi), hi = Math.max(tab.axisLo, tab.axisHi);
   /* reversed: high ppm on the left, as every spectrum is drawn */
   const X = function (ppm) { return x1 - (clamp(ppm, lo, hi) - lo) / (hi - lo) * (x1 - x0); };
@@ -1922,7 +1929,7 @@ function paintSpectrum() {
   if (f0 !== null) svg.appendChild(mk('text', {class: 'sp-unit', x: 2, y: base + 27}, 'Hz'));
 
   /* stems, then labels packed into lanes */
-  const lanes = [14, 26, 38], placed = lanes.map(function () { return []; });
+  const lanes = [12, 23, 34, 45], placed = lanes.map(function () { return []; });
   const order = tab.peaks.slice().sort(function (a, b) { return (b.rel || 0) - (a.rel || 0); });
   const geo = {};
 
@@ -2000,16 +2007,28 @@ function paintTray() {
    13. Actions
    ============================================================ */
 
+/* While the field handle is being dragged we redraw only what the field actually moves.
+   The ladder is field-independent, and rebuilding the detail panel and the spectrum on
+   every pointermove is wasted work; pointerup catches them up. */
 function repaint(full) {
   paintFieldAxis();
   paintReadout();
   paintTable();
   paintLegend();
   paintRuler();
-  paintLadder();
-  paintDetail();
-  paintSpectrum();
-  if (full !== false) writeHash();
+  if (!dragging) {
+    paintLadder();
+    paintDetail();
+    paintSpectrum();
+  }
+  if (full !== false) scheduleHash();
+}
+
+/* Browsers rate-limit history.replaceState, so a drag must not call it per frame. */
+let hashTimer = null;
+function scheduleHash() {
+  if (hashTimer) clearTimeout(hashTimer);
+  hashTimer = setTimeout(function () { hashTimer = null; writeHash(); }, 250);
 }
 
 function setField(b) {
@@ -2017,12 +2036,16 @@ function setField(b) {
   repaint();
 }
 
+function syncViewButtons() {
+  Array.prototype.forEach.call(document.querySelectorAll('#viewList .viewbtn'), function (n) {
+    n.setAttribute('aria-pressed', n.dataset.view === state.view ? 'true' : 'false');
+  });
+}
+
 function setView(id) {
   state.view = id;
   if (id !== 'roles') state.roleFilter = null;
-  Array.prototype.forEach.call(document.querySelectorAll('#viewList .viewbtn'), function (n) {
-    n.setAttribute('aria-pressed', n.dataset.view === id ? 'true' : 'false');
-  });
+  syncViewButtons();
   repaint();
 }
 
@@ -2078,7 +2101,6 @@ function axisFromEvent(ev) {
   const x = (ev.clientX - r.left) / r.width * (vb.width || 460);
   return xToField(x);
 }
-let dragging = false;
 fieldSvg.addEventListener('pointerdown', function (ev) {
   dragging = true;
   fieldSvg.setPointerCapture(ev.pointerId);
@@ -2089,10 +2111,14 @@ fieldSvg.addEventListener('pointermove', function (ev) {
   if (!dragging) return;
   setField(snapField(axisFromEvent(ev)));
 });
-fieldSvg.addEventListener('pointerup', function (ev) {
+function endDrag(ev) {
+  if (!dragging) return;
   dragging = false;
-  if (fieldSvg.hasPointerCapture(ev.pointerId)) fieldSvg.releasePointerCapture(ev.pointerId);
-});
+  if (ev && fieldSvg.hasPointerCapture(ev.pointerId)) fieldSvg.releasePointerCapture(ev.pointerId);
+  repaint();
+}
+fieldSvg.addEventListener('pointerup', endDrag);
+fieldSvg.addEventListener('pointercancel', endDrag);
 fieldSvg.addEventListener('keydown', function (ev) {
   const idx = FIELD_TICKS.map(function (t) { return t.b; });
   let i = idx.reduce(function (best, b, j) {
@@ -2214,6 +2240,12 @@ function readHash() {
   return touched;
 }
 
+/* Someone editing the address bar, or pressing back, is asking for a different nucleus.
+   Our own writes go through replaceState, so they never land here. */
+window.addEventListener('hashchange', function () {
+  if (readHash()) { syncViewButtons(); repaint(false); }
+});
+
 /* --- resize --- */
 let rt = null;
 window.addEventListener('resize', function () {
@@ -2241,9 +2273,7 @@ function boot() {
     state.sel = BY_SYM['P'] ? 'P' : ELEMENTS[0].symbol;
     state.nuc = BY_SYM[state.sel] && BY_SYM[state.sel].lead ? BY_SYM[state.sel].lead.key : null;
   }
-  Array.prototype.forEach.call(document.querySelectorAll('#viewList .viewbtn'), function (n) {
-    n.setAttribute('aria-pressed', n.dataset.view === state.view ? 'true' : 'false');
-  });
+  syncViewButtons();
   repaint();
 }
 
