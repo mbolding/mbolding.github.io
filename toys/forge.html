@@ -1,0 +1,3685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge</title>
+<meta name="description" content="A small language and interpreter for experimenting with tabletop role-playing game mechanics: exact odds for single rolls, simulation for whole fights.">
+<style>
+:root {
+  --bg: #fffff8;
+  --ink: #111111;
+  --ink-2: #5f5f57;
+  --ink-3: #6e6e61;
+  --rule: #d9d9cb;
+  --rule-2: #ebebdd;
+  --accent: #a00c0c;
+  --panel: #fbfbf2;
+  --mark: #33332e;
+  --mark-2: #9a9a8a;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 15px; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  max-width: 1400px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: et-book, "Palatino Linotype", Palatino, "Palatino LT STD", "Book Antiqua", Georgia, serif;
+  font-size: 1.25rem;
+  line-height: 1.65;
+  counter-reset: sidenote-counter;
+  -webkit-text-size-adjust: 100%;
+}
+
+.page { max-width: 1180px; margin: 0 auto; padding: 0 0 6rem 0; }
+
+/* Tufte's measure: body copy stops well short of the full width, and the
+   remaining column is left for notes. */
+p, ol, ul, h2, h3, .measure, figure > figcaption.wide { max-width: 38rem; }
+p { margin: 1.15rem 0; }
+
+header.masthead { padding: 3.5rem 0 0.5rem; }
+h1 {
+  font-size: 3.1rem;
+  font-weight: 400;
+  line-height: 1.05;
+  margin: 0 0 0.6rem;
+  letter-spacing: -0.01em;
+}
+.subtitle {
+  display: block;
+  font-style: italic;
+  font-size: 1.6rem;
+  line-height: 1.3;
+  color: var(--ink-2);
+  margin: 0 0 1.6rem;
+  max-width: 34rem;
+}
+h2 {
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  margin: 3.4rem 0 0.4rem;
+}
+h3 {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.4rem;
+  margin: 2.2rem 0 0.2rem;
+}
+section { border-top: 1px solid var(--rule-2); padding-top: 0.4rem; }
+section:first-of-type { border-top: none; }
+
+a { color: inherit; text-decoration: none; background-image: linear-gradient(var(--rule), var(--rule)); background-size: 100% 1px; background-repeat: no-repeat; background-position: 0 1.08em; }
+a:hover { background-image: linear-gradient(var(--accent), var(--accent)); color: var(--accent); }
+
+em.term { font-style: italic; }
+strong { font-weight: 600; }
+
+/* ---- sidenotes ------------------------------------------------- */
+.sidenote {
+  float: right;
+  clear: right;
+  margin-right: -44%;
+  width: 40%;
+  margin-top: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 1.0rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  position: relative;
+  vertical-align: baseline;
+}
+.sidenote code { font-size: 0.92em; }
+.sidenote-number { counter-increment: sidenote-counter; }
+.sidenote-number:after {
+  content: counter(sidenote-counter);
+  font-size: 0.75rem;
+  top: -0.5rem;
+  left: 0.05rem;
+  position: relative;
+  vertical-align: baseline;
+  color: var(--accent);
+}
+.sidenote:before {
+  content: counter(sidenote-counter) " ";
+  font-size: 0.8rem;
+  top: -0.4rem;
+  position: relative;
+  vertical-align: baseline;
+  color: var(--accent);
+}
+input.margin-toggle { display: none; }
+label.sidenote-number { display: inline-block; max-height: 2rem; }
+label.margin-toggle:not(.sidenote-number) { display: none; }
+
+/* ---- code ------------------------------------------------------- */
+code, pre, textarea.editor, .hl, .mono {
+  font-family: "iA Writer Duospace", "SF Mono", ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 0.86em;
+  font-variant-ligatures: none;
+}
+code { color: var(--mark); }
+p code, li code, td code { padding: 0 0.12em; }
+
+pre.sample {
+  background: var(--panel);
+  border-left: 2px solid var(--rule);
+  padding: 0.7rem 0.9rem;
+  margin: 1.2rem 0;
+  max-width: 38rem;
+  overflow-x: auto;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.hl-kw  { font-style: normal; color: #4a4a40; font-weight: 600; }
+.hl-die { font-style: normal; color: var(--accent); }
+.hl-num { font-style: normal; color: #7a4a12; }
+.hl-str { font-style: normal; color: #3d5c3d; }
+.hl-com { font-style: italic; color: var(--ink-3); }
+
+/* ---- the workbench --------------------------------------------- */
+.bench {
+  /* the workbench is a tool, not prose: it breaks out to the full page width */
+  width: min(1340px, 100vw - 2.5rem);
+  margin: 2.2rem 0 1rem calc((100% - min(1340px, 100vw - 2.5rem)) / 2);
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
+  padding: 0.9rem 0 1.4rem;
+}
+.bench-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem 1.4rem;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, system-ui, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: 0.9rem;
+}
+.bench-head .grow { flex: 1 1 auto; }
+.bench-cols { display: grid; grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr); gap: 1.6rem 2.4rem; }
+
+.editor-wrap {
+  position: relative;
+  border: 1px solid var(--rule);
+  background: #fffffc;
+  min-height: 21rem;
+}
+.editor-wrap.bad { border-color: var(--accent); }
+.gutter-line {
+  position: absolute; left: 0; right: 0; height: 1.5em;
+  background: rgba(160, 12, 12, 0.07);
+  pointer-events: none; display: none;
+}
+textarea.editor, .hl {
+  margin: 0;
+  border: 0;
+  padding: 0.75rem 0.9rem;
+  width: 100%;
+  min-height: 21rem;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  tab-size: 2;
+}
+.hl {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--mark);
+  background: transparent;
+}
+textarea.editor {
+  position: relative;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+  resize: vertical;
+  outline: none;
+  overflow: auto;
+}
+textarea.editor::selection { background: rgba(160, 12, 12, 0.18); color: transparent; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 0.5rem 0.8rem; align-items: center; margin-top: 0.7rem; }
+button, select, input[type=number] {
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+select { padding-right: 1.6rem; background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%); background-position: calc(100% - 14px) 0.78em, calc(100% - 9px) 0.78em; background-size: 5px 5px; background-repeat: no-repeat; }
+input[type=number] { text-transform: none; letter-spacing: 0; width: 7.5rem; border-color: var(--rule); cursor: text; }
+button:hover, select:hover { background: var(--ink); color: var(--bg); }
+select:hover { background-image: linear-gradient(45deg, transparent 50%, var(--bg) 50%), linear-gradient(135deg, var(--bg) 50%, transparent 50%); background-position: calc(100% - 14px) 0.78em, calc(100% - 9px) 0.78em; background-size: 5px 5px; background-repeat: no-repeat; }
+button.run { border-width: 2px; font-weight: 600; }
+button.quiet { border-color: var(--rule); color: var(--ink-2); }
+.hint { font-size: 0.9rem; color: var(--ink-3); font-style: italic; }
+
+.errbox {
+  display: none;
+  margin-top: 0.7rem;
+  border-left: 2px solid var(--accent);
+  padding: 0.45rem 0.8rem;
+  background: rgba(160, 12, 12, 0.045);
+  font-size: 1.0rem;
+  line-height: 1.45;
+}
+.errbox.on { display: block; }
+.errbox .where { font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 0.15rem; }
+.errbox pre { margin: 0.4rem 0 0; font-size: 0.88rem; color: var(--ink-2); white-space: pre; overflow-x: auto; }
+
+.results { min-height: 21rem; }
+.results-head {
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, system-ui, sans-serif;
+  font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2);
+  border-bottom: 1px solid var(--rule); padding-bottom: 0.35rem; margin-bottom: 0.9rem;
+  display: flex; justify-content: space-between; gap: 1rem;
+}
+
+/* ---- result blocks --------------------------------------------- */
+.res { margin: 0 0 1.25rem; }
+.res-label { font-size: 0.98rem; color: var(--ink-2); margin-bottom: 0.15rem; }
+.res-caption { font-family: "iA Writer Duospace", "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.86rem; }
+.res-name { font-style: italic; }
+.res-eq { color: var(--ink-3); }
+.res-quiet { color: var(--ink-3); font-size: 1rem; font-style: italic; }
+.res-empty { color: var(--ink-3); font-style: italic; }
+.res-note {
+  font-size: 0.98rem; color: var(--ink-2); font-style: italic;
+  border-left: 2px solid var(--rule); padding: 0.1rem 0 0.1rem 0.7rem; margin: -0.6rem 0 1.25rem;
+}
+.value { display: block; }
+.num { font-size: 1.3rem; }
+.strv { font-style: italic; }
+.stats { display: inline; font-size: 0.98rem; }
+.stat-k { color: var(--ink-3); }
+.stat-v { color: var(--ink); }
+.res-check { font-size: 1rem; margin-bottom: 0.35rem; }
+.res-check .tick { display: inline-block; width: 1.4rem; color: var(--accent); }
+.res-check.pass .tick { color: #3d6b3d; }
+.res-check .check-p { color: var(--ink-3); font-style: italic; }
+.caveat { font-size: 0.95rem; font-style: italic; color: var(--ink-3); max-width: 34rem; margin: 0.5rem 0 0; }
+.fight-line { font-size: 1.02rem; margin: 0.5rem 0 0; max-width: 34rem; }
+.verdict { font-size: 1.02rem; margin: 0.6rem 0 0; max-width: 34rem; }
+.record { margin: 1.1rem 0 1.4rem; }
+.rec-name { font-style: italic; color: var(--ink-2); font-size: 1.02rem; }
+.rec-stats, .rec-binary { font-size: 0.98rem; margin: 0.1rem 0 0.4rem; }
+
+figure { margin: 0.4rem 0 0.2rem; padding: 0; }
+.fig-title { font-family: "iA Writer Duospace", "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.86rem; color: var(--ink-2); margin-bottom: 0.2rem; }
+figcaption.readout {
+  font-size: 0.92rem; color: var(--ink-3); margin-top: 0.15rem; min-height: 1.3em;
+  font-variant-numeric: tabular-nums;
+}
+svg.plot { display: block; width: 100%; height: auto; overflow: visible; }
+svg.plot .bar { fill: var(--mark); }
+svg.plot .frame { stroke: var(--ink); stroke-width: 0.7; }
+svg.plot .sdbar { stroke: var(--mark-2); stroke-width: 2.4; }
+svg.plot .meanline { stroke: var(--accent); stroke-width: 0.7; }
+svg.plot .hoverline { stroke: var(--accent); stroke-width: 0.6; stroke-dasharray: 2 2; }
+svg.plot .curve { fill: none; stroke: var(--mark); stroke-width: 1.2; }
+svg.plot .band { fill: var(--mark); opacity: 0.11; }
+svg.plot .dot { fill: var(--mark); }
+svg.plot text.lab { font-family: "Gill Sans", "Gill Sans MT", Calibri, system-ui, sans-serif; font-size: 9.5px; fill: var(--ink-2); }
+svg.plot text.lab.accent { fill: var(--accent); }
+svg.plot text.lab.faint { fill: var(--ink-3); }
+svg.plot text.lab.strong { fill: var(--ink); font-size: 10px; }
+svg.propbar .prop0 { fill: var(--mark); }
+svg.propbar .prop1 { fill: var(--mark-2); }
+svg.propbar .prop2 { fill: #e2e2d5; }
+svg.propbar .tickmark { stroke: var(--bg); stroke-width: 1; }
+svg.spark { display: inline-block; width: 108px; height: 20px; vertical-align: -0.35em; margin-right: 0.5rem; overflow: visible; }
+svg.spark .sparkbar { fill: var(--mark); }
+svg.spark .sparkbase { stroke: var(--rule); stroke-width: 0.6; }
+svg.spark .sparkdot { fill: var(--accent); }
+
+table.outcomes { border-collapse: collapse; width: 100%; max-width: 32rem; font-size: 1rem; margin: 0.2rem 0 0.4rem; }
+table.outcomes td { padding: 0.12rem 0.5rem 0.12rem 0; border: none; vertical-align: middle; }
+table.outcomes .oc-name { width: 55%; }
+table.outcomes .oc-bar { width: 30%; }
+table.outcomes .oc-p { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; width: 15%; }
+svg.ocbar { display: block; width: 100%; height: 10px; }
+svg.ocbar .bar { fill: var(--mark-2); }
+
+/* ---- reference tables ------------------------------------------ */
+/* a wide table gets its own scroll container rather than pushing the page sideways */
+.table-wrap { max-width: 38rem; overflow-x: auto; margin: 1.2rem 0 1.6rem; }
+table.ref { border-collapse: collapse; font-size: 1.02rem; width: 100%; min-width: 26rem; }
+table.ref th {
+  text-align: left; font-weight: 400; font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+  font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2);
+  border-bottom: 1px solid var(--ink); padding: 0 0.9rem 0.35rem 0;
+}
+/* two rules for the whole table: under the header and under the last row.
+   Alignment does the work that row striping pretends to do. */
+table.ref td { padding: 0.34rem 0.9rem 0.34rem 0; vertical-align: top; line-height: 1.45; }
+table.ref tr:first-child td { padding-top: 0.6rem; }
+table.ref td:first-child { white-space: nowrap; }
+table.ref tr:last-child td { border-bottom: 1px solid var(--ink); padding-bottom: 0.6rem; }
+
+.tryline { margin: -0.6rem 0 1.4rem; }
+button.try { border: none; border-bottom: 1px solid var(--rule); padding: 0 0 1px; text-transform: none; letter-spacing: 0; font-family: inherit; font-size: 1rem; font-style: italic; color: var(--ink-2); background: transparent; }
+button.try:hover { background: transparent; color: var(--accent); border-bottom-color: var(--accent); }
+button.try:before { content: "\21b5"; margin-right: 0.35rem; color: var(--accent); font-style: normal; }
+
+footer.colophon { margin-top: 4rem; border-top: 1px solid var(--rule); padding-top: 1rem; font-size: 0.98rem; color: var(--ink-3); max-width: 38rem; }
+footer.colophon a { background-image: linear-gradient(var(--rule), var(--rule)); }
+
+.selftest-out { margin-top: 0.8rem; }
+
+@media (max-width: 1100px) {
+  .sidenote { margin-right: -34%; width: 31%; }
+}
+@media (max-width: 1240px) {
+  .bench { width: 100%; margin-left: 0; }
+}
+@media (max-width: 900px) {
+  html { font-size: 14.5px; }
+  .bench-cols { grid-template-columns: minmax(0, 1fr); }
+  .results { min-height: 0; }
+  p, ol, ul, h2, h3, .measure, table.ref, .table-wrap { max-width: none; }
+  label.margin-toggle:not(.sidenote-number) { display: inline; }
+  .sidenote { display: none; }
+  .margin-toggle:checked + .sidenote {
+    display: block;
+    float: none;
+    width: auto;
+    margin: 1rem 0;
+    padding: 0.5rem 0 0.5rem 0.8rem;
+    border-left: 2px solid var(--rule);
+    position: relative;
+  }
+  textarea.editor, .hl { min-height: 17rem; }
+  .editor-wrap { min-height: 17rem; }
+}
+@media (max-width: 560px) {
+  body { padding: 0 1rem; }
+  h1 { font-size: 2.3rem; }
+  .subtitle { font-size: 1.3rem; }
+  .bench-head { font-size: 0.7rem; gap: 0.4rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+@media print {
+  .bench, .tryline, button { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="masthead">
+  <h1>Forge</h1>
+  <p class="subtitle">A small language for asking exact questions about dice, and for simulating the fights that dice alone cannot answer</p>
+</header>
+
+<section>
+<p>Every rule in a role-playing game is a claim about a probability distribution, and almost every such claim is made by feel. A designer adds two to an attack bonus and calls it <em class="term">a small buff</em>. A referee swaps three six-sided dice for one twelve-sided die and calls it <em class="term">about the same, but swingier</em>. Both claims are testable. Neither is usually tested, because testing them means either an afternoon of algebra or ten thousand hand-rolled dice.<label for="sn-1" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-1" class="margin-toggle"><span class="sidenote">The second claim is true, and the size of the effect is worth knowing: 3d6 and 1d12+3.5 share a mean of 10.5, but their standard deviations are 2.96 and 3.45, and their extremes differ enormously. Three sixes in a row happens once in 216 rolls; a twelve happens once in twelve.</span></p>
+
+<p>This page is a language for making those claims precisely, and an interpreter that answers them. It does two different things, and the difference matters more than any syntax on this page.</p>
+
+<p>For a single roll, however tangled, the interpreter computes the answer <strong>exactly</strong>. It does not roll dice. It enumerates every outcome and adds up the probabilities, so <code>4d6 keep highest 3</code> comes back with a mean of 12.2446, correct to the last digit, and a shape you can read off the plot rather than squint at through sampling noise.<label for="sn-2" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-2" class="margin-toggle"><span class="sidenote">Exactly 15869&frasl;1296. Enumerating all 1296 orderings is cheap; the interpreter instead walks the six face values and tracks how many dice have been placed and how many kept, which stays cheap even for twenty dice.</span></p>
+
+<p>For anything that unfolds over time, exactness stops being available. Once a goblin&rsquo;s hit points depend on what happened last round, and this round&rsquo;s attacks depend on who is still standing, the space of outcomes stops being something you can enumerate. So the interpreter switches honestly to <strong>simulation</strong>: it plays the fight out many thousands of times and reports what happened, with the uncertainty that sampling implies printed next to the answer rather than hidden behind it.</p>
+
+<p>The language is small. There are eleven statements and one genuinely subtle idea, which is the subject of the third section below.</p>
+</section>
+
+<section id="workbench">
+<h2>The workbench</h2>
+<p>Everything below is live. Edit the program and press <strong>Run</strong>, or <span class="hint">&#8984;/Ctrl&#8201;+&#8201;Enter</span>. Tab indents; Escape leaves the editor.</p>
+
+<div class="bench">
+  <div class="bench-head">
+    <span class="grow">Forge &mdash; a workbench for game mechanics</span>
+    <span id="timing"></span>
+  </div>
+  <div class="bench-cols">
+    <div>
+      <div class="editor-wrap" id="editor-wrap">
+        <div class="gutter-line" id="gutter"></div>
+        <pre class="hl" id="hl" aria-hidden="true"></pre>
+        <textarea class="editor" id="editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Forge program"></textarea>
+      </div>
+      <div class="controls">
+        <button class="run" id="run">Run</button>
+        <select id="examples" aria-label="Load an example"></select>
+        <label class="hint" for="seed">seed</label>
+        <input type="number" id="seed" value="20260912" step="1" aria-label="Random seed">
+        <button class="quiet" id="reseed">New seed</button>
+      </div>
+      <div class="errbox" id="errbox" role="alert"></div>
+    </div>
+    <div>
+      <div class="results-head"><span id="results-title">Results</span><span id="results-note"></span></div>
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section>
+<h2>Dice, and what they are shaped like</h2>
+<p>A die is written the way it is written at the table. <code>d20</code> is one twenty-sided die, <code>3d6</code> is three six-sided dice added together, <code>d%</code> is percentile, and <code>dF</code> is a Fudge die reading &minus;1, 0 or +1. Dice combine with ordinary arithmetic, so <code>2d6 + 3</code> means what it looks like.</p>
+
+<p>After a handful of dice you may write a modifier, and the modifiers read as English: <code>4d6 keep highest 3</code>, <code>2d6 drop lowest 1</code>, <code>d6 exploding</code>, <code>d10 reroll 1</code>, <code>6d10 count &gt;= 7</code>. Any expression at all may be rolled twice and resolved with <code>with advantage</code> or <code>with disadvantage</code>.<label for="sn-3" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-3" class="margin-toggle"><span class="sidenote">Advantage on a d20 is worth about +3.3 to the average, but that average conceals its real behaviour: it helps most when you needed a middling number and barely at all when you needed a 2 or a 20. Sweep the target number and the effect draws itself.</span></p>
+
+<p><code>show</code> gives a one-line summary with a sparkline; <code>plot</code> draws the whole distribution, and hovering it reports the chance of any particular result or better.</p>
+<pre class="sample" data-sample="shapes"></pre>
+<div class="tryline"><button class="try" data-load="shapes">load this into the workbench</button></div>
+</section>
+
+<section>
+<h2>Two ways to be better</h2>
+<p>Given exactly two things, <code>compare</code> also answers the question the picture cannot: which one is better. There are two answers, and they disagree more often than anyone expects.</p>
+
+<p>Roll 4d6 keep highest 3 against 3d6&nbsp;+&nbsp;3 and the first comes out higher 34.3 per cent of the time. Ask instead which is likelier to reach a particular number &mdash; 15 or more, then 16 or more, and so on through the whole range &mdash; and 3d6&nbsp;+&nbsp;3 wins at every single threshold, without exception.<label for="sn-dom" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-dom" class="margin-toggle"><span class="sidenote">This is first-order stochastic dominance, and it is a much stronger statement than a higher average. It says that for any target number a designer might pick, the dominating roll is the one you would rather have. The interpreter checks it across the whole support, so it is a fact rather than an impression.</span></p>
+
+<p>Both are true. The first is a fact about a duel; the second is a fact about target numbers, and a game is nearly always about target numbers. A tool that reported only the averages &mdash; 12.24 against 13.5 &mdash; would have told you which was bigger and nothing about why the argument keeps happening.</p>
+<pre class="sample" data-sample="dominance"></pre>
+<div class="tryline"><button class="try" data-load="dominance">load this into the workbench</button></div>
+</section>
+
+<section>
+<h2>The one subtle idea</h2>
+<p>Give something a name with <code>let</code>, and each time you mention that name it rolls again. This is almost always what you want: <code>let attack = d20 + 5</code> names a kind of roll, not a particular one, and two attacks in a round are two separate rolls.</p>
+
+<p>But it means <code>attack + attack</code> is two swings, not one swing counted twice. If you want a single roll used in more than one place &mdash; and you do, constantly, because that is what a critical hit is &mdash; you need <code>given</code>, which fixes one roll and then works out the consequences for every value it could have taken.<label for="sn-4" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-4" class="margin-toggle"><span class="sidenote">The interpreter enumerates the twenty faces of the die, evaluates the body once for each, and mixes the twenty answers in proportion to their probability. The result is exact, not sampled. This is conditioning, done the pedestrian way.</span></p>
+
+<p>The difference is not small. Two independent d20 rolls added together have a standard deviation of 8.16; one d20 roll counted twice has a standard deviation of 11.53. Same average, different game.</p>
+<pre class="sample" data-sample="given"></pre>
+<div class="tryline"><button class="try" data-load="given">load this into the workbench</button></div>
+<p>When you mention a random name twice in one expression, the interpreter says so in a note underneath the answer, and works out the other reading so you can see what you would be choosing between. It does not stop you; sometimes two swings is exactly what you meant.</p>
+</section>
+
+<section>
+<h2>Asking a real question</h2>
+<p>Here is the question a designer actually has: <em class="term">what does this attack do per round, and how much does the bonus matter?</em> It needs a to-hit roll, a critical hit rule that depends on that same roll, damage that only happens on a hit, and a sweep across the parameter you are thinking of changing.</p>
+<pre class="sample" data-sample="dpr"></pre>
+<div class="tryline"><button class="try" data-load="dpr">load this into the workbench</button></div>
+<p>The sweep is the part worth keeping. A single number tells you what the damage is; the curve tells you what the bonus is worth, and whether the rule you are considering is linear, which most of them are not.<label for="sn-5" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-5" class="margin-toggle"><span class="sidenote">Against a fixed armour class a flat bonus is worth a constant amount per point, right up until the roll can no longer fail, at which point further bonuses are worth nothing at all. The kink in the curve is where your bonus stops buying anything.</span></p>
+</section>
+
+<section>
+<h2>When exactness runs out</h2>
+<p>A fight is not a roll. Its outcome depends on its own history, and the number of histories is not something worth enumerating. For that there is <code>sim</code>, which plays a block of ordinary imperative code many times over and collects whatever you <code>record</code>.</p>
+
+<p>Inside a <code>sim</code> block the rules change, deliberately: every die is actually rolled, <code>var</code> holds a number rather than a distribution, and a name mentioned twice is the same number both times. It is the same language read the way a program is read rather than the way an equation is read.</p>
+<pre class="sample" data-sample="sim"></pre>
+<div class="tryline"><button class="try" data-load="sim">load this into the workbench</button></div>
+
+<p>Everything a <code>sim</code> reports carries a &plusmn; figure, which is the ninety-five per cent interval for the sampling error and nothing else.<label for="sn-6" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-6" class="margin-toggle"><span class="sidenote">It says how sure you can be that more trials would not move the number. It says nothing about whether the model is a good model of your game, which is a question no amount of trials can answer.</span> Quadrupling the trials halves it.</p>
+
+<p>For the common case of two sides hitting each other until one falls over, describing the creatures and writing <code>fight</code> is quicker than writing the loop.</p>
+<pre class="sample" data-sample="fight"></pre>
+<div class="tryline"><button class="try" data-load="fight">load this into the workbench</button></div>
+</section>
+
+<section>
+<h2>Tables</h2>
+<p>A <code>table</code> maps ranges on a die to outcomes, which may be numbers, dice, or text. Roll it by naming it. If the ranges leave a gap, the interpreter says so rather than quietly guessing.</p>
+<pre class="sample" data-sample="tables"></pre>
+<div class="tryline"><button class="try" data-load="tables">load this into the workbench</button></div>
+</section>
+
+<section>
+<h2>Reference</h2>
+
+<h3>Statements</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Statement</th><th>What it does</th></tr>
+<tr><td><code>let</code> <em>name</em> <code>=</code> <em>expr</em></td><td>Names a kind of roll. Each mention rolls again.</td></tr>
+<tr><td><code>show</code> <em>expr</em></td><td>One line: mean, spread, range, and a sparkline.</td></tr>
+<tr><td><code>plot</code> <em>expr</em></td><td>The whole distribution, drawn. Hover for the odds of any result.</td></tr>
+<tr><td><code>compare</code> <em>a</em><code>,</code> <em>b</em><code>,</code> &hellip;</td><td>Several distributions on one shared scale.</td></tr>
+<tr><td><code>sweep</code> <em>name</em> <code>from</code> <em>a</em> <code>to</code> <em>b</em> <code>{</code> <em>expr</em> <code>}</code></td><td>Evaluates the expression at each value and draws the curve. <code>step</code> sets the interval.</td></tr>
+<tr><td><code>define</code> <em>name</em><code>(</code><em>args</em><code>) =</code> <em>expr</em></td><td>A reusable rule.</td></tr>
+<tr><td><code>table</code> <em>name</em> <code>{ 1-3:</code> &hellip; <code>}</code></td><td>A roll table. Entries may be numbers, dice or text.</td></tr>
+<tr><td><code>creature</code> <em>name</em> <code>{ hp</code> &hellip; <code>ac</code> &hellip; <code>attack</code> &hellip; <code>}</code></td><td>Something that can be put in a fight.</td></tr>
+<tr><td><code>fight</code> <em>a</em> <code>vs</code> <em>b</em> <code>trials</code> <em>n</em></td><td>Simulates the two sides until one is down.</td></tr>
+<tr><td><code>sim</code> <em>n</em> <code>{</code> &hellip; <code>}</code></td><td>Runs a block <em>n</em> times and summarises what it recorded.</td></tr>
+<tr><td><code>check</code> <em>expr</em></td><td>Asserts the expression is certainly true. Used for the self-test below.</td></tr>
+</table>
+</div>
+
+<h3>Inside a <code>sim</code> block</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Statement</th><th>What it does</th></tr>
+<tr><td><code>var</code> <em>name</em> <code>=</code> <em>expr</em></td><td>Rolls once and keeps the number.</td></tr>
+<tr><td><em>name</em> <code>=</code> <em>expr</em></td><td>Assigns to a name already introduced.</td></tr>
+<tr><td><code>if</code> <em>cond</em> <code>{</code> &hellip; <code>} else {</code> &hellip; <code>}</code></td><td>A branch.</td></tr>
+<tr><td><code>while</code> <em>cond</em> <code>{</code> &hellip; <code>}</code></td><td>A loop. Stops complaining loudly after 5,000 turns.</td></tr>
+<tr><td><code>repeat</code> <em>n</em> <code>{</code> &hellip; <code>}</code></td><td>A loop with a count.</td></tr>
+<tr><td><code>record "</code><em>name</em><code>"</code> <em>expr</em></td><td>Collects a value from this trial. Yes/no values are reported as percentages.</td></tr>
+<tr><td><code>stop</code></td><td>Ends this trial early.</td></tr>
+</table>
+</div>
+
+<h3>Dice and their modifiers</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Written</th><th>Meaning</th></tr>
+<tr><td><code>d20</code>&ensp;<code>3d6</code>&ensp;<code>d%</code>&ensp;<code>dF</code></td><td>One die, three dice, percentile, a Fudge die (&minus;1, 0, +1).</td></tr>
+<tr><td><code>4d6 keep highest 3</code></td><td>Also <code>keep lowest</code>, <code>drop highest</code>, <code>drop lowest</code>; or <code>kh3</code>, <code>kl1</code>, <code>dh1</code>, <code>dl1</code>.</td></tr>
+<tr><td><code>d6 exploding</code></td><td>A maximum result rolls again and adds. <code>penetrating</code> subtracts one from each extra die.</td></tr>
+<tr><td><code>d10 reroll 1</code></td><td>Rerolls a 1 or less, once. Add <code>forever</code> to reroll until it is not.</td></tr>
+<tr><td><code>6d10 count &gt;= 7</code></td><td>A dice pool: counts how many dice pass the test.</td></tr>
+<tr><td><em>expr</em> <code>with advantage</code></td><td>Rolls the whole expression twice and keeps the better. Also <code>with disadvantage</code>.</td></tr>
+</table>
+</div>
+
+<h3>Operators, tightest last</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Operators</th><th>Notes</th></tr>
+<tr><td><code>if</code> &hellip; <code>then</code> &hellip; <code>else</code> &hellip;</td><td><code>else</code> may be left off; it means zero.</td></tr>
+<tr><td><code>given</code> <em>name</em> <code>=</code> <em>expr</em> <code>{</code> &hellip; <code>}</code></td><td>Fixes one roll, exactly, for the whole block. Several may be listed with commas.</td></tr>
+<tr><td><code>or</code>&ensp;<code>and</code>&ensp;<code>not</code></td><td>Anything other than zero counts as true.</td></tr>
+<tr><td><code>&lt;</code>&ensp;<code>&lt;=</code>&ensp;<code>&gt;</code>&ensp;<code>&gt;=</code>&ensp;<code>==</code>&ensp;<code>!=</code></td><td>Produce 1 or 0, so <code>chance(d20 &gt;= 15)</code> is 0.3 and comparisons can be added up.</td></tr>
+<tr><td><code>+</code>&ensp;<code>-</code>&ensp;&ensp;<code>*</code>&ensp;<code>/</code>&ensp;<code>//</code>&ensp;<code>%</code>&ensp;&ensp;<code>^</code>&ensp;&ensp;<code>d</code></td><td><code>//</code> divides and rounds down, which is what &ldquo;half, rounded down&rdquo; means.</td></tr>
+</table>
+</div>
+
+<h3>Functions</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Function</th><th>Returns</th></tr>
+<tr><td><code>mean(x)</code>&ensp;<code>sd(x)</code>&ensp;<code>variance(x)</code></td><td>Exact average, spread, variance.</td></tr>
+<tr><td><code>chance(x)</code></td><td>The probability that <em>x</em> is not zero. Feed it a comparison.</td></tr>
+<tr><td><code>atleast(x, n)</code>&ensp;<code>atmost(x, n)</code></td><td>The probability of rolling <em>n</em> or more, or <em>n</em> or less.</td></tr>
+<tr><td><code>median(x)</code>&ensp;<code>quantile(x, q)</code></td><td>The middle, and any other quantile.</td></tr>
+<tr><td><code>lowest(x)</code>&ensp;<code>highest(x)</code>&ensp;<code>outcomes(x)</code></td><td>The smallest and largest possible results, and how many there are.</td></tr>
+<tr><td><code>min(a, b)</code>&ensp;<code>max(a, b)</code>&ensp;<code>clamp(x, lo, hi)</code></td><td>Taken over the distributions, not over their averages.</td></tr>
+<tr><td><code>floor</code>&ensp;<code>ceil</code>&ensp;<code>round</code>&ensp;<code>abs</code>&ensp;<code>half</code>&ensp;<code>sqrt</code></td><td>Applied to every outcome. <code>half</code> rounds down.</td></tr>
+<tr><td><code>best(k, n, x)</code>&ensp;<code>worst(k, n, x)</code></td><td>The sum of the best or worst <em>k</em> of <em>n</em> copies of anything, exactly.</td></tr>
+<tr><td><code>copies(n, x)</code>&ensp;<code>dice(n, faces)</code></td><td><em>n</em> independent copies added up.</td></tr>
+<tr><td><code>roll(x)</code></td><td>Actually rolls it, once, and gives a number.</td></tr>
+</table>
+</div>
+</section>
+
+<section>
+<h2>What this does not do, and where it stops</h2>
+<p>The exact engine works with finite distributions held as a list of outcomes and their probabilities. Adding two of them means considering every pair, so the cost grows with the number of distinct results rather than the number of dice: <code>100d6</code> is instant because it has only 501 possible totals, while <code>given</code> over a large distribution is expensive because the body is evaluated once per outcome. When a calculation would grow past what is sensible, the interpreter stops and says so rather than grinding.</p>
+
+<p>Exploding dice are unbounded in principle, so they are computed shell by shell until the remaining probability falls below 10<sup>&minus;15</sup> and the remainder is placed on the last outcome. The error this introduces is far below the fourth decimal place that anything here reports.</p>
+
+<p>Everything sampled uses a seeded generator, printed in the workbench, so a result you share can be reproduced exactly by anyone who types the same seed. Change the seed to convince yourself an answer is not an artefact of one lucky stream.<label for="sn-7" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-7" class="margin-toggle"><span class="sidenote">The generator is mulberry32, which is not cryptographic and does not need to be. For a hundred thousand trials of a fight it is indistinguishable from a good source.</span></p>
+
+<p><code>fight</code> makes assumptions, and they are worth knowing before quoting its numbers: sides act in alternating turns, who goes first is a coin flip, each attacker swings once at the first enemy still standing, an attack hits when its roll reaches the target&rsquo;s armour, and there are no critical hits, no saving throws, no morale and no retreat. For anything more specific, write the loop yourself in a <code>sim</code> block, where none of those assumptions are made for you.</p>
+</section>
+
+<section>
+<h2>Does the arithmetic work?</h2>
+<p>A probability engine that is quietly wrong is worse than no engine, so the interpreter carries a suite of checks with known answers &mdash; values computed independently with exact rational arithmetic. They run in the page, against the same code that ran your program.</p>
+<div class="controls" style="margin-top:1rem">
+  <button id="selftest">Run the checks</button>
+  <span class="hint" id="selftest-note"></span>
+</div>
+<div class="selftest-out" id="selftest-out"></div>
+</section>
+
+<footer class="colophon">
+<p>Forge is one HTML file with no dependencies, no build step and no network requests: tokenizer, parser, exact distribution engine, sampler and drawings all the way down. Typeset after Edward Tufte, whose rules about ink are as applicable to a probability mass function as to anything else.</p>
+</footer>
+</div>
+<script>
+// Exact finite-distribution engine. Values are Maps from integer outcome -> probability.
+// Prototype for the single-file page; verified against exact rational computation in python.
+
+const MAX_SUPPORT = 200000;
+
+function mk(pairs) {
+  const m = new Map();
+  for (const [v, p] of pairs) if (p > 0) m.set(v, (m.get(v) || 0) + p);
+  return m;
+}
+function constant(n) { return mk([[n, 1]]); }
+function die(faces) {
+  if (faces < 1) throw new Error(`a die needs at least one face, got d${faces}`);
+  const p = 1 / faces, out = new Map();
+  for (let v = 1; v <= faces; v++) out.set(v, p);
+  return out;
+}
+function support(d) { return [...d.keys()].sort((a, b) => a - b); }
+
+function binop(a, b, f) {
+  if (a.size * b.size > MAX_SUPPORT * 4) throw new Error('support too large');
+  const out = new Map();
+  for (const [va, pa] of a) for (const [vb, pb] of b) {
+    const v = f(va, vb);
+    out.set(v, (out.get(v) || 0) + pa * pb);
+  }
+  if (out.size > MAX_SUPPORT) throw new Error(`distribution has ${out.size} distinct outcomes`);
+  return out;
+}
+function mapVals(d, f) {
+  const out = new Map();
+  for (const [v, p] of d) out.set(f(v), (out.get(f(v)) || 0) + p);
+  return out;
+}
+
+// n independent copies of d, summed, by binary exponentiation on convolution.
+function repeatSum(d, n) {
+  if (n === 0) return constant(0);
+  if (n < 0) return mapVals(repeatSum(d, -n), v => -v);
+  let result = null, base = d, k = n;
+  while (k > 0) {
+    if (k & 1) result = result === null ? base : binop(result, base, (x, y) => x + y);
+    k >>= 1;
+    if (k > 0) base = binop(base, base, (x, y) => x + y);
+  }
+  return result;
+}
+
+// Exact sum of the k highest (or lowest) of n independent copies of an arbitrary die.
+// Walks the support from the kept end inward. At each value v we choose how many of the
+// remaining dice show exactly v; once all k kept slots are filled the remaining dice are
+// free to take any not-yet-visited value, so their joint probability is one factor.
+// Everything is carried in probability space, so no integer ever overflows.
+function keepK(d, n, k, high) {
+  if (n < 0) throw new Error('cannot roll a negative number of dice');
+  if (k > n) k = n;
+  if (k <= 0 || n === 0) return constant(0);
+  const vals = support(d);
+  const order = high ? vals.slice().reverse() : vals;
+  const C = binomTable(n);
+  // tail[i] = probability the die lands on a value strictly past position i in `order`
+  const tail = new Array(order.length + 1).fill(0);
+  for (let i = order.length - 1; i >= 0; i--) tail[i] = tail[i + 1] + d.get(order[i]);
+
+  const done = new Map();                       // sum -> probability
+  let frontier = new Map([[0, new Map([[0, new Map([[0, 1]])]])]]);  // assigned -> filled -> sum -> prob
+  for (let idx = 0; idx < order.length; idx++) {
+    const v = order[idx], pv = d.get(order[idx]), rest = tail[idx + 1];
+    const next = new Map();
+    for (const [assigned, byFilled] of frontier) {
+      const left = n - assigned;
+      for (const [filled, sums] of byFilled) {
+        for (let c = 0; c <= left; c++) {
+          const w = C[left][c] * Math.pow(pv, c);
+          if (w === 0) continue;
+          const kept = Math.min(c, k - filled);
+          const f2 = filled + kept, a2 = assigned + c, free = n - a2;
+          if (f2 === k) {
+            const w2 = w * Math.pow(rest, free);          // 0^0 === 1, so free === 0 is fine
+            if (w2 === 0) continue;
+            for (const [s, p] of sums) {
+              const key = s + kept * v;
+              done.set(key, (done.get(key) || 0) + p * w2);
+            }
+          } else if (idx === order.length - 1) {
+            if (free === 0) for (const [s, p] of sums) {   // only reachable when n < k, i.e. never
+              const key = s + kept * v;
+              done.set(key, (done.get(key) || 0) + p * w);
+            }
+          } else {
+            if (!next.has(a2)) next.set(a2, new Map());
+            const bf = next.get(a2);
+            if (!bf.has(f2)) bf.set(f2, new Map());
+            const tgt = bf.get(f2);
+            for (const [s, p] of sums) {
+              const key = s + kept * v;
+              tgt.set(key, (tgt.get(key) || 0) + p * w);
+            }
+          }
+        }
+      }
+    }
+    frontier = next;
+    if (frontier.size === 0) break;
+  }
+  return normalize(done);
+}
+const keepOf = (n, faces, k, high) => keepK(die(faces), n, k, high);
+
+function normalize(d) {
+  let total = 0;
+  for (const p of d.values()) total += p;
+  if (!(total > 0)) throw new Error('this distribution has no possible outcomes');
+  if (Math.abs(total - 1) < 1e-12) return d;
+  const out = new Map();
+  for (const [v, p] of d) out.set(v, p / total);
+  return out;
+}
+
+// Reroll: if the result satisfies pred, roll once more and keep that (once=true),
+// or keep rerolling forever (once=false, i.e. condition on not satisfying pred).
+function reroll(d, pred, once = true) {
+  const bad = [...d].filter(([v]) => pred(v)).reduce((s, [, p]) => s + p, 0);
+  if (bad >= 1 - 1e-15 && !once) throw new Error('rerolling forever would never terminate');
+  if (once) {
+    const out = new Map();
+    for (const [v, p] of d) if (!pred(v)) out.set(v, (out.get(v) || 0) + p);
+    for (const [v, p] of d) out.set(v, (out.get(v) || 0) + bad * p);
+    return out;
+  }
+  const out = new Map();
+  for (const [v, p] of d) if (!pred(v)) out.set(v, p / (1 - bad));
+  return out;
+}
+
+// Count how many of n independent copies of d satisfy pred (a dice pool).
+function countSuccesses(d, n, pred) {
+  const p = [...d].filter(([v]) => pred(v)).reduce((s, q) => s + q[1], 0);
+  return repeatSum(mk([[1, p], [0, 1 - p]]), n);
+}
+
+function compare(a, b, op) {
+  const f = { '>=': (x, y) => x >= y, '>': (x, y) => x > y, '<=': (x, y) => x <= y,
+              '<': (x, y) => x < y, '==': (x, y) => x === y, '!=': (x, y) => x !== y }[op];
+  return binop(a, b, (x, y) => (f(x, y) ? 1 : 0));
+}
+function mixture(parts) {          // [[weight, dist], ...]
+  const out = new Map();
+  for (const [w, d] of parts) { if (w <= 0) continue; for (const [v, p] of d) out.set(v, (out.get(v) || 0) + w * p); }
+  return out;
+}
+
+const mean = d => [...d].reduce((s, [v, p]) => s + v * p, 0);
+function variance(d) { const m = mean(d); return [...d].reduce((s, [v, p]) => s + p * (v - m) ** 2, 0); }
+const sd = d => Math.sqrt(variance(d));
+function cdfAt(d, x) { return [...d].reduce((s, [v, p]) => s + (v <= x ? p : 0), 0); }
+function quantile(d, q) {
+  let acc = 0;
+  for (const v of support(d)) { acc += d.get(v); if (acc >= q - 1e-12) return v; }
+  return support(d).pop();
+}
+
+function binomTable(n) {
+  const C = [];
+  for (let i = 0; i <= n; i++) {
+    C.push(new Array(i + 1).fill(0));
+    C[i][0] = 1;
+    for (let j = 1; j <= i; j++) C[i][j] = (C[i - 1][j - 1] || 0) + (C[i - 1][j] || 0);
+  }
+  return C;
+}
+
+/* ------------------------------------------------------------------ *
+ * Tokenizer                                                          *
+ * ------------------------------------------------------------------ */
+
+const RESERVED = new Set([
+  'let', 'given', 'show', 'plot', 'compare', 'table', 'define', 'creature',
+  'sim', 'fight', 'sweep', 'check', 'var', 'while', 'if', 'then', 'else',
+  'repeat', 'record', 'and', 'or', 'not', 'd', 'vs', 'from', 'to', 'stop',
+]);
+
+// Words that only mean something in a particular position, so they stay
+// available as ordinary names everywhere else.
+const MODIFIER_WORDS = new Set([
+  'keep', 'drop', 'highest', 'lowest', 'exploding', 'penetrating', 'reroll',
+  'forever', 'count', 'with', 'advantage', 'disadvantage', 'kh', 'kl', 'dh', 'dl',
+]);
+
+class ForgeError extends Error {
+  constructor(message, line, col, length) {
+    super(message);
+    this.name = 'ForgeError';
+    this.line = line || 0;
+    this.col = col || 0;
+    this.length = length || 1;
+  }
+}
+
+function tokenize(src) {
+  const toks = [];
+  let i = 0, line = 1, col = 1;
+  const n = src.length;
+  const push = (type, value, l, c, len) => toks.push({ type, value, line: l, col: c, length: len });
+  const isDigit = ch => ch >= '0' && ch <= '9';
+  const LETTER = /[\p{L}\p{M}_]/u;
+  const isAlpha = ch => LETTER.test(ch);
+
+  while (i < n) {
+    const ch = src[i];
+
+    if (ch === '\n') { push('nl', '\n', line, col, 1); i++; line++; col = 1; continue; }
+    if (ch === ' ' || ch === '\t' || ch === '\r') { i++; col++; continue; }
+
+    // Comments: `#`, or `--` followed by space or another dash. Requiring that
+    // space is what keeps `5 --1` reading as a subtraction rather than vanishing.
+    if (ch === '#' || (ch === '-' && src[i + 1] === '-' &&
+        (src[i + 2] === undefined || ' \t\r\n-'.includes(src[i + 2])))) {
+      while (i < n && src[i] !== '\n') { i++; col++; }
+      continue;
+    }
+
+    // a die: `d20`, `d%`, `dF`, and the `d` in `3d6`
+    if ((ch === 'd' || ch === 'D') && (isDigit(src[i + 1]) || src[i + 1] === '%' || src[i + 1] === 'F' || src[i + 1] === 'f')) {
+      // but not when it is really the start of a longer name, e.g. `d6x` -> caught by the parser
+      push('op', 'd', line, col, 1); i++; col++;
+      if (src[i] === '%') { push('num', 100, line, col, 1); i++; col++; }
+      else if (src[i] === 'F' || src[i] === 'f') { push('fudge', 'dF', line, col, 1); i++; col++; }
+      else {
+        const startCol = col; let s = '';
+        while (i < n && isDigit(src[i])) { s += src[i]; i++; col++; }
+        push('num', parseInt(s, 10), line, startCol, s.length);
+      }
+      // A word pressed against a die is almost always a typo. The exceptions
+      // are the short modifiers, which read fine either way: 4d6kh3.
+      if (i < n && isAlpha(src[i])) {
+        const wordCol = col; let w = '';
+        let j = i, c2 = col;
+        while (j < n && (isAlpha(src[j]) || isDigit(src[j]))) { w += src[j]; j++; c2++; }
+        const short = /^(kh|kl|dh|dl)(\d+)$/i.exec(w);
+        if (short) {
+          push('name', short[1].toLowerCase(), line, wordCol, 2);
+          push('num', parseInt(short[2], 10), line, wordCol + 2, short[2].length);
+          i = j; col = c2;
+        } else {
+          throw new ForgeError(`I read this as a die followed by "${w}", with nothing between them. Put a space in, or rename it if "${w}" was meant to be part of one word.`, line, wordCol, w.length);
+        }
+      }
+      continue;
+    }
+
+    if (isDigit(ch)) {
+      const startCol = col; let s = '';
+      while (i < n && isDigit(src[i])) { s += src[i]; i++; col++; }
+      if (src[i] === '.' && isDigit(src[i + 1])) {
+        s += '.'; i++; col++;
+        while (i < n && isDigit(src[i])) { s += src[i]; i++; col++; }
+      }
+      if ((src[i] === 'e' || src[i] === 'E') &&
+          (isDigit(src[i + 1]) || ((src[i + 1] === '-' || src[i + 1] === '+') && isDigit(src[i + 2])))) {
+        s += 'e'; i++; col++;
+        if (src[i] === '-' || src[i] === '+') { s += src[i]; i++; col++; }
+        while (i < n && isDigit(src[i])) { s += src[i]; i++; col++; }
+      }
+      // `3d6` -- the d is emitted as its own operator token
+      if ((src[i] === 'd' || src[i] === 'D') && (isDigit(src[i + 1]) || src[i + 1] === '%' || src[i + 1] === 'F' || src[i + 1] === 'f')) {
+        push('num', parseFloat(s), line, startCol, s.length);
+        continue;   // next pass picks up the die
+      }
+      push('num', parseFloat(s), line, startCol, s.length);
+      continue;
+    }
+
+    if (isAlpha(ch)) {
+      const startCol = col; let s = '';
+      while (i < n && (isAlpha(src[i]) || isDigit(src[i]))) { s += src[i]; i++; col++; }
+      const lower = s.toLowerCase();
+      const short = /^(kh|kl|dh|dl)(\d+)$/.exec(lower);
+      if (short) {
+        push('name', short[1], line, startCol, 2);
+        push('num', parseInt(short[2], 10), line, startCol + 2, short[2].length);
+        continue;
+      }
+      if (lower === 'd') push('op', 'd', line, startCol, s.length);
+      else if (RESERVED.has(lower)) push('kw', lower, line, startCol, s.length);
+      else push('name', s, line, startCol, s.length);
+      continue;
+    }
+
+    if (ch === '"' || ch === '“') {
+      const startCol = col, startLine = line; let s = ''; i++; col++;
+      while (i < n && src[i] !== '"' && src[i] !== '”' && src[i] !== '\n') {
+        if (src[i] === '\\' && i + 1 < n) { i++; col++; }
+        s += src[i]; i++; col++;
+      }
+      if (i >= n || src[i] === '\n') throw new ForgeError('this text is missing its closing quote', startLine, startCol, 1);
+      i++; col++;
+      push('str', s, startLine, startCol, s.length + 2);
+      continue;
+    }
+
+    const three = src.substr(i, 3);
+    const two = src.substr(i, 2);
+    if (two === '>=' || two === '<=' || two === '==' || two === '!=' || two === '//') {
+      push('op', two, line, col, 2); i += 2; col += 2; continue;
+    }
+    if ('+-*/%^<>=(){},:'.includes(ch)) {
+      push('op', ch === '=' ? '=' : ch, line, col, 1); i++; col++; continue;
+    }
+    if (ch === '–' || ch === '—') {       // en/em dash typed where a minus was meant
+      push('op', '-', line, col, 1); i++; col++; continue;
+    }
+
+    throw new ForgeError(`I do not know what to do with the character "${ch}"`, line, col, 1);
+  }
+  push('eof', null, line, col, 0);
+  return toks;
+}
+
+/* ------------------------------------------------------------------ *
+ * Parser: recursive descent, newline-terminated statements           *
+ * ------------------------------------------------------------------ */
+
+const INFIX = new Set(['+', '-', '*', '/', '//', '%', '^', '>=', '<=', '==', '!=', '<', '>']);
+
+function parse(src) {
+  const toks = tokenize(src);
+  let pos = 0;
+
+  const peek = (k = 0) => toks[Math.min(pos + k, toks.length - 1)];
+  const at = (type, value) => { const t = peek(); return t.type === type && (value === undefined || t.value === value); };
+  const atWord = w => { const t = peek(); return (t.type === 'name' || t.type === 'kw') && String(t.value).toLowerCase() === w; };
+  const advance = () => toks[pos++];
+  const skipNL = () => { while (at('nl')) pos++; };
+  const skipBlank = () => { while (at('nl')) pos++; };
+
+  function expect(type, value, what) {
+    skipNLIfSoft(type);
+    if (!at(type, value)) {
+      const t = peek();
+      throw new ForgeError(`I expected ${what || describe(type, value)} here, but found ${found(t)}`, t.line, t.col, t.length || 1);
+    }
+    return advance();
+  }
+  function skipNLIfSoft(type) { if (type === 'op' || type === 'kw') { /* closers and operators may sit on the next line */ } }
+  function describe(type, value) {
+    if (type === 'op' && value) return `"${value}"`;
+    if (type === 'kw') return `"${value}"`;
+    if (type === 'name') return 'a name';
+    if (type === 'num') return 'a number';
+    if (type === 'str') return 'some quoted text';
+    return type;
+  }
+  function found(t) {
+    if (t.type === 'eof') return 'the end of the program';
+    if (t.type === 'nl') return 'the end of the line';
+    if (t.type === 'str') return `the text "${t.value}"`;
+    return `"${t.value}"`;
+  }
+  const err = (msg, t) => { t = t || peek(); return new ForgeError(msg, t.line, t.col, t.length || 1); };
+
+  // ---- statements ---------------------------------------------------
+  function parseProgram() {
+    const stmts = [];
+    skipBlank();
+    while (!at('eof')) {
+      stmts.push(parseStatement());
+      if (!at('eof') && !at('nl')) {
+        throw err(`I finished reading that statement but then found ${found(peek())}, which I did not expect`, peek());
+      }
+      skipBlank();
+    }
+    return { kind: 'program', stmts };
+  }
+
+  function endOfStatement() {
+    if (at('nl') || at('eof') || at('op', '}')) return;
+    throw err(`I did not expect ${found(peek())} at the end of this line`, peek());
+  }
+
+  function parseStatement() {
+    const t = peek();
+    if (t.type === 'kw') {
+      switch (t.value) {
+        case 'let': return parseLet();
+        case 'show': return parseShow('show');
+        case 'plot': return parseShow('plot');
+        case 'compare': return parseCompare();
+        case 'table': return parseTable();
+        case 'define': return parseDefine();
+        case 'creature': return parseCreature();
+        case 'sim': return parseSim();
+        case 'fight': return parseFight();
+        case 'sweep': return parseSweep();
+        case 'check': return parseCheck();
+      }
+    }
+    throw err(`a statement starts with one of: let, show, plot, compare, table, define, creature, sim, fight, sweep, check. I found ${found(t)}`, t);
+  }
+
+  function parseLet() {
+    const kw = advance();
+    const name = expect('name', undefined, 'a name for this value');
+    expect('op', '=', 'an "=" sign');
+    skipNL();
+    const expr = parseExpr();
+    endOfStatement();
+    return { kind: 'let', name: name.value, expr, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  function optionalLabel() {
+    if (at('str') && peek(1).type === 'op' && peek(1).value === ':') {
+      const s = advance().value; advance(); skipNL(); return s;
+    }
+    // `show "label" expr` also reads fine, but only when what follows really
+    // does start an expression -- otherwise `show "a" == "a"` loses its subject.
+    if (at('str') && startsExpression(peek(1))) { const s = advance().value; skipNL(); return s; }
+    return null;
+  }
+
+  function startsExpression(t) {
+    if (t.type === 'num' || t.type === 'str' || t.type === 'name' || t.type === 'fudge') return true;
+    if (t.type === 'kw') return ['if', 'given', 'not', 'd'].includes(t.value);
+    if (t.type === 'op') return ['(', 'd', '-'].includes(t.value);
+    return false;
+  }
+
+  function parseShow(kind) {
+    const kw = advance();
+    const label = optionalLabel();
+    const expr = parseExpr();
+    endOfStatement();
+    return { kind, label, expr, line: kw.line, col: kw.col, length: kw.length, src: null };
+  }
+
+  function parseCompare() {
+    const kw = advance();
+    const items = [];
+    do {
+      skipNL();
+      const label = optionalLabel();
+      const expr = parseExpr();
+      items.push({ label, expr });
+      skipNL0();
+    } while (eatComma());
+    endOfStatement();
+    if (items.length < 2) throw err('compare needs at least two things to compare, separated by commas', kw);
+    return { kind: 'compare', items, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+  function skipNL0() { /* newlines end a compare list */ }
+  function eatComma() { if (at('op', ',')) { advance(); skipNL(); return true; } return false; }
+
+  function parseTable() {
+    const kw = advance();
+    const name = expect('name', undefined, 'a name for this table');
+    expect('op', '{', 'a "{" to open the table');
+    skipBlank();
+    const entries = [];
+    while (!at('op', '}')) {
+      if (at('eof')) throw err('this table is missing its closing "}"', kw);
+      const lo = expect('num', undefined, 'the first number of a range');
+      let hi = lo.value;
+      if (at('op', '-')) { advance(); hi = expect('num', undefined, 'the last number of the range').value; }
+      expect('op', ':', 'a ":" after the range');
+      skipNL();
+      const expr = parseExpr();
+      if (lo.value > hi) throw err(`the range ${lo.value}-${hi} runs backwards`, lo);
+      entries.push({ lo: lo.value, hi, expr, line: lo.line, col: lo.col, length: lo.length, col: lo.col, length: lo.length });
+      skipBlank();
+    }
+    advance();
+    if (!entries.length) throw err('a table needs at least one entry', kw);
+    return { kind: 'table', name: name.value, entries, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  function parseDefine() {
+    const kw = advance();
+    const name = expect('name', undefined, 'a name for this rule');
+    const params = [];
+    if (at('op', '(')) {
+      advance(); skipNL();
+      if (!at('op', ')')) {
+        do { skipNL(); params.push(expect('name', undefined, 'a parameter name').value); skipNL(); } while (eatComma());
+      }
+      expect('op', ')', 'a ")"');
+    }
+    expect('op', '=', 'an "=" sign');
+    skipNL();
+    const body = parseExpr();
+    endOfStatement();
+    return { kind: 'define', name: name.value, params, body, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  function parseCreature() {
+    const kw = advance();
+    const name = expect('name', undefined, 'a name for this creature');
+    expect('op', '{', 'a "{" to open the creature');
+    skipBlank();
+    const c = { kind: 'creature', name: name.value, hp: null, ac: null, attacks: [], line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+    while (!at('op', '}')) {
+      if (at('eof')) throw err(`the creature ${name.value} is missing its closing "}"`, kw);
+      const field = peek();
+      const fname = (field.type === 'name' || field.type === 'kw') ? String(field.value).toLowerCase() : null;
+      if (fname === 'hp' || fname === 'ac') {
+        advance();
+        if (at('op', ':')) advance();
+        skipNL();
+        c[fname] = parseExpr();
+      } else if (fname === 'attack') {
+        advance();
+        let aname = `attack ${c.attacks.length + 1}`;
+        if (at('str')) aname = advance().value;
+        else if (at('name')) aname = advance().value;
+        if (at('op', ':')) advance();
+        skipNL();
+        const hit = parseExpr();
+        expect('op', ',', 'a comma, then the damage');
+        skipNL();
+        if (!atWord('damage')) throw err('I expected the word "damage" here', peek());
+        advance();
+        if (at('op', ':')) advance();
+        skipNL();
+        const damage = parseExpr();
+        c.attacks.push({ name: aname, hit, damage, line: field.line, col: field.col, length: field.length, col: field.col, length: field.length });
+      } else {
+        throw err(`inside a creature I understand hp, ac and attack. I found ${found(field)}`, field);
+      }
+      skipBlank();
+    }
+    advance();
+    if (!c.hp) throw err(`the creature ${c.name} needs an hp line`, kw);
+    if (!c.ac) throw err(`the creature ${c.name} needs an ac line`, kw);
+    if (!c.attacks.length) throw err(`the creature ${c.name} needs at least one attack`, kw);
+    return c;
+  }
+
+  function parseSim() {
+    const kw = advance();
+    skipNL();
+    const trials = parseExpr();
+    const label = at('str') ? advance().value : null;
+    expect('op', '{', 'a "{" to open the simulation');
+    const body = parseBlock();
+    return { kind: 'sim', trials, label, body, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  function parseFight() {
+    const kw = advance();
+    const a = [], b = [];
+    do { skipNL(); a.push(expect('name', undefined, 'a creature name').value); } while (eatComma());
+    if (!at('kw', 'vs')) throw err('I expected the word "vs" between the two sides', peek());
+    advance(); skipNL();
+    do { skipNL(); b.push(expect('name', undefined, 'a creature name').value); } while (eatComma());
+    let trials = null;
+    if (atWord('trials')) { advance(); skipNL(); trials = parseExpr(); }
+    endOfStatement();
+    return { kind: 'fight', a, b, trials, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  function parseSweep() {
+    const kw = advance();
+    const name = expect('name', undefined, 'the name of the thing you are sweeping');
+    if (!at('kw', 'from')) throw err('I expected "from" here, as in: sweep bonus from 0 to 10', peek());
+    advance(); skipNL();
+    const from = parseExpr();
+    if (!at('kw', 'to')) throw err('I expected "to" here, as in: sweep bonus from 0 to 10', peek());
+    advance(); skipNL();
+    const to = parseExpr();
+    let step = null;
+    if (atWord('step') || atWord('by')) { advance(); skipNL(); step = parseExpr(); }
+    const label = at('str') ? advance().value : null;
+    expect('op', '{', 'a "{" holding the thing to measure');
+    skipNL();
+    const body = parseExpr();
+    skipNL();
+    expect('op', '}', 'a "}"');
+    endOfStatement();
+    return { kind: 'sweep', name: name.value, from, to, step, label, body, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  function parseCheck() {
+    const kw = advance();
+    const label = optionalLabel();
+    const expr = parseExpr();
+    endOfStatement();
+    return { kind: 'check', label, expr, line: kw.line, col: kw.col, length: kw.length, col: kw.col, length: kw.length };
+  }
+
+  // ---- simulation body (imperative) ---------------------------------
+  function parseBlock() {
+    skipBlank();
+    const body = [];
+    while (!at('op', '}')) {
+      if (at('eof')) throw err('this block is missing its closing "}"', peek());
+      body.push(parseSimStatement());
+      skipBlank();
+    }
+    advance();
+    return body;
+  }
+
+  function parseSimStatement() {
+    const t = peek();
+    if (t.type === 'kw') {
+      switch (t.value) {
+        case 'var': {
+          advance();
+          const name = expect('name', undefined, 'a name for this counter');
+          expect('op', '=', 'an "=" sign');
+          skipNL();
+          const expr = parseExpr();
+          return { kind: 'var', name: name.value, expr, line: t.line, col: t.col, length: t.length };
+        }
+        case 'while': {
+          advance(); skipNL();
+          const cond = parseExpr();
+          expect('op', '{', 'a "{" to open the loop');
+          return { kind: 'while', cond, body: parseBlock(), line: t.line, col: t.col, length: t.length };
+        }
+        case 'repeat': {
+          advance(); skipNL();
+          const count = parseExpr();
+          expect('op', '{', 'a "{" to open the loop');
+          return { kind: 'repeat', count, body: parseBlock(), line: t.line, col: t.col, length: t.length };
+        }
+        case 'if': {
+          advance(); skipNL();
+          const cond = parseExpr();
+          expect('op', '{', 'a "{" to open this branch');
+          const then = parseBlock();
+          let other = null;
+          const save = pos;
+          skipBlank();
+          if (at('kw', 'else')) {
+            advance(); skipNL();
+            if (at('kw', 'if')) other = [parseSimStatement()];
+            else { expect('op', '{', 'a "{" to open the else branch'); other = parseBlock(); }
+          } else pos = save;
+          return { kind: 'if', cond, then, other, line: t.line, col: t.col, length: t.length };
+        }
+        case 'record': {
+          advance();
+          const label = at('str') ? advance().value : null;
+          if (label === null) throw err('record needs a quoted name, as in: record "rounds" round', t);
+          skipNL();
+          const expr = parseExpr();
+          return { kind: 'record', label, expr, line: t.line, col: t.col, length: t.length };
+        }
+        case 'stop': advance(); return { kind: 'stop', line: t.line, col: t.col, length: t.length };
+        case 'show': case 'plot': case 'let':
+          throw err(`"${t.value}" belongs outside a simulation. Inside one, use var, record, if, while, repeat or stop`, t);
+      }
+    }
+    if (t.type === 'name' && peek(1).type === 'op' && peek(1).value === '=') {
+      advance(); advance(); skipNL();
+      const expr = parseExpr();
+      return { kind: 'assign', name: t.value, expr, line: t.line, col: t.col, length: t.length };
+    }
+    throw err(`inside a simulation I understand var, record, if, while, repeat, stop, and assignments like "hp = hp - 3". I found ${found(t)}`, t);
+  }
+
+  // ---- expressions --------------------------------------------------
+  function parseExpr() { return parseIf(); }
+
+  function parseIf() {
+    if (at('kw', 'if')) {
+      const t = advance(); skipNL();
+      const c = parseIf();
+      if (!at('kw', 'then')) throw err('I expected "then" after this condition', peek());
+      advance(); skipNL();
+      const a = parseIf();
+      let b = null;
+      const save = pos; skipNL();
+      if (at('kw', 'else')) { advance(); skipNL(); b = parseIf(); } else pos = save;
+      return { kind: 'cond', c, a, b, line: t.line, col: t.col, length: t.length };
+    }
+    if (at('kw', 'given')) return parseGiven();
+    return parseOr();
+  }
+
+  function parseGiven() {
+    const t = advance();
+    const binds = [];
+    do {
+      skipNL();
+      const name = expect('name', undefined, 'a name for this roll');
+      expect('op', '=', 'an "=" sign');
+      skipNL();
+      binds.push({ name: name.value, expr: parseExpr() });
+    } while (eatComma());
+    expect('op', '{', 'a "{" holding what to do with that roll');
+    skipNL();
+    const body = parseExpr();
+    skipNL();
+    expect('op', '}', 'a "}"');
+    return { kind: 'given', binds, body, line: t.line, col: t.col, length: t.length };
+  }
+
+  // An expression may run on to the next line when the operator leads that
+  // line, because no statement can begin with an operator. The continuation
+  // has to be the very next line: a blank line ends the thought.
+  function continues(pred) {
+    if (pred()) return true;
+    if (!at('nl') || (toks[pos + 1] && toks[pos + 1].type === 'nl')) return false;
+    const save = pos;
+    pos++;
+    const ok = pred();
+    if (!ok) pos = save;
+    return ok;
+  }
+
+  function parseOr() {
+    let l = parseAnd();
+    while (continues(() => at('kw', 'or'))) { const t = advance(); skipNL(); l = { kind: 'bin', op: 'or', l, r: parseAnd(), line: t.line, col: t.col, length: t.length }; }
+    return l;
+  }
+  function parseAnd() {
+    let l = parseNot();
+    while (continues(() => at('kw', 'and'))) { const t = advance(); skipNL(); l = { kind: 'bin', op: 'and', l, r: parseNot(), line: t.line, col: t.col, length: t.length }; }
+    return l;
+  }
+  function parseNot() {
+    if (at('kw', 'not')) { const t = advance(); skipNL(); return { kind: 'un', op: 'not', e: parseNot(), line: t.line, col: t.col, length: t.length }; }
+    return parseComparison();
+  }
+  const CMP = ['>=', '<=', '==', '!=', '<', '>'];
+  function parseComparison() {
+    let l = parseAdd();
+    while (continues(() => at('op') && CMP.includes(peek().value))) {
+      const t = advance(); skipNL();
+      l = { kind: 'bin', op: t.value, l, r: parseAdd(), line: t.line, col: t.col, length: t.length };
+    }
+    return l;
+  }
+  function parseAdd() {
+    let l = parseMul();
+    while (continues(() => at('op') && (peek().value === '+' || peek().value === '-'))) {
+      const t = advance(); skipNL();
+      l = { kind: 'bin', op: t.value, l, r: parseMul(), line: t.line, col: t.col, length: t.length };
+    }
+    return l;
+  }
+  function parseMul() {
+    let l = parseUnary();
+    while (continues(() => at('op') && ['*', '/', '//', '%'].includes(peek().value))) {
+      const t = advance(); skipNL();
+      l = { kind: 'bin', op: t.value, l, r: parseUnary(), line: t.line, col: t.col, length: t.length };
+    }
+    return l;
+  }
+  function parseUnary() {
+    if (at('op', '-')) { const t = advance(); skipNL(); return { kind: 'un', op: '-', e: parseUnary(), line: t.line, col: t.col, length: t.length }; }
+    if (at('op', '+')) { advance(); skipNL(); return parseUnary(); }
+    return parsePower();
+  }
+  function parsePower() {
+    const base = parseDice();
+    if (continues(() => at('op', '^'))) { const t = advance(); skipNL(); return { kind: 'bin', op: '^', l: base, r: parseUnary(), line: t.line, col: t.col, length: t.length }; }
+    return base;
+  }
+
+  function parseDiceFaces() {
+    if (at('fudge')) { advance(); return { kind: 'num', v: 'F' }; }
+    if (at('num')) { const t = advance(); return { kind: 'num', v: t.value, line: t.line, col: t.col, length: t.length }; }
+    if (at('op', '(')) return parsePrimary();
+    if (at('name')) { const t = advance(); return { kind: 'var', name: t.value, line: t.line, col: t.col, length: t.length }; }
+    throw err(`a die needs a number of faces, as in d20. I found ${found(peek())}`, peek());
+  }
+
+  function parseDice() {
+    let node;
+    if (at('op', 'd')) {
+      const t = advance();
+      node = { kind: 'dice', count: { kind: 'num', v: 1 }, faces: parseDiceFaces(), line: t.line, col: t.col, length: t.length };
+    } else {
+      node = parsePrimary();
+    }
+    while (at('op', 'd')) {
+      const t = advance();
+      node = { kind: 'dice', count: node, faces: parseDiceFaces(), line: t.line, col: t.col, length: t.length };
+    }
+    return parseModifiers(node);
+  }
+
+  function parseModifiers(node) {
+    for (;;) {
+      const t = peek();
+      if (t.type !== 'name' && t.type !== 'kw') return node;
+      const w = String(t.value).toLowerCase();
+      if (w === 'keep' || w === 'drop') {
+        advance();
+        const which = peek();
+        const ww = (which.type === 'name' || which.type === 'kw') ? String(which.value).toLowerCase() : '';
+        if (ww !== 'highest' && ww !== 'lowest') throw err(`after "${w}" I expected "highest" or "lowest"`, which);
+        advance();
+        const k = parseCountArg(w + ' ' + ww);
+        node = { kind: 'select', drop: w === 'drop', high: ww === 'highest', k, target: node, line: t.line, col: t.col, length: t.length };
+      } else if (w === 'kh' || w === 'kl' || w === 'dh' || w === 'dl') {
+        advance();
+        const k = parseCountArg(w);
+        node = { kind: 'select', drop: w[0] === 'd', high: w[1] === 'h', k, target: node, line: t.line, col: t.col, length: t.length };
+      } else if (w === 'exploding' || w === 'penetrating') {
+        advance();
+        node = { kind: 'explode', penetrating: w === 'penetrating', target: node, line: t.line, col: t.col, length: t.length };
+      } else if (w === 'reroll') {
+        advance();
+        const below = parseCountArg('reroll');
+        let forever = false;
+        if (atWord('forever')) { advance(); forever = true; }
+        node = { kind: 'reroll', below, forever, target: node, line: t.line, col: t.col, length: t.length };
+      } else if (w === 'count') {
+        advance();
+        const cmp = peek();
+        if (!(cmp.type === 'op' && CMP.includes(cmp.value))) throw err('after "count" I expected a comparison, as in: count >= 5', cmp);
+        advance(); skipNL();
+        const thresh = parseAdd();
+        node = { kind: 'pool', op: cmp.value, thresh, target: node, line: t.line, col: t.col, length: t.length };
+      } else if (w === 'with') {
+        const save = pos;
+        advance();
+        const which = peek();
+        const ww = (which.type === 'name' || which.type === 'kw') ? String(which.value).toLowerCase() : '';
+        if (ww === 'advantage' || ww === 'disadvantage') {
+          advance();
+          node = { kind: 'twice', high: ww === 'advantage', target: node, line: t.line, col: t.col, length: t.length };
+        } else { pos = save; return node; }
+      } else {
+        return node;
+      }
+    }
+  }
+
+  function parseCountArg(what) {
+    if (at('num')) { const t = advance(); return { kind: 'num', v: t.value, line: t.line, col: t.col, length: t.length }; }
+    if (at('op', '(')) return parsePrimary();
+    if (at('name')) { const t = advance(); return { kind: 'var', name: t.value, line: t.line, col: t.col, length: t.length }; }
+    throw err(`"${what}" needs a number, as in: 4d6 keep highest 3`, peek());
+  }
+
+  function parsePrimary() {
+    const t = peek();
+    if (t.type === 'num') { advance(); return { kind: 'num', v: t.value, line: t.line, col: t.col, length: t.length, col: t.col }; }
+    if (t.type === 'str') { advance(); return { kind: 'str', v: t.value, line: t.line, col: t.col, length: t.length }; }
+    if (t.type === 'fudge') { advance(); return { kind: 'dice', count: { kind: 'num', v: 1 }, faces: { kind: 'num', v: 'F' }, line: t.line, col: t.col, length: t.length }; }
+    if (t.type === 'op' && t.value === '(') {
+      advance(); skipNL();
+      const e = parseExpr();
+      skipNL();
+      expect('op', ')', 'a ")" to close this group');
+      return e;
+    }
+    if (t.type === 'kw' && (t.value === 'if' || t.value === 'given')) return parseIf();
+    if (t.type === 'name') {
+      advance();
+      if (at('op', '(')) {
+        advance(); skipNL();
+        const args = [];
+        if (!at('op', ')')) {
+          do { skipNL(); args.push(parseExpr()); skipNL(); } while (eatComma());
+        }
+        skipNL();
+        expect('op', ')', 'a ")" to close this call');
+        return { kind: 'call', name: t.value, args, line: t.line, col: t.col, length: t.length };
+      }
+      return { kind: 'var', name: t.value, line: t.line, col: t.col, length: t.length };
+    }
+    throw err(`I expected a value here, but found ${found(t)}`, t);
+  }
+
+  return parseProgram();
+}
+
+/* ------------------------------------------------------------------ *
+ * Values                                                             *
+ *                                                                    *
+ *   num      a plain number                                          *
+ *   dist     a probability mass function over numbers                *
+ *   bag      n independent copies of one die, not yet added up       *
+ *   cat      a probability mass function over labels                 *
+ *   str / table / creature / func                                    *
+ * ------------------------------------------------------------------ */
+
+const N = v => ({ t: 'num', v });
+const P = v => ({ t: 'num', v, pct: true });
+const S = v => ({ t: 'str', v });
+const Dv = d => ({ t: 'dist', d });
+const Bag = (n, per) => ({ t: 'bag', n, per });
+const Cat = d => ({ t: 'cat', d });
+
+const KEY = v => Math.round(v * 1e9) / 1e9;
+
+function asDist(v) {
+  if (v.t === 'num') return constant(v.v);
+  if (v.t === 'dist') return v.d;
+  if (v.t === 'bag') return repeatSum(v.per, v.n);
+  fail(`I expected a number or some dice here, not ${describeValue(v)}`);
+}
+function collapse(v) { return v.t === 'bag' ? Dv(repeatSum(v.per, v.n)) : v; }
+function asNumber(v, what) {
+  if (v.t === 'num') return v.v;
+  if (v.t === 'dist' && v.d.size === 1) return [...v.d.keys()][0];
+  if (v.t === 'bag' || v.t === 'dist') fail(`${what || 'this'} has to be a fixed number, but it is random. Wrap it in roll( ) to pick one value, or use a plain number.`);
+  fail(`${what || 'this'} has to be a number, not ${describeValue(v)}`);
+}
+function asInt(v, what) {
+  const n = asNumber(v, what);
+  if (!Number.isInteger(n)) fail(`${what || 'this'} has to be a whole number, but it is ${fmtNum(n)}`);
+  return n;
+}
+function describeValue(v) {
+  return { num: 'a number', dist: 'a distribution', bag: 'a handful of dice', cat: 'a table of outcomes',
+           str: 'some text', table: 'a table', creature: 'a creature', func: 'a rule' }[v.t] || v.t;
+}
+function simplify(v) {
+  if (v.t === 'dist' && v.d.size === 1) return N([...v.d.keys()][0]);
+  return v;
+}
+
+let FAIL_NODE = null;
+function fail(msg) {
+  const n = FAIL_NODE;
+  throw new ForgeError(msg, n && n.line, n && n.col, n && n.length);
+}
+
+/* ------------------------------------------------------------------ *
+ * Seeded randomness, so a page reload reproduces the same numbers    *
+ * ------------------------------------------------------------------ */
+function makeRng(seed) {
+  let a = (seed | 0) || 1;
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Environment                                                        *
+ * ------------------------------------------------------------------ */
+class Env {
+  constructor(parent) { this.vars = new Map(); this.parent = parent || null; }
+  get(name) {
+    let e = this;
+    while (e) { if (e.vars.has(name)) return e.vars.get(name); e = e.parent; }
+    return undefined;
+  }
+  has(name) { return this.get(name) !== undefined; }
+  set(name, v) { this.vars.set(name, v); }
+  assign(name, v) {
+    let e = this;
+    while (e) { if (e.vars.has(name)) { e.vars.set(name, v); return true; } e = e.parent; }
+    return false;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Exact evaluation                                                   *
+ * ------------------------------------------------------------------ */
+
+const ARITH = {
+  '+': (a, b) => a + b,
+  '-': (a, b) => a - b,
+  '*': (a, b) => a * b,
+  '/': (a, b) => (b === 0 ? fail('I cannot divide by zero') : a / b),
+  '//': (a, b) => (b === 0 ? fail('I cannot divide by zero') : Math.floor(a / b)),
+  '%': (a, b) => (b === 0 ? fail('I cannot take a remainder with zero') : ((a % b) + b) % b),
+  '^': (a, b) => Math.pow(a, b),
+};
+// Equality is deliberately forgiving: mean(3d6) should equal 10.5 even after
+// a few hundred floating point additions.
+// Only equality is forgiving. Shifting the ordering comparisons too would
+// quietly break an ordinary threshold test such as  abs(x) < 1e-9.
+const EPS = 1e-9;
+const CMPF = {
+  '>=': (a, b) => a >= b, '>': (a, b) => a > b, '<=': (a, b) => a <= b,
+  '<': (a, b) => a < b, '==': (a, b) => Math.abs(a - b) < EPS, '!=': (a, b) => Math.abs(a - b) >= EPS,
+};
+
+class Interp {
+  constructor(opts) {
+    opts = opts || {};
+    this.env = new Env(null);
+    this.rng = makeRng(opts.seed === undefined ? 20260912 : opts.seed);
+    this.seed = opts.seed === undefined ? 20260912 : opts.seed;
+    this.out = [];
+    this.notes = [];
+    this.trialCap = opts.trialCap || 200000;
+    this.givenCap = opts.givenCap || 40000;
+    this.loopCap = opts.loopCap || 5000;
+    this.work = 0;
+    this.workCap = opts.workCap || 40000000;
+    this.diceCache = new Map();
+    this.letAst = new Map();
+    this.depth = 0;
+    this.depthCap = opts.depthCap || 160;
+    this.maxFaces = opts.maxFaces || 10000;
+  }
+
+  note(msg, line) { this.notes.push({ msg, line }); }
+  tick(k) { this.work += k || 1; if (this.work > this.workCap) fail('this is taking too long to work out exactly. Try smaller dice, fewer of them, or a sim block.'); }
+
+  oneDie(facesVal, node) {
+    if (facesVal.t === 'str') fail('a die cannot have text for faces');
+    if (facesVal.t === 'num' && facesVal.v === 'F') return mk([[-1, 1 / 3], [0, 1 / 3], [1, 1 / 3]]);
+    if (facesVal.t === 'num') {
+      const m = facesVal.v;
+      if (!Number.isInteger(m) || m < 1) fail(`a die needs a whole number of faces, at least one. I was given d${fmtNum(m)}.`);
+      if (m > this.maxFaces) fail(`d${fmtNum(m)} has more faces than I will work with; ${fmtInt(this.maxFaces)} is the most.`);
+      const key = 'u' + m;
+      if (!this.diceCache.has(key)) this.diceCache.set(key, die(m));
+      return this.diceCache.get(key);
+    }
+    // a random number of faces: mix the uniform dice
+    const fd = asDist(collapse(facesVal));
+    const parts = [];
+    for (const [m, p] of fd) {
+      if (!Number.isInteger(m) || m < 1) fail(`a die needs a whole number of faces, at least one. This one could be d${fmtNum(m)}.`);
+      if (m > this.maxFaces) fail(`d${fmtNum(m)} has more faces than I will work with; ${fmtInt(this.maxFaces)} is the most.`);
+      parts.push([p, die(m)]);
+    }
+    return mixture(parts);
+  }
+
+  evalDiceBag(node) {
+    // returns a bag; used by the modifier chain
+    const cnt = this.eval(node.count);
+    const per = this.oneDie(this.eval(node.faces), node);
+    const applyCount = n => {
+      if (!Number.isInteger(n) || n < 0) fail(`the number of dice has to be a whole number, at least zero. I was given ${fmtNum(n)}.`);
+      if (n > 400) fail(`${fmtNum(n)} dice at once is more than I can work out exactly. Use a sim block for something that big.`);
+      return Bag(n, per);
+    };
+    if (cnt.t === 'num') return applyCount(cnt.v);
+    const cd = asDist(collapse(cnt));
+    if (cd.size === 1) return applyCount([...cd.keys()][0]);
+    // a random number of dice collapses immediately: the copies are no longer interchangeable
+    const parts = [];
+    for (const [n, p] of cd) { applyCount(n); parts.push([p, repeatSum(per, n)]); }
+    return Dv(mixture(parts));
+  }
+
+  asBag(v, what, node) {
+    if (v.t === 'bag') return v;
+    fail(`${what} needs actual dice on its left, as in 4d6 ${what}. I was given ${describeValue(v)}.`);
+  }
+
+  eval(node) {
+    const saved = FAIL_NODE;
+    FAIL_NODE = node.line ? node : FAIL_NODE;
+    try { return this.eval_(node); } finally { FAIL_NODE = saved; }
+  }
+
+  eval_(node) {
+    switch (node.kind) {
+      case 'num': return N(node.v);
+      case 'str': return S(node.v);
+      case 'var': {
+        const v = this.env.get(node.name);
+        if (v === undefined) fail(`I do not know what "${node.name}" is. Define it with: let ${node.name} = ...`);
+        if (v.t === 'table') return tableValue(this, v);
+        if (v.t === 'func') {
+          if (v.params.length) fail(`"${node.name}" is a rule that needs ${v.params.length} value${v.params.length === 1 ? '' : 's'}: ${node.name}(${v.params.join(', ')})`);
+          return this.evalCall({ kind: 'call', name: node.name, args: [], line: node.line, col: node.col });
+        }
+        return v;
+      }
+      case 'dice': return this.evalDiceBag(node);
+
+      case 'select': {
+        const bag = this.asBag(this.eval(node.target), node.drop ? 'drop' : 'keep');
+        let k = asInt(this.eval(node.k), 'the number of dice to keep');
+        if (k < 0) fail('I cannot keep a negative number of dice');
+        let high = node.high;
+        if (node.drop) { k = bag.n - k; high = !node.high; }
+        if (k > bag.n) fail(`there are only ${bag.n} dice here, so I cannot keep ${k}`);
+        this.tick(bag.n * bag.per.size * Math.max(1, k) * 4);
+        return Dv(keepK(bag.per, bag.n, k, high));
+      }
+      case 'explode': {
+        const bag = this.asBag(this.eval(node.target), node.penetrating ? 'penetrating' : 'exploding');
+        const vals = support(bag.per);
+        const top = vals[vals.length - 1];
+        if (vals.length < 2) fail('a die with only one outcome would explode forever');
+        return Bag(bag.n, explodeDist(bag.per, top, node.penetrating));
+      }
+      case 'reroll': {
+        const bag = this.asBag(this.eval(node.target), 'reroll');
+        const below = asNumber(this.eval(node.below), 'the value to reroll');
+        const pred = v => v <= below;
+        const all = support(bag.per).every(pred);
+        if (all) fail(`every result is ${below} or less, so this would reroll forever`);
+        return Bag(bag.n, reroll(bag.per, pred, !node.forever));
+      }
+      case 'pool': {
+        const bag = this.asBag(this.eval(node.target), 'count');
+        const thresh = asNumber(this.eval(node.thresh), 'the threshold');
+        const f = CMPF[node.op];
+        return Dv(countSuccesses(bag.per, bag.n, v => f(v, thresh)));
+      }
+      case 'twice': {
+        const d = asDist(collapse(this.eval(node.target)));
+        this.tick(d.size * d.size);
+        return Dv(keepK(d, 2, 1, node.high));
+      }
+
+      case 'un': {
+        const v = collapse(this.eval(node.e));
+        if (node.op === '-') return v.t === 'num' ? N(-v.v) : Dv(mapVals(v.d, x => KEY(-x)));
+        // not
+        if (v.t === 'num') return N(v.v === 0 ? 1 : 0);
+        return Dv(mapVals(asDist(v), x => (x === 0 ? 1 : 0)));
+      }
+
+      case 'bin': return this.evalBin(node);
+
+      // A mixture of the two branches weighted by P(condition) is only correct
+      // when the condition is independent of them. It always is here, and that
+      // is an invariant of the language rather than a lucky accident: the only
+      // way to correlate two parts of an expression is to bind a name with
+      // given, and given substitutes a fixed number, so inside one the
+      // condition is a plain 0 or 1 and this mixture is never reached.
+      case 'cond': {
+        const c = collapse(this.eval(node.c));
+        const other = () => (node.b ? collapse(this.eval(node.b)) : N(0));
+        if (c.t === 'num') return c.v !== 0 ? collapse(this.eval(node.a)) : other();
+        const cd = asDist(c);
+        let p = 0;
+        for (const [v, q] of cd) if (v !== 0) p += q;
+        if (p <= 0) return other();
+        if (p >= 1) return collapse(this.eval(node.a));
+        const a = this.eval(node.a), b = other();
+        if (a.t === 'cat' || b.t === 'cat') return Cat(mixture([[p, catOf(a)], [1 - p, catOf(b)]]));
+        this.tick(64);
+        return Dv(mixture([[p, asDist(a)], [1 - p, asDist(b)]]));
+      }
+
+      case 'given': {
+        const supports = node.binds.map(b => {
+          const v = collapse(this.eval(b.expr));
+          if (v.t === 'cat') return { name: b.name, pairs: [...v.d].map(([k, p]) => [S(k), p]) };
+          const d = asDist(v);
+          return { name: b.name, pairs: [...d].map(([k, p]) => [N(k), p]) };
+        });
+        let combos = 1;
+        for (const s of supports) combos *= s.pairs.length;
+        if (combos > this.givenCap) {
+          fail(`working this out exactly would mean going through ${fmtInt(combos)} separate rolls, which is more than I will do. Use fewer or smaller dice inside the given, or measure it with a sim block instead.`);
+        }
+        this.tick(combos * 8);
+        const parts = [];
+        const walk = (i, weight) => {
+          if (i === supports.length) {
+            const v = collapse(this.eval(node.body));
+            parts.push([weight, v]);
+            return;
+          }
+          for (const [val, p] of supports[i].pairs) {
+            if (p <= 0) continue;
+            this.env.set(supports[i].name, val);
+            walk(i + 1, weight * p);
+          }
+        };
+        const outer = this.env;
+        this.env = new Env(outer);
+        try { walk(0, 1); } finally { this.env = outer; }
+        if (parts.some(([, v]) => v.t === 'cat' || v.t === 'str')) {
+          return Cat(mixture(parts.map(([w, v]) => [w, catOf(v)])));
+        }
+        return simplify(Dv(mixture(parts.map(([w, v]) => [w, asDist(v)]))));
+      }
+
+      case 'call': return this.evalCall(node);
+      default: fail(`I do not know how to work out a ${node.kind}`);
+    }
+  }
+
+  evalBin(node) {
+    const op = node.op;
+    if (op === 'and' || op === 'or') {
+      const a = collapse(this.eval(node.l));
+      if (a.t === 'num') {
+        const truthy = a.v !== 0;
+        if (op === 'and' && !truthy) return N(0);
+        if (op === 'or' && truthy) return N(1);
+        const b = collapse(this.eval(node.r));
+        if (b.t === 'num') return N(b.v !== 0 ? 1 : 0);
+        return Dv(mapVals(asDist(b), x => (x !== 0 ? 1 : 0)));
+      }
+      const b = collapse(this.eval(node.r));
+      const bern = v => (v.t === 'num' ? constant(v.v !== 0 ? 1 : 0) : mapVals(asDist(v), x => (x !== 0 ? 1 : 0)));
+      return Dv(binop(bern(a), bern(b), op === 'and' ? (x, y) => (x && y ? 1 : 0) : (x, y) => (x || y ? 1 : 0)));
+    }
+
+    const a = collapse(this.eval(node.l));
+    const b = collapse(this.eval(node.r));
+
+    if (a.t === 'str' || b.t === 'str') {
+      if (op === '+' && a.t === 'str' && b.t === 'str') return S(a.v + b.v);
+      if (op === '==' || op === '!=') {
+        if (a.t === 'str' && b.t === 'str') return N((a.v === b.v) === (op === '==') ? 1 : 0);
+      }
+      fail(`I cannot use "${op}" on text`);
+    }
+    if (a.t === 'cat' || b.t === 'cat') fail(`I cannot use "${op}" on a table of named outcomes`);
+
+    if (CMPF[op]) {
+      if (a.t === 'num' && b.t === 'num') return N(CMPF[op](a.v, b.v) ? 1 : 0);
+      const da = asDist(a), db = asDist(b);
+      this.tick(da.size * db.size);
+      return Dv(compare(da, db, op));
+    }
+    const f = ARITH[op];
+    if (!f) fail(`I do not know the operator "${op}"`);
+    if (a.t === 'num' && b.t === 'num') return N(KEY(f(a.v, b.v)));
+    const da = asDist(a), db = asDist(b);
+    this.tick(da.size * db.size);
+    return Dv(binop(da, db, (x, y) => KEY(f(x, y))));
+  }
+
+  sample(v) {
+    if (v.t === 'num') return v.v;
+    if (v.t === 'str') return v.v;
+    const d = v.t === 'cat' ? v.d : asDist(collapse(v));
+    let r = this.rng(), acc = 0, last = null;
+    for (const [val, p] of d) { acc += p; last = val; if (r < acc) return val; }
+    return last;
+  }
+
+  evalCall(node) {
+    const name = node.name;
+    const b = BUILTINS[name];
+    if (b) {
+      if (node.args.length < b.min || node.args.length > b.max) {
+        fail(`${name} takes ${b.min === b.max ? b.min : b.min + ' to ' + b.max} ${b.max === 1 ? 'value' : 'values'}, but I was given ${node.args.length}`);
+      }
+      return b.fn(this, node.args.map(a => this.eval(a)), node);
+    }
+    const fn = this.env.get(name);
+    if (fn === undefined) fail(`I do not know a rule called "${name}". Define one with: define ${name}(x) = ...`);
+    if (fn.t === 'table') {
+      if (node.args.length) fail('a table is rolled with no arguments, as in loot');
+      return tableValue(this, fn);
+    }
+    if (fn.t !== 'func') fail(`"${name}" is ${describeValue(fn)}, not something I can call`);
+    if (fn.params.length !== node.args.length) {
+      fail(`${name} expects ${fn.params.length} value${fn.params.length === 1 ? '' : 's'} (${fn.params.join(', ')}), but I was given ${node.args.length}`);
+    }
+    const local = new Env(fn.env);
+    fn.params.forEach((p, i) => local.set(p, this.eval(node.args[i])));
+    const outer = this.env;
+    this.env = local;
+    if (++this.depth > this.depthCap) {
+      this.letAst = new Map();
+    this.depth = 0;
+      fail(`"${name}" keeps calling itself and never stops. A rule has to reach an answer that does not call itself again.`);
+    }
+    try { return this.eval(fn.body); } finally { this.env = outer; this.depth--; }
+  }
+}
+
+function catOf(v) {
+  if (v.t === 'cat') return v.d;
+  if (v.t === 'str') return new Map([[v.v, 1]]);
+  if (v.t === 'num') return new Map([[fmtNum(v.v), 1]]);
+  const d = asDist(collapse(v));
+  const out = new Map();
+  for (const [k, p] of d) out.set(fmtNum(k), (out.get(fmtNum(k)) || 0) + p);
+  return out;
+}
+
+// Exploding an arbitrary die: the top face is replaced by "top plus another roll".
+function explodeDist(per, top, penetrating, depth = 60) {
+  const pTop = per.get(top);
+  if (!(pTop > 0)) return per;
+  const out = new Map();
+  let shell = 1;
+  let base = 0;
+  for (let level = 0; level < depth; level++) {
+    const off = penetrating && level > 0 ? -1 : 0;
+    for (const [v, p] of per) if (v !== top) out.set(KEY(base + v + off), (out.get(KEY(base + v + off)) || 0) + shell * p);
+    base = KEY(base + top + off);
+    shell *= pTop;
+    if (shell < 1e-15) break;
+  }
+  out.set(KEY(base), (out.get(KEY(base)) || 0) + shell);
+  return normalize(out);
+}
+
+function tableValue(interp, tbl) {
+  const parts = [];
+  let anyText = false;
+  for (const e of tbl.entries) {
+    const v = collapse(interp.eval(e.expr));
+    if (v.t === 'str' || v.t === 'cat') anyText = true;
+    parts.push([e.weight, v]);
+  }
+  if (anyText) return Cat(mixture(parts.map(([w, v]) => [w, catOf(v)])));
+  return simplify(Dv(mixture(parts.map(([w, v]) => [w, asDist(v)]))));
+}
+
+/* ------------------------------------------------------------------ *
+ * Builtins                                                           *
+ * ------------------------------------------------------------------ */
+const num1 = f => (I, a) => {
+  const v = collapse(a[0]);
+  if (v.t === 'num') return N(KEY(f(v.v)));
+  return Dv(mapVals(asDist(v), x => KEY(f(x))));
+};
+
+function statOf(v, f) {
+  return N(f(asDist(collapse(v))));
+}
+
+const BUILTINS = {
+  mean:     { min: 1, max: 1, fn: (I, a) => statOf(a[0], mean) },
+  sd:       { min: 1, max: 1, fn: (I, a) => statOf(a[0], sd) },
+  spread:   { min: 1, max: 1, fn: (I, a) => statOf(a[0], sd) },
+  variance: { min: 1, max: 1, fn: (I, a) => statOf(a[0], variance) },
+  median:   { min: 1, max: 1, fn: (I, a) => statOf(a[0], d => quantile(d, 0.5)) },
+  lowest:   { min: 1, max: 1, fn: (I, a) => statOf(a[0], d => support(d)[0]) },
+  highest:  { min: 1, max: 1, fn: (I, a) => statOf(a[0], d => support(d).pop()) },
+  chance:   { min: 1, max: 1, fn: (I, a) => {
+    const v = collapse(a[0]);
+    if (v.t === 'num') return P(v.v !== 0 ? 1 : 0);
+    let p = 0;
+    for (const [x, q] of asDist(v)) if (x !== 0) p += q;
+    return P(p);
+  } },
+  quantile: { min: 2, max: 2, fn: (I, a) => {
+    const q = asNumber(a[1], 'the quantile');
+    if (q < 0 || q > 1) fail('a quantile has to be between 0 and 1');
+    return statOf(a[0], d => quantile(d, q));
+  } },
+  atmost:   { min: 2, max: 2, fn: (I, a) => P(cdfAt(asDist(collapse(a[0])), asNumber(a[1], 'the value'))) },
+  atleast:  { min: 2, max: 2, fn: (I, a) => {
+    const d = asDist(collapse(a[0])), v = asNumber(a[1], 'the value');
+    let p = 0; for (const [x, q] of d) if (x >= v) p += q; return P(p);
+  } },
+  outcomes: { min: 1, max: 1, fn: (I, a) => { const v = collapse(a[0]); return N(v.t === 'cat' ? v.d.size : asDist(v).size); } },
+  roll:     { min: 1, max: 1, fn: (I, a) => { const s = I.sample(a[0]); return typeof s === 'string' ? S(s) : N(s); } },
+  floor:    { min: 1, max: 1, fn: num1(Math.floor) },
+  ceil:     { min: 1, max: 1, fn: num1(Math.ceil) },
+  round:    { min: 1, max: 1, fn: num1(Math.round) },
+  abs:      { min: 1, max: 1, fn: num1(Math.abs) },
+  half:     { min: 1, max: 1, fn: num1(x => Math.floor(x / 2)) },
+  sqrt:     { min: 1, max: 1, fn: num1(x => (x < 0 ? fail('I cannot take the square root of a negative number') : Math.sqrt(x))) },
+  min:      { min: 1, max: 8, fn: (I, a) => foldPair(I, a, Math.min) },
+  max:      { min: 1, max: 8, fn: (I, a) => foldPair(I, a, Math.max) },
+  clamp:    { min: 3, max: 3, fn: (I, a) => {
+    const lo = asNumber(a[1], 'the low end'), hi = asNumber(a[2], 'the high end');
+    if (lo > hi) fail(`clamp was given a low end (${fmtNum(lo)}) above its high end (${fmtNum(hi)})`);
+    return num1(x => Math.min(hi, Math.max(lo, x)))(I, [a[0]]);
+  } },
+  copies:   { min: 2, max: 2, fn: (I, a) => {
+    const n = asInt(a[0], 'the number of copies');
+    if (n < 0) fail('I cannot make a negative number of copies');
+    if (n > 400) fail(`${n} copies is more than I can work out exactly`);
+    const d = asDist(collapse(a[1]));
+    I.tick(n * d.size * d.size);
+    return Dv(repeatSum(d, n));
+  } },
+  best:     { min: 3, max: 3, fn: (I, a) => selectCopies(I, a, true) },
+  worst:    { min: 3, max: 3, fn: (I, a) => selectCopies(I, a, false) },
+  dice:     { min: 2, max: 2, fn: (I, a) => {
+    const n = asInt(a[0], 'the number of dice');
+    const faces = asInt(a[1], 'the number of faces');
+    if (faces < 1) fail('a die needs at least one face');
+    if (n < 0 || n > 400) fail('that is not a workable number of dice');
+    return Bag(n, die(faces));
+  } },
+};
+BUILTINS.at_least = BUILTINS.atleast;
+BUILTINS.at_most = BUILTINS.atmost;
+
+function selectCopies(I, a, high) {
+  const k = asInt(a[0], 'the number to keep');
+  const n = asInt(a[1], 'the number of copies');
+  if (n < 1 || n > 200) fail('the number of copies has to be between 1 and 200');
+  if (k < 0 || k > n) fail(`I cannot keep ${k} of ${n}`);
+  const d = asDist(collapse(a[2]));
+  I.tick(n * d.size * Math.max(1, k) * 4);
+  return Dv(keepK(d, n, k, high));
+}
+function foldPair(I, a, f) {
+  let acc = collapse(a[0]);
+  for (let i = 1; i < a.length; i++) {
+    const b = collapse(a[i]);
+    if (acc.t === 'num' && b.t === 'num') { acc = N(f(acc.v, b.v)); continue; }
+    const da = asDist(acc), db = asDist(b);
+    I.tick(da.size * db.size);
+    acc = Dv(binop(da, db, (x, y) => KEY(f(x, y))));
+  }
+  return acc;
+}
+
+/* ------------------------------------------------------------------ *
+ * Number formatting                                                  *
+ * ------------------------------------------------------------------ */
+function fmtNum(x) {
+  if (x === undefined || x === null || typeof x === 'string') return String(x);
+  if (!isFinite(x)) return x > 0 ? '∞' : '-∞';
+  if (Number.isInteger(x)) return String(x);
+  const a = Math.abs(x);
+  const dp = a >= 100 ? 1 : a >= 10 ? 2 : a >= 1 ? 3 : 4;
+  return String(parseFloat(x.toFixed(dp)));
+}
+function fmtInt(x) { return Math.round(x).toLocaleString('en-US'); }
+function fmtPct(p) {
+  if (p === 0) return '0%';
+  if (p === 1) return '100%';
+  const v = p * 100;
+  if (v < 0.1) return '<0.1%';
+  if (v > 99.9 && v < 100) return '>99.9%';
+  return (v < 10 ? v.toFixed(1) : v.toFixed(1)) + '%';
+}
+// Two significant figures is all a confidence interval ever deserves.
+function fmtCI(x) {
+  if (!isFinite(x) || x === 0) return '0';
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.abs(x))) - 1);
+  return String(parseFloat((Math.round(x / mag) * mag).toPrecision(2)));
+}
+
+// "Goblin, Goblin, Goblin" reads badly; "Goblin x3" does not.
+function sideName(names) {
+  const groups = [];
+  for (const n of names) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === n) last.count++;
+    else groups.push({ name: n, count: 1 });
+  }
+  const parts = groups.map(g => (g.count > 1 ? g.name + ' \u00d7' + g.count : g.name));
+  if (parts.length === 1) return parts[0];
+  return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+}
+
+/* ------------------------------------------------------------------ *
+ * Sampled evaluation, used inside sim and fight                      *
+ * ------------------------------------------------------------------ */
+const ANALYTIC = new Set(['mean', 'sd', 'spread', 'variance', 'median', 'chance', 'quantile',
+  'atleast', 'atmost', 'at_least', 'at_most', 'outcomes', 'highest', 'lowest']);
+
+Interp.prototype.sampleDie = function (per) {
+  let r = this.rng(), acc = 0, last = 0;
+  for (const [v, p] of per) { acc += p; last = v; if (r < acc) return v; }
+  return last;
+};
+
+Interp.prototype.rollNode = function (node) {
+  const saved = FAIL_NODE;
+  FAIL_NODE = node.line ? node : FAIL_NODE;
+  try { return this.rollNode_(node); } finally { FAIL_NODE = saved; }
+};
+
+Interp.prototype.rollNode_ = function (node) {
+  switch (node.kind) {
+    case 'num': return node.v === 'F' ? 0 : node.v;
+    case 'str': return node.v;
+    case 'var': {
+      const v = this.env.get(node.name);
+      if (v === undefined) fail(`I do not know what "${node.name}" is`);
+      if (v.t === 'num') return v.v;
+      if (v.t === 'str') return v.v;
+      if (v.t === 'func') fail(`"${node.name}" is a rule; call it with ${node.name}(...)`);
+      if (v.t === 'table') return this.sample(tableValue(this, v));
+      return this.sample(v);
+    }
+    case 'dice': {
+      const per = this.oneDie(this.eval(node.faces), node);
+      const n = asInt(N(this.rollNode(node.count)), 'the number of dice');
+      if (n < 0) fail('I cannot roll a negative number of dice');
+      if (n > 100000) fail('that is too many dice to roll');
+      let s = 0;
+      for (let i = 0; i < n; i++) s += this.sampleDie(per);
+      return s;
+    }
+    case 'select': {
+      const rolls = this.rollBag(node.target);
+      let k = asInt(N(this.rollNode(node.k)), 'the number of dice to keep');
+      let high = node.high;
+      if (node.drop) { k = rolls.length - k; high = !node.high; }
+      if (k < 0) k = 0;
+      if (k > rolls.length) fail(`there are only ${rolls.length} dice here, so I cannot keep ${k}`);
+      rolls.sort((a, b) => (high ? b - a : a - b));
+      let s = 0;
+      for (let i = 0; i < k; i++) s += rolls[i];
+      return s;
+    }
+    case 'pool': {
+      const rolls = this.rollBag(node.target);
+      const thresh = this.rollNode(node.thresh);
+      const f = CMPF[node.op];
+      return rolls.reduce((acc, v) => acc + (f(v, thresh) ? 1 : 0), 0);
+    }
+    case 'explode': case 'reroll':
+      return this.rollBag(node).reduce((a, b) => a + b, 0);
+    case 'twice': {
+      const a = this.rollNode(node.target), b = this.rollNode(node.target);
+      return node.high ? Math.max(a, b) : Math.min(a, b);
+    }
+    case 'un': {
+      const v = this.rollNode(node.e);
+      return node.op === '-' ? -v : (v === 0 ? 1 : 0);
+    }
+    case 'bin': {
+      const op = node.op;
+      if (op === 'and') return this.rollNode(node.l) !== 0 && this.rollNode(node.r) !== 0 ? 1 : 0;
+      if (op === 'or') return this.rollNode(node.l) !== 0 || this.rollNode(node.r) !== 0 ? 1 : 0;
+      const a = this.rollNode(node.l), b = this.rollNode(node.r);
+      if (CMPF[op]) return CMPF[op](a, b) ? 1 : 0;
+      if (typeof a === 'string' || typeof b === 'string') {
+        if (op === '+') return String(a) + String(b);
+        fail(`I cannot use "${op}" on text`);
+      }
+      return KEY(ARITH[op](a, b));
+    }
+    case 'cond':
+      return this.rollNode(node.c) !== 0 ? this.rollNode(node.a) : (node.b ? this.rollNode(node.b) : 0);
+    case 'given': {
+      const outer = this.env;
+      this.env = new Env(outer);
+      try {
+        for (const b of node.binds) {
+          const s = this.rollNode(b.expr);
+          this.env.set(b.name, typeof s === 'string' ? S(s) : N(s));
+        }
+        return this.rollNode(node.body);
+      } finally { this.env = outer; }
+    }
+    case 'call': {
+      if (ANALYTIC.has(node.name)) {
+        const v = this.eval(node);
+        return v.t === 'num' ? v.v : this.sample(v);
+      }
+      const b = BUILTINS[node.name];
+      if (b) {
+        if (node.args.length < b.min || node.args.length > b.max) {
+          fail(`${node.name} takes ${b.min === b.max ? b.min : b.min + ' to ' + b.max} values, but I was given ${node.args.length}`);
+        }
+        return this.sampleBuiltin(node);
+      }
+      const fn = this.env.get(node.name);
+      if (fn === undefined) fail(`I do not know a rule called "${node.name}"`);
+      if (fn.t === 'table') return this.sample(tableValue(this, fn));
+      if (fn.t !== 'func') fail(`"${node.name}" is ${describeValue(fn)}, not something I can call`);
+      if (fn.params.length !== node.args.length) fail(`${node.name} expects ${fn.params.length} value(s)`);
+      const vals = node.args.map(a => this.rollNode(a));
+      const local = new Env(fn.env);
+      fn.params.forEach((p, i) => local.set(p, typeof vals[i] === 'string' ? S(vals[i]) : N(vals[i])));
+      const outer = this.env;
+      this.env = local;
+      if (++this.depth > this.depthCap) {
+        this.depth = 0;
+        fail(`"${node.name}" keeps calling itself and never stops. A rule has to reach an answer that does not call itself again.`);
+      }
+      try { return this.rollNode(fn.body); } finally { this.env = outer; this.depth--; }
+    }
+    default: fail(`I do not know how to roll a ${node.kind}`);
+  }
+};
+
+// Roll a modifier chain as individual dice, so keep/drop/count can look at them.
+Interp.prototype.rollBag = function (node) {
+  switch (node.kind) {
+    case 'dice': {
+      const per = this.oneDie(this.eval(node.faces), node);
+      const n = asInt(N(this.rollNode(node.count)), 'the number of dice');
+      if (n < 0 || n > 100000) fail('that is not a workable number of dice');
+      const out = new Array(n);
+      for (let i = 0; i < n; i++) out[i] = this.sampleDie(per);
+      out.__per = per;
+      return out;
+    }
+    case 'explode': {
+      const rolls = this.rollBag(node.target);
+      const per = rolls.__per || null;
+      if (!per) fail('exploding needs actual dice on its left');
+      const vals = support(per), top = vals[vals.length - 1];
+      if (vals.length < 2) fail('a die with only one outcome would explode forever');
+      const out = rolls.map(v => {
+        let total = v, cur = v, guard = 0, off = 0;
+        while (cur === top && guard++ < 200) { cur = this.sampleDie(per); off = node.penetrating ? -1 : 0; total += cur + off; }
+        return total;
+      });
+      out.__per = per;
+      return out;
+    }
+    case 'reroll': {
+      const rolls = this.rollBag(node.target);
+      const per = rolls.__per;
+      if (!per) fail('reroll needs actual dice on its left');
+      const below = this.rollNode(node.below);
+      if (support(per).every(v => v <= below)) fail(`every result is ${fmtNum(below)} or less, so this would reroll forever`);
+      const out = rolls.map(v => {
+        if (v > below) return v;
+        let nv = this.sampleDie(per), guard = 0;
+        while (node.forever && nv <= below && guard++ < 1000) nv = this.sampleDie(per);
+        return nv;
+      });
+      out.__per = per;
+      return out;
+    }
+    default:
+      fail('keep, drop, count, exploding and reroll all need actual dice on their left, as in 4d6 keep highest 3');
+  }
+};
+
+Interp.prototype.sampleBuiltin = function (node) {
+  const name = node.name;
+  const A = i => this.rollNode(node.args[i]);
+  switch (name) {
+    case 'roll': return A(0);
+    case 'floor': return Math.floor(A(0));
+    case 'ceil': return Math.ceil(A(0));
+    case 'round': return Math.round(A(0));
+    case 'abs': return Math.abs(A(0));
+    case 'half': return Math.floor(A(0) / 2);
+    case 'sqrt': { const v = A(0); if (v < 0) fail('I cannot take the square root of a negative number'); return Math.sqrt(v); }
+    case 'min': { let m = A(0); for (let i = 1; i < node.args.length; i++) m = Math.min(m, A(i)); return m; }
+    case 'max': { let m = A(0); for (let i = 1; i < node.args.length; i++) m = Math.max(m, A(i)); return m; }
+    case 'clamp': { const v = A(0), lo = A(1), hi = A(2); if (lo > hi) fail('clamp was given a low end above its high end'); return Math.min(hi, Math.max(lo, v)); }
+    case 'copies': { const n = A(0); let s = 0; for (let i = 0; i < n; i++) s += A(1); return s; }
+    case 'best': case 'worst': {
+      const k = A(0), n = A(1), xs = [];
+      for (let i = 0; i < n; i++) xs.push(A(2));
+      xs.sort((a, b) => (name === 'best' ? b - a : a - b));
+      let s = 0; for (let i = 0; i < Math.min(k, n); i++) s += xs[i];
+      return s;
+    }
+    case 'dice': { const n = A(0), f = A(1); let s = 0; for (let i = 0; i < n; i++) s += 1 + Math.floor(this.rng() * f); return s; }
+    default: { const v = this.eval(node); return v.t === 'num' ? v.v : this.sample(v); }
+  }
+};
+
+/* ------------------------------------------------------------------ *
+ * Summarising samples                                                *
+ * ------------------------------------------------------------------ */
+function summarize(samples) {
+  const n = samples.length;
+  if (!n) return { n: 0 };
+  const strings = typeof samples[0] === 'string';
+  if (strings) {
+    const counts = new Map();
+    for (const s of samples) counts.set(s, (counts.get(s) || 0) + 1);
+    const d = new Map();
+    for (const [k, c] of counts) d.set(k, c / n);
+    return { n, categorical: true, dist: d };
+  }
+  let sum = 0, lo = Infinity, hi = -Infinity, onlyZeroOne = true, allInt = true;
+  for (const v of samples) {
+    sum += v; if (v < lo) lo = v; if (v > hi) hi = v;
+    if (v !== 0 && v !== 1) onlyZeroOne = false;
+    if (!Number.isInteger(v)) allInt = false;
+  }
+  // A record that never varies is not a yes/no question, whatever its values.
+  const constant = lo === hi;
+  const allBinary = onlyZeroOne && !constant;
+  const m = sum / n;
+  let ss = 0;
+  for (const v of samples) ss += (v - m) * (v - m);
+  const variance = n > 1 ? ss / (n - 1) : 0;
+  const sdv = Math.sqrt(variance);
+  const sorted = samples.slice().sort((a, b) => a - b);
+  const q = p => sorted[Math.min(n - 1, Math.max(0, Math.floor(p * (n - 1))))];
+  const counts = new Map();
+  if (allInt && hi - lo <= 4000) for (const v of samples) counts.set(v, (counts.get(v) || 0) + 1);
+  const dist = new Map();
+  for (const [v, c] of counts) dist.set(v, c / n);
+  return {
+    n, mean: m, sd: sdv, se: sdv / Math.sqrt(n), lo, hi, binary: allBinary, constant, integral: allInt,
+    median: q(0.5), q05: q(0.05), q95: q(0.95), q25: q(0.25), q75: q(0.75),
+    dist: dist.size ? new Map([...dist].sort((a, b) => a[0] - b[0])) : null,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Running a program                                                  *
+ * ------------------------------------------------------------------ */
+function run(src, opts) {
+  opts = opts || {};
+  const blocks = [];
+  let ast;
+  try { ast = parse(src); }
+  catch (e) {
+    if (e instanceof ForgeError) return { blocks: [], error: e };
+    throw e;
+  }
+  const I = new Interp(opts);
+  const lines = src.split('\n');
+  const budget = { start: Date.now(), limit: opts.timeLimit || 20000 };
+
+  try {
+    for (const st of ast.stmts) {
+      I.work = 0;
+      runStatement(I, st, blocks, lines, budget);
+    }
+  } catch (e) {
+    if (e instanceof ForgeError) return { blocks, error: e, interp: I };
+    if (e && e.message === '__timeout__') return { blocks, error: new ForgeError('this program ran for too long and I stopped it', 0, 0, 1), interp: I };
+    if (e instanceof RangeError) return { blocks, error: new ForgeError('this program nested too deeply for me to work out. A rule that calls itself is the usual cause.', 0, 0, 1), interp: I };
+    return { blocks, error: new ForgeError('something went wrong while running this: ' + (e && e.message), 0, 0, 1), interp: I };
+  }
+  return { blocks, error: null, interp: I };
+}
+
+function checkClock(budget) {
+  if (Date.now() - budget.start > budget.limit) throw new Error('__timeout__');
+}
+
+function srcOf(lines, st) {
+  const l = lines[(st.line || 1) - 1];
+  return l === undefined ? '' : l.trim();
+}
+
+function runStatement(I, st, blocks, lines, budget) {
+  checkClock(budget);
+  switch (st.kind) {
+    case 'let': {
+      const v = I.eval(st.expr);
+      if (v.t === 'bag') I.env.set(st.name, v);
+      else I.env.set(st.name, simplify(v));
+      const reuse = countMentions(st.expr, I);
+      blocks.push({ type: 'let', name: st.name, value: I.env.get(st.name), src: srcOf(lines, st), line: st.line });
+      I.letAst.set(st.name, st.expr);
+      if (reuse.length) blocks.push({ type: 'note', line: st.line, msg: reuseNote(I, st.expr, I.env.get(st.name), reuse) });
+      return;
+    }
+    case 'define':
+      I.env.set(st.name, { t: 'func', params: st.params, body: st.body, env: I.env, name: st.name });
+      blocks.push({ type: 'define', name: st.name, params: st.params, src: srcOf(lines, st), line: st.line });
+      return;
+    case 'table': {
+      const top = Math.max(...st.entries.map(e => e.hi));
+      const seen = new Set();
+      let overlap = null, gap = null;
+      for (const e of st.entries) for (let i = e.lo; i <= e.hi; i++) { if (seen.has(i)) overlap = i; seen.add(i); }
+      for (let i = 1; i <= top; i++) if (!seen.has(i)) { gap = i; break; }
+      const entries = st.entries.map(e => ({ ...e, weight: (e.hi - e.lo + 1) / top }));
+      const tbl = { t: 'table', name: st.name, entries, top };
+      I.env.set(st.name, tbl);
+      blocks.push({ type: 'tableDef', name: st.name, top, value: tableValue(I, tbl), entries, line: st.line });
+      if (gap !== null) blocks.push({ type: 'note', line: st.line, msg: `This table is rolled on a d${top}, but nothing is listed for ${gap}. I treated the missing numbers as impossible and scaled the rest.` });
+      if (overlap !== null) blocks.push({ type: 'note', line: st.line, msg: `Two entries both claim ${overlap}; I counted both, so this table is rolled on more than a d${top}.` });
+      return;
+    }
+    case 'creature': {
+      const c = { t: 'creature', name: st.name, node: st, hp: I.eval(st.hp), ac: I.eval(st.ac) };
+      I.env.set(st.name, c);
+      blocks.push({ type: 'creatureDef', name: st.name, hp: c.hp, ac: c.ac, attacks: st.attacks.map(a => a.name), line: st.line });
+      return;
+    }
+    case 'show': case 'plot': {
+      const v = simplify(collapse(I.eval(st.expr)));
+      blocks.push({ type: st.kind, label: st.label, value: v, src: srcOf(lines, st), line: st.line, exact: true });
+      const reuse = countMentions(st.expr, I);
+      if (reuse.length) blocks.push({ type: 'note', line: st.line, msg: reuseNote(I, st.expr, v, reuse) });
+      return;
+    }
+    case 'compare': {
+      const items = st.items.map((it, i) => ({
+        label: it.label || `#${i + 1}`,
+        value: simplify(collapse(I.eval(it.expr))),
+      }));
+      blocks.push({ type: 'compare', items, verdict: headToHead(I, items), src: srcOf(lines, st), line: st.line });
+      return;
+    }
+    case 'check': {
+      const v = collapse(I.eval(st.expr));
+      let p;
+      if (v.t === 'num') p = v.v !== 0 ? 1 : 0;
+      else { p = 0; for (const [x, q] of asDist(v)) if (x !== 0) p += q; }
+      blocks.push({ type: 'check', label: st.label, pass: p > 0.999999, p, src: srcOf(lines, st), line: st.line });
+      return;
+    }
+    case 'sweep': return runSweep(I, st, blocks, lines, budget);
+    case 'sim': return runSim(I, st, blocks, lines, budget);
+    case 'fight': return runFight(I, st, blocks, lines, budget);
+    default: fail(`I do not know how to run a ${st.kind}`);
+  }
+}
+
+// Two distributions can be compared in two quite different ways, and they
+// disagree often enough to be worth reporting together: which wins when they
+// are rolled against each other, and which is likelier to reach any given
+// target. The second is first-order stochastic dominance.
+function headToHead(I, items) {
+  if (items.length !== 2) return null;
+  for (const it of items) if (it.value.t === 'cat' || it.value.t === 'str') return null;
+  let A, B;
+  try { A = asDist(collapse(items[0].value)); B = asDist(collapse(items[1].value)); }
+  catch (e) { return null; }
+  if (A.size * B.size > 4000000) return null;
+  I.tick(A.size * B.size);
+  let gt = 0, eq = 0, lt = 0;
+  for (const [x, p] of A) for (const [y, q] of B) {
+    if (x > y) gt += p * q; else if (x === y) eq += p * q; else lt += p * q;
+  }
+  const ts = [...new Set([...A.keys(), ...B.keys()])].sort((a, b) => a - b);
+  const tail = (d, t) => { let s = 0; for (const [v, p] of d) if (v >= t) s += p; return s; };
+  let aDom = true, bDom = true;
+  for (const t of ts) {
+    const pa = tail(A, t), pb = tail(B, t);
+    if (pa < pb - 1e-12) aDom = false;
+    if (pb < pa - 1e-12) bDom = false;
+  }
+  return { gt, eq, lt, aWins: aDom && !bDom, bWins: bDom && !aDom, same: aDom && bDom };
+}
+
+// The warning is only useful if it shows what the other reading would give.
+// Both readings share a mean; they differ in spread, which is the thing a
+// designer actually cares about, so work out the shared-roll version too.
+function reuseNote(I, exprNode, asWritten, names) {
+  const quoted = names.map(r => '“' + r + '”').join(' and ');
+  const plain = `Each time you mention ${quoted} it rolls again, so this is a fresh roll every time. To share one roll instead, use given.`;
+  const binds = [];
+  for (const n of names) {
+    const ast = I.letAst.get(n);
+    if (!ast) return plain;
+    binds.push({ name: n, expr: ast });
+  }
+  let shared;
+  try {
+    const saveWork = I.work;
+    I.work = 0;
+    shared = collapse(I.eval({ kind: 'given', binds, body: exprNode, line: exprNode.line }));
+    I.work = saveWork;
+  } catch (e) { return plain; }
+  if (shared.t !== 'dist' || asWritten.t !== 'dist') return plain;
+  const a = asDist(collapse(asWritten)), b = asDist(shared);
+  const sa = sd(a), sb = sd(b);
+  if (Math.abs(sa - sb) < 1e-9) return plain;
+  const ma = mean(a), mb = mean(b);
+  if (Math.abs(ma - mb) < 1e-9) {
+    return `${plain} Either way the average is ${fmtNum(ma)}, but the spread is ±${fmtNum(sa)} as written and would be ±${fmtNum(sb)} shared.`;
+  }
+  return `${plain} As written that averages ${fmtNum(ma)} with a spread of ±${fmtNum(sa)}; shared it would average ${fmtNum(mb)} with a spread of ±${fmtNum(sb)}.`;
+}
+
+// A gentle lint: warn when a random name appears more than once in one
+// expression, which means it rolls more than once. Names bound by an
+// enclosing given are exempt: sharing one roll is the whole point of given.
+function countMentions(node, I) {
+  const counts = new Map();
+  const walk = (n, bound) => {
+    if (!n || typeof n !== 'object') return;
+    if (n.kind === 'var') {
+      if (!bound.has(n.name)) counts.set(n.name, (counts.get(n.name) || 0) + 1);
+      return;
+    }
+    if (n.kind === 'given') {
+      n.binds.forEach(b => walk(b.expr, bound));
+      const inner = new Set(bound);
+      n.binds.forEach(b => inner.add(b.name));
+      walk(n.body, inner);
+      return;
+    }
+    for (const k of Object.keys(n)) {
+      const c = n[k];
+      if (Array.isArray(c)) c.forEach(x => walk(x, bound));
+      else if (c && typeof c === 'object' && c.kind) walk(c, bound);
+    }
+  };
+  walk(node, new Set());
+  const out = [];
+  for (const [name, c] of counts) {
+    if (c < 2) continue;
+    const v = I.env.get(name);
+    if (!v) continue;
+    if (v.t === 'bag' || (v.t === 'dist' && v.d.size > 1) || (v.t === 'cat' && v.d.size > 1) || v.t === 'table') out.push(name);
+  }
+  return out;
+}
+
+function runSweep(I, st, blocks, lines, budget) {
+  const from = asNumber(I.eval(st.from), 'the start of the sweep');
+  const to = asNumber(I.eval(st.to), 'the end of the sweep');
+  let step = st.step ? asNumber(I.eval(st.step), 'the step') : (to >= from ? 1 : -1);
+  if (step === 0) fail('a sweep needs a step other than zero');
+  if ((to - from) / step < 0) step = -step;
+  const count = Math.floor(Math.abs((to - from) / step)) + 1;
+  if (count > 400) fail(`that sweep has ${fmtInt(count)} steps; keep it under 400`);
+  const points = [];
+  const outer = I.env;
+  I.env = new Env(outer);
+  try {
+    for (let i = 0; i < count; i++) {
+      checkClock(budget);
+      const x = KEY(from + i * step);
+      I.env.set(st.name, N(x));
+      I.work = 0;
+      const v = collapse(I.eval(st.body));
+      if (v.t === 'num') points.push({ x, y: v.v });
+      else if (v.t === 'cat') fail('a sweep needs a number for each step, not a table of named outcomes');
+      else { const d = asDist(v); points.push({ x, y: mean(d), sd: sd(d), dist: d }); }
+    }
+  } finally { I.env = outer; }
+  blocks.push({ type: 'sweep', name: st.name, label: st.label, points, src: srcOf(lines, st), line: st.line });
+}
+
+function runSim(I, st, blocks, lines, budget) {
+  let trials = asInt(I.eval(st.trials), 'the number of trials');
+  if (trials < 1) fail('a sim needs at least one trial');
+  if (trials > I.trialCap) fail(`${fmtInt(trials)} trials is more than I will run at once; ${fmtInt(I.trialCap)} is the most`);
+  const records = new Map();
+  const outer = I.env;
+  let steps = 0;
+  const stepCap = 40000000;
+  for (let t = 0; t < trials; t++) {
+    if ((t & 255) === 0) checkClock(budget);
+    I.env = new Env(outer);
+    try {
+      const ctl = { stop: false };
+      for (const s of st.body) {
+        execSim(I, s, records, ctl, () => { if (++steps > stepCap) fail('this simulation is doing too much work; try fewer trials or a shorter fight'); });
+        if (ctl.stop) break;
+      }
+    } finally { I.env = outer; }
+  }
+  const summaries = [...records].map(([label, samples]) => ({ label, ...summarize(samples) }));
+  if (!summaries.length) blocks.push({ type: 'note', line: st.line, msg: 'This simulation ran but recorded nothing. Add a line like: record "rounds" round' });
+  blocks.push({ type: 'sim', label: st.label, trials, records: summaries, src: srcOf(lines, st), line: st.line });
+}
+
+function execSim(I, s, records, ctl, tick) {
+  tick();
+  switch (s.kind) {
+    case 'var': { const v = I.rollNode(s.expr); I.env.set(s.name, typeof v === 'string' ? S(v) : N(v)); return; }
+    case 'assign': {
+      const v = I.rollNode(s.expr);
+      if (!I.env.assign(s.name, typeof v === 'string' ? S(v) : N(v))) {
+        FAIL_NODE = s;
+        fail(`"${s.name}" has not been introduced yet. Start it with: var ${s.name} = ...`);
+      }
+      return;
+    }
+    case 'while': {
+      let guard = 0;
+      while (I.rollNode(s.cond) !== 0) {
+        if (++guard > I.loopCap) { FAIL_NODE = s; fail(`this loop ran ${fmtInt(I.loopCap)} times without the condition becoming false. Check that something inside it changes.`); }
+        const inner = new Env(I.env);
+        const outer = I.env; I.env = inner;
+        try { for (const b of s.body) { execSim(I, b, records, ctl, tick); if (ctl.stop) break; } }
+        finally { I.env = outer; }
+        if (ctl.stop) return;
+      }
+      return;
+    }
+    case 'repeat': {
+      const n = I.rollNode(s.count);
+      if (n > I.loopCap) { FAIL_NODE = s; fail(`repeat was asked for ${fmtInt(n)} passes, more than the limit of ${fmtInt(I.loopCap)}`); }
+      for (let i = 0; i < n; i++) {
+        const outer = I.env; I.env = new Env(outer);
+        try { for (const b of s.body) { execSim(I, b, records, ctl, tick); if (ctl.stop) break; } }
+        finally { I.env = outer; }
+        if (ctl.stop) return;
+      }
+      return;
+    }
+    case 'if': {
+      const branch = I.rollNode(s.cond) !== 0 ? s.then : s.other;
+      if (!branch) return;
+      const outer = I.env; I.env = new Env(outer);
+      try { for (const b of branch) { execSim(I, b, records, ctl, tick); if (ctl.stop) break; } }
+      finally { I.env = outer; }
+      return;
+    }
+    case 'record': {
+      const v = I.rollNode(s.expr);
+      if (!records.has(s.label)) records.set(s.label, []);
+      records.get(s.label).push(v);
+      return;
+    }
+    case 'stop': ctl.stop = true; return;
+    default: FAIL_NODE = s; fail(`I do not know how to run a ${s.kind} inside a simulation`);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * fight: a sampled trade of blows between two sides                  *
+ * ------------------------------------------------------------------ */
+function runFight(I, st, blocks, lines, budget) {
+  const trials = st.trials ? asInt(I.eval(st.trials), 'the number of trials') : 20000;
+  if (trials < 1 || trials > I.trialCap) fail(`a fight needs between 1 and ${fmtInt(I.trialCap)} trials`);
+  const look = name => {
+    const c = I.env.get(name);
+    if (c === undefined) fail(`I do not know a creature called "${name}"`);
+    if (c.t !== 'creature') fail(`"${name}" is ${describeValue(c)}, not a creature`);
+    return c;
+  };
+  const sideA = st.a.map(look), sideB = st.b.map(look);
+  let winA = 0, winB = 0, draw = 0;
+  const rounds = [], hpLeft = [];
+  const roundCap = 300;
+
+  for (let t = 0; t < trials; t++) {
+    if ((t & 127) === 0) checkClock(budget);
+    const mk2 = list => list.map(c => ({
+      c, hp: Math.max(1, Math.round(I.rollNode(c.node.hp))), ac: Math.round(I.rollNode(c.node.ac)),
+    }));
+    const A = mk2(sideA), B = mk2(sideB);
+    let first = I.rng() < 0.5 ? A : B, second = first === A ? B : A;
+    let round = 0, done = false;
+    while (!done && round < roundCap) {
+      round++;
+      for (const side of [first, second]) {
+        const foes = side === A ? B : A;
+        for (const actor of side) {
+          if (actor.hp <= 0) continue;
+          const target = foes.find(f => f.hp > 0);
+          if (!target) { done = true; break; }
+          const atk = actor.c.node.attacks[Math.floor(I.rng() * actor.c.node.attacks.length)];
+          const outerEnv = I.env;
+          I.env = new Env(outerEnv);
+          try {
+            const toHit = I.rollNode(atk.hit);
+            if (toHit >= target.ac) target.hp -= I.rollNode(atk.damage);
+          } finally { I.env = outerEnv; }
+        }
+        if (done) break;
+        if (!A.some(x => x.hp > 0) || !B.some(x => x.hp > 0)) { done = true; break; }
+      }
+    }
+    const aUp = A.some(x => x.hp > 0), bUp = B.some(x => x.hp > 0);
+    rounds.push(round);
+    if (aUp && !bUp) { winA++; hpLeft.push(A.reduce((s, x) => s + Math.max(0, x.hp), 0)); }
+    else if (bUp && !aUp) { winB++; hpLeft.push(-B.reduce((s, x) => s + Math.max(0, x.hp), 0)); }
+    else draw++;
+  }
+  blocks.push({
+    type: 'fight', a: st.a, b: st.b, trials,
+    winA: winA / trials, winB: winB / trials, draw: draw / trials,
+    seA: Math.sqrt((winA / trials) * (1 - winA / trials) / trials),
+    rounds: summarize(rounds), src: srcOf(lines, st), line: st.line,
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Drawing. Everything is inline SVG: range frames instead of boxes,   *
+ * direct labels instead of legends, no gridlines anywhere.            *
+ * ------------------------------------------------------------------ */
+const NS = 'http://www.w3.org/2000/svg';
+const INK = '#33332e';
+const FAINT = '#b8b8ac';
+const ACCENT = '#a01010';
+
+function el(tag, attrs, kids) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs || {}) if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+  (kids || []).forEach(k => e.appendChild(k));
+  return e;
+}
+function h(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = text;
+  return e;
+}
+function txt(x, y, s, cls, anchor) {
+  const t = el('text', { x, y, class: cls || 'lab', 'text-anchor': anchor || 'middle' });
+  t.textContent = s;
+  return t;
+}
+
+/* A long thin tail flattens everything else into the baseline. For drawing
+   only, set aside the outermost slivers of probability and say so in the
+   caption; the numbers reported are always for the whole distribution. */
+function trimForDrawing(d) {
+  const xs = support(d);
+  if (xs.length < 24) return { d, cut: null };
+  const LIMIT = 0.001;          // a thousandth of the probability, per side
+  const KEEP = 12;              // but never fewer than this many outcomes
+  let lo = 0, hi = xs.length - 1, pLo = 0, pHi = 0;
+  while (hi - lo >= KEEP && pHi + d.get(xs[hi]) < LIMIT) { pHi += d.get(xs[hi]); hi--; }
+  while (hi - lo >= KEEP && pLo + d.get(xs[lo]) < LIMIT) { pLo += d.get(xs[lo]); lo++; }
+  if (lo === 0 && hi === xs.length - 1) return { d, cut: null };
+  const span = xs[xs.length - 1] - xs[0];
+  if (span > 0 && (xs[hi] - xs[lo]) / span > 0.9) return { d, cut: null };
+  const out = new Map();
+  for (let i = lo; i <= hi; i++) out.set(xs[i], d.get(xs[i]));
+  return {
+    d: out,
+    cut: {
+      loCut: lo > 0 ? xs[0] : null, hiCut: hi < xs.length - 1 ? xs[xs.length - 1] : null,
+      p: pLo + pHi,
+    },
+  };
+}
+
+function trimNote(cut) {
+  if (!cut) return '';
+  const ends = [];
+  if (cut.loCut !== null) ends.push('down to ' + fmtNum(cut.loCut));
+  if (cut.hiCut !== null) ends.push('up to ' + fmtNum(cut.hiCut));
+  return `  \u00b7  a tail ${ends.join(' and ')} (${fmtPct(cut.p)} of the time) is left off the drawing`;
+}
+
+function distStats(d) {
+  const xs = support(d);
+  return { xs, lo: xs[0], hi: xs[xs.length - 1], m: mean(d), s: sd(d), peak: Math.max(...d.values()) };
+}
+
+/* A tick label set that never crowds: at most `want` round numbers. */
+function niceTicks(lo, hi, want, wholeOnly) {
+  if (hi === lo) return [lo];
+  const raw = (hi - lo) / Math.max(1, want);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const steps = wholeOnly ? [1, 2, 5, 10] : [1, 2, 2.5, 5, 10];
+  let step = steps.map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  if (wholeOnly) step = Math.max(1, Math.round(step));
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(KEY(v));
+  if (!out.length) out.push(lo, hi);
+  return out;
+}
+
+/* ---- the main histogram ------------------------------------------ */
+function histogram(d, opts) {
+  opts = opts || {};
+  const W = opts.width || 620, H = opts.height || 160;
+  const padL = 38, padR = 6, padT = 16, padB = 26;
+  const full = d;
+  const trimmed = trimForDrawing(d);
+  d = trimmed.d;
+  const st = distStats(d);
+  const fullSt = distStats(full);
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const baseY = padT + plotH;
+  const n = st.xs.length;
+  const span = Math.max(1, st.hi - st.lo);
+  const X = v => padL + (n === 1 ? plotW / 2 : ((v - st.lo) / span) * plotW);
+  const Y = p => baseY - (p / st.peak) * plotH;
+
+  const g = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'plot', role: 'img',
+                        'aria-label': opts.aria || 'probability distribution' });
+  const bars = el('g', {});
+  const gap = n > 1 ? plotW / (n - 1) : plotW;
+  const bw = Math.max(1, Math.min(10, gap * 0.62));
+
+  for (const v of st.xs) {
+    const p = d.get(v);
+    const x = X(v), y = Y(p);
+    bars.appendChild(el('rect', {
+      x: (x - bw / 2).toFixed(2), y: y.toFixed(2), width: bw.toFixed(2),
+      height: Math.max(0.6, baseY - y).toFixed(2), class: 'bar', 'data-v': v, 'data-p': p,
+    }));
+  }
+  g.appendChild(bars);
+
+  // range frames: each rule spans exactly the data and nothing more, so the
+  // frame itself reports the range instead of merely boxing the picture in.
+  g.appendChild(el('line', { x1: X(st.lo) - bw / 2, y1: baseY + 0.5, x2: X(st.hi) + bw / 2, y2: baseY + 0.5, class: 'frame' }));
+  const axisX = padL - 12;
+  g.appendChild(el('line', { x1: axisX, y1: baseY, x2: axisX, y2: Y(st.peak), class: 'frame' }));
+  g.appendChild(txt(axisX - 5, Y(st.peak) + 4, fmtPct(st.peak), 'lab', 'end'));
+  g.appendChild(txt(axisX - 5, baseY + 1, '0', 'lab', 'end'));
+
+  // one standard deviation either side of the mean, drawn under the axis as a light rule
+  if (fullSt.s > 0) {
+    const a = Math.max(st.lo, fullSt.m - fullSt.s), b = Math.min(st.hi, fullSt.m + fullSt.s);
+    g.appendChild(el('line', { x1: X(a), y1: baseY + 5.5, x2: X(b), y2: baseY + 5.5, class: 'sdbar' }));
+  }
+  const mx = Math.min(st.hi, Math.max(st.lo, fullSt.m));
+  g.appendChild(el('line', { x1: X(mx), y1: padT - 6, x2: X(mx), y2: baseY + 8, class: 'meanline' }));
+  g.appendChild(txt(X(mx), padT - 9, 'mean ' + fmtNum(fullSt.m), 'lab accent'));
+  if (trimmed.cut && trimmed.cut.hiCut !== null) g.appendChild(txt(X(st.hi) + bw, baseY - 4, '\u203a', 'lab faint', 'start'));
+  if (trimmed.cut && trimmed.cut.loCut !== null) g.appendChild(txt(X(st.lo) - bw, baseY - 4, '\u2039', 'lab faint', 'end'));
+
+  const whole = st.xs.every(Number.isInteger);
+  const ticks = n <= 14 ? st.xs : niceTicks(st.lo, st.hi, 8, whole);
+  for (const v of ticks) {
+    if (v < st.lo - 1e-9 || v > st.hi + 1e-9) continue;
+    g.appendChild(txt(X(v), baseY + 18, fmtNum(v), 'lab'));
+  }
+  return { svg: g, X, Y, st, baseY, bw, cut: trimmed.cut, fullSt };
+}
+
+/* ---- an inline sparkline, sized to sit inside a line of text ----- */
+function sparkline(d, opts) {
+  opts = opts || {};
+  const W = opts.width || 108, H = opts.height || 20;
+  const fullMean = mean(d);
+  d = trimForDrawing(d).d;
+  const st = distStats(d);
+  const span = Math.max(1, st.hi - st.lo);
+  const X = v => ((v - st.lo) / span) * (W - 2) + 1;
+  const g = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'spark', 'aria-hidden': 'true' });
+  const base = H - 1.5;
+  const bw = st.xs.length > 1 ? Math.max(0.6, Math.min(3, (W - 2) / st.xs.length * 0.7)) : 2;
+  for (const v of st.xs) {
+    const y = base - (d.get(v) / st.peak) * (H - 4);
+    g.appendChild(el('rect', { x: (X(v) - bw / 2).toFixed(2), y: y.toFixed(2),
+      width: bw.toFixed(2), height: Math.max(0.5, base - y).toFixed(2), class: 'sparkbar' }));
+  }
+  g.appendChild(el('line', { x1: 0, y1: base, x2: W, y2: base, class: 'sparkbase' }));
+  g.appendChild(el('circle', { cx: X(Math.min(st.hi, Math.max(st.lo, fullMean))), cy: base, r: 1.7, class: 'sparkdot' }));
+  return g;
+}
+
+/* ---- small multiples on one shared scale ------------------------- */
+function smallMultiples(items, width) {
+  const W = width || 620;
+  const rowH = 54, padL = 100, padR = 74, padB = 24;
+  let lo = Infinity, hi = -Infinity, peak = 0;
+  const dists = items.map(it => {
+    const d = it.value.t === 'num' ? constant(it.value.v) : asDist(it.value);
+    const st = distStats(d);
+    lo = Math.min(lo, st.lo); hi = Math.max(hi, st.hi); peak = Math.max(peak, st.peak);
+    return d;
+  });
+  const H = rowH * items.length + padB;
+  const plotW = W - padL - padR;
+  const span = Math.max(1, hi - lo);
+  const X = v => padL + ((v - lo) / span) * plotW;
+  const g = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'plot', role: 'img', 'aria-label': 'distributions compared on one scale' });
+
+  items.forEach((it, i) => {
+    const d = dists[i], st = distStats(d);
+    const baseY = rowH * i + rowH - 14;
+    const barH = rowH - 26;
+    const n = st.xs.length;
+    const bw = Math.max(1, Math.min(11, (plotW / Math.max(1, span)) * 0.75));
+    for (const v of st.xs) {
+      const y = baseY - (d.get(v) / peak) * barH;
+      g.appendChild(el('rect', { x: (X(v) - bw / 2).toFixed(2), y: y.toFixed(2), width: bw.toFixed(2),
+        height: Math.max(0.6, baseY - y).toFixed(2), class: 'bar' }));
+    }
+    g.appendChild(el('line', { x1: X(st.lo) - bw / 2, y1: baseY + 0.5, x2: X(st.hi) + bw / 2, y2: baseY + 0.5, class: 'frame' }));
+    g.appendChild(el('line', { x1: X(st.m), y1: baseY - barH - 2, x2: X(st.m), y2: baseY + 4, class: 'meanline' }));
+    const lab = txt(padL - 10, baseY - 2, it.label, 'lab strong', 'end');
+    g.appendChild(lab);
+    g.appendChild(txt(W - padR + 16, baseY - 2, fmtNum(st.m), 'lab accent', 'start'));
+  });
+  const whole = dists.every(d => support(d).every(Number.isInteger));
+  for (const v of niceTicks(lo, hi, 8, whole)) g.appendChild(txt(X(v), H - 6, fmtNum(v), 'lab'));
+  g.appendChild(txt(W - padR + 16, 12, 'mean', 'lab faint', 'start'));
+  return g;
+}
+
+/* ---- a swept curve ----------------------------------------------- */
+function curvePlot(points, opts) {
+  opts = opts || {};
+  const W = opts.width || 620, H = opts.height || 190;
+  const padL = 46, padR = 64, padT = 16, padB = 30;
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const hasBand = points.some(p => p.sd !== undefined);
+  let ylo = Math.min(...ys), yhi = Math.max(...ys);
+  if (hasBand) {
+    ylo = Math.min(ylo, ...points.map(p => p.y - (p.sd || 0)));
+    yhi = Math.max(yhi, ...points.map(p => p.y + (p.sd || 0)));
+  }
+  if (yhi === ylo) { yhi = ylo + 1; ylo -= 1; }
+  const xlo = Math.min(...xs), xhi = Math.max(...xs);
+  const X = v => padL + (xhi === xlo ? (W - padL - padR) / 2 : ((v - xlo) / (xhi - xlo)) * (W - padL - padR));
+  const Y = v => padT + (1 - (v - ylo) / (yhi - ylo)) * (H - padT - padB);
+  const g = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'plot', role: 'img', 'aria-label': 'a swept parameter' });
+
+  if (hasBand) {
+    const up = points.map(p => `${X(p.x).toFixed(2)},${Y(p.y + (p.sd || 0)).toFixed(2)}`);
+    const dn = points.slice().reverse().map(p => `${X(p.x).toFixed(2)},${Y(p.y - (p.sd || 0)).toFixed(2)}`);
+    g.appendChild(el('polygon', { points: up.concat(dn).join(' '), class: 'band' }));
+  }
+  g.appendChild(el('polyline', { points: points.map(p => `${X(p.x).toFixed(2)},${Y(p.y).toFixed(2)}`).join(' '), class: 'curve' }));
+  points.forEach(p => g.appendChild(el('circle', { cx: X(p.x).toFixed(2), cy: Y(p.y).toFixed(2), r: 1.9, class: 'dot', 'data-x': p.x, 'data-y': p.y })));
+
+  // range frames only
+  g.appendChild(el('line', { x1: padL - 8, y1: Y(ylo), x2: padL - 8, y2: Y(yhi), class: 'frame' }));
+  g.appendChild(el('line', { x1: X(xlo), y1: H - padB + 8, x2: X(xhi), y2: H - padB + 8, class: 'frame' }));
+  g.appendChild(txt(padL - 12, Y(yhi) + 4, fmtNum(yhi), 'lab', 'end'));
+  g.appendChild(txt(padL - 12, Y(ylo) + 4, fmtNum(ylo), 'lab', 'end'));
+  for (const v of niceTicks(xlo, xhi, 8, xs.every(Number.isInteger))) {
+    if (v < xlo - 1e-9 || v > xhi + 1e-9) continue;
+    g.appendChild(txt(X(v), H - padB + 22, fmtNum(v), 'lab'));
+  }
+  const last = points[points.length - 1];
+  g.appendChild(txt(X(last.x) + 8, Y(last.y) + 4, fmtNum(last.y), 'lab accent', 'start'));
+  if (opts.xlabel) g.appendChild(txt(X((xlo + xhi) / 2), H - 2, opts.xlabel, 'lab faint'));
+  return g;
+}
+
+/* ---- a proportion bar for win rates and yes/no outcomes ---------- */
+function proportionBar(parts, width) {
+  const W = width || 620, H = 30;
+  const g = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'plot propbar', role: 'img', 'aria-label': 'proportions' });
+  let x = 0;
+  const labels = [];
+  parts.forEach((p, i) => {
+    const w = p.p * W;
+    if (w > 0) {
+      g.appendChild(el('rect', { x: x.toFixed(2), y: 2, width: w.toFixed(2), height: 9, class: 'prop prop' + (i % 3) }));
+      if (i > 0) g.appendChild(el('line', { x1: x.toFixed(2), y1: 2, x2: x.toFixed(2), y2: 11, class: 'tickmark' }));
+    }
+    if (p.p >= 0.06) labels.push({ mid: x + w / 2, text: `${p.label} ${fmtPct(p.p)}`, w });
+    x += w;
+  });
+  // keep the labels from colliding by nudging them apart
+  labels.forEach((l, i) => {
+    const prev = labels[i - 1];
+    const room = l.text.length * 4.4;
+    l.x = Math.min(W - room / 2, Math.max(room / 2, l.mid));
+    if (prev && l.x - room / 2 < prev.x + (prev.text.length * 4.4) / 2 + 6) {
+      l.x = prev.x + (prev.text.length * 4.4) / 2 + room / 2 + 6;
+    }
+  });
+  labels.forEach(l => { if (l.x < W) g.appendChild(txt(l.x, H - 4, l.text, 'lab')); });
+  return g;
+}
+
+/* ---- categorical outcomes as a Tufte table ----------------------- */
+function catTable(d) {
+  const rows = [...d].sort((a, b) => b[1] - a[1]);
+  const t = h('table', 'outcomes');
+  for (const [k, p] of rows) {
+    const tr = h('tr');
+    tr.appendChild(h('td', 'oc-name', k));
+    const bar = h('td', 'oc-bar');
+    const s = el('svg', { viewBox: '0 0 100 10', preserveAspectRatio: 'none', class: 'ocbar' });
+    s.appendChild(el('rect', { x: 0, y: 3, width: (p * 100).toFixed(2), height: 4, class: 'bar' }));
+    bar.appendChild(s);
+    tr.appendChild(bar);
+    tr.appendChild(h('td', 'oc-p', fmtPct(p)));
+    t.appendChild(tr);
+  }
+  return t;
+}
+
+/* ------------------------------------------------------------------ *
+ * Turning results into a page                                         *
+ * ------------------------------------------------------------------ */
+
+function statLine(d) {
+  const st = distStats(d);
+  const s = h('span', 'stats');
+  s.appendChild(h('span', 'stat-k', 'mean '));
+  s.appendChild(h('span', 'stat-v', fmtNum(st.m)));
+  s.appendChild(h('span', 'stat-k', ' spread '));
+  s.appendChild(h('span', 'stat-v', fmtNum(st.s)));
+  s.appendChild(h('span', 'stat-k', ' range '));
+  s.appendChild(h('span', 'stat-v', fmtNum(st.lo) + '–' + fmtNum(st.hi)));
+  return s;
+}
+
+function valueInline(v) {
+  const span = h('span', 'value');
+  if (v.t === 'num') {
+    if (v.pct) {
+      span.appendChild(h('span', 'num', fmtPct(v.v)));
+      span.appendChild(h('span', 'stat-k', '  ·  ' + fmtNum(v.v)));
+    } else span.appendChild(h('span', 'num', fmtNum(v.v)));
+    return span;
+  }
+  if (v.t === 'str') { span.appendChild(h('span', 'strv', '“' + v.v + '”')); return span; }
+  if (v.t === 'cat') { span.appendChild(catTable(v.d)); return span; }
+  if (v.t === 'creature') { span.appendChild(h('span', 'num', v.name)); return span; }
+  const d = asDist(collapse(v));
+  span.appendChild(sparkline(d));
+  span.appendChild(statLine(d));
+  return span;
+}
+
+function figure(caption) {
+  const f = h('figure');
+  const cap = h('figcaption', 'readout');
+  if (caption) cap.textContent = caption;
+  return { fig: f, cap };
+}
+
+function attachReadout(svgInfo, d, cap, defaultText) {
+  const { svg, X, st } = svgInfo;
+  const marker = el('line', { class: 'hoverline', x1: 0, y1: 0, x2: 0, y2: 0, style: 'opacity:0' });
+  svg.appendChild(marker);
+  const setText = s => { cap.textContent = s; };
+  setText(defaultText);
+  const move = ev => {
+    const r = svg.getBoundingClientRect();
+    if (!r.width) return;
+    const px = ((ev.clientX !== undefined ? ev.clientX : (ev.touches && ev.touches[0].clientX)) - r.left) / r.width;
+    const vb = svg.viewBox.baseVal;
+    const ux = px * vb.width;
+    let best = null, bd = Infinity;
+    for (const v of st.xs) { const dd = Math.abs(X(v) - ux); if (dd < bd) { bd = dd; best = v; } }
+    if (best === null) return;
+    let atLeast = 0;
+    for (const [v, p] of d) if (v >= best) atLeast += p;
+    marker.setAttribute('x1', X(best)); marker.setAttribute('x2', X(best));
+    marker.setAttribute('y1', 0); marker.setAttribute('y2', svg.viewBox.baseVal.height - 20);
+    marker.setAttribute('style', 'opacity:1');
+    setText(`${fmtNum(best)} exactly ${fmtPct(d.get(best))}  ·  ${fmtNum(best)} or better ${fmtPct(atLeast)}`);
+  };
+  svg.addEventListener('mousemove', move);
+  svg.addEventListener('touchmove', move, { passive: true });
+  svg.addEventListener('touchstart', move, { passive: true });
+  svg.addEventListener('mouseleave', () => { marker.setAttribute('style', 'opacity:0'); setText(defaultText); });
+}
+
+function renderDistFigure(d, title, width) {
+  const info = histogram(d, { width, aria: title || 'distribution' });
+  const { fig, cap } = figure();
+  if (title) fig.appendChild(h('div', 'fig-title', title));
+  fig.appendChild(info.svg);
+  fig.appendChild(cap);
+  const st = distStats(d);
+  attachReadout(info, d, cap, `mean ${fmtNum(st.m)}  ·  spread ${fmtNum(st.s)}  ·  ${fmtNum(st.lo)} to ${fmtNum(st.hi)}  ·  ${st.xs.length} possible results`);
+  return fig;
+}
+
+function ciText(mean, se, unit) {
+  if (!isFinite(se) || se === 0) return '';
+  const half = 1.96 * se;
+  return ` ±${fmtCI(unit === 'pp' ? half * 100 : half)}${unit === 'pp' ? ' points' : ''}`;
+}
+
+function renderBlocks(blocks, host, opts) {
+  opts = opts || {};
+  host.textContent = '';
+  const width = opts.width || 620;
+  let shown = 0;
+
+  for (const b of blocks) {
+    let node = null;
+    switch (b.type) {
+      case 'let': {
+        node = h('div', 'res res-let');
+        node.appendChild(h('span', 'res-name', b.name));
+        node.appendChild(h('span', 'res-eq', ' is '));
+        node.appendChild(valueInline(b.value));
+        break;
+      }
+      case 'define': {
+        node = h('div', 'res res-quiet');
+        node.textContent = `the rule ${b.name}(${b.params.join(', ')}) is ready`;
+        break;
+      }
+      case 'creatureDef': {
+        node = h('div', 'res res-quiet');
+        const hp = b.hp.t === 'num' ? fmtNum(b.hp.v) : fmtNum(mean(asDist(collapse(b.hp)))) + ' hp on average';
+        node.textContent = `${b.name}: ${b.hp.t === 'num' ? hp + ' hp' : hp}, armour ${b.ac.t === 'num' ? fmtNum(b.ac.v) : 'varies'}, ${b.attacks.length} attack${b.attacks.length === 1 ? '' : 's'}`;
+        break;
+      }
+      case 'tableDef': {
+        node = h('div', 'res');
+        node.appendChild(h('div', 'res-label', `${b.name} — rolled on a d${b.top}`));
+        node.appendChild(valueInline(b.value));
+        break;
+      }
+      case 'show': {
+        node = h('div', 'res');
+        const lab = h('div', 'res-label');
+        lab.appendChild(h('span', 'res-caption', b.label || b.src));
+        node.appendChild(lab);
+        node.appendChild(valueInline(b.value));
+        shown++;
+        break;
+      }
+      case 'plot': {
+        node = h('div', 'res res-figure');
+        const v = b.value;
+        if (v.t === 'cat') {
+          node.appendChild(h('div', 'res-label', b.label || b.src));
+          node.appendChild(catTable(v.d));
+        } else if (v.t === 'num') {
+          node.appendChild(h('div', 'res-label', b.label || b.src));
+          node.appendChild(h('span', 'num', fmtNum(v.v)));
+        } else {
+          node.appendChild(renderDistFigure(asDist(collapse(v)), b.label || b.src, width));
+        }
+        shown++;
+        break;
+      }
+      case 'compare': {
+        node = h('div', 'res res-figure');
+        const { fig, cap } = figure('one scale, so the shapes can be read against each other');
+        fig.appendChild(smallMultiples(b.items, width));
+        fig.appendChild(cap);
+        node.appendChild(fig);
+        if (b.verdict) node.appendChild(verdictLine(b.items, b.verdict));
+        break;
+      }
+      case 'sweep': {
+        node = h('div', 'res res-figure');
+        const { fig, cap } = figure();
+        fig.appendChild(h('div', 'fig-title', b.label || b.src));
+        fig.appendChild(curvePlot(b.points, { width, xlabel: b.name }));
+        const band = b.points.some(p => p.sd !== undefined);
+        cap.textContent = band
+          ? `the line is the average; the band is one standard deviation either side, as ${b.name} runs from ${fmtNum(b.points[0].x)} to ${fmtNum(b.points[b.points.length - 1].x)}`
+          : `as ${b.name} runs from ${fmtNum(b.points[0].x)} to ${fmtNum(b.points[b.points.length - 1].x)}`;
+        fig.appendChild(cap);
+        node.appendChild(fig);
+        break;
+      }
+      case 'sim': {
+        node = h('div', 'res res-figure');
+        node.appendChild(h('div', 'res-label', (b.label ? b.label + ' — ' : '') + `${fmtInt(b.trials)} simulated trials`));
+        for (const r of b.records) node.appendChild(renderRecord(r, width));
+        node.appendChild(h('p', 'caveat', 'Simulated, not exact. A ± here is always a 95 per cent interval for the sampling error, and never a spread: run more trials to narrow it. The quantiles and the range carry no interval, because a normal band around an order statistic would be wrong.'));
+        break;
+      }
+      case 'fight': {
+        node = h('div', 'res res-figure');
+        const nameA = sideName(b.a), nameB = sideName(b.b);
+        node.appendChild(h('div', 'res-label', `${nameA} against ${nameB}`));
+        node.appendChild(proportionBar([
+          { label: nameA, p: b.winA },
+          { label: nameB, p: b.winB },
+          { label: 'stalemate', p: b.draw },
+        ], width));
+        const line = h('p', 'fight-line');
+        line.appendChild(document.createTextNode(`${nameA} ${b.a.length > 1 ? 'are' : 'is'} left standing `));
+        line.appendChild(h('span', 'stat-v', fmtPct(b.winA)));
+        const ci = ciText(b.winA, b.seA, 'pp').replace(' ±', '');
+        line.appendChild(document.createTextNode(` of the time${ci ? ` (give or take ${ci})` : ''}. A fight lasts ${fmtNum(b.rounds.mean)} rounds on average, and has run as long as ${fmtNum(b.rounds.hi)}.`));
+        node.appendChild(line);
+        if (b.rounds.dist) node.appendChild(renderDistFigure(b.rounds.dist, 'rounds', width));
+        node.appendChild(h('p', 'caveat', `Simulated over ${fmtInt(b.trials)} fights. Sides alternate, whoever goes first is decided by a coin flip, and each attacker swings at the first enemy still standing.`));
+        break;
+      }
+      case 'check': {
+        node = h('div', 'res res-check ' + (b.pass ? 'pass' : 'fail'));
+        node.appendChild(h('span', 'tick', b.pass ? '✓' : '✗'));
+        node.appendChild(h('span', 'check-label', b.label || b.src));
+        if (!b.pass) node.appendChild(h('span', 'check-p', b.p > 0 ? ` holds only ${fmtPct(b.p)} of the time` : ' does not hold'));
+        break;
+      }
+      case 'note': {
+        node = h('div', 'res res-note');
+        node.textContent = b.msg;
+        break;
+      }
+    }
+    if (node) { if (b.line) node.dataset.line = b.line; host.appendChild(node); }
+  }
+  if (!host.children.length) host.appendChild(h('p', 'res-empty', 'Nothing to show yet. Add a line such as  show 3d6'));
+  return shown;
+}
+
+function verdictLine(items, v) {
+  const [a, b] = items.map(i => i.label);
+  const p = h('p', 'verdict');
+  const head = h('span');
+  head.appendChild(document.createTextNode(`Rolled separately and set against each other, ${a} comes out higher `));
+  head.appendChild(h('span', 'stat-v', fmtPct(v.gt)));
+  head.appendChild(document.createTextNode(` of the time, ties ${fmtPct(v.eq)}, and comes out lower ${fmtPct(v.lt)}. `));
+  p.appendChild(head);
+  const tail = h('span');
+  if (v.same) tail.textContent = 'The two reach every target with the same probability.';
+  else if (v.aWins) tail.textContent = `But ${a} is at least as likely to reach every target number, so it is the better roll whatever you need.`;
+  else if (v.bWins) tail.textContent = `Yet ${b} is at least as likely to reach every target number, so it is the better roll whatever you need \u2014 the head-to-head figure and the target-by-target one point opposite ways.`;
+  else tail.textContent = 'Neither is better at every target number: which one you want depends on the number you need.';
+  p.appendChild(tail);
+  const foot = h('p', 'caveat');
+  foot.textContent = 'The head-to-head figure rolls the two independently, which is the right question for two different dice and the wrong one for two versions of the same roll. The target-by-target comparison makes no such assumption.';
+  const wrap = h('div');
+  wrap.appendChild(p);
+  wrap.appendChild(foot);
+  return wrap;
+}
+
+function renderRecord(r, width) {
+  const wrap = h('div', 'record');
+  if (r.n === 0) return wrap;
+  if (r.categorical) {
+    wrap.appendChild(h('div', 'rec-name', r.label));
+    wrap.appendChild(catTable(r.dist));
+    return wrap;
+  }
+  if (r.constant) {
+    wrap.appendChild(h('div', 'rec-name', r.label));
+    const p = h('p', 'rec-binary');
+    p.appendChild(h('span', 'stat-k', 'always '));
+    p.appendChild(h('span', 'stat-v', fmtNum(r.lo)));
+    p.appendChild(h('span', 'stat-k', `, in all ${fmtInt(r.n)} trials`));
+    wrap.appendChild(p);
+    return wrap;
+  }
+  if (r.binary) {
+    wrap.appendChild(h('div', 'rec-name', r.label));
+    const p = h('p', 'rec-binary');
+    p.appendChild(h('span', 'stat-v', fmtPct(r.mean)));
+    p.appendChild(document.createTextNode(ciText(r.mean, r.se, 'pp')));
+    wrap.appendChild(p);
+    wrap.appendChild(proportionBar([{ label: 'yes', p: r.mean }, { label: 'no', p: 1 - r.mean }], width));
+    return wrap;
+  }
+  wrap.appendChild(h('div', 'rec-name', r.label));
+  const p = h('p', 'rec-stats');
+  p.appendChild(h('span', 'stat-k', 'mean '));
+  p.appendChild(h('span', 'stat-v', fmtNum(r.mean) + ciText(r.mean, r.se)));
+  p.appendChild(h('span', 'stat-k', ' spread '));
+  p.appendChild(h('span', 'stat-v', fmtNum(r.sd)));
+  p.appendChild(h('span', 'stat-k', ' middle half '));
+  p.appendChild(h('span', 'stat-v', fmtNum(r.q25) + '–' + fmtNum(r.q75)));
+  p.appendChild(h('span', 'stat-k', ' range '));
+  p.appendChild(h('span', 'stat-v', fmtNum(r.lo) + '–' + fmtNum(r.hi)));
+  wrap.appendChild(p);
+  if (r.dist && r.dist.size > 1) wrap.appendChild(renderDistFigure(r.dist, null, width));
+  return wrap;
+}
+
+/* ------------------------------------------------------------------ *
+ * The editor: a plain textarea with a coloured layer behind it        *
+ * ------------------------------------------------------------------ */
+const HL_KEYWORDS = /\b(let|given|show|plot|compare|table|define|creature|sim|fight|sweep|check|var|while|if|then|else|repeat|record|stop|and|or|not|vs|from|to|step|trials|hp|ac|attack|damage|keep|drop|highest|lowest|exploding|penetrating|reroll|forever|count|with|advantage|disadvantage)\b/g;
+const HL_DICE = /\b\d*d(?:\d+|%|F)\b/gi;
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlight(src) {
+  const lines = src.split('\n');
+  return lines.map(line => {
+    const cut = findComment(line);
+    const code = cut === -1 ? line : line.slice(0, cut);
+    const comment = cut === -1 ? '' : line.slice(cut);
+    let out = '';
+    let i = 0;
+    // strings first, so keywords inside them are left alone
+    const re = /"[^"\n]*"?/g;
+    let m;
+    while ((m = re.exec(code))) {
+      out += paintCode(code.slice(i, m.index));
+      out += '<i class="hl-str">' + escapeHtml(m[0]) + '</i>';
+      i = m.index + m[0].length;
+    }
+    out += paintCode(code.slice(i));
+    if (comment) out += '<i class="hl-com">' + escapeHtml(comment) + '</i>';
+    return out;
+  }).join('\n');
+}
+function findComment(line) {
+  let inStr = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') inStr = !inStr;
+    if (inStr) continue;
+    if (c === '#') return i;
+    if (c === '-' && line[i + 1] === '-') return i;
+  }
+  return -1;
+}
+function paintCode(s) {
+  return escapeHtml(s)
+    .replace(HL_DICE, m => '<i class="hl-die">' + m + '</i>')
+    .replace(HL_KEYWORDS, m => '<i class="hl-kw">' + m + '</i>')
+    .replace(/(^|[^\w>])(\d+(?:\.\d+)?)(?![^<]*<\/i>)/g, (m, a, b) => a + '<i class="hl-num">' + b + '</i>');
+}
+
+/* ------------------------------------------------------------------ *
+ * Examples                                                            *
+ * ------------------------------------------------------------------ */
+const EXAMPLES = [
+  { id: 'opener', name: 'Start here', code:
+`-- Two attacks, same average, very different feel.
+compare "1d12 + 4": 1d12 + 4, "3d4 + 4": 3d4 + 4
+
+-- How often does a +5 attack beat armour 16?
+let attack = d20 + 5
+show "hits armour 16" chance(attack >= 16)
+
+-- Damage per attack, crit decided by that same roll.
+define damage(bonus) = given roll = d20 {
+  if roll == 20 then 2d8 + 3      -- a crit doubles the dice
+  else if roll + bonus >= 16 then 1d8 + 3
+  else 0
+}
+plot damage(5)
+
+-- What another point of attack bonus is actually worth.
+sweep bonus from 0 to 12 { mean(damage(bonus)) }` },
+
+  { id: 'shapes', name: 'The shape of dice', code:
+`show 3d6
+show "four dice, keep the best three" 4d6 keep highest 3
+show "a d20 with advantage" d20 with advantage
+show "an exploding d6" d6 exploding
+show "a pool of ten, sevens or better" 10d10 count >= 7
+
+compare "3d6": 3d6,
+        "1d12 + 3.5": 1d12 + 3.5,
+        "2d6 + 3.5": 2d6 + 3.5,
+        "1d20 (for scale)": 1d20
+
+plot 4d6 keep highest 3` },
+
+  { id: 'dominance', name: 'Two ways to be better', code:
+`-- Two ways to roll an ability score. Rolled against each other,
+-- 4d6 keep highest 3 comes out higher better than a third of the
+-- time. But ask which is likelier to reach any target you name and
+-- the answer flips, at every single target.
+compare "4d6 keep highest 3": 4d6 keep highest 3,
+        "3d6 + 3": 3d6 + 3
+
+show "4d6 keep highest 3 reaches 15+" atleast(4d6 keep highest 3, 15)
+show "3d6 + 3 reaches 15+" atleast(3d6 + 3, 15)
+
+show "4d6 keep highest 3 rolls an 18" chance((4d6 keep highest 3) == 18)
+show "3d6 + 3 rolls an 18" chance((3d6 + 3) == 18)
+
+-- Where neither one dominates, the answer really does depend on
+-- the number you need.
+compare "3d6": 3d6, "1d20": 1d20` },
+
+  { id: 'given', name: 'Two rolls, or one roll twice', code:
+`let attack = d20 + 5
+
+-- Mentioning a name twice rolls it twice: two separate swings.
+show "two swings added up" attack + attack
+
+-- given fixes one roll and works out every consequence of it.
+show "one swing, counted twice" given a = d20 + 5 { a + a }
+
+-- Same average, very different spread. The difference is the whole
+-- reason given exists.
+show "the difference in spread" sd(given a = d20 + 5 { a + a }) - sd(attack + attack)
+
+-- The everyday use: one roll decides both whether you hit and how hard.
+plot given roll = d20 {
+  if roll == 20 then 2d8 + 3
+  else if roll + 5 >= 16 then 1d8 + 3
+  else 0
+}` },
+
+  { id: 'dpr', name: 'What is a +1 worth?', code:
+`-- A whole attack routine as one rule.
+define damage(bonus, armour) = given roll = d20 {
+  if roll == 20 then 2d8 + 4             -- crit: double the dice
+  else if roll == 1 then 0               -- a natural 1 misses
+  else if roll + bonus >= armour then 1d8 + 4
+  else 0
+}
+
+show "+5 against armour 16" mean(damage(5, 16))
+show "+6 against armour 16" mean(damage(6, 16))
+plot damage(5, 16)
+
+-- Against tougher and tougher armour, what does +5 accomplish?
+sweep armour from 10 to 22 { mean(damage(5, armour)) }
+
+-- And how much does the bonus buy, against armour 16?
+sweep bonus from 0 to 14 { mean(damage(bonus, 16)) }` },
+
+  { id: 'sim', name: 'A fight, played out', code:
+`-- Exact arithmetic cannot answer this: it has a history. One knight
+-- against three orcs, both sides swinging until someone falls.
+sim 20000 "one knight against three orcs" {
+  var hp = 52
+  var orcs = 3
+  var round = 0
+
+  while hp > 0 and orcs > 0 and round < 25 {
+    round = round + 1
+
+    -- the knight cuts down an orc on a hit
+    if d20 + 7 >= 15 { orcs = orcs - 1 }
+
+    -- every orc still standing swings back
+    repeat orcs {
+      if d20 + 5 >= 18 { hp = hp - (1d12 + 3) }
+    }
+  }
+
+  record "rounds" round
+  record "the knight lives" hp > 0
+  record "hit points left" max(hp, 0)
+  record "orcs left standing" orcs
+}` },
+
+  { id: 'fight', name: 'Two sides', code:
+`creature Knight {
+  hp 52
+  ac 18
+  attack "longsword": d20 + 7, damage 1d8 + 4
+}
+
+creature Goblin {
+  hp 2d6
+  ac 15
+  attack "scimitar": d20 + 4, damage 1d6 + 2
+}
+
+fight Knight vs Goblin, Goblin, Goblin trials 20000
+fight Knight vs Goblin, Goblin, Goblin, Goblin, Goblin trials 20000` },
+
+  { id: 'tables', name: 'Roll tables', code:
+`table trinket {
+  1-3: "a bent copper ring"
+  4-5: "a map to somewhere already looted"
+  6-8: "a vial of something green"
+  9:   "a key with no door"
+  10:  "a genuinely good sword"
+}
+
+show trinket
+
+table purse {
+  1-4: 2d6
+  5-6: 3d6 + 10
+}
+
+plot purse
+show "chance of more than 15 coins" chance(purse > 15)` },
+
+  { id: 'advantage', name: 'Where advantage helps', code:
+`-- Advantage is worth about +3.3 on average, but the average
+-- hides the interesting part: it helps most in the middle.
+show "plain d20" mean(d20)
+show "with advantage" mean(d20 with advantage)
+
+-- Against each target number, how much does advantage add to
+-- the chance of success? Note the peak, and the two ends where
+-- it is worth almost nothing.
+sweep target from 2 to 20 {
+  chance((d20 with advantage) >= target) - chance(d20 >= target)
+}
+
+compare "d20": d20,
+        "advantage": d20 with advantage,
+        "disadvantage": d20 with disadvantage` },
+
+  { id: 'scores', name: 'Rolling up a character', code:
+`-- The classic methods for a single ability score.
+compare "3d6": 3d6,
+        "4d6 keep highest 3": 4d6 keep highest 3,
+        "2d6 + 6": 2d6 + 6,
+        "best of two 3d6": best(1, 2, 3d6)
+
+show "4d6 keep highest 3" 4d6 keep highest 3
+show "chance of an 18" chance((4d6 keep highest 3) == 18)
+show "chance of 15 or better" atleast(4d6 keep highest 3, 15)
+
+-- Roll six scores. How many are 15 or better?
+show "how many good scores out of six" copies(6, (4d6 keep highest 3) >= 15)` },
+
+  { id: 'pools', name: 'Pools and exploding dice', code:
+`-- Counting successes rather than adding pips.
+show "6d10, sevens or better" 6d10 count >= 7
+plot 10d10 count >= 8
+show "chance of at least three successes" atleast(10d10 count >= 8, 3)
+
+-- Dice that keep going.
+compare "d6": d6,
+        "d6 exploding": d6 exploding,
+        "d6 penetrating": d6 penetrating
+
+show "average of an exploding d6" mean(d6 exploding)
+show "average of 3d6 exploding" mean(3d6 exploding)
+
+-- Rerolling the worst result.
+compare "d10": d10, "d10 reroll 1": d10 reroll 1, "d10 reroll 1 forever": d10 reroll 1 forever` },
+
+  { id: 'deathspiral', name: 'A death spiral', code:
+`-- A rule where being hurt makes you worse at fighting. Does it
+-- turn a close fight into a rout?
+sim 20000 "wounded fighters trade blows" {
+  var mine = 30
+  var yours = 30
+  var round = 0
+  while mine > 0 and yours > 0 and round < 40 {
+    round = round + 1
+    -- each side is penalised for the damage it has taken
+    if d20 + 6 - ((30 - mine) // 8) >= 15 { yours = yours - (1d8 + 3) }
+    if d20 + 6 - ((30 - yours) // 8) >= 15 { mine = mine - (1d8 + 3) }
+  }
+  record "rounds" round
+  record "I won" mine > 0 and yours <= 0
+  record "both still up at the bell" mine > 0 and yours > 0
+}` },
+];
+
+const SELFTEST =
+`-- Every figure here was computed independently, with exact
+-- rational arithmetic. If the engine drifts, these fail.
+check "3d6 averages 10.5"                    mean(3d6) == 10.5
+check "3d6 has a spread of 2.958039892"      abs(sd(3d6) - 2.958039892) < 1e-7
+check "2d6 averages 7"                       mean(2d6) == 7
+check "d20 averages 10.5"                    mean(d20) == 10.5
+check "4d6 keep highest 3 is 15869/1296"     abs(mean(4d6 keep highest 3) - 12.244598765) < 1e-7
+check "and has a spread of 2.846844445"      abs(sd(4d6 keep highest 3) - 2.846844445) < 1e-7
+check "4d6 keep lowest 1 is 2275/1296"       abs(mean(4d6 keep lowest 1) - 1.755401235) < 1e-7
+check "advantage on d20 is 553/40"           mean(d20 with advantage) == 13.825
+check "disadvantage on d20 is 287/40"        mean(d20 with disadvantage) == 7.175
+check "both have a spread of 4.711090638"    abs(sd(d20 with advantage) - 4.711090638) < 1e-7
+check "best 3 of 4d20 is 2998667/80000"      abs(mean(best(3, 4, d20)) - 37.4833375) < 1e-7
+check "5d4 keep highest 2 is 1765/256"       abs(mean(5d4 keep highest 2) - 6.89453125) < 1e-7
+check "an exploding d6 averages exactly 21/5" abs(mean(d6 exploding) - 4.2) < 1e-9
+check "a penetrating d6 averages exactly 4"  abs(mean(d6 penetrating) - 4) < 1e-9
+check "d6 rerolling a 1 averages 47/12"      abs(mean(d6 reroll 1) - 3.916666667) < 1e-7
+check "d6 rerolling 1s forever averages 4"   mean(d6 reroll 1 forever) == 4
+check "6d10 counting sevens averages 12/5"   mean(6d10 count >= 7) == 2.4
+check "and has a spread of exactly 1.2"      abs(sd(6d10 count >= 7) - 1.2) < 1e-9
+check "d20+5 beats armour 16 half the time"  chance(d20 + 5 >= 16) == 0.5
+check "so 1d8+3 comes to 15/4 per attack"    mean(if d20 + 5 >= 16 then 1d8 + 3) == 3.75
+check "every distribution sums to one"       abs(chance(3d6 != 0) - 1) < 1e-12
+check "keeping all of them is just adding"   mean(4d6 keep highest 4) == mean(4d6)
+check "a fudge die averages nothing"         mean(dF) == 0
+check "4dF spans minus four to four"         lowest(4dF) == -4 and highest(4dF) == 4
+check "one roll counted twice has twice the spread" abs(sd(given a = d20 { a + a }) - 2 * sd(d20)) < 1e-9
+check "two rolls added have root-two the spread"    abs(sd(d20 + d20) - 1.41421356 * sd(d20)) < 1e-6
+check "half of 7 is 3"                       half(7) == 3
+check "eleven halved and rounded down is 5"  11 // 2 == 5
+check "a table with equal ranges is uniform" outcomes(3d6) == 16
+
+-- The tie boundary is where a keep/drop engine usually goes wrong: when
+-- several dice show the cut value, how many of them are kept is decided,
+-- not chosen. These are exact counts out of 1296.
+check "4d6kh3 rolls 18 in 21 cases of 1296"  chance((4d6 keep highest 3) == 18) == 21 / 1296
+check "and 3 in exactly 1 case"              chance((4d6 keep highest 3) == 3) == 1 / 1296
+check "and peaks at 13, in 172 cases"        chance((4d6 keep highest 3) == 13) == 172 / 1296
+check "and 10, in 122 cases"                 chance((4d6 keep highest 3) == 10) == 122 / 1296
+check "3d6 keep highest 2 averages 8.458333" abs(mean(3d6 kh2) - 8.458333333) < 1e-7
+check "5d6 drop lowest 2 averages 13.43017"  abs(mean(5d6 dl2) - 13.430169753) < 1e-7
+check "the short and long forms agree"       mean(4d6kh3) == mean(4d6 keep highest 3)
+check "max of two d6 averages 161/36"        abs(mean(max(d6, d6)) - 4.472222222) < 1e-7
+
+-- An exploding d6 can never total 6: rolling a 6 forces another die, and
+-- the smallest thing that die can add is 1. A penetrating d6 has no such
+-- gap, because subtracting one from each extra die fills it exactly.
+check "an exploding d6 can never total 6"    chance((d6 exploding) == 6) == 0
+check "nor 12, nor 18"                       chance((d6 exploding) == 12) + chance((d6 exploding) == 18) == 0
+check "but 7 comes up 1 time in 36"          chance((d6 exploding) == 7) == 1 / 36
+check "a penetrating d6 has no gaps"         chance((d6 penetrating) == 11) == 1 / 216
+check "and reaches 16 once in 1296"          chance((d6 penetrating) == 16) == 1 / 1296
+
+-- Rerolling once is not the same rule as rerolling until it sticks: after
+-- one reroll a 1 is still possible, 1 time in 36.
+check "reroll-once can still show a 1"       chance((d6 reroll 1) == 1) == 1 / 36
+check "and its variance is 35/16"            variance(d6 reroll 1) == 2.1875
+check "rerolling forever cannot"             chance((d6 reroll 1 forever) == 1) == 0
+
+-- Advantage does not double the critical rate: both dice showing 20 would
+-- otherwise be counted twice.
+check "a natural 20 with advantage is 39/400" chance((d20 with advantage) == 20) == 39 / 400
+check "a coin-flip roll becomes three in four" chance((d20 with advantage) >= 11) == 0.75
+check "advantage and disadvantage share a variance" variance(d20 with advantage) == variance(d20 with disadvantage)
+check "a d6 times a d6 has 18 distinct values" outcomes(d6 * d6) == 18
+
+-- An if whose condition is independent of its branches is a mixture; one
+-- whose condition shares a roll with them is not. given is the only way to
+-- share a roll, and it fixes a number, so both readings stay exact.
+check "sharing the roll: (15+..+20)/20"      mean(given r = d20 { if r >= 15 then r else 0 }) == 5.25
+check "separate rolls: 0.3 x 10.5"           mean(if d20 >= 15 then d20 else 0) == 3.15
+check "and the shared one is not a mixture"  mean(given a = d6 { if a >= 4 then a * a else 0 }) == 77 / 6
+check "a comparison inside given is 0 or 1"  mean(given r = d20 { if r >= 15 then 1 else 0 }) == 0.3`;
+
+/* ------------------------------------------------------------------ *
+ * Wiring                                                              *
+ * ------------------------------------------------------------------ */
+(function () {
+  const $ = id => document.getElementById(id);
+  const editor = $('editor'), hl = $('hl'), results = $('results'), errbox = $('errbox');
+  const wrap = $('editor-wrap'), gutter = $('gutter');
+
+  function sync() {
+    hl.innerHTML = highlight(editor.value) + '\n';
+    hl.scrollTop = editor.scrollTop;
+    hl.scrollLeft = editor.scrollLeft;
+  }
+
+  function clearError() {
+    errbox.className = 'errbox';
+    errbox.textContent = '';
+    wrap.classList.remove('bad');
+    gutter.style.display = 'none';
+  }
+
+  function showError(e, src) {
+    wrap.classList.add('bad');
+    errbox.className = 'errbox on';
+    errbox.textContent = '';
+    const where = h('span', 'where', e.line ? `line ${e.line}` : 'stopped');
+    errbox.appendChild(where);
+    errbox.appendChild(document.createTextNode(e.message));
+    const line = src.split('\n')[(e.line || 1) - 1];
+    if (line !== undefined && e.col) {
+      const pre = document.createElement('pre');
+      const caret = ' '.repeat(Math.max(0, e.col - 1)) + '─'.repeat(Math.max(1, e.length || 1));
+      pre.textContent = line.replace(/\t/g, ' ') + '\n' + caret;
+      errbox.appendChild(pre);
+    }
+    if (e.line) {
+      const cs = getComputedStyle(editor);
+      const lh = parseFloat(cs.lineHeight) || 20;
+      const top = parseFloat(cs.paddingTop) || 0;
+      gutter.style.display = 'block';
+      gutter.style.height = lh + 'px';
+      gutter.style.top = (top + (e.line - 1) * lh - editor.scrollTop) + 'px';
+    }
+  }
+
+  let running = false;
+  function runProgram() {
+    if (running) return;
+    running = true;
+    const src = editor.value;
+    const seed = parseInt($('seed').value, 10) || 1;
+    const t0 = performance.now();
+    let out;
+    try {
+      out = run(src, { seed, timeLimit: 15000 });
+    } catch (crash) {
+      out = { blocks: [], error: new ForgeError('something went wrong inside the interpreter: ' + crash.message, 0, 0, 1) };
+    }
+    const ms = performance.now() - t0;
+    clearError();
+    renderBlocks(out.blocks, results, { width: 620 });
+    if (out.error) showError(out.error, src);
+    $('timing').textContent = `${ms < 1 ? '<1' : Math.round(ms)} ms`;
+    $('results-note').textContent = out.error ? 'stopped early' : '';
+    running = false;
+  }
+
+  editor.addEventListener('input', () => { sync(); });
+  editor.addEventListener('scroll', () => { hl.scrollTop = editor.scrollTop; hl.scrollLeft = editor.scrollLeft; });
+  editor.addEventListener('keydown', ev => {
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') { ev.preventDefault(); runProgram(); return; }
+    if (ev.key === 'Escape') { editor.blur(); return; }
+    if (ev.key === 'Tab') {
+      ev.preventDefault();
+      const s = editor.selectionStart, e = editor.selectionEnd;
+      editor.value = editor.value.slice(0, s) + '  ' + editor.value.slice(e);
+      editor.selectionStart = editor.selectionEnd = s + 2;
+      sync();
+    }
+  });
+  $('run').addEventListener('click', runProgram);
+  $('reseed').addEventListener('click', () => {
+    $('seed').value = String(Math.floor(Math.random() * 900000) + 100000);
+    runProgram();
+  });
+  $('seed').addEventListener('change', runProgram);
+
+  const sel = $('examples');
+  EXAMPLES.forEach(ex => {
+    const o = document.createElement('option');
+    o.value = ex.id; o.textContent = ex.name;
+    sel.appendChild(o);
+  });
+  function load(id) {
+    const ex = EXAMPLES.find(e => e.id === id);
+    if (!ex) return;
+    editor.value = ex.code;
+    sel.value = id;
+    sync();
+    runProgram();
+  }
+  sel.addEventListener('change', () => load(sel.value));
+  document.querySelectorAll('button.try').forEach(b => {
+    b.addEventListener('click', () => {
+      load(b.dataset.load);
+      const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.getElementById('workbench').scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    });
+  });
+
+  // the samples printed in the essay are the examples themselves
+  document.querySelectorAll('pre.sample').forEach(pre => {
+    const ex = EXAMPLES.find(e => e.id === pre.dataset.sample);
+    if (ex) pre.innerHTML = highlight(ex.code);
+  });
+
+  $('selftest').addEventListener('click', () => {
+    const out = run(SELFTEST, { seed: 1 });
+    const host = $('selftest-out');
+    renderBlocks(out.blocks, host, { width: 620 });
+    const total = out.blocks.filter(b => b.type === 'check').length;
+    const passed = out.blocks.filter(b => b.type === 'check' && b.pass).length;
+    $('selftest-note').textContent = out.error
+      ? 'stopped: ' + out.error.message
+      : `${passed} of ${total} checks passed`;
+  });
+
+  load('opener');
+})();
+
+</script>
+</body>
+</html>
