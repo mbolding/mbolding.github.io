@@ -188,7 +188,19 @@ code, .mono { font-family: var(--mono); font-size: 0.82em; }
 .minibtn:hover { color: var(--ink); text-decoration-color: var(--ink); }
 .minibtn[aria-pressed="true"] { color: var(--accent); text-decoration-color: var(--accent); }
 
+.findnote {
+    font-size: 1.02rem; font-style: italic; color: var(--quiet);
+    line-height: 1.4; margin-top: 0.3rem; max-width: 17rem;
+}
+.findnote:empty { display: none; }
+
 /* ---------- The table ---------- */
+
+.scrollhint {
+    display: none; width: auto; font-size: 1.05rem; font-style: italic;
+    color: var(--quiet); margin: 0 0 0.4rem 0;
+}
+@media (max-width: 1040px) { .scrollhint { display: block; } }
 
 .tablescroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 0.3rem; }
 .tablewrap { min-width: 960px; }
@@ -483,6 +495,8 @@ table.cmp td button:hover { color: var(--accent); }
     .controlbar { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 700px) {
+    /* stacked, the value and its caveat run together as one paragraph; separate them */
+    dl.facts dd .gloss, dl.dfacts dd .dnote { display: block; }
     html { font-size: 14px; }
     article { padding: 1.6rem 5% 4rem 5%; }
     h1 { font-size: 2.4rem; width: auto; }
@@ -568,6 +582,7 @@ Set the field, choose an encoding, and click anything.</p>
         <button class="minibtn" id="btnActiveOnly" aria-pressed="false">NMR-active only</button>
         <button class="minibtn" id="btnReset">Reset</button>
       </div>
+      <div class="findnote" id="findNote" role="status" aria-live="polite"></div>
     </div>
 
   </div>
@@ -578,6 +593,8 @@ Set the field, choose an encoding, and click anything.</p>
     scripting off you still have the prose; for the numbers themselves, the IUPAC tables cited at the foot
     of the page are the source and are better than anything this could show you.</p>
   </noscript>
+
+  <p class="scrollhint">The table is wider than this screen. Drag it sideways, or turn the phone.</p>
 
   <div class="tablescroll">
     <div class="tablewrap">
@@ -1266,6 +1283,24 @@ function paintTable() {
     node.tabIndex = state.sel === el.symbol ? 0 : -1;
   });
   document.getElementById('chartCaption').textContent = CAPTIONS[state.view] || '';
+
+  const note = document.getElementById('findNote');
+  if (note) {
+    const shown = ELEMENTS.filter(function (el) {
+      const n = cellNodes[el.symbol];
+      return n && !n.classList.contains('dim');
+    }).length;
+    if (q && shown === 0) {
+      note.textContent = 'Nothing matches \u201c' + q + '\u201d. Try an element, a nucleus such as 129Xe, ' +
+                         'or a word like quadrupolar, hyperpolarized or contrast.';
+    } else if (q) {
+      note.textContent = shown + (shown === 1 ? ' element' : ' elements');
+    } else if (state.roleFilter) {
+      note.textContent = shown + ' with this role';
+    } else {
+      note.textContent = '';
+    }
+  }
 }
 
 function ariaFor(el, enc) {
@@ -2290,6 +2325,10 @@ function boot() {
   syncViewButtons();
   repaint();
 }
+
+/* Two hooks so the page can be driven from a test harness without reaching into closures. */
+window.state_sel = function () { return state.nuc || state.sel; };
+window.state_setField = function (v) { setField(v); };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
