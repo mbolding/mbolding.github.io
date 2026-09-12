@@ -394,7 +394,7 @@ footer.colophon a { background-image: linear-gradient(var(--rule), var(--rule));
 </header>
 
 <section>
-<p>Every rule in a role-playing game is a claim about a probability distribution, and almost every such claim is made by feel. A designer adds two to an attack bonus and calls it <em class="term">a small buff</em>. A referee swaps three six-sided dice for one twelve-sided die and calls it <em class="term">about the same, but swingier</em>. Both claims are testable. Neither is usually tested, because testing them means either an afternoon of algebra or ten thousand hand-rolled dice.<label for="sn-1" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-1" class="margin-toggle"><span class="sidenote">The second claim is true, and the size of the effect is worth knowing: 3d6 and 1d12+3.5 share a mean of 10.5, but their standard deviations are 2.96 and 3.45, and their extremes differ enormously. Three sixes in a row happens once in 216 rolls; a twelve happens once in twelve.</span></p>
+<p>Every rule in a role-playing game is a claim about a probability distribution, and almost every such claim is made by feel. A designer adds two to an attack bonus and calls it <em class="term">a small buff</em>. A referee swaps three six-sided dice for one twelve-sided die and calls it <em class="term">about the same, but swingier</em>. Both claims are testable. Neither is usually tested, because testing them means either an afternoon of algebra or ten thousand hand-rolled dice.<label for="sn-1" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-1" class="margin-toggle"><span class="sidenote">The second claim is true, and the size of the effect is worth knowing: 3d6 and 1d12+4 share a mean of 10.5, but their standard deviations are 2.96 and 3.45, and their extremes differ enormously. Three sixes in a row happens once in 216 rolls; a twelve happens once in twelve.</span></p>
 
 <p>This page is a language for making those claims precisely, and an interpreter that answers them. It does two different things, and the difference matters more than any syntax on this page.</p>
 
@@ -3259,7 +3259,7 @@ function paintCode(s) {
 const EXAMPLES = [
   { id: 'opener', name: 'Start here', code:
 `-- Two attacks, same average, very different feel.
-compare "1d12 + 4": 1d12 + 4, "3d4 + 4": 3d4 + 4
+compare "1d12 + 4": 1d12 + 4, "3d4 + 3": 3d4 + 3
 
 -- How often does a +5 attack beat armour 16?
 let attack = d20 + 5
@@ -3284,7 +3284,7 @@ show "an exploding d6" d6 exploding
 show "a pool of ten, sevens or better" 10d10 count >= 7
 
 compare "3d6": 3d6,
-        "1d12 + 3.5": 1d12 + 3.5,
+        "1d12 + 4": 1d12 + 4,
         "2d6 + 3.5": 2d6 + 3.5,
         "1d20 (for scale)": 1d20
 
@@ -3548,7 +3548,22 @@ check "a d6 times a d6 has 18 distinct values" outcomes(d6 * d6) == 18
 check "sharing the roll: (15+..+20)/20"      mean(given r = d20 { if r >= 15 then r else 0 }) == 5.25
 check "separate rolls: 0.3 x 10.5"           mean(if d20 >= 15 then d20 else 0) == 3.15
 check "and the shared one is not a mixture"  mean(given a = d6 { if a >= 4 then a * a else 0 }) == 77 / 6
-check "a comparison inside given is 0 or 1"  mean(given r = d20 { if r >= 15 then 1 else 0 }) == 0.3`;
+check "a comparison inside given is 0 or 1"  mean(given r = d20 { if r >= 15 then 1 else 0 }) == 0.3
+
+-- The essay claims certain rolls share an average and differ only in
+-- shape. These check that the claims on the page are actually true.
+check "3d6 and 1d12+4 share a mean"          mean(3d6) == mean(1d12 + 4)
+check "and 2d6+3.5 and 1d20 share it too"    mean(2d6 + 3.5) == 10.5 and mean(1d20) == 10.5
+check "but 3d6 is the tighter of the two"    sd(3d6) < sd(1d12 + 4)
+check "3d6 spreads 2.958, 1d12 spreads 3.452" abs(sd(3d6) - 2.958039892) < 1e-7 and abs(sd(1d12) - 3.452052530) < 1e-7
+check "1d12+4 and 3d4+3 share a mean"        mean(1d12 + 4) == mean(3d4 + 3)
+check "and 3d4 is much the tighter"          abs(sd(3d4) - 1.936491673) < 1e-7
+check "three sixes come up once in 216"      chance(3d6 == 18) == 1 / 216
+check "a twelve comes up once in twelve"     chance(1d12 == 12) == 1 / 12
+check "advantage is worth 3.325 on average"  mean(d20 with advantage) - mean(d20) == 3.325
+check "two d20 added spread 8.155"           abs(sd(d20 + d20) - 8.154753215) < 1e-7
+check "one d20 counted twice spreads 11.53"  abs(sd(given a = d20 { a + a }) - 11.532562594) < 1e-7
+check "chance(d20 >= 15) really is 0.3"      chance(d20 >= 15) == 0.3`;
 
 /* ------------------------------------------------------------------ *
  * Wiring                                                              *
