@@ -1722,6 +1722,12 @@ class Interp {
 
       case 'bin': return this.evalBin(node);
 
+      // A mixture of the two branches weighted by P(condition) is only correct
+      // when the condition is independent of them. It always is here, and that
+      // is an invariant of the language rather than a lucky accident: the only
+      // way to correlate two parts of an expression is to bind a name with
+      // given, and given substitutes a fixed number, so inside one the
+      // condition is a plain 0 or 1 and this mixture is never reached.
       case 'cond': {
         const c = collapse(this.eval(node.c));
         const other = () => (node.b ? collapse(this.eval(node.b)) : N(0));
@@ -2935,7 +2941,7 @@ function statLine(d) {
   s.appendChild(h('span', 'stat-k', 'mean '));
   s.appendChild(h('span', 'stat-v', fmtNum(st.m)));
   s.appendChild(h('span', 'stat-k', ' spread '));
-  s.appendChild(h('span', 'stat-v', '±' + fmtNum(st.s)));
+  s.appendChild(h('span', 'stat-v', fmtNum(st.s)));
   s.appendChild(h('span', 'stat-k', ' range '));
   s.appendChild(h('span', 'stat-v', fmtNum(st.lo) + '–' + fmtNum(st.hi)));
   return s;
@@ -3001,7 +3007,7 @@ function renderDistFigure(d, title, width) {
   fig.appendChild(info.svg);
   fig.appendChild(cap);
   const st = distStats(d);
-  attachReadout(info, d, cap, `mean ${fmtNum(st.m)}  ·  spread ±${fmtNum(st.s)}  ·  ${fmtNum(st.lo)} to ${fmtNum(st.hi)}  ·  ${st.xs.length} possible results`);
+  attachReadout(info, d, cap, `mean ${fmtNum(st.m)}  ·  spread ${fmtNum(st.s)}  ·  ${fmtNum(st.lo)} to ${fmtNum(st.hi)}  ·  ${st.xs.length} possible results`);
   return fig;
 }
 
@@ -3094,7 +3100,7 @@ function renderBlocks(blocks, host, opts) {
         node = h('div', 'res res-figure');
         node.appendChild(h('div', 'res-label', (b.label ? b.label + ' — ' : '') + `${fmtInt(b.trials)} simulated trials`));
         for (const r of b.records) node.appendChild(renderRecord(r, width));
-        node.appendChild(h('p', 'caveat', 'Simulated, not exact. The ± figures are 95 per cent intervals: run more trials to narrow them.'));
+        node.appendChild(h('p', 'caveat', 'Simulated, not exact. A ± here is always a 95 per cent interval for the sampling error, and never a spread: run more trials to narrow it. The quantiles and the range carry no interval, because a normal band around an order statistic would be wrong.'));
         break;
       }
       case 'fight': {
@@ -3139,7 +3145,7 @@ function verdictLine(items, v) {
   const [a, b] = items.map(i => i.label);
   const p = h('p', 'verdict');
   const head = h('span');
-  head.appendChild(document.createTextNode(`Rolled against each other, ${a} comes out higher `));
+  head.appendChild(document.createTextNode(`Rolled separately and set against each other, ${a} comes out higher `));
   head.appendChild(h('span', 'stat-v', fmtPct(v.gt)));
   head.appendChild(document.createTextNode(` of the time, ties ${fmtPct(v.eq)}, and comes out lower ${fmtPct(v.lt)}. `));
   p.appendChild(head);
@@ -3149,7 +3155,12 @@ function verdictLine(items, v) {
   else if (v.bWins) tail.textContent = `Yet ${b} is at least as likely to reach every target number, so it is the better roll whatever you need \u2014 the head-to-head figure and the target-by-target one point opposite ways.`;
   else tail.textContent = 'Neither is better at every target number: which one you want depends on the number you need.';
   p.appendChild(tail);
-  return p;
+  const foot = h('p', 'caveat');
+  foot.textContent = 'The head-to-head figure rolls the two independently, which is the right question for two different dice and the wrong one for two versions of the same roll. The target-by-target comparison makes no such assumption.';
+  const wrap = h('div');
+  wrap.appendChild(p);
+  wrap.appendChild(foot);
+  return wrap;
 }
 
 function renderRecord(r, width) {
@@ -3183,7 +3194,7 @@ function renderRecord(r, width) {
   p.appendChild(h('span', 'stat-k', 'mean '));
   p.appendChild(h('span', 'stat-v', fmtNum(r.mean) + ciText(r.mean, r.se)));
   p.appendChild(h('span', 'stat-k', ' spread '));
-  p.appendChild(h('span', 'stat-v', '±' + fmtNum(r.sd)));
+  p.appendChild(h('span', 'stat-v', fmtNum(r.sd)));
   p.appendChild(h('span', 'stat-k', ' middle half '));
   p.appendChild(h('span', 'stat-v', fmtNum(r.q25) + '–' + fmtNum(r.q75)));
   p.appendChild(h('span', 'stat-k', ' range '));
@@ -3529,7 +3540,15 @@ check "rerolling forever cannot"             chance((d6 reroll 1 forever) == 1) 
 check "a natural 20 with advantage is 39/400" chance((d20 with advantage) == 20) == 39 / 400
 check "a coin-flip roll becomes three in four" chance((d20 with advantage) >= 11) == 0.75
 check "advantage and disadvantage share a variance" variance(d20 with advantage) == variance(d20 with disadvantage)
-check "a d6 times a d6 has 18 distinct values" outcomes(d6 * d6) == 18`;
+check "a d6 times a d6 has 18 distinct values" outcomes(d6 * d6) == 18
+
+-- An if whose condition is independent of its branches is a mixture; one
+-- whose condition shares a roll with them is not. given is the only way to
+-- share a roll, and it fixes a number, so both readings stay exact.
+check "sharing the roll: (15+..+20)/20"      mean(given r = d20 { if r >= 15 then r else 0 }) == 5.25
+check "separate rolls: 0.3 x 10.5"           mean(if d20 >= 15 then d20 else 0) == 3.15
+check "and the shared one is not a mixture"  mean(given a = d6 { if a >= 4 then a * a else 0 }) == 77 / 6
+check "a comparison inside given is 0 or 1"  mean(given r = d20 { if r >= 15 then 1 else 0 }) == 0.3`;
 
 /* ------------------------------------------------------------------ *
  * Wiring                                                              *
