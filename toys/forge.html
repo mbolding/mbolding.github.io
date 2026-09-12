@@ -280,6 +280,7 @@ button.quiet { border-color: var(--rule); color: var(--ink-2); }
 .res-check .check-p { color: var(--ink-3); font-style: italic; }
 .caveat { font-size: 0.95rem; font-style: italic; color: var(--ink-3); max-width: 34rem; margin: 0.5rem 0 0; }
 .fight-line { font-size: 1.02rem; margin: 0.5rem 0 0; max-width: 34rem; }
+.verdict { font-size: 1.02rem; margin: 0.6rem 0 0; max-width: 34rem; }
 .record { margin: 1.1rem 0 1.4rem; }
 .rec-name { font-style: italic; color: var(--ink-2); font-size: 1.02rem; }
 .rec-stats, .rec-binary { font-size: 0.98rem; margin: 0.1rem 0 0.4rem; }
@@ -327,11 +328,14 @@ table.ref { border-collapse: collapse; font-size: 1.02rem; width: 100%; min-widt
 table.ref th {
   text-align: left; font-weight: 400; font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
   font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2);
-  border-bottom: 1px solid var(--ink); padding: 0 0.9rem 0.3rem 0;
+  border-bottom: 1px solid var(--ink); padding: 0 0.9rem 0.35rem 0;
 }
-table.ref td { padding: 0.3rem 0.9rem 0.3rem 0; border-bottom: 1px solid var(--rule-2); vertical-align: top; line-height: 1.45; }
+/* two rules for the whole table: under the header and under the last row.
+   Alignment does the work that row striping pretends to do. */
+table.ref td { padding: 0.34rem 0.9rem 0.34rem 0; vertical-align: top; line-height: 1.45; }
+table.ref tr:first-child td { padding-top: 0.6rem; }
 table.ref td:first-child { white-space: nowrap; }
-table.ref tr:last-child td { border-bottom: none; }
+table.ref tr:last-child td { border-bottom: 1px solid var(--ink); padding-bottom: 0.6rem; }
 
 .tryline { margin: -0.6rem 0 1.4rem; }
 button.try { border: none; border-bottom: 1px solid var(--rule); padding: 0 0 1px; text-transform: none; letter-spacing: 0; font-family: inherit; font-size: 1rem; font-style: italic; color: var(--ink-2); background: transparent; }
@@ -403,7 +407,7 @@ footer.colophon a { background-image: linear-gradient(var(--rule), var(--rule));
 
 <section id="workbench">
 <h2>The workbench</h2>
-<p>Everything below is live. Edit the program and press <strong>Run</strong>, or <span class="hint"><span class="hint">&#8984;/Ctrl + Enter</span>#8984;/Ctrl + Enter</span>. Tab indents; Escape leaves the editor.</p>
+<p>Everything below is live. Edit the program and press <strong>Run</strong>, or <span class="hint">&#8984;/Ctrl&#8201;+&#8201;Enter</span>. Tab indents; Escape leaves the editor.</p>
 
 <div class="bench">
   <div class="bench-head">
@@ -446,6 +450,17 @@ footer.colophon a { background-image: linear-gradient(var(--rule), var(--rule));
 </section>
 
 <section>
+<h2>Two ways to be better</h2>
+<p>Given exactly two things, <code>compare</code> also answers the question the picture cannot: which one is better. There are two answers, and they disagree more often than anyone expects.</p>
+
+<p>Roll 4d6 keep highest 3 against 3d6&nbsp;+&nbsp;3 and the first comes out higher 34.3 per cent of the time. Ask instead which is likelier to reach a particular number &mdash; 15 or more, then 16 or more, and so on through the whole range &mdash; and 3d6&nbsp;+&nbsp;3 wins at every single threshold, without exception.<label for="sn-dom" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-dom" class="margin-toggle"><span class="sidenote">This is first-order stochastic dominance, and it is a much stronger statement than a higher average. It says that for any target number a designer might pick, the dominating roll is the one you would rather have. The interpreter checks it across the whole support, so it is a fact rather than an impression.</span></p>
+
+<p>Both are true. The first is a fact about a duel; the second is a fact about target numbers, and a game is nearly always about target numbers. A tool that reported only the averages &mdash; 12.24 against 13.5 &mdash; would have told you which was bigger and nothing about why the argument keeps happening.</p>
+<pre class="sample" data-sample="dominance"></pre>
+<div class="tryline"><button class="try" data-load="dominance">load this into the workbench</button></div>
+</section>
+
+<section>
 <h2>The one subtle idea</h2>
 <p>Give something a name with <code>let</code>, and each time you mention that name it rolls again. This is almost always what you want: <code>let attack = d20 + 5</code> names a kind of roll, not a particular one, and two attacks in a round are two separate rolls.</p>
 
@@ -454,7 +469,7 @@ footer.colophon a { background-image: linear-gradient(var(--rule), var(--rule));
 <p>The difference is not small. Two independent d20 rolls added together have a standard deviation of 8.16; one d20 roll counted twice has a standard deviation of 11.53. Same average, different game.</p>
 <pre class="sample" data-sample="given"></pre>
 <div class="tryline"><button class="try" data-load="given">load this into the workbench</button></div>
-<p>When you mention a random name twice in one expression, the interpreter says so in a note underneath the answer. It does not stop you; sometimes two swings is exactly what you meant.</p>
+<p>When you mention a random name twice in one expression, the interpreter says so in a note underneath the answer, and works out the other reading so you can see what you would be choosing between. It does not stop you; sometimes two swings is exactly what you meant.</p>
 </section>
 
 <section>
@@ -710,25 +725,6 @@ function normalize(d) {
   return out;
 }
 
-// One exploding die: on a max face, roll again and add. Truncated at `depth`;
-// residual probability faces^-depth is folded onto the last shell.
-function explode(faces, depth = 40, penetrating = false) {
-  if (faces < 2) throw new Error(`d${faces} would explode forever -- an exploding die needs at least two faces`);
-  const p = 1 / faces;
-  const out = new Map();
-  let shellProb = 1;                 // probability of having reached this shell
-  let base = 0;
-  for (let level = 0; level < depth; level++) {
-    const offset = penetrating && level > 0 ? -1 : 0;
-    for (let v = 1; v < faces; v++) out.set(base + v + offset, (out.get(base + v + offset) || 0) + shellProb * p);
-    base += faces + offset;
-    shellProb *= p;
-    if (shellProb < 1e-15) { out.set(base, (out.get(base) || 0) + shellProb); return out; }
-  }
-  out.set(base, (out.get(base) || 0) + shellProb);
-  return out;
-}
-
 // Reroll: if the result satisfies pred, roll once more and keep that (once=true),
 // or keep rerolling forever (once=false, i.e. condition on not satisfying pred).
 function reroll(d, pred, once = true) {
@@ -824,8 +820,10 @@ function tokenize(src) {
     if (ch === '\n') { push('nl', '\n', line, col, 1); i++; line++; col = 1; continue; }
     if (ch === ' ' || ch === '\t' || ch === '\r') { i++; col++; continue; }
 
-    // comments: -- to end of line, or #
-    if ((ch === '-' && src[i + 1] === '-') || ch === '#') {
+    // Comments: `#`, or `--` followed by space or another dash. Requiring that
+    // space is what keeps `5 --1` reading as a subtraction rather than vanishing.
+    if (ch === '#' || (ch === '-' && src[i + 1] === '-' &&
+        (src[i + 2] === undefined || ' \t\r\n-'.includes(src[i + 2])))) {
       while (i < n && src[i] !== '\n') { i++; col++; }
       continue;
     }
@@ -840,6 +838,21 @@ function tokenize(src) {
         const startCol = col; let s = '';
         while (i < n && isDigit(src[i])) { s += src[i]; i++; col++; }
         push('num', parseInt(s, 10), line, startCol, s.length);
+      }
+      // A word pressed against a die is almost always a typo. The exceptions
+      // are the short modifiers, which read fine either way: 4d6kh3.
+      if (i < n && isAlpha(src[i])) {
+        const wordCol = col; let w = '';
+        let j = i, c2 = col;
+        while (j < n && (isAlpha(src[j]) || isDigit(src[j]))) { w += src[j]; j++; c2++; }
+        const short = /^(kh|kl|dh|dl)(\d+)$/i.exec(w);
+        if (short) {
+          push('name', short[1].toLowerCase(), line, wordCol, 2);
+          push('num', parseInt(short[2], 10), line, wordCol + 2, short[2].length);
+          i = j; col = c2;
+        } else {
+          throw new ForgeError(`I read this as a die followed by "${w}", with nothing between them. Put a space in, or rename it if "${w}" was meant to be part of one word.`, line, wordCol, w.length);
+        }
       }
       continue;
     }
@@ -870,6 +883,12 @@ function tokenize(src) {
       const startCol = col; let s = '';
       while (i < n && (isAlpha(src[i]) || isDigit(src[i]))) { s += src[i]; i++; col++; }
       const lower = s.toLowerCase();
+      const short = /^(kh|kl|dh|dl)(\d+)$/.exec(lower);
+      if (short) {
+        push('name', short[1], line, startCol, 2);
+        push('num', parseInt(short[2], 10), line, startCol + 2, short[2].length);
+        continue;
+      }
       if (lower === 'd') push('op', 'd', line, startCol, s.length);
       else if (RESERVED.has(lower)) push('kw', lower, line, startCol, s.length);
       else push('name', s, line, startCol, s.length);
@@ -1285,14 +1304,14 @@ function parse(src) {
     return { kind: 'given', binds, body, line: t.line, col: t.col, length: t.length };
   }
 
-  // A newline may continue an expression when the next real token cannot
-  // possibly start a statement.
+  // An expression may run on to the next line when the operator leads that
+  // line, because no statement can begin with an operator. The continuation
+  // has to be the very next line: a blank line ends the thought.
   function continues(pred) {
     if (pred()) return true;
-    if (!at('nl')) return false;
-    let k = pos;
-    while (toks[k] && toks[k].type === 'nl') k++;
-    const save = pos; pos = k;
+    if (!at('nl') || (toks[pos + 1] && toks[pos + 1].type === 'nl')) return false;
+    const save = pos;
+    pos++;
     const ok = pred();
     if (!ok) pos = save;
     return ok;
@@ -1580,6 +1599,7 @@ class Interp {
     this.work = 0;
     this.workCap = opts.workCap || 40000000;
     this.diceCache = new Map();
+    this.letAst = new Map();
     this.depth = 0;
     this.depthCap = opts.depthCap || 160;
     this.maxFaces = opts.maxFaces || 10000;
@@ -1833,7 +1853,8 @@ class Interp {
     const outer = this.env;
     this.env = local;
     if (++this.depth > this.depthCap) {
-      this.depth = 0;
+      this.letAst = new Map();
+    this.depth = 0;
       fail(`"${name}" keeps calling itself and never stops. A rule has to reach an answer that does not call itself again.`);
     }
     try { return this.eval(fn.body); } finally { this.env = outer; this.depth--; }
@@ -2302,7 +2323,8 @@ function runStatement(I, st, blocks, lines, budget) {
       else I.env.set(st.name, simplify(v));
       const reuse = countMentions(st.expr, I);
       blocks.push({ type: 'let', name: st.name, value: I.env.get(st.name), src: srcOf(lines, st), line: st.line });
-      if (reuse.length) blocks.push({ type: 'note', line: st.line, msg: `Each time you mention ${reuse.map(r => '“' + r + '”').join(' and ')} it rolls again. To share one roll, use given.` });
+      I.letAst.set(st.name, st.expr);
+      if (reuse.length) blocks.push({ type: 'note', line: st.line, msg: reuseNote(I, st.expr, I.env.get(st.name), reuse) });
       return;
     }
     case 'define':
@@ -2333,7 +2355,7 @@ function runStatement(I, st, blocks, lines, budget) {
       const v = simplify(collapse(I.eval(st.expr)));
       blocks.push({ type: st.kind, label: st.label, value: v, src: srcOf(lines, st), line: st.line, exact: true });
       const reuse = countMentions(st.expr, I);
-      if (reuse.length) blocks.push({ type: 'note', line: st.line, msg: `Each time you mention ${reuse.map(r => '“' + r + '”').join(' and ')} it rolls again. To share one roll, use given.` });
+      if (reuse.length) blocks.push({ type: 'note', line: st.line, msg: reuseNote(I, st.expr, v, reuse) });
       return;
     }
     case 'compare': {
@@ -2341,7 +2363,7 @@ function runStatement(I, st, blocks, lines, budget) {
         label: it.label || `#${i + 1}`,
         value: simplify(collapse(I.eval(it.expr))),
       }));
-      blocks.push({ type: 'compare', items, src: srcOf(lines, st), line: st.line });
+      blocks.push({ type: 'compare', items, verdict: headToHead(I, items), src: srcOf(lines, st), line: st.line });
       return;
     }
     case 'check': {
@@ -2359,20 +2381,88 @@ function runStatement(I, st, blocks, lines, budget) {
   }
 }
 
-// A gentle lint: warn when a random name appears more than once in one expression.
+// Two distributions can be compared in two quite different ways, and they
+// disagree often enough to be worth reporting together: which wins when they
+// are rolled against each other, and which is likelier to reach any given
+// target. The second is first-order stochastic dominance.
+function headToHead(I, items) {
+  if (items.length !== 2) return null;
+  for (const it of items) if (it.value.t === 'cat' || it.value.t === 'str') return null;
+  let A, B;
+  try { A = asDist(collapse(items[0].value)); B = asDist(collapse(items[1].value)); }
+  catch (e) { return null; }
+  if (A.size * B.size > 4000000) return null;
+  I.tick(A.size * B.size);
+  let gt = 0, eq = 0, lt = 0;
+  for (const [x, p] of A) for (const [y, q] of B) {
+    if (x > y) gt += p * q; else if (x === y) eq += p * q; else lt += p * q;
+  }
+  const ts = [...new Set([...A.keys(), ...B.keys()])].sort((a, b) => a - b);
+  const tail = (d, t) => { let s = 0; for (const [v, p] of d) if (v >= t) s += p; return s; };
+  let aDom = true, bDom = true;
+  for (const t of ts) {
+    const pa = tail(A, t), pb = tail(B, t);
+    if (pa < pb - 1e-12) aDom = false;
+    if (pb < pa - 1e-12) bDom = false;
+  }
+  return { gt, eq, lt, aWins: aDom && !bDom, bWins: bDom && !aDom, same: aDom && bDom };
+}
+
+// The warning is only useful if it shows what the other reading would give.
+// Both readings share a mean; they differ in spread, which is the thing a
+// designer actually cares about, so work out the shared-roll version too.
+function reuseNote(I, exprNode, asWritten, names) {
+  const quoted = names.map(r => '“' + r + '”').join(' and ');
+  const plain = `Each time you mention ${quoted} it rolls again, so this is a fresh roll every time. To share one roll instead, use given.`;
+  const binds = [];
+  for (const n of names) {
+    const ast = I.letAst.get(n);
+    if (!ast) return plain;
+    binds.push({ name: n, expr: ast });
+  }
+  let shared;
+  try {
+    const saveWork = I.work;
+    I.work = 0;
+    shared = collapse(I.eval({ kind: 'given', binds, body: exprNode, line: exprNode.line }));
+    I.work = saveWork;
+  } catch (e) { return plain; }
+  if (shared.t !== 'dist' || asWritten.t !== 'dist') return plain;
+  const a = asDist(collapse(asWritten)), b = asDist(shared);
+  const sa = sd(a), sb = sd(b);
+  if (Math.abs(sa - sb) < 1e-9) return plain;
+  const ma = mean(a), mb = mean(b);
+  if (Math.abs(ma - mb) < 1e-9) {
+    return `${plain} Either way the average is ${fmtNum(ma)}, but the spread is ±${fmtNum(sa)} as written and would be ±${fmtNum(sb)} shared.`;
+  }
+  return `${plain} As written that averages ${fmtNum(ma)} with a spread of ±${fmtNum(sa)}; shared it would average ${fmtNum(mb)} with a spread of ±${fmtNum(sb)}.`;
+}
+
+// A gentle lint: warn when a random name appears more than once in one
+// expression, which means it rolls more than once. Names bound by an
+// enclosing given are exempt: sharing one roll is the whole point of given.
 function countMentions(node, I) {
   const counts = new Map();
-  const walk = n => {
+  const walk = (n, bound) => {
     if (!n || typeof n !== 'object') return;
-    if (n.kind === 'var') counts.set(n.name, (counts.get(n.name) || 0) + 1);
-    if (n.kind === 'given') { walk(n.body); n.binds.forEach(b => walk(b.expr)); return; }
+    if (n.kind === 'var') {
+      if (!bound.has(n.name)) counts.set(n.name, (counts.get(n.name) || 0) + 1);
+      return;
+    }
+    if (n.kind === 'given') {
+      n.binds.forEach(b => walk(b.expr, bound));
+      const inner = new Set(bound);
+      n.binds.forEach(b => inner.add(b.name));
+      walk(n.body, inner);
+      return;
+    }
     for (const k of Object.keys(n)) {
       const c = n[k];
-      if (Array.isArray(c)) c.forEach(walk);
-      else if (c && typeof c === 'object' && c.kind) walk(c);
+      if (Array.isArray(c)) c.forEach(x => walk(x, bound));
+      else if (c && typeof c === 'object' && c.kind) walk(c, bound);
     }
   };
-  walk(node);
+  walk(node, new Set());
   const out = [];
   for (const [name, c] of counts) {
     if (c < 2) continue;
@@ -2628,8 +2718,8 @@ function niceTicks(lo, hi, want, wholeOnly) {
 /* ---- the main histogram ------------------------------------------ */
 function histogram(d, opts) {
   opts = opts || {};
-  const W = opts.width || 620, H = opts.height || 150;
-  const padL = 4, padR = 4, padT = 14, padB = 26;
+  const W = opts.width || 620, H = opts.height || 160;
+  const padL = 38, padR = 6, padT = 16, padB = 26;
   const full = d;
   const trimmed = trimForDrawing(d);
   d = trimmed.d;
@@ -2646,7 +2736,7 @@ function histogram(d, opts) {
                         'aria-label': opts.aria || 'probability distribution' });
   const bars = el('g', {});
   const gap = n > 1 ? plotW / (n - 1) : plotW;
-  const bw = Math.max(1, Math.min(26, gap * 0.72));
+  const bw = Math.max(1, Math.min(10, gap * 0.62));
 
   for (const v of st.xs) {
     const p = d.get(v);
@@ -2658,8 +2748,13 @@ function histogram(d, opts) {
   }
   g.appendChild(bars);
 
-  // range frame: the baseline covers only where there is data
+  // range frames: each rule spans exactly the data and nothing more, so the
+  // frame itself reports the range instead of merely boxing the picture in.
   g.appendChild(el('line', { x1: X(st.lo) - bw / 2, y1: baseY + 0.5, x2: X(st.hi) + bw / 2, y2: baseY + 0.5, class: 'frame' }));
+  const axisX = padL - 12;
+  g.appendChild(el('line', { x1: axisX, y1: baseY, x2: axisX, y2: Y(st.peak), class: 'frame' }));
+  g.appendChild(txt(axisX - 5, Y(st.peak) + 4, fmtPct(st.peak), 'lab', 'end'));
+  g.appendChild(txt(axisX - 5, baseY + 1, '0', 'lab', 'end'));
 
   // one standard deviation either side of the mean, drawn under the axis as a light rule
   if (fullSt.s > 0) {
@@ -2851,7 +2946,7 @@ function valueInline(v) {
   if (v.t === 'num') {
     if (v.pct) {
       span.appendChild(h('span', 'num', fmtPct(v.v)));
-      span.appendChild(h('span', 'stat-k', '  ' + fmtNum(v.v)));
+      span.appendChild(h('span', 'stat-k', '  ·  ' + fmtNum(v.v)));
     } else span.appendChild(h('span', 'num', fmtNum(v.v)));
     return span;
   }
@@ -2979,6 +3074,7 @@ function renderBlocks(blocks, host, opts) {
         fig.appendChild(smallMultiples(b.items, width));
         fig.appendChild(cap);
         node.appendChild(fig);
+        if (b.verdict) node.appendChild(verdictLine(b.items, b.verdict));
         break;
       }
       case 'sweep': {
@@ -3037,6 +3133,23 @@ function renderBlocks(blocks, host, opts) {
   }
   if (!host.children.length) host.appendChild(h('p', 'res-empty', 'Nothing to show yet. Add a line such as  show 3d6'));
   return shown;
+}
+
+function verdictLine(items, v) {
+  const [a, b] = items.map(i => i.label);
+  const p = h('p', 'verdict');
+  const head = h('span');
+  head.appendChild(document.createTextNode(`Rolled against each other, ${a} comes out higher `));
+  head.appendChild(h('span', 'stat-v', fmtPct(v.gt)));
+  head.appendChild(document.createTextNode(` of the time, ties ${fmtPct(v.eq)}, and comes out lower ${fmtPct(v.lt)}. `));
+  p.appendChild(head);
+  const tail = h('span');
+  if (v.same) tail.textContent = 'The two reach every target with the same probability.';
+  else if (v.aWins) tail.textContent = `But ${a} is at least as likely to reach every target number, so it is the better roll whatever you need.`;
+  else if (v.bWins) tail.textContent = `Yet ${b} is at least as likely to reach every target number, so it is the better roll whatever you need \u2014 the head-to-head figure and the target-by-target one point opposite ways.`;
+  else tail.textContent = 'Neither is better at every target number: which one you want depends on the number you need.';
+  p.appendChild(tail);
+  return p;
 }
 
 function renderRecord(r, width) {
@@ -3165,6 +3278,24 @@ compare "3d6": 3d6,
         "1d20 (for scale)": 1d20
 
 plot 4d6 keep highest 3` },
+
+  { id: 'dominance', name: 'Two ways to be better', code:
+`-- Two ways to roll an ability score. Rolled against each other,
+-- 4d6 keep highest 3 comes out higher better than a third of the
+-- time. But ask which is likelier to reach any target you name and
+-- the answer flips, at every single target.
+compare "4d6 keep highest 3": 4d6 keep highest 3,
+        "3d6 + 3": 3d6 + 3
+
+show "4d6 keep highest 3 reaches 15+" atleast(4d6 keep highest 3, 15)
+show "3d6 + 3 reaches 15+" atleast(3d6 + 3, 15)
+
+show "4d6 keep highest 3 rolls an 18" chance((4d6 keep highest 3) == 18)
+show "3d6 + 3 rolls an 18" chance((3d6 + 3) == 18)
+
+-- Where neither one dominates, the answer really does depend on
+-- the number you need.
+compare "3d6": 3d6, "1d20": 1d20` },
 
   { id: 'given', name: 'Two rolls, or one roll twice', code:
 `let attack = d20 + 5
@@ -3364,7 +3495,41 @@ check "one roll counted twice has twice the spread" abs(sd(given a = d20 { a + a
 check "two rolls added have root-two the spread"    abs(sd(d20 + d20) - 1.41421356 * sd(d20)) < 1e-6
 check "half of 7 is 3"                       half(7) == 3
 check "eleven halved and rounded down is 5"  11 // 2 == 5
-check "a table with equal ranges is uniform" outcomes(3d6) == 16`;
+check "a table with equal ranges is uniform" outcomes(3d6) == 16
+
+-- The tie boundary is where a keep/drop engine usually goes wrong: when
+-- several dice show the cut value, how many of them are kept is decided,
+-- not chosen. These are exact counts out of 1296.
+check "4d6kh3 rolls 18 in 21 cases of 1296"  chance((4d6 keep highest 3) == 18) == 21 / 1296
+check "and 3 in exactly 1 case"              chance((4d6 keep highest 3) == 3) == 1 / 1296
+check "and peaks at 13, in 172 cases"        chance((4d6 keep highest 3) == 13) == 172 / 1296
+check "and 10, in 122 cases"                 chance((4d6 keep highest 3) == 10) == 122 / 1296
+check "3d6 keep highest 2 averages 8.458333" abs(mean(3d6 kh2) - 8.458333333) < 1e-7
+check "5d6 drop lowest 2 averages 13.43017"  abs(mean(5d6 dl2) - 13.430169753) < 1e-7
+check "the short and long forms agree"       mean(4d6kh3) == mean(4d6 keep highest 3)
+check "max of two d6 averages 161/36"        abs(mean(max(d6, d6)) - 4.472222222) < 1e-7
+
+-- An exploding d6 can never total 6: rolling a 6 forces another die, and
+-- the smallest thing that die can add is 1. A penetrating d6 has no such
+-- gap, because subtracting one from each extra die fills it exactly.
+check "an exploding d6 can never total 6"    chance((d6 exploding) == 6) == 0
+check "nor 12, nor 18"                       chance((d6 exploding) == 12) + chance((d6 exploding) == 18) == 0
+check "but 7 comes up 1 time in 36"          chance((d6 exploding) == 7) == 1 / 36
+check "a penetrating d6 has no gaps"         chance((d6 penetrating) == 11) == 1 / 216
+check "and reaches 16 once in 1296"          chance((d6 penetrating) == 16) == 1 / 1296
+
+-- Rerolling once is not the same rule as rerolling until it sticks: after
+-- one reroll a 1 is still possible, 1 time in 36.
+check "reroll-once can still show a 1"       chance((d6 reroll 1) == 1) == 1 / 36
+check "and its variance is 35/16"            variance(d6 reroll 1) == 2.1875
+check "rerolling forever cannot"             chance((d6 reroll 1 forever) == 1) == 0
+
+-- Advantage does not double the critical rate: both dice showing 20 would
+-- otherwise be counted twice.
+check "a natural 20 with advantage is 39/400" chance((d20 with advantage) == 20) == 39 / 400
+check "a coin-flip roll becomes three in four" chance((d20 with advantage) >= 11) == 0.75
+check "advantage and disadvantage share a variance" variance(d20 with advantage) == variance(d20 with disadvantage)
+check "a d6 times a d6 has 18 distinct values" outcomes(d6 * d6) == 18`;
 
 /* ------------------------------------------------------------------ *
  * Wiring                                                              *
