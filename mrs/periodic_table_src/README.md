@@ -57,9 +57,11 @@ That file is **not** redistributed here. It is fetched on first run from the Eas
 repository and cached as `.isotopedata.cache.txt`, which is gitignored. If the fetch fails
 the script tells you the URL to save it from by hand.
 
-Six differences between this data and that reference survive on purpose, and are listed in
-`crosscheck.py` with the reason: three Pyykkö 2018 quadrupole revisions and the 2013
-reanalysis of <sup>229</sup>Th. Anything else it finds is a finding.
+Seven differences between this data and that reference survive on purpose, and are listed in
+`crosscheck.py` with the reason: three quadrupole moments where this chart keeps a value the
+reference does not (<sup>43</sup>Ca, <sup>51</sup>V, <sup>67</sup>Zn), the 2013 reanalysis of
+<sup>229</sup>Th, and <sup>209</sup>Bi's 2023 redetermination. Anything else it finds is a
+finding.
 
 The second pass compares every gyromagnetic ratio and Larmor frequency quoted in the *prose*
 of the dossiers and shift tables against the table the page computes from, so that the words
@@ -70,6 +72,7 @@ they legitimately differ, xenon, where the gas-phase and reference-compound freq
 ## Status, and what needs doing
 
 The chart is a preprint. `../periodic_table_review_notes.md` records every value its
-compilers were not confident of, and the page's own *Where this is still soft* section names
-the weakest columns. The largest open item is that the notes cover elements from Z = 43
-upward but not Z = 1 to 42, which is the half of the table people actually use.
+compilers and auditors were not confident of, and the page's own *Where this is still soft*
+section names the weakest columns. Version 0.2 closed the gap that used to be the largest
+open item, the absence of notes for Z = 1 to 42; every slice, dossier and shift table now
+has them.
