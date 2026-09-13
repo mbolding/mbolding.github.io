@@ -80,10 +80,14 @@ for p in sorted(glob.glob(os.path.join(DIR, "slice_*.json"))):
 # with the reason. Anything not listed here is a finding.
 EXPLAINED = {
     "43Ca": "Q: Pyykko 2018 (-4.44 fm2) rather than the older Stone value (-4.08)",
-    "51V":  "Q: Pyykko 2018 (-5.2 fm2) rather than the older Stone value (-4.3)",
+    "51V":  "Q: -5.2 fm2 is kept here; the reference table gives -4.3 and a third compilation -4.8. "
+            "Which value belongs to which compilation is unresolved, see the review notes",
     "67Zn": "Q: Pyykko 2018 (12.2 fm2) rather than the older Stone value (15.0)",
     "229Th": "mu and Q: 2013 reanalysis of the laser spectroscopy, 0.360 muN and 311 fm2, "
              "superseding 0.46 muN and 430 fm2",
+    "209Bi": "Q: -42.2 fm2 from Dognon and Pyykko 2023, superseding the -51.6 fm2 of Stone 2013 "
+             "and of Pyykko's own 2017 table; the world average of modern determinations is "
+             "-42.0(1.7) fm2",
 }
 
 hard, soft, unknown, explained = [], [], [], []
