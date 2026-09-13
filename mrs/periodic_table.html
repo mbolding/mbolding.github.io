@@ -2234,13 +2234,23 @@ fieldSvg.addEventListener('pointerdown', function (ev) {
   setField(snapField(axisFromEvent(ev)));
   ev.preventDefault();
 });
+/* Pointer events arrive faster than the table can be redrawn on a slow machine, so
+   coalesce them: remember the latest field and repaint once per animation frame. */
+let pendingField = null, dragFrame = null;
 fieldSvg.addEventListener('pointermove', function (ev) {
   if (!dragging) return;
-  setField(snapField(axisFromEvent(ev)));
+  pendingField = snapField(axisFromEvent(ev));
+  if (dragFrame !== null) return;
+  dragFrame = requestAnimationFrame(function () {
+    dragFrame = null;
+    if (pendingField !== null) { setField(pendingField); pendingField = null; }
+  });
 });
 function endDrag(ev) {
   if (!dragging) return;
   dragging = false;
+  if (dragFrame !== null) { cancelAnimationFrame(dragFrame); dragFrame = null; }
+  if (pendingField !== null) { state.B0 = clamp(pendingField, FIELD_MIN, FIELD_MAX); pendingField = null; }
   if (ev && fieldSvg.hasPointerCapture(ev.pointerId)) fieldSvg.releasePointerCapture(ev.pointerId);
   repaint();
 }
