@@ -1,0 +1,97 @@
+{
+  "key": "na23",
+  "title": "Sodium-23 Tissue Imaging",
+  "summary": "23Na is spin 3/2 at 100 percent natural abundance with a gyromagnetic ratio of 11.262 MHz/T, so a 3T system runs at 33.8 MHz and a 7T at 78.8 MHz. Tissue carries roughly 40 mM of sodium against about 80 M of water 1H, and at 9.3 percent of the 1H sensitivity per nucleus the in vivo signal is near 1/20000 of the proton signal; that is the whole reason voxels are 3 to 4 mm and scans run 10 to 15 minutes. Quadrupolar relaxation makes the transverse decay biexponential, about 60 percent of the signal gone with a 0.5 to 5 ms time constant and the rest with 15 to 30 ms, so the readout has to be UTE with TE under about 0.5 ms on a radial, density-adapted radial or twisted projection trajectory. T1 is only about 25 to 40 ms in tissue and the Larmor frequency is low, so a TR near 100 ms with a nearly 90 degree hard pulse costs almost no SAR and the duty cycle is set by gradient heating, not by power deposition.",
+  "facts": [
+    {
+      "label": "Nucleus properties and the sensitivity deficit",
+      "value": "Spin 3/2, 100 percent natural abundance, 11.262 MHz/T; 16.9 MHz at 1.5T, 33.8 MHz at 3T, 78.8 MHz at 7T; 9.3 percent of the 1H sensitivity per nucleus",
+      "note": "Combine 9.3 percent with about 40 mM sodium against roughly 80 M of tissue water 1H and the in vivo signal is near 1/20000 of the proton signal, which is a larger deficit than 31P faces and forces every design choice that follows."
+    },
+    {
+      "label": "Compartment concentrations",
+      "value": "Intracellular 10 to 15 mM, extracellular fluid and plasma 140 to 150 mM, extracellular volume fraction about 0.2 in brain",
+      "note": "The volume weighted sum, 0.2 x 145 mM plus 0.8 x 12 mM, is about 39 mM, so a measured total sodium concentration near 40 mM is mostly the small extracellular volume, and a 10 percent TSC rise can come either from cells failing or from the extracellular space expanding."
+    },
+    {
+      "label": "Total tissue sodium concentration, healthy brain",
+      "value": "Pooled mean 40.5 mM, 95 percent CI 37.6 to 43.4 mM, from a meta-analysis of 28 studies and 400 individuals",
+      "note": "The spread between studies is larger than the biological difference between grey and white matter, so cross-site absolute TSC comparison is not safe; use within-study contrasts or a shared calibration."
+    },
+    {
+      "label": "TSC in other tissues",
+      "value": "Skeletal muscle 15 to 30 mM; articular cartilage 240 to 320 mM, corresponding to a fixed charge density near -150 to -180 mM; CSF and vitreous humour 140 to 145 mM",
+      "note": "Cartilage is the one tissue where 23Na has abundant signal, because sodium counter-ions balance the proteoglycan fixed charge; CSF and vitreous are the usual internal concentration references in the head."
+    },
+    {
+      "label": "Biexponential T2* from quadrupolar relaxation",
+      "value": "Fast component 0.5 to 5 ms and slow component 15 to 30 ms in brain parenchyma; across tissues the reported ranges widen to 0.2 to 5.5 ms and 10 to 64 ms; free fluid such as CSF is monoexponential at roughly 50 to 60 ms",
+      "note": "For spin 3/2 in the slow motion regime theory puts 60 percent of the transverse signal in the fast decaying satellite transitions and 40 percent in the central transition; fitted in vivo weights scatter around that, so quote the model you fitted."
+    },
+    {
+      "label": "What TE costs you",
+      "value": "With 60 percent at T2f = 1 ms and 40 percent at T2s = 20 ms, TE = 0.3 ms keeps about 84 percent of the signal, TE = 0.5 ms about 75 percent, TE = 2 ms about 44 percent and TE = 5 ms about 32 percent",
+      "note": "This is the arithmetic of the stated two component model, not a measurement, but it is why a 2 ms minimum TE on a stock gradient echo throws away more than half the sodium before the first sample."
+    },
+    {
+      "label": "T1 and the duty cycle it buys",
+      "value": "About 26.5 ms in calf muscle at 3T and 28.1 ms at 7T; 38.9 +/- 4.8 ms in brain white matter at 7T; longer in CSF, roughly 50 to 60 ms",
+      "note": "At T1 = 30 ms and TR = 100 ms the Ernst angle is 88 degrees, so you run near a full 90 degree hard pulse at TR 100 to 150 ms; at 78.8 MHz the deposited power is comparable to 1H at about 1.9T, so SAR is not the binding constraint and gradient duty cycle usually is."
+    },
+    {
+      "label": "Trajectory efficiency",
+      "value": "Density-adapted 3D radial gives up to 1.8 times the SNR of conventional 3D radial projection reconstruction at equal scan time; twisted projection imaging reaches comparable SNR efficiency; a dual-echo PETALUTE cartilage scan at 3T ran 2:06 against 3:36 for density-adapted radial at matched quantification",
+      "note": "Plain 3D radial wastes readout time in the oversampled centre; density adaptation and TPI flatten the sampling density so the outer k-space is sampled before the fast T2* component is gone."
+    },
+    {
+      "label": "Working resolution and scan time",
+      "value": "Brain at 7T, about 3 to 4 mm nominal isotropic in 10 to 15 minutes for one contrast; a multi-echo relaxometry protocol at 3.5 mm isotropic with 8 echoes, TR 120 ms and a 500 us hard pulse takes about 20 minutes",
+      "note": "Measured 23Na SNR at 7T is 2.2 to 2.7 times that at 3T, so matching a 7T image at 3T costs roughly 5 to 7 times the averaging, or you accept a coarser voxel."
+    },
+    {
+      "label": "Triple quantum filtering and its specificity",
+      "value": "In perfused heart with a shift reagent, 32 +/- 6 percent of the TQF signal still came from extracellular sodium; TQF SNR is a small fraction of the single quantum signal for the same scan time",
+      "note": "TQF weights toward sodium in restricted, anisotropic environments, which is correlated with but not identical to intracellular; the three pulse phase cycle also adds SAR and off-resonance sensitivity, which is why SISTINA and CRISTINA style sequences collect single and triple quantum signals in one acquisition."
+    },
+    {
+      "label": "Acute ischaemic stroke",
+      "value": "Human lesion signal rose 10 percent or less within 7 hours of onset, 23 percent or more beyond 9 hours, plateauing at 69 +/- 18 percent; in rat focal ischaemia TSC climbed at 5.7 mmol/L per hour and regions above 70 mM were histologically infarcted",
+      "note": "The rise is slow enough that 23Na is a tissue viability clock rather than a hyperacute detector; onset time estimated by back extrapolation lagged true onset by 72 +/- 24 minutes in rat, so do not sell it as a wake-up stroke timer."
+    },
+    {
+      "label": "Multiple sclerosis",
+      "value": "Normal appearing white matter 37.5 +/- 2.7 mM against 35.2 +/- 3.4 mM in controls; contrast enhancing lesions 49.1 +/- 7.0 mM, T1 hypointense lesions 45.1 +/- 6.3 mM, T1 isointense lesions 39.9 +/- 5.5 mM; chronic active lesions 49.6 +/- 8.5 mM against 39.9 +/- 4.8 mM for chronic stable",
+      "note": "The NAWM effect is about 2 mM on a 3 mM standard deviation, so it needs group sizes and tight calibration; the lesion effects are large enough to see in an individual."
+    },
+    {
+      "label": "Cartilage and osteoarthritis",
+      "value": "Healthy patellar cartilage averages roughly 240 to 260 mM, bovine cartilage 200 mM at the edges to 390 mM centrally with a mean near 320 mM; proteoglycan loss lowers fixed charge density and sodium with it",
+      "note": "Because sodium tracks fixed charge density through Donnan equilibrium it reports on glycosaminoglycan content directly, without the contrast agent that dGEMRIC needs."
+    },
+    {
+      "label": "Muscle sodium channelopathy",
+      "value": "A 22 percent rise in 23Na signal intensity with cold induced weakness in paramyotonia, alongside oedema-like 1H changes",
+      "note": "Sodium overload is the proposed mechanism of the fixed weakness that develops with age in hyperkalaemic periodic paralysis, which makes 23Na a plausible pharmacodynamic readout for drugs meant to unload it."
+    }
+  ],
+  "practice": [
+    "Get TE under 0.5 ms and keep the readout short. A hard nonselective pulse of 0.3 to 1 ms, ramp sampling and a density-adapted radial or TPI trajectory; a readout of 5 to 20 ms already applies a strong T2* filter to the outer k-space, so nominal resolution overstates what you actually resolve.",
+    "Run TR 100 to 150 ms with a flip near 90 degrees. With T1 about 30 ms the Ernst angle at TR 100 ms is 88 degrees, and at 33.8 or 78.8 MHz the SAR headroom is large, so spend the time on projections rather than on waiting for recovery.",
+    "Calibrate with agarose or polyacrylamide gel phantoms, typically a few percent gel, at two or more known concentrations placed in the field of view. Pure saline relaxes monoexponentially and will bias a single-TE calibration against biexponential tissue.",
+    "Acquire at least two echoes, for example 0.3 ms and 5 ms, if you want TSC rather than a relaxation weighted image, and state whether your reported TSC is relaxation corrected. Most of the between-study scatter in the literature is this choice.",
+    "Map B1 on the 23Na channel itself. Most systems have no 23Na body coil, so transmit comes from the local coil and the flip angle varies across the head; a 1H B1 map at 298 MHz tells you nothing about 78.8 MHz sodium.",
+    "Use CSF or vitreous humour at 140 to 145 mM as an internal reference when external phantoms are impractical, and segment it from a coregistered 1H scan rather than from the sodium image.",
+    "Budget for motion. A 10 to 20 minute scan will move; interleaved 1H navigators or a self-navigating radial trajectory are cheaper than repeating the acquisition.",
+    "For fluid attenuation, note that TI = T1 ln2 puts the CSF null near 35 to 40 ms for a CSF T1 of 50 to 60 ms. Long or adiabatic inversion pulses work better than a hard 180 here, and the inversion costs four times the power of a 90."
+  ],
+  "pitfalls": [
+    "Partial volume with CSF. CSF at about 140 mM is three to four times tissue, so a few percent of CSF in a 3 to 4 mm voxel moves the TSC substantially; published partial volume corrections shift grey and white matter values by roughly 10 to 20 percent, and atrophy alone can then masquerade as rising tissue sodium.",
+    "Reporting TSC as if it were intracellular sodium. TSC is a volume weighted sum dominated by the extracellular pool, so cell swelling, cell loss and oedema all push it the same direction; separating them needs TQF, inversion recovery fluid suppression or an explicit two compartment model, each with its own assumptions.",
+    "Gradient timing errors and eddy currents on UTE trajectories. A few microseconds of delay between the nominal and actual k-space trajectory blurs the image and biases the quantitative TSC map; measure the trajectory or fit the delay rather than trusting the nominal waveform.",
+    "Fitting a monoexponential to biexponential decay. A single-TE or single-component fit gives an apparent T2* that depends on which echoes you sampled, and the resulting relaxation correction can be wrong by tens of percent in tissue while being fine in CSF.",
+    "Assuming the phantom relaxes like tissue. A calibration standard whose T2* is 50 ms and whose T1 is 60 ms will not track the signal loss of tissue with a 1 ms fast component and a 30 ms T1, so the concentration scale drifts with TE and TR.",
+    "Treating TQF as a clean intracellular filter. A third of the TQF signal can be extracellular, and the SNR penalty means the TQF image is coarser and noisier than the single quantum image acquired in the same time, so a TQF difference needs the same statistical care as any low SNR contrast."
+  ],
+  "elements": ["Na"],
+  "nuclei": ["23Na"]
+}
