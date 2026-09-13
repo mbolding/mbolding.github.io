@@ -1112,15 +1112,17 @@ function encode(el) {
     }
 
     case 'quadrupole': {
-      /* The most useful fact here is the absence of a quadrupole, so spin one half gets its own mark. */
-      const halves = el.isotopes.filter(function (i) { return i.I === 0.5; })
-        .sort(function (a, b) { return (b.recH || 0) - (a.recH || 0); });
-      if (halves.length) {
+      /* The most useful fact here is the absence of a quadrupole, so spin one half gets its own
+         mark. It has to be the isotope the cell names, though. Oxygen's only spin-half nuclide is
+         15O, a two-minute positron emitter at zero natural abundance; marking oxygen
+         quadrupole-free would invert the one thing everybody knows about 17O. */
+      if (iso && iso.I === 0.5) {
         out.bg = null; out.value = 'I ½'; out.accent = true;
         break;
       }
-      const q = el.isotopes.filter(function (i) { return i.q !== null && i.q !== undefined; })
-        .sort(function (a, b) { return (b.recH || 0) - (a.recH || 0); })[0];
+      const q = (iso && iso.q !== null && iso.q !== undefined) ? iso
+        : el.isotopes.filter(function (i) { return i.q !== null && i.q !== undefined && i.recH > 0; })
+            .sort(function (a, b) { return (b.recH || 0) - (a.recH || 0); })[0];
       if (!q) { out.value = '–'; out.valueMuted = true; break; }
       const aq = Math.abs(q.q);
       const t = clamp((log10(aq) + 1) / 3.7, 0, 1);
@@ -1487,7 +1489,7 @@ function paintLegend() {
     case 'spin':
       rampKey('I = ½', 'I = 9⁄2', RAMP_SEQ, 'only I = ½ has no quadrupole'); break;
     case 'abundance':
-      rampKey('0.01%', '100%', RAMP_SEQ, 'of the leading NMR-active isotope'); break;
+      rampKey('10' + supDigits(-4) + '%', '100%', RAMP_SEQ, 'of the leading NMR-active isotope'); break;
     case 'quadrupole':
       rampKey('0.1', '500 fm' + supDigits(2), RAMP_SEQ,
               '<span style="color:var(--accent)">I ½</span> = no quadrupole moment'); break;
@@ -1532,7 +1534,8 @@ function paintLegend() {
   hint.style.color = 'var(--fainter)';
   hint.style.fontStyle = 'italic';
   hint.style.marginLeft = 'auto';
-  hint.innerHTML = 'bar on each cell floor: receptivity, in every view · corner digit: how many isotopes carry spin';
+  hint.innerHTML = 'bar on each cell floor: receptivity, in every view · corner digit: ' +
+    (state.view === 'roles' ? 'how many further roles this element has' : 'how many isotopes carry spin');
   host.appendChild(hint);
 }
 
@@ -1575,8 +1578,7 @@ function paintRuler() {
   niceTicks(Math.pow(10, lo), Math.pow(10, hi)).forEach(function (v) {
     const x = X(v);
     rulerSvg.appendChild(mk('line', {class: 'rule-tick', x1: x, y1: R.base, x2: x, y2: R.base + 4}));
-    rulerSvg.appendChild(mk('text', {class: 'rule-tick-lab', x: x, y: R.base + 14},
-      v >= 1 ? String(v) : String(v)));
+    rulerSvg.appendChild(mk('text', {class: 'rule-tick-lab', x: x, y: R.base + 14}, String(v)));
   });
   rulerSvg.appendChild(mk('text', {class: 'rule-tick-lab', x: x0, y: R.base + 26, 'text-anchor': 'start'}, 'MHz'));
   const cap = document.getElementById('rulerCaps');
@@ -1588,7 +1590,7 @@ function paintRuler() {
   state.pinned.forEach(function (k) { hotKeys[k] = true; });
 
   /* a faint band marking a plus or minus ten per cent neighbourhood of the active nucleus */
-  if (act) {
+  if (act && larmor(act, state.B0) > 0) {
     const f = larmor(act, state.B0);
     rulerSvg.appendChild(mk('rect', {class: 'band', x: X(f * 0.9), y: R.base - R.stemMax - 4,
       width: Math.max(1, X(f * 1.1) - X(f * 0.9)), height: R.stemMax + 4}));
@@ -1614,10 +1616,13 @@ function paintRuler() {
   });
 
   /* labels, packed into lanes so they never collide */
-  const wantLabel = plotted.slice().sort(function (a, b) {
-    const ha = hotKeys[a.key] ? 1e9 : 0, hb = hotKeys[b.key] ? 1e9 : 0;
-    return (hb + (b.recH || 0)) - (ha + (a.recH || 0));
-  });
+  /* Priority: whatever is selected or pinned, then the nuclei anyone actually detects in a
+     living subject, then raw receptivity. Ranking on receptivity alone labelled 193Ir and
+     161Dy while dropping 13C, 23Na, 17O and 129Xe. */
+  const rank = function (n) {
+    return (hotKeys[n.key] ? 1e9 : 0) + (n.invivo ? 1e6 : 0) + (n.recH || 0);
+  };
+  const wantLabel = plotted.slice().sort(function (a, b) { return rank(b) - rank(a); });
   const placed = R.lanes.map(function () { return []; });
   wantLabel.forEach(function (n) {
     const hot = !!hotKeys[n.key], proton = n.key === '1H';
@@ -1839,8 +1844,9 @@ function paintDetail() {
               ' of the proton' : null);
     if (act.recEnriched && act.abundance !== null && act.abundance < 99.5) {
       r += fact('if fully labelled', fmtRec(act.recEnriched),
-                '×' + Math.round(act.recEnriched / Math.max(act.recH, 1e-30)).toLocaleString('en-US') +
-                ' over natural');
+                act.recH > 0
+                  ? '\u00d7' + Math.round(act.recEnriched / act.recH).toLocaleString('en-US') + ' over natural'
+                  : 'there is no natural abundance to multiply');
     }
     r += fact('vs <sup>13</sup>C', act.recC === null ? '–' : fmtRec(act.recC));
     if (P !== null) {
@@ -1861,10 +1867,11 @@ function paintDetail() {
         /* the gap is the absolute shielding of the reference compound, so quote it the way
            a shielding is quoted */
         const ppm = split * 1e6;
+        const higher = gXi > act.absGamma;
         r += fact('by that route', (gXi * state.B0).toFixed(3) + ' MHz',
                   'in the reference compound, ' +
                   (ppm >= 1000 ? Math.round(ppm / 100) / 10 + ' thousand' : Math.round(ppm)) +
-                  ' ppm lower');
+                  ' ppm ' + (higher ? 'higher' : 'lower'));
       }
     }
     if (act.reference) r += fact('shift reference', esc(act.reference));
@@ -1882,7 +1889,8 @@ function paintDetail() {
     r += '<div style="margin-top:0.5rem">' +
          '<button class="minibtn" id="btnPin" aria-pressed="' +
          (state.pinned.indexOf(act.key) >= 0) + '">' +
-         (state.pinned.indexOf(act.key) >= 0 ? 'unpin ' : 'pin ') + act.key + ' for comparison</button></div>';
+         (state.pinned.indexOf(act.key) >= 0 ? 'unpin ' : 'pin ') + act.key + ' for comparison</button>' +
+         (pinFull ? ' <span class="gloss">tray full</span>' : '') + '</div>';
   }
 
   /* An element with no spin still has a reason to be on this chart. Say what it is,
@@ -2120,7 +2128,10 @@ function paintTray() {
   const host = document.getElementById('tray');
   if (!host) return;
   if (!state.pinned.length) { host.innerHTML = ''; return; }
-  let h = '<span class="caps">Pinned, at ' + fmtField(state.B0) + ' T</span>';
+  const full = pinFull
+    ? '<p class="oneline" style="margin:0 0 0.3rem 0">The tray holds ' + PIN_MAX +
+      '. Unpin one to make room.</p>' : '';
+  let h = '<span class="caps">Pinned, at ' + fmtField(state.B0) + ' T</span>' + full;
   h += '<div class="tablebox"><table class="cmp"><thead><tr><th>nucleus</th><th>I</th><th>&nu;<sub>0</sub></th>' +
        '<th>D(<sup>1</sup>H)</th><th>P ppm</th><th></th></tr></thead><tbody>';
   state.pinned.forEach(function (k) {
@@ -2186,14 +2197,18 @@ function setView(id) {
   repaint();
 }
 
-function selectElement(sym, keepNucleus) {
+function selectElement(sym, opts) {
   if (!BY_SYM[sym]) return;
+  const o = opts || {};
   state.sel = sym;
-  if (!keepNucleus) {
+  if (!o.keepNucleus) {
     const el = BY_SYM[sym];
     state.nuc = el.lead ? el.lead.key : null;
   }
   repaint();
+  /* Moving focus is right when the grid itself was used, and wrong when the reader is
+     still typing: it swallows the rest of the word. */
+  if (o.focus === false) return;
   const node = cellNodes[sym];
   if (node) node.focus({preventScroll: true});
 }
@@ -2206,10 +2221,15 @@ function selectNucleus(key) {
   repaint();
 }
 
+const PIN_MAX = 8;
+let pinFull = false;
+
 function togglePin(key) {
   const i = state.pinned.indexOf(key);
+  pinFull = false;
   if (i >= 0) state.pinned.splice(i, 1);
-  else if (state.pinned.length < 8) state.pinned.push(key);
+  else if (state.pinned.length < PIN_MAX) state.pinned.push(key);
+  else pinFull = true;
   repaint();
 }
 
@@ -2299,9 +2319,11 @@ function step(sym, dc, dr) {
   else if (host === 'f' && r < 1) { host = 'm'; r = 7; }
   else if (host === 'f' && r > 2) { host = 'm'; r = 1; }
   if (host === 'm' && r < 1) { host = 'f'; r = 2; }
-  /* the f-block rows start under group 3; arrowing down from lanthanum or actinium
-     should land on cerium or thorium rather than on the row label */
-  if (host === 'f' && c < 4) c = 4;
+  /* The f-block strip hangs under group 3 but starts at column 4, so entering it from
+     column 3 lands on the row label. Clamp on the way in, and undo the clamp on the way
+     out, so that actinium down reaches cerium and cerium up gets back to actinium. */
+  if (host === 'f' && c < 4) { c = 4; }
+  else if (host === 'm' && p.host === 'f' && dr < 0 && p.c === 4) { c = 3; }
   for (let k = 0; k < 20; k++) {
     const hit = gridIndex[host + ':' + r + ':' + c];
     if (hit) return hit;
@@ -2337,7 +2359,7 @@ searchBox.addEventListener('input', function () {
     const hitNuc = Object.keys(BY_NUC).filter(function (k) { return k.toLowerCase() === q.toLowerCase(); })[0];
     if (hitNuc) { selectNucleus(hitNuc); return; }
     const hits = ELEMENTS.filter(function (e) { return matchesQuery(e, q); });
-    if (hits.length === 1) selectElement(hits[0].symbol);
+    if (hits.length === 1) selectElement(hits[0].symbol, {focus: false});
   }
 });
 
