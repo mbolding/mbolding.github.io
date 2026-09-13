@@ -124,7 +124,7 @@ code, .mono { font-family: var(--mono); font-size: 0.82em; }
 
 .controlbar {
     display: grid;
-    grid-template-columns: minmax(300px, 1.15fr) minmax(150px, auto) minmax(240px, 1fr) minmax(170px, auto);
+    grid-template-columns: minmax(360px, 1.45fr) minmax(150px, auto) minmax(230px, 1fr) minmax(170px, auto);
     align-items: start;
     gap: 0.4rem 2rem; margin-bottom: 1.1rem;
 }
@@ -566,7 +566,7 @@ Set the field, choose an encoding, and click anything.</p>
       <span class="caps" id="fieldCapsLabel">Field B<sub>0</sub></span>
       <svg id="fieldAxis" viewBox="0 0 460 62" preserveAspectRatio="xMinYMid meet"
            role="slider" tabindex="0" aria-label="Main magnetic field strength in tesla"
-           aria-valuemin="0.05" aria-valuemax="23.5" aria-valuenow="3" aria-valuetext="3 tesla"></svg>
+           aria-valuemin="0.05" aria-valuemax="28.5" aria-valuenow="3" aria-valuetext="3 tesla"></svg>
     </div>
 
     <div class="control">
@@ -799,11 +799,12 @@ const T_BODY    = 310;           // K
 const EPS_R     = 60;            // relative permittivity of soft tissue, order of magnitude
 const C_LIGHT   = 2.99792458e8;
 
-const FIELD_MIN = 0.05, FIELD_MAX = 23.5;
+const FIELD_MIN = 0.05, FIELD_MAX = 28.5;
 const FIELD_TICKS = [
   {b: 0.064, lab: '0.064'}, {b: 0.55, lab: '0.55'}, {b: 1.5, lab: '1.5'}, {b: 3, lab: '3'},
   {b: 4.7, lab: '4.7'}, {b: 7, lab: '7'}, {b: 9.4, lab: '9.4'}, {b: 11.7, lab: '11.7'},
-  {b: 14.1, lab: '14.1'}, {b: 17.6, lab: '17.6'}, {b: 21.1, lab: '21.1'}
+  {b: 14.1, lab: '14.1'}, {b: 17.6, lab: '17.6'}, {b: 21.1, lab: '21.1'},
+  {b: 28.2, lab: '28.2'}
 ];
 
 const QUICK = ['1H', '31P', '13C', '23Na', '129Xe', '19F', '2H', '17O'];
@@ -854,10 +855,11 @@ function supDigits(n) { return String(n).split('').map(c => SUPS[c] || c).join('
 /* Compact receptivity, e.g. 6.6e-2 rendered as 6.6×10⁻² */
 function fmtRec(v) {
   if (v === null || !isFinite(v) || v <= 0) return '–';
-  const e = Math.floor(log10(v));
-  const m = v / Math.pow(10, e);
+  let e = Math.floor(log10(v));
+  let m = v / Math.pow(10, e);
+  if (m >= 9.95) { m = 1; e += 1; }          // 9.999e-1 is 1.00, not 1.0x10^0
   if (e === 0) return m.toFixed(2);
-  return (m < 9.95 ? m.toFixed(1) : '1.0') + '×10' + supDigits(m < 9.95 ? e : e + 1);
+  return m.toFixed(1) + '×10' + supDigits(e);
 }
 
 function fmtSigned(v, d) {
@@ -865,13 +867,10 @@ function fmtSigned(v, d) {
   return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 }
 
-/* Colour ramps. Interpolation in sRGB is good enough at these step counts. */
-function hex2rgb(h) {
-  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-}
-function rgb2css(c) {
-  return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
-}
+/* The colour scales are stepped, not continuous: a cell's colour is always exactly one
+   of the legend swatches, and each step's text colour is a solved value rather than a
+   threshold, so nothing lands in the mid-tone band where neither ink nor paper reaches
+   4.5:1 against it. */
 function stepIndex(stops, t) {
   return Math.round(clamp(t, 0, 1) * (stops.length - 1));
 }
@@ -1359,7 +1358,7 @@ function buildFieldAxis() {
   fieldSvg.appendChild(mk('line', {class: 'axis-line', x1: AX.x0, y1: AX.y, x2: AX.x1, y2: AX.y}));
 
   /* decade ticks, unlabelled, as the quiet substrate */
-  [0.05, 0.1, 0.5, 1, 5, 10, 20].forEach(function (b) {
+  [0.05, 0.1, 0.5, 1, 5, 10, 20, 23.5, 25].forEach(function (b) {
     if (b < FIELD_MIN || b > FIELD_MAX) return;
     fieldSvg.appendChild(mk('line', {class: 'tick', x1: fieldToX(b), y1: AX.y, x2: fieldToX(b), y2: AX.y + 4}));
   });
