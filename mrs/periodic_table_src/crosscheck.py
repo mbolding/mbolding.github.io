@@ -159,6 +159,122 @@ if not hard: print("No hard disagreements.")
 
 
 # ---------------------------------------------------------------------------
+# Third pass: the molar susceptibility column against the CRC element table.
+#
+# The source is the CRC Handbook of Chemistry and Physics, section 4, "Magnetic
+# Susceptibility of the Elements and Inorganic Compounds". It is not redistributed here.
+# Save its text beside this script as .crc_magsus.txt (gitignored) and this pass runs;
+# without it the pass says so and is skipped, so the rest of the check still works.
+# ---------------------------------------------------------------------------
+CHI_REF = os.path.join(HERE, ".crc_magsus.txt")
+
+# Elements where this chart deliberately departs from the CRC entry, with the reason.
+CHI_EXPLAINED = {
+    "He": "the one cell that does not follow this table: helium's diamagnetism is calculable "
+          "essentially exactly and the first-principles value is -1.89e-6 cm3/mol, while the "
+          "reference prints -2.02, about 7 percent too diamagnetic",
+    "F":  "not listed in the reference at all; -9.63e-6 is the isotropic susceptibility of F2 "
+          "from a contested 1999 gas-phase measurement, the weakest provenance in the column",
+}
+
+CHI_TOL = 0.02          # 2 %: below this the two agree for our purposes
+
+
+def chi_parse(path):
+    """-> {symbol: [(label, value), ...]} for the pure-element rows of the CRC table."""
+    lines = [l.rstrip() for l in open(path, encoding="utf-8").read().split("\n")]
+    val = re.compile(r"^\s*([+-]\s?[\d.,]+|Ferro\.?)\s*$")
+    skip = {"Name", "Formula", "χm/10-6 cm3 mol-1"}
+    page = re.compile(r"^4-1\d\d$")
+    syms = {e["symbol"] for e in mine}
+    out = {}
+    for i, l in enumerate(lines):
+        s = l.strip()
+        m = val.match(s)
+        if not m:
+            continue
+        ctx, j = [], i - 1
+        while j >= 0 and len(ctx) < 2:
+            c = lines[j].strip()
+            if c and c not in skip and not page.match(c):
+                ctx.append(c)
+            j -= 1
+        if len(ctx) < 2:
+            continue
+        formula, name = ctx[0], ctx[1]
+        base = formula if formula in syms else (
+            formula[:-1] if formula.endswith("2") and formula[:-1] in syms else None)
+        if not base:
+            continue
+        raw = m.group(1).replace(" ", "").replace(",", "")
+        out.setdefault(base, []).append((name, None if raw.startswith("Ferro") else float(raw)))
+    return out
+
+
+def chi_check():
+    if not os.path.exists(CHI_REF):
+        print("susceptibility: skipped, no %s\n"
+              "   Save the text of the CRC Handbook section 4 element table there to enable it."
+              % os.path.basename(CHI_REF))
+        return
+    crc = chi_parse(CHI_REF)
+    bad, noted, absent = [], [], []
+    n = 0
+    for e in mine:
+        sym, chi = e["symbol"], e.get("chiMolar")
+        entries = crc.get(sym)
+        if entries is None:
+            if chi is not None:
+                msg = "%-3s carries %+g but the reference table has no entry" % (sym, chi)
+                if sym in CHI_EXPLAINED:
+                    noted.append("%s  (%s)" % (msg, CHI_EXPLAINED[sym]))
+                else:
+                    absent.append(msg)
+            continue
+        n += 1
+        ferro = any(v is None for _, v in entries)
+        if ferro:
+            if chi is not None:
+                bad.append("%-3s has chiMolar %s; the reference marks it ferromagnetic" % (sym, chi))
+            elif e.get("magnetism") != "ferromagnetic":
+                bad.append("%-3s is 'Ferro.' in the reference but magnetism is %r"
+                           % (sym, e.get("magnetism")))
+            continue
+        vals = [(lbl, v) for lbl, v in entries if v is not None]
+        if chi is None:
+            noted.append("%-3s is null; the reference has %s"
+                         % (sym, ", ".join("%s %+g" % (l, v) for l, v in vals)))
+            continue
+        near = min(vals, key=lambda lv: abs(lv[1] - chi))
+        d = abs(near[1] - chi) / max(abs(near[1]), 1e-9)
+        if d > CHI_TOL:
+            bad.append("%-3s chiMolar %+g vs %+g (%s) %.0f%%" % (sym, chi, near[1], near[0], 100 * d))
+        elif len(vals) > 1:
+            noted.append("%-3s %+g follows '%s'; the reference also lists %s"
+                         % (sym, chi, near[0],
+                            ", ".join("%s %+g" % (l, v) for l, v in vals if l != near[0])))
+
+    print("susceptibility: checked %d elements against the CRC element table" % n)
+    keep = []
+    for r in bad:
+        k = r.split()[0]
+        if k in CHI_EXPLAINED:
+            noted.append("%s  (%s)" % (r, CHI_EXPLAINED[k]))
+        else:
+            keep.append(r)
+    for title, rows in (("SUSCEPTIBILITY DISAGREEMENTS", keep),
+                        ("susceptibility notes", noted),
+                        ("carried without a reference entry", absent)):
+        if rows:
+            print("%s (%d):" % (title, len(rows)))
+            for r in sorted(set(rows)):
+                print("   ", r)
+    if not keep:
+        print("No susceptibility disagreements.")
+    print()
+    return keep
+
+# ---------------------------------------------------------------------------
 # Second pass: numbers quoted in the dossier and shift-table prose must agree
 # with the table the page actually computes from.
 # ---------------------------------------------------------------------------
@@ -224,3 +340,5 @@ rows = prose_check(mine)
 print()
 print("prose vs table: %d contradiction(s)" % len(rows))
 for r in rows: print("   ", r)
+print()
+chi_check()
