@@ -37,7 +37,7 @@
         }
 
         header {
-            margin-bottom: 80px;
+            margin-bottom: 48px;
             border-bottom: 4px solid var(--text-color);
             padding-bottom: 20px;
         }
@@ -112,6 +112,74 @@
             margin-top: auto;
         }
 
+        .card-date {
+            display: block;
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.3px;
+            color: #999999;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(17, 17, 17, 0.08);
+        }
+
+        .card:hover .card-date {
+            color: #ffffff;
+            border-top-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 32px;
+        }
+
+        .toolbar-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+        }
+
+        .toolbar button {
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--secondary-text);
+            background: none;
+            border: 1px solid #e0e0e0;
+            padding: 7px 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .toolbar button:hover {
+            color: var(--text-color);
+            border-color: var(--text-color);
+        }
+
+        .toolbar button[aria-pressed="true"] {
+            background-color: var(--text-color);
+            border-color: var(--text-color);
+            color: #ffffff;
+        }
+
+        .toolbar button:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+
         .card-new {
             position: absolute;
             top: 12px;
@@ -155,6 +223,24 @@
             color: #fff;
         }
 
+        .card.featured .card-date {
+            color: #888888;
+            border-top-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .card.featured:hover .card-date {
+            color: #ffffff;
+            border-top-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .card.archive .card-date {
+            border-top-color: rgba(17, 17, 17, 0.12);
+        }
+
+        .card.archive:hover .card-date {
+            border-top-color: rgba(255, 255, 255, 0.4);
+        }
+
         .card.archive {
             border: 2px dashed #ccc;
             background-color: transparent;
@@ -181,6 +267,10 @@
             .grid {
                 grid-template-columns: 1fr;
             }
+
+            .toolbar {
+                gap: 12px 20px;
+            }
         }
     </style>
 </head>
@@ -192,25 +282,44 @@
             <p class="bio">A collection of interactive experiments, research, and tools.</p>
         </header>
 
+        <div class="toolbar" id="toolbar" hidden>
+            <div class="toolbar-group" role="group" aria-label="Sort order">
+                <span class="toolbar-label">Sort</span>
+                <button type="button" data-sort="curated" aria-pressed="true">Curated</button>
+                <button type="button" data-sort="newest" aria-pressed="false">Newest</button>
+                <button type="button" data-sort="oldest" aria-pressed="false">Oldest</button>
+                <button type="button" data-sort="az" aria-pressed="false">A&ndash;Z</button>
+            </div>
+            <div class="toolbar-group" role="group" aria-label="Which date to use">
+                <span class="toolbar-label">By date</span>
+                <button type="button" data-basis="updated" aria-pressed="true">Last updated</button>
+                <button type="button" data-basis="added" aria-pressed="false">Added</button>
+            </div>
+        </div>
+
         <section>
             <h2>Featured</h2>
             <div class="grid">
-                <a href="garrity/index.html" class="card featured">
+                <a href="garrity/index.html" class="card featured" data-added="2025-12-20" data-updated="2026-03-26">
                     <span class="card-title">All the Math You Missed</span>
                     <span class="card-meta">Interactive Math Examples</span>
+                    <time class="card-date" datetime="2026-03-26">Updated Mar 26, 2026</time>
                 </a>
-                <a href="flocking/index.html" class="card featured">
+                <a href="flocking/index.html" class="card featured" data-added="2025-12-30" data-updated="2025-12-30">
                     <span class="card-title">Flocking Behavior</span>
                     <span class="card-meta">Flocking Simulation with Graph Theory</span>
+                    <time class="card-date" datetime="2025-12-30">Added Dec 30, 2025</time>
                 </a>
-                <a href="neuroengineering/IDNE701_FA2026.html" class="card featured is-new">
+                <a href="neuroengineering/IDNE701_FA2026.html" class="card featured is-new" data-added="2026-01-16" data-updated="2026-09-11">
                     <span class="card-new">New</span>
                     <span class="card-title">Diagnostic Biomarker Systems</span>
                     <span class="card-meta">Course Project Timeline (IDNE 701)</span>
+                    <time class="card-date" datetime="2026-09-11">Updated Sep 11, 2026</time>
                 </a>
-                <a href="toys/vector_field_explorer.html" class="card featured">
+                <a href="toys/vector_field_explorer.html" class="card featured" data-added="2025-12-23" data-updated="2025-12-23">
                     <span class="card-title">Vector Field Explorer</span>
                     <span class="card-meta">Interactive Vector Calculus</span>
+                    <time class="card-date" datetime="2025-12-23">Added Dec 23, 2025</time>
                 </a>
             </div>
         </section>
@@ -218,76 +327,93 @@
         <section>
             <h2>Interactive Learning</h2>
             <div class="grid">
-                <a href="nbl425/index.html" class="card">
+                <a href="nbl425/index.html" class="card" data-added="2026-03-19" data-updated="2026-09-05">
                     <span class="card-title">NBL 425/625</span>
                     <span class="card-meta">Methods in Human Neuroimaging</span>
+                    <time class="card-date" datetime="2026-09-05">Updated Sep 5, 2026</time>
                 </a>
-                <a href="regex/index.html" class="card">
+                <a href="regex/index.html" class="card" data-added="2026-01-19" data-updated="2026-01-19">
                     <span class="card-title">Regularium</span>
                     <span class="card-meta">Interactive Regex Course</span>
+                    <time class="card-date" datetime="2026-01-19">Added Jan 19, 2026</time>
                 </a>
-                <a href="regex/NFA.html" class="card">
+                <a href="regex/NFA.html" class="card" data-added="2026-01-19" data-updated="2026-01-19">
                     <span class="card-title">NFA Visualization</span>
                     <span class="card-meta">Interactive Automata Tool</span>
+                    <time class="card-date" datetime="2026-01-19">Added Jan 19, 2026</time>
                 </a>
-                <a href="quizzes/index.html" class="card">
+                <a href="quizzes/index.html" class="card" data-added="2024-08-26" data-updated="2025-12-15">
                     <span class="card-title">Interactive Quizzes</span>
                     <span class="card-meta">Assessment Platform</span>
+                    <time class="card-date" datetime="2025-12-15">Updated Dec 15, 2025</time>
                 </a>
-                <a href="quizzes/neuroimaging_dichotomous_key.html" class="card">
+                <a href="quizzes/neuroimaging_dichotomous_key.html" class="card" data-added="2026-01-06" data-updated="2026-01-06">
                     <span class="card-title">Neuroimaging Key</span>
                     <span class="card-meta">Dichotomous Identification Tool</span>
+                    <time class="card-date" datetime="2026-01-06">Added Jan 6, 2026</time>
                 </a>
-                <a href="MRI_safety/index.html" class="card">
+                <a href="MRI_safety/index.html" class="card" data-added="2024-08-20" data-updated="2025-12-15">
                     <span class="card-title">MRI Safety Training</span>
                     <span class="card-meta">Documentation & Quiz</span>
+                    <time class="card-date" datetime="2025-12-15">Updated Dec 15, 2025</time>
                 </a>
-                <a href="ferroquant/index.html" class="card">
+                <a href="ferroquant/index.html" class="card" data-added="2026-03-13" data-updated="2026-03-13">
                     <span class="card-title">Ferroquant</span>
                     <span class="card-meta">MRI & Iron Quantification</span>
+                    <time class="card-date" datetime="2026-03-13">Added Mar 13, 2026</time>
                 </a>
-                <a href="neuroengineering/index.html" class="card">
+                <a href="neuroengineering/index.html" class="card" data-added="2026-03-21" data-updated="2026-09-15">
                     <span class="card-title">Neuroengineering</span>
                     <span class="card-meta">Knowledge Base Framework</span>
+                    <time class="card-date" datetime="2026-09-15">Updated Sep 15, 2026</time>
                 </a>
-                <a href="neuroengineering/what_is_neuroengineering.html" class="card is-new">
+                <a href="neuroengineering/what_is_neuroengineering.html" class="card is-new" data-added="2026-09-04" data-updated="2026-09-04">
                     <span class="card-new">New</span>
                     <span class="card-title">What Is Neuroengineering?</span>
                     <span class="card-meta">Seven Competing Definitions, for Argument</span>
+                    <time class="card-date" datetime="2026-09-04">Added Sep 4, 2026</time>
                 </a>
-                <a href="neuroengineering/tms_vs_fus.html" class="card is-new">
+                <a href="neuroengineering/tms_vs_fus.html" class="card is-new" data-added="2026-09-15" data-updated="2026-09-15">
                     <span class="card-new">New</span>
                     <span class="card-title">TMS vs. Focused Ultrasound</span>
                     <span class="card-meta">Depth, Focality and Evidence, Side by Side</span>
+                    <time class="card-date" datetime="2026-09-15">Added Sep 15, 2026</time>
                 </a>
-                <a href="mrs/index.html" class="card">
+                <a href="mrs/index.html" class="card" data-added="2026-02-17" data-updated="2026-09-13">
                     <span class="card-title">MRS Resources</span>
                     <span class="card-meta">Spectroscopy Materials (31P, 13C, Xe)</span>
+                    <time class="card-date" datetime="2026-09-13">Updated Sep 13, 2026</time>
                 </a>
-                <a href="mrs/periodic_table.html" class="card">
+                <a href="mrs/periodic_table.html" class="card" data-added="2026-09-12" data-updated="2026-09-13">
                     <span class="card-title">MR Periodic Chart</span>
                     <span class="card-meta">Spin, Receptivity &amp; Larmor Frequency at Any Field (Preprint)</span>
+                    <time class="card-date" datetime="2026-09-13">Updated Sep 13, 2026</time>
                 </a>
 
-                <a href="design_process/index.html" class="card">
+                <a href="design_process/index.html" class="card" data-added="2025-12-14" data-updated="2025-12-14">
                     <span class="card-title">Design Process</span>
                     <span class="card-meta">Methodology Documentation</span>
+                    <time class="card-date" datetime="2025-12-14">Added Dec 14, 2025</time>
                 </a>
-                <a href="class_decider.html" class="card">
+                <a href="class_decider.html" class="card" data-added="2024-08-29" data-updated="2025-12-15">
                     <span class="card-title">Class Decider</span>
                     <span class="card-meta">Educational Tool</span>
+                    <time class="card-date" datetime="2025-12-15">Updated Dec 15, 2025</time>
                 </a>
-                <a href="openaxon/index.html" class="card">
+                <a href="openaxon/index.html" class="card" data-added="2025-12-19" data-updated="2025-12-19">
                     <span class="card-title">OpenAxon</span>
                     <span class="card-meta">Agentic Neuroimaging Framework</span>
+                    <time class="card-date" datetime="2025-12-19">Added Dec 19, 2025</time>
                 </a>
-                <a href="built_environment/IDNE702_SP2026.html" class="card">
+                <a href="built_environment/IDNE702_SP2026.html" class="card" data-added="2026-01-16" data-updated="2026-03-25">
                     <span class="card-title">Neuroengineering Research Center</span>
                     <span class="card-meta">Design Project Timeline (IDNE 702)</span>
+                    <time class="card-date" datetime="2026-03-25">Updated Mar 25, 2026</time>
                 </a>
-                <a href="ferroquant/subdural_hematoma.html" class="card">
+                <a href="ferroquant/subdural_hematoma.html" class="card" data-added="2026-03-13" data-updated="2026-03-13">
                     <span class="card-title">Subdural Hematoma</span>
                     <span class="card-meta">Clinical Imaging Primer</span>
+                    <time class="card-date" datetime="2026-03-13">Added Mar 13, 2026</time>
                 </a>
             </div>
         </section>
@@ -297,59 +423,72 @@
         <section>
             <h2>Visualizations & Simulations</h2>
             <div class="grid">
-                <a href="neural_plasticity/index.html" class="card">
+                <a href="neural_plasticity/index.html" class="card" data-added="2025-12-30" data-updated="2026-01-06">
                     <span class="card-title">Neural Plasticity</span>
                     <span class="card-meta">Hebbian Learning Simulation</span>
+                    <time class="card-date" datetime="2026-01-06">Updated Jan 6, 2026</time>
                 </a>
-                <a href="neural_plasticity/leaky_integrate_fire.html" class="card">
+                <a href="neural_plasticity/leaky_integrate_fire.html" class="card" data-added="2026-01-06" data-updated="2026-03-21">
                     <span class="card-title">Stochastic LIF Neuron</span>
                     <span class="card-meta">Neuron Model Simulation</span>
+                    <time class="card-date" datetime="2026-03-21">Updated Mar 21, 2026</time>
                 </a>
-                <a href="fourier/index.html" class="card">
+                <a href="fourier/index.html" class="card" data-added="2025-12-15" data-updated="2026-01-08">
                     <span class="card-title">Fourier Analysis</span>
                     <span class="card-meta">Mathematical Visualization</span>
+                    <time class="card-date" datetime="2026-01-08">Updated Jan 8, 2026</time>
                 </a>
-                <a href="gyroscope/index.html" class="card">
+                <a href="gyroscope/index.html" class="card" data-added="2025-12-15" data-updated="2025-12-23">
                     <span class="card-title">NMR Relaxation</span>
                     <span class="card-meta">Proton Dynamics Simulation</span>
+                    <time class="card-date" datetime="2025-12-23">Updated Dec 23, 2025</time>
                 </a>
-                <a href="spins/index.html" class="card">
+                <a href="spins/index.html" class="card" data-added="2024-08-23" data-updated="2025-12-23">
                     <span class="card-title">Spins</span>
                     <span class="card-meta">Quantum Physics Demo</span>
+                    <time class="card-date" datetime="2025-12-23">Updated Dec 23, 2025</time>
                 </a>
-                <a href="flash_lag/index.html" class="card">
+                <a href="flash_lag/index.html" class="card" data-added="2024-08-30" data-updated="2024-08-30">
                     <span class="card-title">Flash Lag Effect</span>
                     <span class="card-meta">Perception Experiment</span>
+                    <time class="card-date" datetime="2024-08-30">Added Aug 30, 2024</time>
                 </a>
-                <a href="criticality.html" class="card">
+                <a href="criticality.html" class="card" data-added="2026-01-12" data-updated="2026-01-12">
                     <span class="card-title">Self-Organized Criticality</span>
                     <span class="card-meta">Power Laws & Chaos Edge</span>
+                    <time class="card-date" datetime="2026-01-12">Added Jan 12, 2026</time>
                 </a>
-                <a href="toys/graph_automata.html" class="card is-new">
+                <a href="toys/graph_automata.html" class="card is-new" data-added="2026-09-12" data-updated="2026-09-12">
                     <span class="card-new">New</span>
                     <span class="card-title">Graph Automata</span>
                     <span class="card-meta">A Language for Cellular Automata on Digraphs</span>
+                    <time class="card-date" datetime="2026-09-12">Added Sep 12, 2026</time>
                 </a>
-                <a href="built_environment/lateral_information_group_dynamics.html" class="card">
+                <a href="built_environment/lateral_information_group_dynamics.html" class="card" data-added="2025-12-19" data-updated="2026-01-16">
                     <span class="card-title">Lateral Flow Dynamics</span>
                     <span class="card-meta">Group Information Flow</span>
+                    <time class="card-date" datetime="2026-01-16">Updated Jan 16, 2026</time>
                 </a>
-                <a href="built_environment/workspace_topology.html" class="card">
+                <a href="built_environment/workspace_topology.html" class="card" data-added="2025-12-19" data-updated="2026-01-16">
                     <span class="card-title">Workspace Topology</span>
                     <span class="card-meta">Topology Simulator</span>
+                    <time class="card-date" datetime="2026-01-16">Updated Jan 16, 2026</time>
                 </a>
-                <a href="petdemo.html" class="card">
+                <a href="petdemo.html" class="card" data-added="2024-08-25" data-updated="2026-03-21">
                     <span class="card-title">PET Demo</span>
                     <span class="card-meta">Medical Imaging Visualization</span>
+                    <time class="card-date" datetime="2026-03-21">Updated Mar 21, 2026</time>
                 </a>
-                <a href="toys/forge.html" class="card is-new">
+                <a href="toys/forge.html" class="card is-new" data-added="2026-09-12" data-updated="2026-09-12">
                     <span class="card-new">New</span>
                     <span class="card-title">Forge</span>
                     <span class="card-meta">RPG Mechanics Language</span>
+                    <time class="card-date" datetime="2026-09-12">Added Sep 12, 2026</time>
                 </a>
-                <a href="flocking/flocking2.html" class="card">
+                <a href="flocking/flocking2.html" class="card" data-added="2026-01-11" data-updated="2026-03-22">
                     <span class="card-title">Predator-Prey Flocking</span>
                     <span class="card-meta">Emergent Behavior Simulation</span>
+                    <time class="card-date" datetime="2026-03-22">Updated Mar 22, 2026</time>
                 </a>
             </div>
         </section>
@@ -357,49 +496,60 @@
         <section>
             <h2>Productivity Tools</h2>
             <div class="grid">
-                <a href="diagnostic_tests.html" class="card">
+                <a href="diagnostic_tests.html" class="card" data-added="2026-01-12" data-updated="2026-01-12">
                     <span class="card-title">Diagnostic Calculator</span>
                     <span class="card-meta">Sensitivity, Specificity & PPV</span>
+                    <time class="card-date" datetime="2026-01-12">Added Jan 12, 2026</time>
                 </a>
-                <a href="calculators/calc.html" class="card">
+                <a href="calculators/calc.html" class="card" data-added="2024-08-06" data-updated="2025-12-23">
                     <span class="card-title">Scientific Calculator</span>
                     <span class="card-meta">Web Utility</span>
+                    <time class="card-date" datetime="2025-12-23">Updated Dec 23, 2025</time>
                 </a>
-                <a href="calculators/tax_calc.html" class="card">
+                <a href="calculators/tax_calc.html" class="card" data-added="2025-12-23" data-updated="2025-12-23">
                     <span class="card-title">Tax Calculator</span>
                     <span class="card-meta">Web Utility</span>
+                    <time class="card-date" datetime="2025-12-23">Added Dec 23, 2025</time>
                 </a>
-                <a href="calculators/ernst_angle.html" class="card">
+                <a href="calculators/ernst_angle.html" class="card" data-added="2026-03-10" data-updated="2026-03-10">
                     <span class="card-title">Ernst Angle Calculator</span>
                     <span class="card-meta">MRI Utility</span>
+                    <time class="card-date" datetime="2026-03-10">Added Mar 10, 2026</time>
                 </a>
-                <a href="notes/note.html" class="card">
+                <a href="notes/note.html" class="card" data-added="2025-12-23" data-updated="2025-12-23">
                     <span class="card-title">Quick Note</span>
                     <span class="card-meta">Local Storage Notes</span>
+                    <time class="card-date" datetime="2025-12-23">Added Dec 23, 2025</time>
                 </a>
-                <a href="notes/mindmap3.html" class="card">
+                <a href="notes/mindmap3.html" class="card" data-added="2025-12-23" data-updated="2025-12-23">
                     <span class="card-title">Mind Map</span>
                     <span class="card-meta">Brainstorming Tool</span>
+                    <time class="card-date" datetime="2025-12-23">Added Dec 23, 2025</time>
                 </a>
-                <a href="notes/mermaid.html" class="card">
+                <a href="notes/mermaid.html" class="card" data-added="2025-12-23" data-updated="2025-12-23">
                     <span class="card-title">Mermaid Editor</span>
                     <span class="card-meta">Diagram Tool</span>
+                    <time class="card-date" datetime="2025-12-23">Added Dec 23, 2025</time>
                 </a>
-                <a href="notes/mermaid-exporter.html" class="card">
+                <a href="notes/mermaid-exporter.html" class="card" data-added="2025-12-19" data-updated="2026-01-11">
                     <span class="card-title">Mermaid Exporter</span>
                     <span class="card-meta">Diagram Export Tool</span>
+                    <time class="card-date" datetime="2026-01-11">Updated Jan 11, 2026</time>
                 </a>
-                <a href="vscodeCheatSheet.html" class="card">
+                <a href="vscodeCheatSheet.html" class="card" data-added="2024-08-23" data-updated="2026-01-28">
                     <span class="card-title">VS Code Cheat Sheet</span>
                     <span class="card-meta">Reference</span>
+                    <time class="card-date" datetime="2026-01-28">Updated Jan 28, 2026</time>
                 </a>
-                <a href="desk/cute.html" class="card">
+                <a href="desk/cute.html" class="card" data-added="2025-12-15" data-updated="2026-01-28">
                     <span class="card-title">Cozy Desktop</span>
                     <span class="card-meta">Dashboard UI</span>
+                    <time class="card-date" datetime="2026-01-28">Updated Jan 28, 2026</time>
                 </a>
-                <a href="toys/typing.html" class="card">
+                <a href="toys/typing.html" class="card" data-added="2025-12-23" data-updated="2025-12-23">
                     <span class="card-title">Typing Test</span>
                     <span class="card-meta">Skill Practice</span>
+                    <time class="card-date" datetime="2025-12-23">Added Dec 23, 2025</time>
                 </a>
             </div>
         </section>
@@ -409,33 +559,40 @@
         <section>
             <h2>Flyers, Announcements & Slides</h2>
             <div class="grid">
-                <a href="flyers/CNBCI_Pilot_Program_RFA_2026.html" class="card">
+                <a href="flyers/CNBCI_Pilot_Program_RFA_2026.html" class="card" data-added="2026-03-11" data-updated="2026-03-12">
                     <span class="card-title">CNBCI Pilot Program 2026</span>
                     <span class="card-meta">Internal RFA</span>
+                    <time class="card-date" datetime="2026-03-12">Updated Mar 12, 2026</time>
                 </a>
-                <a href="flyers/CNBCITravelAward.html" class="card">
+                <a href="flyers/CNBCITravelAward.html" class="card" data-added="2026-03-05" data-updated="2026-03-05">
                     <span class="card-title">CNBCI Travel Award</span>
                     <span class="card-meta">Student Travel Flyer</span>
+                    <time class="card-date" datetime="2026-03-05">Added Mar 5, 2026</time>
                 </a>
-                <a href="flyers/NeurotechWorkshop2025flyer.html" class="card">
+                <a href="flyers/NeurotechWorkshop2025flyer.html" class="card" data-added="2025-10-15" data-updated="2025-12-23">
                     <span class="card-title">Neurotech Workshop</span>
                     <span class="card-meta">Flyer / Nov 2025</span>
+                    <time class="card-date" datetime="2025-12-23">Updated Dec 23, 2025</time>
                 </a>
-                <a href="flyers/NEPhDflyer2025.html" class="card">
+                <a href="flyers/NEPhDflyer2025.html" class="card" data-added="2025-10-16" data-updated="2025-12-23">
                     <span class="card-title">Neuroengineering PhD</span>
                     <span class="card-meta">Recruitment Flyer</span>
+                    <time class="card-date" datetime="2025-12-23">Updated Dec 23, 2025</time>
                 </a>
-                <a href="https://speaker.neurogateways.com/Catalyst2026" class="card">
+                <a href="https://speaker.neurogateways.com/Catalyst2026" class="card" data-added="2025-11-04" data-updated="2025-11-04">
                     <span class="card-title">CNBCI Catalyst 2026</span>
                     <span class="card-meta">Internal RFA</span>
+                    <time class="card-date" datetime="2025-11-04">Added Nov 4, 2025</time>
                 </a>
-                <a href="https://speaker.neurogateways.com/Spark2025" class="card">
+                <a href="https://speaker.neurogateways.com/Spark2025" class="card" data-added="2025-11-04" data-updated="2025-11-04">
                     <span class="card-title">CNBCI Spark 2025</span>
                     <span class="card-meta">Internal RFA</span>
+                    <time class="card-date" datetime="2025-11-04">Added Nov 4, 2025</time>
                 </a>
-                <a href="presentations/index.html" class="card">
+                <a href="presentations/index.html" class="card" data-added="2025-12-15" data-updated="2026-03-23">
                     <span class="card-title">Presentations</span>
                     <span class="card-meta">Slides & Talks</span>
+                    <time class="card-date" datetime="2026-03-23">Updated Mar 23, 2026</time>
                 </a>
             </div>
         </section>
@@ -443,14 +600,115 @@
         <section>
             <h2>More</h2>
             <div class="grid">
-                <a href="archive.html" class="card archive">
+                <a href="archive.html" class="card archive" data-added="2025-12-31" data-updated="2026-03-12">
                     <span class="card-title">Archive</span>
                     <span class="card-meta">Writing, adventures, personal projects →</span>
+                    <time class="card-date" datetime="2026-03-12">Updated Mar 12, 2026</time>
                 </a>
             </div>
         </section>
 
     </div>
+
+    <script>
+        (function () {
+            var toolbar = document.getElementById('toolbar');
+            var grids = Array.prototype.slice.call(document.querySelectorAll('.grid'));
+            if (!toolbar || !grids.length) return;
+
+            var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            var STORAGE_KEY = 'commonplace-card-sort';
+            var state = { sort: 'curated', basis: 'updated' };
+
+            try {
+                var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+                if (saved && saved.sort) state.sort = saved.sort;
+                if (saved && saved.basis) state.basis = saved.basis;
+            } catch (e) { /* private mode, blocked storage */ }
+
+            var cards = [];
+            grids.forEach(function (grid) {
+                Array.prototype.slice.call(grid.children).forEach(function (card, i) {
+                    cards.push({
+                        el: card,
+                        grid: grid,
+                        order: i,
+                        added: card.getAttribute('data-added') || '',
+                        updated: card.getAttribute('data-updated') || '',
+                        title: (card.querySelector('.card-title') || {}).textContent || ''
+                    });
+                });
+            });
+
+            function pretty(iso) {
+                var p = iso.split('-');
+                return MONTHS[Number(p[1]) - 1] + ' ' + Number(p[2]) + ', ' + p[0];
+            }
+
+            function stamp(card) {
+                // "Added" until a page is revised, "Updated" after; the Added view
+                // always shows the original date.
+                var useUpdated = state.basis === 'updated' && card.updated !== card.added;
+                var iso = useUpdated ? card.updated : card.added;
+                var el = card.el.querySelector('.card-date');
+                if (!el || !iso) return;
+                el.setAttribute('datetime', iso);
+                el.textContent = (useUpdated ? 'Updated ' : 'Added ') + pretty(iso);
+            }
+
+            function keyDate(card) {
+                return state.basis === 'added' ? card.added : card.updated;
+            }
+
+            function render() {
+                cards.forEach(stamp);
+
+                grids.forEach(function (grid) {
+                    var items = cards.filter(function (c) { return c.grid === grid; });
+
+                    items.sort(function (a, b) {
+                        if (state.sort === 'az') {
+                            return a.title.localeCompare(b.title);
+                        }
+                        if (state.sort === 'newest' || state.sort === 'oldest') {
+                            var da = keyDate(a), db = keyDate(b);
+                            if (da !== db) {
+                                return state.sort === 'newest'
+                                    ? (da < db ? 1 : -1)
+                                    : (da < db ? -1 : 1);
+                            }
+                        }
+                        return a.order - b.order;
+                    });
+
+                    var frag = document.createDocumentFragment();
+                    items.forEach(function (c) { frag.appendChild(c.el); });
+                    grid.appendChild(frag);
+                });
+
+                Array.prototype.slice.call(toolbar.querySelectorAll('button')).forEach(function (btn) {
+                    var on = btn.dataset.sort === state.sort || btn.dataset.basis === state.basis;
+                    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                } catch (e) { /* ignore */ }
+            }
+
+            toolbar.addEventListener('click', function (event) {
+                var btn = event.target.closest('button');
+                if (!btn) return;
+                if (btn.dataset.sort) state.sort = btn.dataset.sort;
+                if (btn.dataset.basis) state.basis = btn.dataset.basis;
+                render();
+            });
+
+            toolbar.hidden = false;
+            render();
+        }());
+    </script>
 </body>
 
 </html>
