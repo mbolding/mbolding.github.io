@@ -55,7 +55,7 @@ TYPE = {
  'nbl425/demos/epi_distortion.html':'sim',
  'nbl425/demos/tr_te_contrast.html':'sim',
  'nbl425/demos/artifact_simulator.html':'sim',
- 'spins/dephase_rephase.html':'sim',
+ 'spins/dephase_rephase_2.html':'sim',
  'calculators/ernst_angle.html':'tool',
  'ferroquant/index.html':'tool',
  'nbl425_games/mrigame.html':'game',
@@ -96,9 +96,9 @@ TYPE = {
 # relevant to this course. Listed separately so they can be promoted onto a
 # week page or dropped, rather than silently mixed in with the curated set.
 ADJACENT = [
- ('spins/dephase_rephase_2.html','sim','Spin Echo Dephasing &amp; Rephasing II (Isochromat Grid)',
+ ('spins/dephase_rephase.html','sim','Spin Echo Dephasing &amp; Rephasing I (Grid)',
   'Grid Simulator &middot; Refocusing',
-  'The grid version of the dephasing and rephasing demo. Week 03 names "I &amp; II" in its listing but links only the first.','03'),
+  'The initial grid version of the dephasing and rephasing demo without the net sum vector. Week 03 links version II.','03'),
  ('spins/magnetic_domains.html','sim','Magnetic Domain Simulator','Ferromagnetism &middot; Domain Walls',
   'Domains aligning and reorienting under an applied field, behind the shim and fringe-field behaviour of a superconducting magnet.','02'),
  ('MRI_safety/MRI_safety_quiz.html','assess','MRI Safety Certification Quiz','Assessment &middot; Zone Discipline &amp; Screening',
