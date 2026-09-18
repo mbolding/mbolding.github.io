@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG Forward Problem &amp; Scalp Potential Mapper</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --scope-bg: #070b14;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --pos-volt: #ef4444;
+    --neg-volt: #3b82f6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --scope-bg: #040711;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+      --pos-volt: #f87171;
+      --neg-volt: #60a5fa;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 860px) {
+    .dual-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    background: var(--scope-bg);
+    border: 1px solid var(--border);
+    cursor: crosshair;
+  }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .color-legend {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .readout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .readout-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .readout-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+  .readout-val { font-size: 1.05rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .note {
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .note strong { color: var(--fg); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>EEG Forward Problem &amp; Scalp Potential Mapper</h1>
+  <p class="sub">
+    Investigate the biophysical origin of scalp potentials: position and orient an <strong>Equivalent Current Dipole (ECD)</strong> in a 3-shell concentric spherical head model (Brain, high-resistivity Skull, Scalp), observe <strong>volume conduction</strong> smearing, and calculate real-time <strong>10-20 scalp topomaps</strong>.
+  </p>
+
+  <div class="panel">
+    <!-- Presets -->
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Dipole Configuration:</span>
+      <button id="btnRadial" class="active">Superficial Radial (Gyral Crown)</button>
+      <button id="btnTangential" class="secondary">Superficial Tangential (Sulcal Bank)</button>
+      <button id="btnDeep" class="secondary">Deep Subcortical (Thalamic)</button>
+      <button id="btnOccipital" class="secondary">Occipital Visual Alpha</button>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Superficial Radial Dipole:</strong> Current flows outward perpendicular to skull from gyral crown. Produces a focal positive peak directly over the source.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Drag or click inside the head model to move dipole</span>
+    </div>
+
+    <!-- Dual Displays -->
+    <div class="dual-grid">
+      <!-- Left: 2D Head Cross-Section with Dipole -->
+      <div class="canvas-box">
+        <canvas id="cHead" width="460" height="460"></canvas>
+        <div class="canvas-caption">3-Shell Head Model (Brain &middot; Skull &middot; Scalp) &middot; Drag Dipole Position / Angle</div>
+        <div class="color-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#475569;"></div> Brain (&sigma; = 0.33 S/m)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#eab308;"></div> Skull (&sigma; &approx; 0.0042 S/m)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#cbd5e1;"></div> Scalp (&sigma; = 0.33 S/m)</div>
+        </div>
+      </div>
+
+      <!-- Right: 2D Scalp Topomap (10-20 System) -->
+      <div class="canvas-box">
+        <canvas id="cTopomap" width="460" height="460"></canvas>
+        <div class="canvas-caption">10-20 Scalp Isopotential Topomap &middot; Voltage Distribution (&mu;V)</div>
+        <div class="color-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--pos-volt);"></div> Positive Voltage (+)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#1e293b;"></div> Neutral (0 &mu;V)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--neg-volt);"></div> Negative Voltage (&minus;)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Readout Grid -->
+    <div class="readout-grid">
+      <div class="readout-card">
+        <div class="readout-label">Dipole Moment (<i>q</i>)</div>
+        <div class="readout-val" id="dispMoment">20 nA&middot;m</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Source Depth</div>
+        <div class="readout-val" id="dispDepth">0.78 (Superficial)</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Dipole Angle (&theta;)</div>
+        <div class="readout-val" id="dispAngle">90&deg; (Radial)</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Peak Scalp Voltage</div>
+        <div class="readout-val" id="dispPeak" style="color:var(--pos-volt);">+14.2 &mu;V</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Min Scalp Voltage</div>
+        <div class="readout-val" id="dispMin" style="color:var(--neg-volt);">-3.4 &mu;V</div>
+      </div>
+    </div>
+
+    <!-- Parameter Sliders -->
+    <div class="controls-grid">
+      <div>
+        <label>Dipole Orientation Angle (&theta;): <span class="val-badge" id="valAngle">90&deg;</span></label>
+        <input type="range" id="sliderAngle" min="0" max="360" value="90" step="2">
+      </div>
+      <div>
+        <label>Dipole Strength (Moment <i>q</i>): <span class="val-badge" id="valMoment">20 nA&middot;m</span></label>
+        <input type="range" id="sliderMoment" min="5" max="60" value="20" step="1">
+      </div>
+      <div>
+        <label>Skull Resistivity Ratio: <span class="val-badge" id="valResist">1 : 80 (Standard)</span></label>
+        <input type="range" id="sliderResist" min="15" max="120" value="80" step="5">
+      </div>
+      <div>
+        <label>Source Eccentricity / Depth: <span class="val-badge" id="valDepth">0.78</span></label>
+        <input type="range" id="sliderDepth" min="0.10" max="0.84" value="0.78" step="0.02">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;">
+      <strong>Physical Principles of the EEG Forward Problem:</strong>
+    </p>
+    <p class="note">
+      1. <strong>Equivalent Current Dipoles (ECD):</strong> Scalp potentials arise not from action potentials, but from synchronized postsynaptic potentials (PSPs) across thousands of aligned pyramidal neurons in cortical layer V. The net current dipole moment <i>q</i> (typically 10&ndash;50 nA&middot;m for an active cortical patch) flows from intracellular sinks to sources.
+    </p>
+    <p class="note">
+      2. <strong>The 3-Shell Concentric Head Model:</strong> Electrical current generated in the brain must conduct through three distinct media before reaching recording electrodes:
+      the <strong>Brain</strong> (&sigma; &approx; 0.33 S/m), the <strong>Skull</strong> (&sigma; &approx; 0.0042 S/m), and the <strong>Scalp</strong> (&sigma; &approx; 0.33 S/m).
+    </p>
+    <p class="note">
+      3. <strong>Volume Conduction &amp; Skull Smearing:</strong> The skull has an electrical resistivity approximately <strong>80 times higher</strong> than brain tissue or scalp. Because current seeks the path of least resistance, the skull acts as a spatial low-pass filter, spreading and smearing focal cortical currents laterally across centimeters of scalp surface before they exit into the conductive scalp layer. Try adjusting the skull resistivity slider to see how lower skull resistance sharpens scalp focal peaks!
+    </p>
+    <p class="note">
+      4. <strong>Radial vs. Tangential Dipole Topographies:</strong>
+      A <strong>radial dipole</strong> (located on a gyral crown, pointing outward toward the skull) produces a largely monopolar peak directly above the source. A <strong>tangential dipole</strong> (located in a sulcal bank, pointing parallel to the skull) produces a classic dipolar split with equal and opposite positive and negative voltage poles separated across the head.
+    </p>
+    <p class="note">
+      5. <strong>The Ill-Posed Inverse Problem:</strong> Solving the <em>forward problem</em> (calculating scalp voltage from known dipole sources) has a unique, deterministic mathematical solution. However, solving the <em>inverse problem</em> (inferring brain sources from scalp voltages) is mathematically ill-posed: infinitely many distinct current configurations inside the head can produce the exact same voltage map on the scalp!
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; Electroencephalography Simulation</footer>
+</div>
+
+<script>
+// --- Simulation State ---
+// Dipole position in normalized coordinates (-1 to +1, radius <= 0.85)
+let dipX = 0.0;
+let dipY = -0.78; // 0.78 radius anterior/superior
+let dipAngle = 90 * Math.PI / 180; // Radians
+let dipMoment = 20.0; // nA*m
+let skullRatio = 80; // 1:80 resistivity ratio
+let isDraggingDipole = false;
+
+// 10-20 Standard Electrode Coordinates on 2D Topomap (Normalized -1 to +1)
+const ELECTRODES = [
+  { name: 'Fp1', x: -0.28, y: -0.80 },
+  { name: 'Fp2', x: 0.28, y: -0.80 },
+  { name: 'F7',  x: -0.70, y: -0.52 },
+  { name: 'F3',  x: -0.38, y: -0.48 },
+  { name: 'Fz',  x: 0.00,  y: -0.48 },
+  { name: 'F4',  x: 0.38,  y: -0.48 },
+  { name: 'F8',  x: 0.70,  y: -0.52 },
+  { name: 'T3',  x: -0.86, y: 0.00 },
+  { name: 'C3',  x: -0.44, y: 0.00 },
+  { name: 'Cz',  x: 0.00,  y: 0.00 },
+  { name: 'C4',  x: 0.44,  y: 0.00 },
+  { name: 'T4',  x: 0.86,  y: 0.00 },
+  { name: 'T5',  x: -0.70, y: 0.52 },
+  { name: 'P3',  x: -0.38, y: 0.48 },
+  { name: 'Pz',  x: 0.00,  y: 0.48 },
+  { name: 'P4',  x: 0.38,  y: 0.48 },
+  { name: 'T6',  x: 0.70,  y: 0.52 },
+  { name: 'O1',  x: -0.28, y: 0.80 },
+  { name: 'O2',  x: 0.28,  y: 0.80 }
+];
+
+// Canvases
+const cHead = document.getElementById('cHead');
+const ctxH = cHead.getContext('2d');
+const cTopomap = document.getElementById('cTopomap');
+const ctxT = cTopomap.getContext('2d');
+
+// --- 3-Shell Forward Problem Potential Calculation ---
+// Single-sphere analytical potential (Frank/Ary formulation)
+function calcSingleSpherePotential(elX, elY, srcX, srcY, qX, qY) {
+  // Scalp surface is at radius R = 1.0. Let's place electrode on unit circle/sphere
+  const elZ = Math.sqrt(Math.max(0, 1.0 - (elX * elX + elY * elY)));
+  const srcZ = 0.0; // Assume dipole in axial/equatorial slice for 2D topomap projection
+
+  // Vector d = r_el - r_src
+  const dx = elX - srcX, dy = elY - srcY, dz = elZ - srcZ;
+  const d2 = dx * dx + dy * dy + dz * dz;
+  const d = Math.sqrt(d2);
+  if (d < 1e-4) return 0;
+
+  // Dot products
+  const rDotR0 = elX * srcX + elY * srcY + elZ * srcZ;
+  const r0_2 = srcX * srcX + srcY * srcY + srcZ * srcZ;
+  const qDotD = qX * dx + qY * dy;
+  const qDotR = qX * elX + qY * elY;
+
+  const denom = d * (d + 1.0 - rDotR0);
+  if (Math.abs(denom) < 1e-6) return 0;
+
+  const term1 = 2.0 * qDotD / (d * d * d);
+  const term2 = (qDotD + (qDotR * (1.0 - r0_2)) / (d + 1.0 - rDotR0)) / denom;
+
+  return (term1 + term2);
+}
+
+// 3-Shell Berg approximation for human head (incorporating skull resistivity ratio)
+function calc3ShellPotential(elX, elY, srcX, srcY, qX, qY) {
+  // Skull ratio adjusts the spatial smearing weight
+  // Standard ratio is 80. As ratio increases, smearing increases (outer weights shift)
+  const ratioFactor = skullRatio / 80.0;
+  const m = [0.932, 0.702 / Math.sqrt(ratioFactor), 0.444];
+  const mu = [0.472 / ratioFactor, 0.435, 0.093 * ratioFactor];
+
+  let v = 0;
+  for (let k = 0; k < 3; k++) {
+    v += mu[k] * calcSingleSpherePotential(elX, elY, srcX * m[k], srcY * m[k], qX, qY);
+  }
+
+  // Scale by dipole moment and conversion factor to microvolts (uV)
+  const scaling = (dipMoment / 20.0) * 1.85;
+  return v * scaling;
+}
+
+// --- Render Head Cross-Section ---
+function renderHeadCanvas() {
+  const w = cHead.width, h = cHead.height;
+  ctxH.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2;
+  const R_scalp = w * 0.42;
+  const R_skull = R_scalp * 0.92;
+  const R_brain = R_scalp * 0.85;
+
+  // 1. Scalp Shell
+  ctxH.fillStyle = 'rgba(203, 213, 225, 0.15)';
+  ctxH.strokeStyle = 'rgba(203, 213, 225, 0.7)';
+  ctxH.lineWidth = 3;
+  ctxH.beginPath();
+  ctxH.arc(cx, cy, R_scalp, 0, 2 * Math.PI);
+  ctxH.fill();
+  ctxH.stroke();
+
+  // 2. Skull Shell (high resistivity)
+  ctxH.fillStyle = 'rgba(234, 179, 8, 0.2)';
+  ctxH.strokeStyle = '#eab308';
+  ctxH.lineWidth = 4;
+  ctxH.beginPath();
+  ctxH.arc(cx, cy, R_skull, 0, 2 * Math.PI);
+  ctxH.fill();
+  ctxH.stroke();
+
+  // 3. Brain Compartment
+  ctxH.fillStyle = 'rgba(71, 85, 105, 0.35)';
+  ctxH.strokeStyle = '#475569';
+  ctxH.lineWidth = 2;
+  ctxH.beginPath();
+  ctxH.arc(cx, cy, R_brain, 0, 2 * Math.PI);
+  ctxH.fill();
+  ctxH.stroke();
+
+  // Gyral/Sulcal Cortical Ribbon Guide
+  ctxH.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+  ctxH.lineWidth = 1;
+  ctxH.setLineDash([4, 4]);
+  ctxH.beginPath();
+  ctxH.arc(cx, cy, R_brain * 0.90, 0, 2 * Math.PI);
+  ctxH.stroke();
+  ctxH.setLineDash([]);
+
+  // Crosshairs
+  ctxH.strokeStyle = '#1e293b';
+  ctxH.lineWidth = 1;
+  ctxH.beginPath();
+  ctxH.moveTo(cx - R_scalp, cy); ctxH.lineTo(cx + R_scalp, cy);
+  ctxH.moveTo(cx, cy - R_scalp); ctxH.lineTo(cx, cy + R_scalp);
+  ctxH.stroke();
+
+  // Draw Current Dipole
+  const dx = cx + dipX * R_scalp;
+  const dy = cy + dipY * R_scalp;
+
+  const qLen = 35 * (dipMoment / 20.0);
+  const qx = Math.cos(dipAngle) * qLen;
+  const qy = Math.sin(dipAngle) * qLen;
+
+  // Dipole Arrow Shaft
+  ctxH.strokeStyle = '#ffffff';
+  ctxH.lineWidth = 3.5;
+  ctxH.beginPath();
+  ctxH.moveTo(dx - qx * 0.5, dy - qy * 0.5);
+  ctxH.lineTo(dx + qx * 0.5, dy + qy * 0.5);
+  ctxH.stroke();
+
+  // Positive Pole (Red Source)
+  ctxH.fillStyle = '#ef4444';
+  ctxH.beginPath();
+  ctxH.arc(dx + qx * 0.5, dy + qy * 0.5, 6, 0, 2 * Math.PI);
+  ctxH.fill();
+
+  // Negative Pole (Blue Sink)
+  ctxH.fillStyle = '#3b82f6';
+  ctxH.beginPath();
+  ctxH.arc(dx - qx * 0.5, dy - qy * 0.5, 6, 0, 2 * Math.PI);
+  ctxH.fill();
+
+  // Source Center Dot
+  ctxH.fillStyle = '#ffffff';
+  ctxH.beginPath();
+  ctxH.arc(dx, dy, 3.5, 0, 2 * Math.PI);
+  ctxH.fill();
+
+  // Text Annotations
+  ctxH.font = '10px ui-monospace, monospace';
+  ctxH.fillStyle = '#94a3b8';
+  ctxH.fillText('Anterior (Nose)', cx - 40, cy - R_scalp - 8);
+  ctxH.fillText('Posterior', cx - 26, cy + R_scalp + 16);
+  ctxH.fillText('Left', cx - R_scalp - 28, cy + 4);
+  ctxH.fillText('Right', cx + R_scalp + 8, cy + 4);
+}
+
+// --- Render 2D Scalp Topomap ---
+function renderTopomapCanvas() {
+  const w = cTopomap.width, h = cTopomap.height;
+  ctxT.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2;
+  const R_head = w * 0.40;
+
+  // Dipole orientation components
+  const qX = Math.cos(dipAngle);
+  const qY = Math.sin(dipAngle);
+
+  // 1. Render Scalp Potential Heatmap on grid
+  const res = 48;
+  const cell = (R_head * 2) / res;
+
+  let peakVolt = -999, minVolt = 999;
+
+  for (let iy = 0; iy < res; iy++) {
+    for (let ix = 0; ix < res; ix++) {
+      const nx = ((ix + 0.5) / res) * 2.0 - 1.0;
+      const ny = ((iy + 0.5) / res) * 2.0 - 1.0;
+      const r2 = nx * nx + ny * ny;
+
+      if (r2 <= 1.0) {
+        const v = calc3ShellPotential(nx, ny, dipX, dipY, qX, qY);
+        if (v > peakVolt) peakVolt = v;
+        if (v < minVolt) minVolt = v;
+
+        // Color mapping: Blue (negative) -> Neutral (black/slate) -> Red (positive)
+        const maxV = 16.0 * (dipMoment / 20.0);
+        const norm = Math.max(-1.0, Math.min(1.0, v / maxV));
+
+        let r = 10, g = 14, b = 24;
+        if (norm > 0) {
+          r = Math.round(15 + norm * 225);
+          g = Math.round(20 + norm * 50);
+          b = Math.round(30 + norm * 40);
+        } else {
+          r = Math.round(15 - norm * 35);
+          g = Math.round(20 - norm * 65);
+          b = Math.round(30 - norm * 225);
+        }
+
+        ctxT.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        const px = cx - R_head + ix * cell;
+        const py = cy - R_head + iy * cell;
+        ctxT.fillRect(px, py, cell + 0.6, cell + 0.6);
+      }
+    }
+  }
+
+  // 2. Head Outline, Nose & Ears
+  ctxT.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctxT.lineWidth = 2.5;
+
+  // Head Circle
+  ctxT.beginPath();
+  ctxT.arc(cx, cy, R_head, 0, 2 * Math.PI);
+  ctxT.stroke();
+
+  // Nose (Triangle at top)
+  ctxT.beginPath();
+  ctxT.moveTo(cx - 14, cy - R_head + 2);
+  ctxT.lineTo(cx, cy - R_head - 16);
+  ctxT.lineTo(cx + 14, cy - R_head + 2);
+  ctxT.stroke();
+
+  // Left & Right Ears
+  ctxT.beginPath();
+  ctxT.arc(cx - R_head - 3, cy, 14, Math.PI / 2, -Math.PI / 2);
+  ctxT.stroke();
+  ctxT.beginPath();
+  ctxT.arc(cx + R_head + 3, cy, 14, -Math.PI / 2, Math.PI / 2);
+  ctxT.stroke();
+
+  // 3. Draw 10-20 Electrodes with Live Voltage Tooltip/Labels
+  ctxT.font = 'bold 9px sans-serif';
+  ELECTRODES.forEach(el => {
+    const ex = cx + el.x * R_head;
+    const ey = cy + el.y * R_head;
+    const v = calc3ShellPotential(el.x, el.y, dipX, dipY, qX, qY);
+
+    // Electrode marker
+    ctxT.fillStyle = '#ffffff';
+    ctxT.beginPath();
+    ctxT.arc(ex, ey, 3.5, 0, 2 * Math.PI);
+    ctxT.fill();
+
+    // Electrode label
+    ctxT.fillStyle = '#cbd5e1';
+    ctxT.fillText(el.name, ex - 8, ey - 6);
+  });
+
+  // Update readouts
+  document.getElementById('dispPeak').textContent = (peakVolt >= 0 ? '+' : '') + peakVolt.toFixed(1) + ' µV';
+  document.getElementById('dispMin').textContent = minVolt.toFixed(1) + ' µV';
+}
+
+function updateAll() {
+  const depth = Math.sqrt(dipX * dipX + dipY * dipY);
+  document.getElementById('dispMoment').textContent = dipMoment.toFixed(0) + ' nA·m';
+  document.getElementById('dispDepth').textContent = `${depth.toFixed(2)} (${depth > 0.65 ? 'Superficial' : 'Deep'})`;
+  const deg = Math.round(dipAngle * 180 / Math.PI);
+  document.getElementById('dispAngle').textContent = `${deg}°`;
+
+  renderHeadCanvas();
+  renderTopomapCanvas();
+}
+
+// --- Presets ---
+function setPreset(p) {
+  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  const bannerText = document.getElementById('bannerText');
+
+  if (p === 'radial') {
+    document.getElementById('btnRadial').classList.add('active');
+    dipX = 0.0; dipY = -0.78;
+    dipAngle = 90 * Math.PI / 180; // Points outward toward front/nose
+    skullRatio = 80;
+    bannerText.innerHTML = '<strong>Superficial Radial Dipole:</strong> Current flows outward perpendicular to skull from gyral crown. Produces a focal positive peak directly over the source.';
+  } else if (p === 'tangential') {
+    document.getElementById('btnTangential').classList.add('active');
+    dipX = -0.40; dipY = -0.40;
+    dipAngle = 0 * Math.PI / 180; // Points laterally parallel to skull
+    skullRatio = 80;
+    bannerText.innerHTML = '<strong>Superficial Tangential Dipole:</strong> Located in a sulcal bank with current flowing parallel to the skull. Generates a classic bipolar split with distinct positive and negative lobes.';
+  } else if (p === 'deep') {
+    document.getElementById('btnDeep').classList.add('active');
+    dipX = 0.08; dipY = 0.12;
+    dipAngle = 45 * Math.PI / 180;
+    skullRatio = 80;
+    bannerText.innerHTML = '<strong>Deep Subcortical Dipole:</strong> Located in the thalamus or basal ganglia. Signal travels through greater volume conduction, resulting in broad, smeared, low-amplitude scalp potentials.';
+  } else if (p === 'occipital') {
+    document.getElementById('btnOccipital').classList.add('active');
+    dipX = 0.0; dipY = 0.76;
+    dipAngle = -90 * Math.PI / 180; // Points posterior toward O1/O2
+    skullRatio = 80;
+    bannerText.innerHTML = '<strong>Occipital Alpha Rhythm Source:</strong> Primary visual cortex generator in the occipital pole, producing strong posterior alpha-band voltage gradients across O1, O2, and Pz.';
+  }
+
+  // Update slider UI
+  const deg = Math.round(dipAngle * 180 / Math.PI);
+  document.getElementById('sliderAngle').value = (deg + 360) % 360;
+  document.getElementById('valAngle').textContent = `${(deg + 360) % 360}°`;
+  document.getElementById('sliderResist').value = skullRatio;
+  document.getElementById('valResist').textContent = `1 : ${skullRatio}`;
+  const depth = Math.sqrt(dipX * dipX + dipY * dipY);
+  document.getElementById('sliderDepth').value = depth.toFixed(2);
+  document.getElementById('valDepth').textContent = depth.toFixed(2);
+
+  updateAll();
+}
+
+// --- Event Listeners ---
+document.getElementById('btnRadial').addEventListener('click', () => setPreset('radial'));
+document.getElementById('btnTangential').addEventListener('click', () => setPreset('tangential'));
+document.getElementById('btnDeep').addEventListener('click', () => setPreset('deep'));
+document.getElementById('btnOccipital').addEventListener('click', () => setPreset('occipital'));
+
+// Sliders
+document.getElementById('sliderAngle').addEventListener('input', (e) => {
+  const deg = parseInt(e.target.value, 10);
+  dipAngle = deg * Math.PI / 180;
+  document.getElementById('valAngle').textContent = deg + '°';
+  updateAll();
+});
+document.getElementById('sliderMoment').addEventListener('input', (e) => {
+  dipMoment = parseFloat(e.target.value);
+  document.getElementById('valMoment').textContent = dipMoment.toFixed(0) + ' nA·m';
+  updateAll();
+});
+document.getElementById('sliderResist').addEventListener('input', (e) => {
+  skullRatio = parseInt(e.target.value, 10);
+  document.getElementById('valResist').textContent = `1 : ${skullRatio}`;
+  updateAll();
+});
+document.getElementById('sliderDepth').addEventListener('input', (e) => {
+  const newDepth = parseFloat(e.target.value);
+  const curDepth = Math.sqrt(dipX * dipX + dipY * dipY) || 1e-4;
+  dipX = (dipX / curDepth) * newDepth;
+  dipY = (dipY / curDepth) * newDepth;
+  document.getElementById('valDepth').textContent = newDepth.toFixed(2);
+  updateAll();
+});
+
+// Click and Drag Dipole in Head Canvas
+cHead.addEventListener('mousedown', (e) => {
+  isDraggingDipole = true;
+  moveDipole(e);
+});
+window.addEventListener('mouseup', () => { isDraggingDipole = false; });
+window.addEventListener('mousemove', (e) => {
+  if (isDraggingDipole) moveDipole(e);
+});
+
+function moveDipole(e) {
+  const rect = cHead.getBoundingClientRect();
+  const px = (e.clientX - rect.left) * (cHead.width / rect.width);
+  const py = (e.clientY - rect.top) * (cHead.height / rect.height);
+
+  const cx = cHead.width / 2, cy = cHead.height / 2;
+  const R_scalp = cHead.width * 0.42;
+
+  let nx = (px - cx) / R_scalp;
+  let ny = (py - cy) / R_scalp;
+
+  // Constrain inside brain shell (r <= 0.84)
+  const r = Math.sqrt(nx * nx + ny * ny);
+  if (r > 0.84) {
+    nx = (nx / r) * 0.84;
+    ny = (ny / r) * 0.84;
+  }
+
+  dipX = nx;
+  dipY = ny;
+  document.getElementById('sliderDepth').value = Math.sqrt(nx * nx + ny * ny).toFixed(2);
+  document.getElementById('valDepth').textContent = Math.sqrt(nx * nx + ny * ny).toFixed(2);
+
+  updateAll();
+}
+
+// Initial Setup
+setPreset('radial');
+</script>
+</body>
+</html>

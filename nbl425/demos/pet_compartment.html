@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PET Pharmacokinetics &amp; 2-Tissue Compartment Simulator</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --scope-bg: #070b14;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-plasma: #ef4444;
+    --c-free: #3b82f6;
+    --c-trapped: #10b981;
+    --c-pet: #a855f7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --scope-bg: #040711;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+      --c-plasma: #f87171;
+      --c-free: #60a5fa;
+      --c-trapped: #34d399;
+      --c-pet: #c084fc;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .dual-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 900px) {
+    .dual-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--scope-bg);
+    border: 1px solid var(--border);
+  }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .color-legend {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .readout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .readout-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .readout-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+  .readout-val { font-size: 1.1rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .schematic-box {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 8px;
+    background: rgba(148, 163, 184, 0.06);
+    border: 1px solid var(--border);
+  }
+
+  .note {
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .note strong { color: var(--fg); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>PET Pharmacokinetics &amp; 2-Tissue Compartment Simulator</h1>
+  <p class="sub">
+    Simulate intravenous radiotracer kinetics across the blood-brain barrier: model plasma delivery (<i>K</i><sub>1</sub>), venous clearance (<i>k</i><sub>2</sub>), metabolic trapping or receptor binding (<i>k</i><sub>3</sub>, <i>k</i><sub>4</sub>), and perform real-time <strong>Patlak</strong> and <strong>Logan</strong> graphical linearization.
+  </p>
+
+  <div class="panel">
+    <!-- Presets -->
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Tracer Model:</span>
+      <button id="btnFDG" class="active">18F-FDG Glucose (Irreversible)</button>
+      <button id="btnReceptor" class="secondary">Receptor Ligand (Reversible)</button>
+      <button id="btnIschemia" class="secondary">Hypoperfusion / Ischemia</button>
+      <button id="btnHyper" class="secondary">Hypermetabolic Focus</button>
+      <div style="margin-left: auto; display:flex; gap:6px;">
+        <button id="btnPlotPatlak" class="active" style="font-size:0.78rem;">Patlak Plot</button>
+        <button id="btnPlotLogan" class="secondary" style="font-size:0.78rem;">Logan Plot</button>
+      </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>18F-FDG Glucose Metabolism:</strong> Trapped intracellularly after phosphorylation by hexokinase (<i>k</i><sub>4</sub> = 0). Linear Patlak slope measures net influx rate (<i>K</i><sub>i</sub>).</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Net Influx K<sub>i</sub> = 0.035 mL/min/g &middot; CMR<sub>glu</sub> = 29.2 &mu;mol/min/100g</span>
+    </div>
+
+    <!-- Dual Canvases -->
+    <div class="dual-grid">
+      <!-- Canvas 1: Dynamic Time-Activity Curves (TACs) -->
+      <div class="canvas-box">
+        <canvas id="cTAC" width="520" height="340"></canvas>
+        <div class="canvas-caption">Time-Activity Curves (0 &ndash; 60 min): Plasma, Free Tissue, Trapped &amp; Total PET Signal</div>
+        <div class="color-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-plasma);"></div> Plasma <i>C</i><sub>p</sub>(<i>t</i>)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-free);"></div> Free Tissue <i>C</i><sub>1</sub>(<i>t</i>)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-trapped);"></div> Trapped/Bound <i>C</i><sub>2</sub>(<i>t</i>)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-pet);"></div> Total PET <i>C</i><sub>PET</sub>(<i>t</i>)</div>
+        </div>
+      </div>
+
+      <!-- Canvas 2: Graphical Analysis (Patlak or Logan) -->
+      <div class="canvas-box">
+        <canvas id="cGraph" width="420" height="340"></canvas>
+        <div class="canvas-caption" id="graphCaption">Patlak Graphical Analysis: Linear Slope = Net Influx Rate <i>K</i><sub>i</sub></div>
+        <div class="color-legend">
+          <div class="leg-item" style="color:var(--accent);">&bull; Data Points (t &gt; 15 min)</div>
+          <div class="leg-item" style="color:#ef4444;">&mdash; Linear Regression Fit</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Readouts -->
+    <div class="readout-grid">
+      <div class="readout-card">
+        <div class="readout-label">Net Influx Rate (<i>K</i><sub>i</sub>)</div>
+        <div class="readout-val" id="dispKi" style="color:var(--accent);">0.035</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">CMR<sub>glu</sub> (Glucose Rate)</div>
+        <div class="readout-val" id="dispCMR">29.2 &mu;mol/100g/min</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Distribution Volume (<i>V</i><sub>T</sub>)</div>
+        <div class="readout-val" id="dispVT">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Binding Potential (<i>BP</i><sub>ND</sub>)</div>
+        <div class="readout-val" id="dispBP">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Equilibrium Ratio (<i>k</i><sub>3</sub>/<i>k</i><sub>4</sub>)</div>
+        <div class="readout-val" id="dispK3K4">&infin; (Irreversible)</div>
+      </div>
+    </div>
+
+    <!-- Parameter Sliders -->
+    <div class="controls-grid">
+      <div>
+        <label>Plasma Delivery <i>K</i><sub>1</sub> (BBB influx): <span class="val-badge" id="valK1">0.10 mL/g/min</span></label>
+        <input type="range" id="sliderK1" min="0.01" max="0.50" value="0.10" step="0.01">
+      </div>
+      <div>
+        <label>Venous Efflux <i>k</i><sub>2</sub> (tissue clearance): <span class="val-badge" id="valK2">0.15 min<sup>-1</sup></span></label>
+        <input type="range" id="sliderK2" min="0.01" max="0.60" value="0.15" step="0.01">
+      </div>
+      <div>
+        <label>Phosphorylation / Binding <i>k</i><sub>3</sub>: <span class="val-badge" id="valK3">0.08 min<sup>-1</sup></span></label>
+        <input type="range" id="sliderK3" min="0.0" max="0.40" value="0.08" step="0.005">
+      </div>
+      <div>
+        <label>Dephosphorylation / Dissoc <i>k</i><sub>4</sub>: <span class="val-badge" id="valK4">0.000 min<sup>-1</sup></span></label>
+        <input type="range" id="sliderK4" min="0.0" max="0.15" value="0.0" step="0.002">
+      </div>
+      <div>
+        <label>Plasma Glucose Concentration: <span class="val-badge" id="valGluc">5.0 mM</span></label>
+        <input type="range" id="sliderGluc" min="2.0" max="12.0" value="5.0" step="0.2">
+      </div>
+      <div>
+        <label>Vascular Blood Volume (<i>V</i><sub>b</sub>): <span class="val-badge" id="valVb">5.0%</span></label>
+        <input type="range" id="sliderVb" min="0.0" max="0.12" value="0.05" step="0.005">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;">
+      <strong>Core Concepts of PET Pharmacokinetic Modeling:</strong>
+    </p>
+    <p class="note">
+      1. <strong>The Two-Tissue Compartment Model:</strong> Radiotracers delivered via an arterial plasma input <i>C</i><sub>p</sub>(<i>t</i>) cross the capillary endothelial blood-brain barrier with rate constant <i>K</i><sub>1</sub> (mL/g/min) into the free tissue compartment <i>C</i><sub>1</sub>(<i>t</i>). From there, tracer either washes back out into venous blood (<i>k</i><sub>2</sub>) or binds specifically to receptors / is phosphorylated by enzymes into the bound/trapped compartment <i>C</i><sub>2</sub>(<i>t</i>) via <i>k</i><sub>3</sub>.
+    </p>
+    <p class="note">
+      2. <strong>Irreversible Tracers &amp; The Patlak Graphical Plot:</strong> For metabolic tracers like <sup>18</sup>F-fluorodeoxyglucose (FDG), hexokinase phosphorylates FDG into FDG-6-phosphate, which cannot be metabolized further and cannot cross cell membranes (<i>k</i><sub>4</sub> &approx; 0). The Patlak plot linearizes late-time data (<i>t</i> &gt; 15 min):
+      <br>
+      <i>C</i><sub>PET</sub>(<i>t</i>) / <i>C</i><sub>p</sub>(<i>t</i>) = <i>K</i><sub>i</sub> &middot; [&int; <i>C</i><sub>p</sub>(&tau;)<i>d</i>&tau; / <i>C</i><sub>p</sub>(<i>t</i>)] + <i>V</i><sub>0</sub>
+      <br>
+      The slope yields the net metabolic influx rate <i>K</i><sub>i</sub> = <i>K</i><sub>1</sub><i>k</i><sub>3</sub> / (<i>k</i><sub>2</sub> + <i>k</i><sub>3</sub>). Multiplying <i>K</i><sub>i</sub> by plasma glucose and dividing by the Lumped Constant yields the Cerebral Metabolic Rate of Glucose (CMR<sub>glu</sub>).
+    </p>
+    <p class="note">
+      3. <strong>Reversible Ligands &amp; The Logan Graphical Plot:</strong> For neuroreceptor ligands (e.g. dopamine D2/D3 ligands), the radiotracer reversibly dissociates from the receptor (<i>k</i><sub>4</sub> &gt; 0). The Logan plot linearizes the time course:
+      <br>
+      [&int; <i>C</i><sub>PET</sub>(&tau;)<i>d</i>&tau; / <i>C</i><sub>PET</sub>(<i>t</i>)] = <i>V</i><sub>T</sub> &middot; [&int; <i>C</i><sub>p</sub>(&tau;)<i>d</i>&tau; / <i>C</i><sub>PET</sub>(<i>t</i>)] + <i>int</i>
+      <br>
+      The slope yields the Total Distribution Volume <i>V</i><sub>T</sub> = (<i>K</i><sub>1</sub>/<i>k</i><sub>2</sub>)(1 + <i>k</i><sub>3</sub>/<i>k</i><sub>4</sub>). The ratio <i>k</i><sub>3</sub>/<i>k</i><sub>4</sub> directly reflects the non-displaceable Binding Potential (<i>BP</i><sub>ND</sub>), proportional to available receptor density (<i>B</i><sub>avail</sub>).
+    </p>
+    <p class="note">
+      4. <strong>Vascular Blood Spillover:</strong> Total PET activity recorded by the scanner detector ring always includes a small vascular blood contribution: <i>C</i><sub>PET</sub>(<i>t</i>) = (1 &minus; <i>V</i><sub>b</sub>)(<i>C</i><sub>1</sub>(<i>t</i>) + <i>C</i><sub>2</sub>(<i>t</i>)) + <i>V</i><sub>b</sub><i>C</i><sub>p</sub>(<i>t</i>).
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; PET Pharmacokinetics Simulation</footer>
+</div>
+
+<script>
+// --- Simulation Constants & State ---
+const T_MAX = 60.0; // Minutes
+const DT = 0.2; // Step size (min)
+const STEPS = Math.round(T_MAX / DT) + 1;
+
+let K1 = 0.10; // mL/g/min
+let k2 = 0.15; // 1/min
+let k3 = 0.08; // 1/min
+let k4 = 0.00; // 1/min
+let Vb = 0.05; // 5% blood volume
+let plasmaGluc = 5.0; // mM (approx 90 mg/dL)
+const LC = 0.65; // Lumped constant for brain FDG
+
+let activePlot = 'patlak'; // 'patlak' or 'logan'
+
+// Time array
+const times = new Float32Array(STEPS);
+for (let i = 0; i < STEPS; i++) times[i] = i * DT;
+
+// Arterial Input Function Cp(t) - standard Feng model bolus + clearance
+function getCp(t) {
+  if (t < 0) return 0;
+  // Fast injection bolus peaking at ~1.5 min, plus bi-exponential plasma clearance
+  const bolus = 120.0 * Math.pow(t / 1.2, 2.0) * Math.exp(-t / 0.8);
+  const fastClear = 28.0 * Math.exp(-t / 5.5);
+  const slowClear = 8.5 * Math.exp(-t / 38.0);
+  return bolus + fastClear + slowClear;
+}
+
+// Numerical Simulation via Runge-Kutta 4
+let CpArr = new Float32Array(STEPS);
+let C1Arr = new Float32Array(STEPS);
+let C2Arr = new Float32Array(STEPS);
+let CpetArr = new Float32Array(STEPS);
+let intCpArr = new Float32Array(STEPS);
+let intCpetArr = new Float32Array(STEPS);
+
+function runSimulation() {
+  let c1 = 0.0, c2 = 0.0;
+  let intCp = 0.0, intCpet = 0.0;
+
+  for (let i = 0; i < STEPS; i++) {
+    const t = times[i];
+    const cp = getCp(t);
+
+    CpArr[i] = cp;
+    C1Arr[i] = c1;
+    C2Arr[i] = c2;
+
+    const cpet = (1.0 - Vb) * (c1 + c2) + Vb * cp;
+    CpetArr[i] = cpet;
+
+    if (i > 0) {
+      intCp += 0.5 * (CpArr[i] + CpArr[i - 1]) * DT;
+      intCpet += 0.5 * (CpetArr[i] + CpetArr[i - 1]) * DT;
+    }
+    intCpArr[i] = intCp;
+    intCpetArr[i] = intCpet;
+
+    // Advance C1 and C2 via RK4
+    function dC(c1_val, c2_val, t_val) {
+      const cp_val = getCp(t_val);
+      const dc1 = K1 * cp_val - (k2 + k3) * c1_val + k4 * c2_val;
+      const dc2 = k3 * c1_val - k4 * c2_val;
+      return [dc1, dc2];
+    }
+
+    const [k1_1, k1_2] = dC(c1, c2, t);
+    const [k2_1, k2_2] = dC(c1 + 0.5 * DT * k1_1, c2 + 0.5 * DT * k1_2, t + 0.5 * DT);
+    const [k3_1, k3_2] = dC(c1 + 0.5 * DT * k2_1, c2 + 0.5 * DT * k2_2, t + 0.5 * DT);
+    const [k4_1, k4_2] = dC(c1 + DT * k3_1, c2 + DT * k3_2, t + DT);
+
+    c1 += (DT / 6.0) * (k1_1 + 2.0 * k2_1 + 2.0 * k3_1 + k4_1);
+    c2 += (DT / 6.0) * (k1_2 + 2.0 * k2_2 + 2.0 * k3_2 + k4_2);
+  }
+
+  updateMetrics();
+  renderTACCanvas();
+  renderGraphCanvas();
+}
+
+function updateMetrics() {
+  const Ki = (K1 * k3) / Math.max(1e-5, k2 + k3);
+  document.getElementById('dispKi').textContent = Ki.toFixed(3);
+
+  // CMRglu = (Ki * plasmaGluc / LC) * 100 g conversion (~umol/100g/min)
+  const cmr = (Ki * plasmaGluc * 100.0) / LC;
+  document.getElementById('dispCMR').innerHTML = cmr.toFixed(1) + ' &mu;mol/100g/min';
+
+  if (k4 > 0.0005) {
+    const VT = (K1 / k2) * (1.0 + k3 / k4);
+    const BPnd = k3 / k4;
+    document.getElementById('dispVT').textContent = VT.toFixed(2);
+    document.getElementById('dispBP').textContent = BPnd.toFixed(2);
+    document.getElementById('dispK3K4').textContent = (k3 / k4).toFixed(2);
+  } else {
+    document.getElementById('dispVT').textContent = '— (Irreversible)';
+    document.getElementById('dispBP').textContent = '— (Irreversible)';
+    document.getElementById('dispK3K4').innerHTML = '&infin; (Trapped)';
+  }
+}
+
+// --- Canvases ---
+const cTAC = document.getElementById('cTAC');
+const ctxTAC = cTAC.getContext('2d');
+const cGraph = document.getElementById('cGraph');
+const ctxGraph = cGraph.getContext('2d');
+
+function renderTACCanvas() {
+  const w = cTAC.width, h = cTAC.height;
+  ctxTAC.clearRect(0, 0, w, h);
+
+  const padLeft = 44, padRight = 20, padTop = 22, padBottom = 26;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  // Grid
+  ctxTAC.strokeStyle = '#1e293b';
+  ctxTAC.lineWidth = 1;
+  ctxTAC.beginPath();
+  for (let t = 0; t <= T_MAX; t += 10) {
+    let x = padLeft + (t / T_MAX) * plotW;
+    ctxTAC.moveTo(x, padTop); ctxTAC.lineTo(x, padTop + plotH);
+  }
+  for (let yPct = 0; yPct <= 1.0; yPct += 0.25) {
+    let y = padTop + plotH * (1.0 - yPct);
+    ctxTAC.moveTo(padLeft, y); ctxTAC.lineTo(padLeft + plotW, y);
+  }
+  ctxTAC.stroke();
+
+  // Find max value for Y scaling
+  let maxVal = 0;
+  for (let i = 0; i < STEPS; i++) {
+    if (CpArr[i] > maxVal) maxVal = CpArr[i];
+    if (CpetArr[i] > maxVal) maxVal = CpetArr[i];
+  }
+  maxVal = Math.max(40, maxVal * 1.08);
+
+  // Axis labels
+  ctxTAC.fillStyle = '#94a3b8';
+  ctxTAC.font = '10px ui-monospace, monospace';
+  for (let t = 0; t <= T_MAX; t += 10) {
+    let x = padLeft + (t / T_MAX) * plotW;
+    ctxTAC.fillText(t + 'm', x - 8, h - 8);
+  }
+  for (let yPct = 0; yPct <= 1.0; yPct += 0.25) {
+    let y = padTop + plotH * (1.0 - yPct);
+    let val = maxVal * yPct;
+    ctxTAC.fillText(val.toFixed(0), 12, y + 3);
+  }
+  ctxTAC.fillText('kBq/mL', 10, padTop - 8);
+
+  function drawCurve(arr, color, lineWidth = 2.2, isDashed = false) {
+    ctxTAC.strokeStyle = color;
+    ctxTAC.lineWidth = lineWidth;
+    ctxTAC.setLineDash(isDashed ? [4, 3] : []);
+    ctxTAC.beginPath();
+    for (let i = 0; i < STEPS; i++) {
+      let x = padLeft + (times[i] / T_MAX) * plotW;
+      let y = padTop + plotH - (arr[i] / maxVal) * plotH;
+      if (i === 0) ctxTAC.moveTo(x, y);
+      else ctxTAC.lineTo(x, y);
+    }
+    ctxTAC.stroke();
+    ctxTAC.setLineDash([]);
+  }
+
+  // Draw curves
+  drawCurve(CpArr, '#f87171', 2.0); // Plasma
+  drawCurve(C1Arr, '#60a5fa', 1.8, true); // Free
+  drawCurve(C2Arr, '#34d399', 1.8, true); // Trapped
+  drawCurve(CpetArr, '#c084fc', 2.8); // Total PET
+}
+
+function renderGraphCanvas() {
+  const w = cGraph.width, h = cGraph.height;
+  ctxGraph.clearRect(0, 0, w, h);
+
+  const padLeft = 46, padRight = 20, padTop = 22, padBottom = 30;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  // Grid
+  ctxGraph.strokeStyle = '#1e293b';
+  ctxGraph.lineWidth = 1;
+  ctxGraph.beginPath();
+  for (let f = 0; f <= 1.0; f += 0.25) {
+    let x = padLeft + f * plotW;
+    let y = padTop + f * plotH;
+    ctxGraph.moveTo(x, padTop); ctxGraph.lineTo(x, padTop + plotH);
+    ctxGraph.moveTo(padLeft, y); ctxGraph.lineTo(padLeft + plotW, y);
+  }
+  ctxGraph.stroke();
+
+  // Compute Points for Patlak or Logan
+  const pts = [];
+  const startIdx = Math.round(15.0 / DT); // Fit from t >= 15 min
+
+  let minX = 0, maxX = 1, minY = 0, maxY = 1;
+
+  if (activePlot === 'patlak') {
+    document.getElementById('graphCaption').innerHTML = 'Patlak Plot: Slope = Net Influx Rate <i>K</i><sub>i</sub> (FDG Glucose)';
+    // Patlak: X = int(Cp)/Cp, Y = Cpet/Cp
+    for (let i = 2; i < STEPS; i++) {
+      const cp = CpArr[i];
+      if (cp > 0.1) {
+        const x = intCpArr[i] / cp;
+        const y = CpetArr[i] / cp;
+        pts.push({ x, y, isFit: i >= startIdx });
+      }
+    }
+  } else {
+    document.getElementById('graphCaption').innerHTML = 'Logan Plot: Slope = Distribution Volume <i>V</i><sub>T</sub> (Receptor Ligands)';
+    // Logan: X = int(Cp)/Cpet, Y = int(Cpet)/Cpet
+    for (let i = 2; i < STEPS; i++) {
+      const cpet = CpetArr[i];
+      if (cpet > 0.1) {
+        const x = intCpArr[i] / cpet;
+        const y = intCpetArr[i] / cpet;
+        pts.push({ x, y, isFit: i >= startIdx });
+      }
+    }
+  }
+
+  if (pts.length === 0) return;
+
+  // Calculate bounds
+  minX = 0;
+  maxX = Math.max(...pts.map(p => p.x)) * 1.08;
+  minY = 0;
+  maxY = Math.max(...pts.map(p => p.y)) * 1.08;
+
+  // Linear regression on fit points (t >= 15 min)
+  const fitPts = pts.filter(p => p.isFit);
+  let slope = 0, intercept = 0;
+  if (fitPts.length > 2) {
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    const n = fitPts.length;
+    fitPts.forEach(p => {
+      sumX += p.x; sumY += p.y;
+      sumXY += p.x * p.y; sumXX += p.x * p.x;
+    });
+    slope = (n * sumXY - sumX * sumY) / Math.max(1e-9, n * sumXX - sumX * sumX);
+    intercept = (sumY - slope * sumX) / n;
+  }
+
+  // Draw Axes labels
+  ctxGraph.fillStyle = '#94a3b8';
+  ctxGraph.font = '10px ui-monospace, monospace';
+  ctxGraph.fillText(maxX.toFixed(0), padLeft + plotW - 14, h - 8);
+  ctxGraph.fillText('0', padLeft - 6, h - 8);
+  ctxGraph.fillText(maxY.toFixed(1), 12, padTop + 8);
+  ctxGraph.fillText('0', 12, padTop + plotH);
+
+  const xLabel = activePlot === 'patlak' ? 'Normalized Time: ∫Cp(t)/Cp(t) [min]' : 'Exposure Ratio: ∫Cp(t)/C_PET(t) [min]';
+  const yLabel = activePlot === 'patlak' ? 'C_PET(t)/Cp(t)' : '∫C_PET(t)/C_PET(t) [min]';
+  ctxGraph.font = '10px sans-serif';
+  ctxGraph.fillText(xLabel, padLeft + 15, h - 10);
+
+  // 1. Draw Data Points
+  pts.forEach(p => {
+    let px = padLeft + (p.x / maxX) * plotW;
+    let py = padTop + plotH - (p.y / maxY) * plotH;
+    ctxGraph.fillStyle = p.isFit ? 'rgba(96, 165, 250, 0.85)' : 'rgba(148, 163, 184, 0.35)';
+    ctxGraph.beginPath();
+    ctxGraph.arc(px, py, 2.5, 0, 2 * Math.PI);
+    ctxGraph.fill();
+  });
+
+  // 2. Draw Regression Line
+  if (fitPts.length > 2) {
+    const x0 = 0, y0 = intercept;
+    const x1 = maxX, y1 = slope * maxX + intercept;
+
+    const px0 = padLeft + (x0 / maxX) * plotW;
+    const py0 = padTop + plotH - (y0 / maxY) * plotH;
+    const px1 = padLeft + (x1 / maxX) * plotW;
+    const py1 = padTop + plotH - (y1 / maxY) * plotH;
+
+    ctxGraph.strokeStyle = '#f87171';
+    ctxGraph.lineWidth = 2.2;
+    ctxGraph.beginPath();
+    ctxGraph.moveTo(px0, py0);
+    ctxGraph.lineTo(px1, py1);
+    ctxGraph.stroke();
+
+    // Slope Badge on plot
+    ctxGraph.font = 'bold 11px ui-monospace, monospace';
+    ctxGraph.fillStyle = '#f87171';
+    const slopeText = activePlot === 'patlak'
+      ? `Slope (Ki) = ${slope.toFixed(3)} mL/min/g`
+      : `Slope (VT) = ${slope.toFixed(2)}`;
+    ctxGraph.fillText(slopeText, padLeft + 14, padTop + 18);
+  }
+}
+
+// --- Presets ---
+function setPreset(p) {
+  document.querySelectorAll('.preset-bar button').forEach(b => {
+    if (b.id !== 'btnPlotPatlak' && b.id !== 'btnPlotLogan') b.classList.remove('active');
+  });
+  const bannerText = document.getElementById('bannerText');
+
+  if (p === 'fdg') {
+    document.getElementById('btnFDG').classList.add('active');
+    K1 = 0.10; k2 = 0.15; k3 = 0.08; k4 = 0.00; Vb = 0.05;
+    bannerText.innerHTML = '<strong>18F-FDG Glucose Metabolism:</strong> Trapped intracellularly after phosphorylation by hexokinase (<i>k</i><sub>4</sub> = 0). Linear Patlak slope measures net influx rate (<i>K</i><sub>i</sub>).';
+    setPlotMode('patlak');
+  } else if (p === 'receptor') {
+    document.getElementById('btnReceptor').classList.add('active');
+    K1 = 0.25; k2 = 0.20; k3 = 0.12; k4 = 0.05; Vb = 0.04;
+    bannerText.innerHTML = '<strong>Reversible Receptor Ligand:</strong> Reversible ligand binding (<i>k</i><sub>4</sub> &gt; 0). Linear Logan slope measures Total Volume of Distribution (<i>V</i><sub>T</sub>).';
+    setPlotMode('logan');
+  } else if (p === 'ischemia') {
+    document.getElementById('btnIschemia').classList.add('active');
+    K1 = 0.03; k2 = 0.15; k3 = 0.08; k4 = 0.00; Vb = 0.03;
+    bannerText.innerHTML = '<strong>Hypoperfusion / Stroke Ischemia:</strong> Severely reduced capillary blood delivery (<i>K</i><sub>1</sub> = 0.03 mL/g/min), depressing overall metabolic uptake.';
+    setPlotMode('patlak');
+  } else if (p === 'hyper') {
+    document.getElementById('btnHyper').classList.add('active');
+    K1 = 0.22; k2 = 0.15; k3 = 0.18; k4 = 0.00; Vb = 0.06;
+    bannerText.innerHTML = '<strong>Hypermetabolic Focus (Seizure / Glioma):</strong> Markedly elevated delivery and hexokinase enzymatic rate (<i>K</i><sub>1</sub>, <i>k</i><sub>3</sub> &uarr;), driving high glucose utilization.';
+    setPlotMode('patlak');
+  }
+
+  // Update slider badges
+  document.getElementById('sliderK1').value = K1;
+  document.getElementById('valK1').textContent = K1.toFixed(2) + ' mL/g/min';
+  document.getElementById('sliderK2').value = k2;
+  document.getElementById('valK2').textContent = k2.toFixed(2) + ' min-1';
+  document.getElementById('sliderK3').value = k3;
+  document.getElementById('valK3').textContent = k3.toFixed(3) + ' min-1';
+  document.getElementById('sliderK4').value = k4;
+  document.getElementById('valK4').textContent = k4.toFixed(3) + ' min-1';
+  document.getElementById('sliderVb').value = Vb;
+  document.getElementById('valVb').textContent = (Vb * 100).toFixed(1) + '%';
+
+  runSimulation();
+}
+
+function setPlotMode(mode) {
+  activePlot = mode;
+  document.getElementById('btnPlotPatlak').classList.toggle('active', mode === 'patlak');
+  document.getElementById('btnPlotPatlak').classList.toggle('secondary', mode !== 'patlak');
+  document.getElementById('btnPlotLogan').classList.toggle('active', mode === 'logan');
+  document.getElementById('btnPlotLogan').classList.toggle('secondary', mode !== 'logan');
+  renderGraphCanvas();
+}
+
+// --- Event Listeners ---
+document.getElementById('btnFDG').addEventListener('click', () => setPreset('fdg'));
+document.getElementById('btnReceptor').addEventListener('click', () => setPreset('receptor'));
+document.getElementById('btnIschemia').addEventListener('click', () => setPreset('ischemia'));
+document.getElementById('btnHyper').addEventListener('click', () => setPreset('hyper'));
+
+document.getElementById('btnPlotPatlak').addEventListener('click', () => setPlotMode('patlak'));
+document.getElementById('btnPlotLogan').addEventListener('click', () => setPlotMode('logan'));
+
+document.getElementById('sliderK1').addEventListener('input', (e) => {
+  K1 = parseFloat(e.target.value);
+  document.getElementById('valK1').textContent = K1.toFixed(2) + ' mL/g/min';
+  runSimulation();
+});
+document.getElementById('sliderK2').addEventListener('input', (e) => {
+  k2 = parseFloat(e.target.value);
+  document.getElementById('valK2').textContent = k2.toFixed(2) + ' min-1';
+  runSimulation();
+});
+document.getElementById('sliderK3').addEventListener('input', (e) => {
+  k3 = parseFloat(e.target.value);
+  document.getElementById('valK3').textContent = k3.toFixed(3) + ' min-1';
+  runSimulation();
+});
+document.getElementById('sliderK4').addEventListener('input', (e) => {
+  k4 = parseFloat(e.target.value);
+  document.getElementById('valK4').textContent = k4.toFixed(3) + ' min-1';
+  runSimulation();
+});
+document.getElementById('sliderGluc').addEventListener('input', (e) => {
+  plasmaGluc = parseFloat(e.target.value);
+  document.getElementById('valGluc').textContent = plasmaGluc.toFixed(1) + ' mM';
+  updateMetrics();
+});
+document.getElementById('sliderVb').addEventListener('input', (e) => {
+  Vb = parseFloat(e.target.value);
+  document.getElementById('valVb').textContent = (Vb * 100).toFixed(1) + '%';
+  runSimulation();
+});
+
+// Initial Setup
+setPreset('fdg');
+</script>
+</body>
+</html>

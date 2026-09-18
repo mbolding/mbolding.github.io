@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG vs. MEG: Radial vs. Tangential Dipole Sensitivity</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --scope-bg: #070b14;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --eeg-color: #f59e0b;
+    --meg-color: #06b6d4;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --scope-bg: #040711;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+      --eeg-color: #fbbf24;
+      --meg-color: #22d3ee;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .tri-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 880px) {
+    .tri-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    background: var(--scope-bg);
+    border: 1px solid var(--border);
+  }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .signal-meters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .meter-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .meter-title { font-size: 0.8rem; font-weight: 600; display: flex; justify-content: space-between; }
+  .meter-bar-track { height: 12px; background: #1e293b; border-radius: 6px; overflow: hidden; }
+  .meter-bar-fill { height: 100%; border-radius: 6px; transition: width 0.15s ease; }
+
+  .readout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .readout-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .readout-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+  .readout-val { font-size: 1.05rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .note {
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .note strong { color: var(--fg); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>EEG vs. MEG: Radial vs. Tangential Dipole Sensitivity</h1>
+  <p class="sub">
+    Discover the fundamental electromagnetic principle of human electrophysiology: why <strong>Magnetoencephalography (MEG)</strong> is selectively sensitive to tangential sulcal currents and completely blind to radial gyral currents, whereas <strong>Electroencephalography (EEG)</strong> detects both.
+  </p>
+
+  <div class="panel">
+    <!-- Presets -->
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Anatomical Source:</span>
+      <button id="btnRadial" class="active">Radial Dipole (Gyral Crown)</button>
+      <button id="btnTangential" class="secondary">Tangential Dipole (Sulcal Bank)</button>
+      <button id="btnOblique" class="secondary">Oblique Dipole (45&deg;)</button>
+      <button id="btnDeep" class="secondary">Deep Subcortical Source</button>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Radial Dipole (Gyral Crown):</strong> Dipole is aligned perpendicular to the skull. In a spherical conductor, the magnetic field produced by volume currents exactly cancels the primary field: <strong>MEG signal is identically 0.0 fT</strong>!</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Sarvas Law: (q &times; r<sub>0</sub>) &middot; r = 0 for radial dipoles</span>
+    </div>
+
+    <!-- Triple Synchronized Views -->
+    <div class="tri-grid">
+      <!-- 1. Cortical Fold Cross-Section -->
+      <div class="canvas-box">
+        <canvas id="cAnat" width="340" height="340"></canvas>
+        <div class="canvas-caption">1. Cortical Fold Anatomy &middot; Gyral Crown vs. Sulcus</div>
+      </div>
+
+      <!-- 2. EEG Scalp Potential Map -->
+      <div class="canvas-box">
+        <canvas id="cEEG" width="340" height="340"></canvas>
+        <div class="canvas-caption">2. EEG Scalp Electric Potential <i>V</i> (&mu;V)</div>
+      </div>
+
+      <!-- 3. MEG Magnetic Flux Density Map -->
+      <div class="canvas-box">
+        <canvas id="cMEG" width="340" height="340"></canvas>
+        <div class="canvas-caption">3. MEG Radial Magnetic Flux <i>B</i><sub>r</sub> (fT)</div>
+      </div>
+    </div>
+
+    <!-- Dynamic Signal Sensitivity Meters -->
+    <div class="signal-meters">
+      <div class="meter-box">
+        <div class="meter-title">
+          <span>EEG Scalp Voltage Sensitivity:</span>
+          <span id="meterEEGVal" style="color:var(--eeg-color);">100% (Strong)</span>
+        </div>
+        <div class="meter-bar-track">
+          <div class="meter-bar-fill" id="meterEEGBar" style="width: 100%; background: var(--eeg-color);"></div>
+        </div>
+      </div>
+
+      <div class="meter-box">
+        <div class="meter-title">
+          <span>MEG External Magnetic Sensitivity:</span>
+          <span id="meterMEGVal" style="color:var(--meg-color);">0% (BLIND &middot; 0.0 fT)</span>
+        </div>
+        <div class="meter-bar-track">
+          <div class="meter-bar-fill" id="meterMEGBar" style="width: 0%; background: var(--meg-color);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Readout Grid -->
+    <div class="readout-grid">
+      <div class="readout-card">
+        <div class="readout-label">Dipole Angle (&theta;)</div>
+        <div class="readout-val" id="dispAngle">0&deg; (Purely Radial)</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Tangential Fraction</div>
+        <div class="readout-val" id="dispTangential">0.0%</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Radial Fraction</div>
+        <div class="readout-val" id="dispRadial">100.0%</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Peak EEG Voltage</div>
+        <div class="readout-val" id="dispEEG" style="color:var(--eeg-color);">+15.4 &mu;V</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Peak MEG Field</div>
+        <div class="readout-val" id="dispMEG" style="color:var(--meg-color);">0.0 fT (Silent)</div>
+      </div>
+    </div>
+
+    <!-- Parameter Sliders -->
+    <div class="controls-grid">
+      <div>
+        <label>Dipole Angle (0&deg; Radial &rarr; 90&deg; Tangential): <span class="val-badge" id="valAngle">0&deg;</span></label>
+        <input type="range" id="sliderAngle" min="0" max="90" value="0" step="1">
+      </div>
+      <div>
+        <label>Dipole Source Depth: <span class="val-badge" id="valDepth">0.82 (Cortical)</span></label>
+        <input type="range" id="sliderDepth" min="0.20" max="0.88" value="0.82" step="0.02">
+      </div>
+      <div>
+        <label>Current Moment (<i>q</i>): <span class="val-badge" id="valMoment">20 nA&middot;m</span></label>
+        <input type="range" id="sliderMoment" min="5" max="50" value="20" step="1">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;">
+      <strong>Physical Foundations of the EEG vs. MEG Sensitivity Difference:</strong>
+    </p>
+    <p class="note">
+      1. <strong>The Biot-Savart Law in a Spherical Conductor:</strong> In 1853, Hermann von Helmholtz proved a remarkable theorem regarding electromagnetism in spherically symmetric conductors. Intracellular dendritic currents (primary current <i>J</i><sub>p</sub>) induce extracellular return currents through the brain tissue (volume current <i>J</i><sub>vol</sub>). For any current flowing purely <strong>radially</strong> (perpendicular to the concentric skull shells), the magnetic field created outside the sphere by the volume currents is <em>exactly equal and opposite</em> to the magnetic field created by the primary current. They completely cancel everywhere outside the head: <strong><i>B</i><sub>radial</sub> &equiv; 0</strong>!
+    </p>
+    <p class="note">
+      2. <strong>Sulcal vs. Gyral Sensitivity:</strong>
+      Because the cerebral cortex is folded into gyri and sulci:
+      <br>&bull; <strong>Gyral Crowns:</strong> Pyramidal neurons are oriented perpendicular to the skull &mdash; creating <strong>radial dipoles</strong>. MEG is completely blind to this activity, while EEG records it prominently.
+      <br>&bull; <strong>Sulcal Banks:</strong> Pyramidal neurons are oriented parallel to the skull &mdash; creating <strong>tangential dipoles</strong>. Both EEG and MEG record this activity, but MEG records it with superior spatial resolution because magnetic fields pass undistorted through the skull.
+    </p>
+    <p class="note">
+      3. <strong>Field Topography Orthogonality:</strong> Notice that for a tangential dipole in a sulcus, the EEG potential lobes (+ and &minus;) align along the direction of current flow, while the MEG magnetic flux lobes (field exiting + and entering &minus;) align <strong>90&deg; perpendicular</strong> to the current flow (governed by the electromagnetic Right-Hand Rule).
+    </p>
+    <p class="note">
+      4. <strong>Depth Sensitivity Trade-off:</strong> The magnetic field of a dipole falls off with distance as 1/<i>r</i><sup>2</sup> in the near field and 1/<i>r</i><sup>3</sup> further away. Consequently, MEG sensor arrays (SQUIDs and OPMs) are predominantly sensitive to superficial neocortex within 2&ndash;3 cm of the scalp. EEG potentials fall off less precipitously with depth, giving EEG greater sensitivity to deep subcortical structures (e.g. hippocampus, thalamus).
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; MEG &amp; EEG Electromagnetism Simulation</footer>
+</div>
+
+<script>
+// --- Simulation State ---
+let thetaDeg = 0; // 0 = Purely Radial (Gyral), 90 = Purely Tangential (Sulcal)
+let depth = 0.82; // 0.82 = Superficial cortex
+let moment = 20.0; // nA*m
+
+// Canvases
+const cAnat = document.getElementById('cAnat');
+const ctxA = cAnat.getContext('2d');
+const cEEG = document.getElementById('cEEG');
+const ctxE = cEEG.getContext('2d');
+const cMEG = document.getElementById('cMEG');
+const ctxM = cMEG.getContext('2d');
+
+// Compute EEG Potential and MEG Radial Magnetic Field at scalp location (x, y)
+// Dipole located at (0, -depth) in axial/coronal view
+// theta: 0 = pointing along -y (radial, outward to skull)
+//        90 = pointing along +x (tangential, parallel to skull)
+function calcFields(nx, ny) {
+  const thetaRad = thetaDeg * Math.PI / 180;
+  const qRadial = Math.cos(thetaRad);
+  const qTangential = Math.sin(thetaRad);
+
+  // Dipole position: r0 = (0, -depth, 0)
+  // Observation point on unit sphere: r = (nx, ny, nz)
+  const nz = Math.sqrt(Math.max(0, 1.0 - (nx * nx + ny * ny)));
+
+  // Distance vector d = r - r0
+  const dx = nx;
+  const dy = ny - (-depth);
+  const dz = nz;
+  const d2 = dx * dx + dy * dy + dz * dz;
+  const d = Math.sqrt(d2);
+
+  if (d < 1e-4) return { eeg: 0, meg: 0 };
+
+  // --- 1. EEG Potential Calculation ---
+  // Radial component produces monopolar peak centered at (0, -1)
+  // Tangential component produces bipolar split along X
+  const dDotQ_rad = qRadial * dy; // along radial direction
+  const dDotQ_tan = qTangential * dx; // along tangential direction
+
+  const eegRadial = 16.0 * (moment / 20.0) * (dDotQ_rad / Math.pow(d, 2.6));
+  const eegTangential = 16.0 * (moment / 20.0) * (dDotQ_tan / Math.pow(d, 2.6));
+  const eeg = eegRadial + eegTangential;
+
+  // --- 2. MEG Radial Magnetic Field Br (Sarvas Law) ---
+  // Radial dipole gives EXACTLY ZERO external magnetic field!
+  // Only the tangential dipole component produces external Br:
+  // Br is proportional to (q x r0) . r
+  // q_tan = [qTan, 0, 0], r0 = [0, -depth, 0] => q x r0 = [0, 0, -qTan * depth]
+  // Then (q x r0) . r = -qTan * depth * nz
+  // Across the 2D plane perpendicular to current flow, Br forms two lobes (+ and -) along Y
+  const megAmp = 120.0 * (moment / 20.0) * qTangential * (depth / Math.pow(d, 3.0));
+  // Magnetic field enters on one side (ny > -depth) and exits on the other (ny < -depth)
+  const meg = megAmp * (-(ny - (-depth)));
+
+  return { eeg, meg };
+}
+
+// --- Render 1: Cortical Anatomy View ---
+function renderAnatCanvas() {
+  const w = cAnat.width, h = cAnat.height;
+  ctxA.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h * 0.72;
+
+  // 1. Scalp & Skull outer arcs
+  ctxA.strokeStyle = 'rgba(203, 213, 225, 0.6)';
+  ctxA.lineWidth = 3;
+  ctxA.beginPath();
+  ctxA.arc(cx, cy, 210, -Math.PI * 0.85, -Math.PI * 0.15);
+  ctxA.stroke();
+
+  ctxA.strokeStyle = '#eab308'; // Skull ring
+  ctxA.lineWidth = 4;
+  ctxA.beginPath();
+  ctxA.arc(cx, cy, 195, -Math.PI * 0.85, -Math.PI * 0.15);
+  ctxA.stroke();
+
+  // 2. Cortical Gyrus & Sulcus Fold (Curved Gray Matter ribbon)
+  ctxA.fillStyle = 'rgba(71, 85, 105, 0.45)';
+  ctxA.strokeStyle = '#64748b';
+  ctxA.lineWidth = 2;
+  ctxA.beginPath();
+  // Draw two gyral crowns separated by a central sulcus
+  ctxA.moveTo(cx - 150, cy - 140);
+  // Left gyral crown
+  ctxA.bezierCurveTo(cx - 130, cy - 185, cx - 70, cy - 185, cx - 50, cy - 150);
+  // Sulcus plunging deep
+  ctxA.bezierCurveTo(cx - 35, cy - 90, cx - 15, cy - 20, cx, cy - 15);
+  ctxA.bezierCurveTo(cx + 15, cy - 20, cx + 35, cy - 90, cx + 50, cy - 150);
+  // Right gyral crown
+  ctxA.bezierCurveTo(cx + 70, cy - 185, cx + 130, cy - 185, cx + 150, cy - 140);
+  // Close base
+  ctxA.lineTo(cx + 150, cy - 10);
+  ctxA.lineTo(cx - 150, cy - 10);
+  ctxA.closePath();
+  ctxA.fill();
+  ctxA.stroke();
+
+  // Labels for anatomy
+  ctxA.font = 'bold 10px sans-serif';
+  ctxA.fillStyle = '#94a3b8';
+  ctxA.fillText('Gyral Crown', cx - 120, cy - 195);
+  ctxA.fillText('Gyral Crown', cx + 65, cy - 195);
+  ctxA.fillText('Sulcal Bank', cx - 18, cy - 90);
+  ctxA.fillText('Skull & Scalp Shells', cx - 50, cy - 220);
+
+  // 3. Render Current Dipole
+  // Position interpolates between gyral crown (radial, x=-95, y=-180) and sulcal wall (tangential, x=-22, y=-85)
+  const thetaRad = thetaDeg * Math.PI / 180;
+  const frac = thetaRad / (Math.PI / 2); // 0 (radial) to 1 (tangential)
+
+  const dipX = (1 - frac) * (cx - 95) + frac * (cx - 24);
+  const dipY = (1 - frac) * (cy - 176) + frac * (cy - 85);
+
+  // Dipole direction:
+  // At 0 deg (radial): points straight up/outward (-pi/2)
+  // At 90 deg (tangential): points horizontally into sulcus (0)
+  const curAngle = -Math.PI / 2 + thetaRad;
+  const qLen = 30 * (moment / 20.0);
+  const qx = Math.cos(curAngle) * qLen;
+  const qy = Math.sin(curAngle) * qLen;
+
+  // Dipole Arrow
+  ctxA.strokeStyle = '#ffffff';
+  ctxA.lineWidth = 3.5;
+  ctxA.beginPath();
+  ctxA.moveTo(dipX - qx * 0.5, dipY - qy * 0.5);
+  ctxA.lineTo(dipX + qx * 0.5, dipY + qy * 0.5);
+  ctxA.stroke();
+
+  // Positive Pole (Red Source)
+  ctxA.fillStyle = '#ef4444';
+  ctxA.beginPath();
+  ctxA.arc(dipX + qx * 0.5, dipY + qy * 0.5, 5.5, 0, 2 * Math.PI);
+  ctxA.fill();
+
+  // Negative Pole (Blue Sink)
+  ctxA.fillStyle = '#3b82f6';
+  ctxA.beginPath();
+  ctxA.arc(dipX - qx * 0.5, dipY - qy * 0.5, 5.5, 0, 2 * Math.PI);
+  ctxA.fill();
+
+  // Mode badge
+  ctxA.font = '11px ui-monospace, monospace';
+  ctxA.fillStyle = thetaDeg === 0 ? '#f87171' : thetaDeg === 90 ? '#38bdf8' : '#fbbf24';
+  const label = thetaDeg === 0 ? 'Purely Radial (Gyral)' : thetaDeg === 90 ? 'Purely Tangential (Sulcal)' : `Oblique (${thetaDeg}°)`;
+  ctxA.fillText(label, 14, h - 14);
+}
+
+// --- Render 2: EEG Scalp Potential Map ---
+function renderEEGCanvas() {
+  const w = cEEG.width, h = cEEG.height;
+  ctxE.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2;
+  const R = w * 0.40;
+
+  const res = 40;
+  const cell = (R * 2) / res;
+
+  let peakE = 0;
+
+  for (let iy = 0; iy < res; iy++) {
+    for (let ix = 0; ix < res; ix++) {
+      const nx = ((ix + 0.5) / res) * 2.0 - 1.0;
+      const ny = ((iy + 0.5) / res) * 2.0 - 1.0;
+      if (nx * nx + ny * ny <= 1.0) {
+        const { eeg } = calcFields(nx, ny);
+        if (Math.abs(eeg) > peakE) peakE = Math.abs(eeg);
+
+        const norm = Math.max(-1.0, Math.min(1.0, eeg / 18.0));
+        let r = 10, g = 14, b = 24;
+        if (norm > 0) {
+          r = Math.round(15 + norm * 225);
+          g = Math.round(20 + norm * 80);
+          b = Math.round(25 + norm * 30);
+        } else {
+          r = Math.round(15 - norm * 30);
+          g = Math.round(20 - norm * 80);
+          b = Math.round(25 - norm * 225);
+        }
+
+        ctxE.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctxE.fillRect(cx - R + ix * cell, cy - R + iy * cell, cell + 0.6, cell + 0.6);
+      }
+    }
+  }
+
+  // Head Circle & Nose
+  ctxE.strokeStyle = '#ffffff';
+  ctxE.lineWidth = 2;
+  ctxE.beginPath();
+  ctxE.arc(cx, cy, R, 0, 2 * Math.PI);
+  ctxE.moveTo(cx - 10, cy - R + 2);
+  ctxE.lineTo(cx, cy - R - 12);
+  ctxE.lineTo(cx + 10, cy - R + 2);
+  ctxE.stroke();
+
+  // Annotation
+  ctxE.font = '11px ui-monospace, monospace';
+  ctxE.fillStyle = '#fbbf24';
+  ctxE.fillText(`Peak EEG: ${peakE.toFixed(1)} µV`, 14, h - 14);
+}
+
+// --- Render 3: MEG Radial Magnetic Field Map ---
+function renderMEGCanvas() {
+  const w = cMEG.width, h = cMEG.height;
+  ctxM.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2;
+  const R = w * 0.40;
+
+  const res = 40;
+  const cell = (R * 2) / res;
+
+  let peakM = 0;
+
+  for (let iy = 0; iy < res; iy++) {
+    for (let ix = 0; ix < res; ix++) {
+      const nx = ((ix + 0.5) / res) * 2.0 - 1.0;
+      const ny = ((iy + 0.5) / res) * 2.0 - 1.0;
+      if (nx * nx + ny * ny <= 1.0) {
+        const { meg } = calcFields(nx, ny);
+        if (Math.abs(meg) > peakM) peakM = Math.abs(meg);
+
+        const norm = Math.max(-1.0, Math.min(1.0, meg / 90.0));
+        let r = 10, g = 14, b = 24;
+        if (norm > 0) {
+          // Outward flux (Red/Pink)
+          r = Math.round(15 + norm * 225);
+          g = Math.round(20 + norm * 60);
+          b = Math.round(25 + norm * 60);
+        } else {
+          // Inward flux (Cyan/Blue)
+          r = Math.round(15 - norm * 20);
+          g = Math.round(20 - norm * 180);
+          b = Math.round(25 - norm * 225);
+        }
+
+        ctxM.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctxM.fillRect(cx - R + ix * cell, cy - R + iy * cell, cell + 0.6, cell + 0.6);
+      }
+    }
+  }
+
+  // SQUID Helmet Sensor Array Outline
+  ctxM.strokeStyle = '#22d3ee';
+  ctxM.lineWidth = 2;
+  ctxM.beginPath();
+  ctxM.arc(cx, cy, R, 0, 2 * Math.PI);
+  ctxM.moveTo(cx - 10, cy - R + 2);
+  ctxM.lineTo(cx, cy - R - 12);
+  ctxM.lineTo(cx + 10, cy - R + 2);
+  ctxM.stroke();
+
+  // Annotation
+  ctxM.font = '11px ui-monospace, monospace';
+  ctxM.fillStyle = '#22d3ee';
+  ctxM.fillText(peakM < 0.1 ? 'Peak MEG: 0.0 fT (BLIND)' : `Peak MEG: ${peakM.toFixed(1)} fT`, 14, h - 14);
+}
+
+// Update all UI elements & readouts
+function updateAll() {
+  const thetaRad = thetaDeg * Math.PI / 180;
+  const qRad = Math.cos(thetaRad);
+  const qTan = Math.sin(thetaRad);
+
+  document.getElementById('dispAngle').textContent = `${thetaDeg}° (${thetaDeg === 0 ? 'Purely Radial' : thetaDeg === 90 ? 'Purely Tangential' : 'Oblique'})`;
+  document.getElementById('dispRadial').textContent = (qRad * 100).toFixed(1) + '%';
+  document.getElementById('dispTangential').textContent = (qTan * 100).toFixed(1) + '%';
+
+  // Calculate maximum signals
+  const { eeg: peakE } = calcFields(0, -depth - 0.15);
+  const { meg: peakM } = calcFields(0, -depth + 0.35);
+
+  document.getElementById('dispEEG').textContent = `+${Math.abs(peakE).toFixed(1)} µV`;
+  document.getElementById('dispMEG').textContent = Math.abs(peakM) < 0.1 ? '0.0 fT (Silent)' : `${Math.abs(peakM).toFixed(1)} fT`;
+
+  // Update Sensitivity Progress Bars
+  const eegSens = Math.min(100, Math.round((Math.abs(peakE) / 16.0) * 100));
+  const megSens = Math.round(qTan * 100);
+
+  document.getElementById('meterEEGBar').style.width = `${eegSens}%`;
+  document.getElementById('meterEEGVal').textContent = `${eegSens}% (${eegSens > 80 ? 'Strong' : 'Moderate'})`;
+
+  document.getElementById('meterMEGBar').style.width = `${megSens}%`;
+  document.getElementById('meterMEGVal').textContent = megSens === 0 ? '0% (BLIND · 0.0 fT)' : `${megSens}% (${Math.abs(peakM).toFixed(0)} fT)`;
+
+  renderAnatCanvas();
+  renderEEGCanvas();
+  renderMEGCanvas();
+}
+
+// --- Presets ---
+function setPreset(p) {
+  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  const bannerText = document.getElementById('bannerText');
+
+  if (p === 'radial') {
+    document.getElementById('btnRadial').classList.add('active');
+    thetaDeg = 0; depth = 0.82;
+    bannerText.innerHTML = '<strong>Radial Dipole (Gyral Crown):</strong> Dipole is aligned perpendicular to skull. External magnetic field cancels completely: <strong>MEG is identically 0.0 fT</strong>, while EEG records a strong focal peak.';
+  } else if (p === 'tangential') {
+    document.getElementById('btnTangential').classList.add('active');
+    thetaDeg = 90; depth = 0.82;
+    bannerText.innerHTML = '<strong>Tangential Dipole (Sulcal Bank):</strong> Dipole is parallel to skull in sulcal wall. Generates maximal external magnetic flux in MEG (bipolar in/out lobes) and orthogonal dipolar EEG voltage.';
+  } else if (p === 'oblique') {
+    document.getElementById('btnOblique').classList.add('active');
+    thetaDeg = 45; depth = 0.82;
+    bannerText.innerHTML = '<strong>Oblique Dipole (45&deg;):</strong> MEG selectively detects only the tangential component (sin 45&deg; &approx; 71%), while EEG captures both radial and tangential projections.';
+  } else if (p === 'deep') {
+    document.getElementById('btnDeep').classList.add('active');
+    thetaDeg = 90; depth = 0.35;
+    bannerText.innerHTML = '<strong>Deep Subcortical Source:</strong> Magnetic field falls off precipitously as 1/r<sup>2</sup>&ndash;1/r<sup>3</sup>, heavily attenuating deep MEG signals compared to volume-conducted EEG.';
+  }
+
+  // Update slider badges
+  document.getElementById('sliderAngle').value = thetaDeg;
+  document.getElementById('valAngle').textContent = `${thetaDeg}°`;
+  document.getElementById('sliderDepth').value = depth.toFixed(2);
+  document.getElementById('valDepth').textContent = `${depth.toFixed(2)} (${depth > 0.65 ? 'Cortical' : 'Deep'})`;
+
+  updateAll();
+}
+
+// --- Event Listeners ---
+document.getElementById('btnRadial').addEventListener('click', () => setPreset('radial'));
+document.getElementById('btnTangential').addEventListener('click', () => setPreset('tangential'));
+document.getElementById('btnOblique').addEventListener('click', () => setPreset('oblique'));
+document.getElementById('btnDeep').addEventListener('click', () => setPreset('deep'));
+
+document.getElementById('sliderAngle').addEventListener('input', (e) => {
+  thetaDeg = parseInt(e.target.value, 10);
+  document.getElementById('valAngle').textContent = `${thetaDeg}°`;
+  updateAll();
+});
+document.getElementById('sliderDepth').addEventListener('input', (e) => {
+  depth = parseFloat(e.target.value);
+  document.getElementById('valDepth').textContent = `${depth.toFixed(2)} (${depth > 0.65 ? 'Cortical' : 'Deep'})`;
+  updateAll();
+});
+document.getElementById('sliderMoment').addEventListener('input', (e) => {
+  moment = parseFloat(e.target.value);
+  document.getElementById('valMoment').textContent = `${moment.toFixed(0)} nA·m`;
+  updateAll();
+});
+
+// Initial Setup
+setPreset('radial');
+</script>
+</body>
+</html>

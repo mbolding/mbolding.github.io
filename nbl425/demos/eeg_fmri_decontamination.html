@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simultaneous EEG-fMRI Artifact Decontamination Workbench</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --scope-bg: #070b14;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --grad-color: #ef4444;
+    --bcg-color: #f59e0b;
+    --erp-color: #10b981;
+    --truth-color: #a855f7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --scope-bg: #040711;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+      --grad-color: #f87171;
+      --bcg-color: #fbbf24;
+      --erp-color: #34d399;
+      --truth-color: #c084fc;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .step-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .dual-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 0.75fr;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 900px) {
+    .dual-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--scope-bg);
+    border: 1px solid var(--border);
+  }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .readout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .readout-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .readout-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+  .readout-val { font-size: 1.05rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .color-legend {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .note {
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .note strong { color: var(--fg); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>Simultaneous EEG-fMRI Artifact Decontamination Workbench</h1>
+  <p class="sub">
+    Experience the electromagnetic challenge of recording microvolt (&mu;V) brain potentials inside a 3 Tesla MRI scanner: progressively apply <strong>Average Artifact Subtraction (AAS)</strong> to eliminate millivolt gradient switching spikes, <strong>Optimal Basis Sets (OBS)</strong> to remove cardiac ballistocardiogram (BCG) pulses, and trial averaging to recover the clean <strong>Visual P100 Evoked Potential</strong>.
+  </p>
+
+  <div class="panel">
+    <!-- Pipeline Step Bar -->
+    <div class="step-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Decontamination Pipeline:</span>
+      <button id="step0" class="active">1. Raw Scanner EEG (20 mV Artifacts)</button>
+      <button id="step1" class="secondary">2. Apply AAS (Remove Gradients)</button>
+      <button id="step2" class="secondary">3. Apply OBS (Remove BCG)</button>
+      <button id="step3" class="secondary">4. Epoch Average (Recover P100)</button>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Stage 1: Raw Corrupted EEG:</strong> Rapidly switched imaging gradients induce massive 20,000 &mu;V Faraday voltages that completely overwhelm the 10 &mu;V visual evoked response.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Gradient Noise: ~20,000 &mu;V &middot; Brain Signal: ~10 &mu;V</span>
+    </div>
+
+    <!-- Dual Oscilloscopes -->
+    <div class="dual-grid">
+      <!-- Continuous Time Oscilloscope (Multi-channel) -->
+      <div class="canvas-box">
+        <canvas id="cStream" width="560" height="340"></canvas>
+        <div class="canvas-caption">Continuous Stream (0 &ndash; 3.0 s): EEG Lead O1 &middot; Scanner TR Clock &middot; ECG Lead I</div>
+        <div class="color-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--accent);"></div> Processed EEG (O1)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#64748b;"></div> Scanner Trigger Clock (TR)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--grad-color);"></div> Concurrent ECG (QRS)</div>
+        </div>
+      </div>
+
+      <!-- Trial-Averaged ERP Window (-50 to +300 ms) -->
+      <div class="canvas-box">
+        <canvas id="cERP" width="380" height="340"></canvas>
+        <div class="canvas-caption">Stimulus-Locked ERP (-50 to +300 ms): P100 Waveform Recovery</div>
+        <div class="color-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--erp-color);"></div> Recovered ERP</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--truth-color);"></div> Ground Truth P100 Wave</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Readout Grid -->
+    <div class="readout-grid">
+      <div class="readout-card">
+        <div class="readout-label">Pipeline Stage</div>
+        <div class="readout-val" id="dispStage">Raw Signal</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Peak Artifact Voltage</div>
+        <div class="readout-val" id="dispPeak" style="color:var(--grad-color);">20,000 &mu;V</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Signal-to-Noise (SNR)</div>
+        <div class="readout-val" id="dispSNR" style="color:#ef4444;">-66.0 dB</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Artifact Attenuation</div>
+        <div class="readout-val" id="dispAtten">0.0 dB (None)</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">P100 Peak Detected</div>
+        <div class="readout-val" id="dispP100">Hidden in Noise</div>
+      </div>
+    </div>
+
+    <!-- Parameter Sliders -->
+    <div class="controls-grid">
+      <div>
+        <label>Gradient Amplitude: <span class="val-badge" id="valGrad">20,000 &mu;V (3T Standard)</span></label>
+        <input type="range" id="sliderGrad" min="5000" max="40000" value="20000" step="1000">
+      </div>
+      <div>
+        <label>Ballistocardiogram (BCG) Level: <span class="val-badge" id="valBCG">180 &mu;V</span></label>
+        <input type="range" id="sliderBCG" min="50" max="400" value="180" step="10">
+      </div>
+      <div>
+        <label>True Visual P100 Amplitude: <span class="val-badge" id="valERP">10.0 &mu;V</span></label>
+        <input type="range" id="sliderERP" min="2" max="25" value="10" step="0.5">
+      </div>
+      <div>
+        <label>Number of Averaged Trials: <span class="val-badge" id="valTrials">32 Trials</span></label>
+        <input type="range" id="sliderTrials" min="4" max="80" value="32" step="4">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;">
+      <strong>Physical Foundations of Simultaneous EEG-fMRI Decontamination:</strong>
+    </p>
+    <p class="note">
+      1. <strong>Imaging Gradient Switching Artifacts (Faraday's Law):</strong> During fMRI acquisition, spatial encoding gradients switch rapidly (<i>dB</i>/<i>dt</i> &sim; 100 T/m/s). According to Faraday's Law of Induction (&Epsilon; = &minus;<i>d</i>&Phi;<sub>B</sub>/<i>dt</i>), any wire loop formed by electrode leads captures the changing magnetic flux, inducing massive voltage spikes of <strong>10 to 50 millivolts</strong> (up to 5,000 times larger than brain potentials!).
+    </p>
+    <p class="note">
+      2. <strong>Average Artifact Subtraction (AAS):</strong> Because the gradient sequence repeats with exact microsecond timing governed by the scanner clock, we synchronize the EEG recording amplifier to the scanner master clock. By computing a moving average of the artifact across consecutive TR cycles and subtracting it, AAS attenuates the gradient artifact by over <strong>50 dB (99.7% reduction)</strong>, revealing the underlying biological signals.
+    </p>
+    <p class="note">
+      3. <strong>The Ballistocardiogram (BCG) Artifact:</strong> In static 3T fields, the cardiac cycle creates a prominent biological artifact. Pulsatile blood ejection into the aortic arch vibrates the skull, and pulsatile expansion of scalp capillaries physically moves electrodes in the strong static <i>B</i><sub>0</sub> field. This generates a rhythmic cardiac artifact of <strong>100&ndash;300 &mu;V</strong> with a delay of &sim;200 ms relative to the ECG R-peak.
+    </p>
+    <p class="note">
+      4. <strong>Optimal Basis Sets (OBS) &amp; PCA:</strong> Because heart rate varies dynamically (preventing simple periodic subtraction), Optimal Basis Sets uses the concurrent ECG channel to epoch BCG pulses and applies Principal Component Analysis (PCA) to extract and subtract the principal temporal components of the cardiac artifact without distorting true brainwaves.
+    </p>
+    <p class="note">
+      5. <strong>Epoch Averaging &amp; The Visual P100 Waveform:</strong> Once gradient and BCG artifacts are removed, the residual microvolt EEG contains background alpha rhythms and thermal noise. Time-locked averaging across repeated visual stimulus presentations cancels out non-phase-locked background noise, unmasking the classic <strong>P100 visual evoked response</strong> peaking at 100 milliseconds.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; Multi-modal Integration Simulation</footer>
+</div>
+
+<script>
+// --- Simulation Constants & State ---
+let stage = 0; // 0: Raw, 1: AAS, 2: OBS, 3: Epoch Averaged
+let gradAmp = 20000.0; // uV
+let bcgAmp = 180.0; // uV
+let erpAmp = 10.0; // uV
+let numTrials = 32;
+
+const DURATION = 3.0; // 3 seconds continuous stream
+const FS = 1000; // 1000 Hz sampling rate
+const SAMPLES = Math.round(DURATION * FS);
+
+// Canvases
+const cStream = document.getElementById('cStream');
+const ctxStream = cStream.getContext('2d');
+const cERP = document.getElementById('cERP');
+const ctxERP = cERP.getContext('2d');
+
+// Waveform Models
+// Ground Truth Visual Evoked Potential (-50 to +300 ms)
+function getGroundTruthERP(t_ms) {
+  if (t_ms < 0) return 0;
+  // N75
+  const n75 = -erpAmp * 0.35 * Math.exp(-Math.pow((t_ms - 75) / 14, 2));
+  // P100
+  const p100 = erpAmp * 1.0 * Math.exp(-Math.pow((t_ms - 100) / 22, 2));
+  // N145
+  const n145 = -erpAmp * 0.45 * Math.exp(-Math.pow((t_ms - 145) / 28, 2));
+  return n75 + p100 + n145;
+}
+
+// Slice Gradient Burst Pattern (periodic with TR = 1.0s, slices every 40 ms)
+function getGradientSignal(t_sec) {
+  const trTime = t_sec % 1.0;
+  const slicePeriod = 0.040; // 40 ms slice
+  const slicePhase = trTime % slicePeriod;
+
+  if (slicePhase < 0.024) {
+    // Sharp bipolar readout blips
+    const p = (slicePhase / 0.024) * 8 * Math.PI;
+    return gradAmp * Math.sin(p) * Math.exp(-slicePhase / 0.015);
+  }
+  return 0;
+}
+
+// Cardiac BCG pulse (locked to heartbeat ~1.0 Hz, peak delayed ~200 ms)
+function getBCGSignal(t_sec) {
+  const heartPeriod = 0.85; // ~70 bpm
+  const heartPhase = t_sec % heartPeriod;
+
+  // Delayed peak at ~0.22s
+  const d1 = Math.exp(-Math.pow((heartPhase - 0.22) / 0.06, 2));
+  const d2 = -0.5 * Math.exp(-Math.pow((heartPhase - 0.32) / 0.08, 2));
+  return bcgAmp * (d1 + d2);
+}
+
+// Concurrent ECG lead (sharp QRS complex at heartbeat onset)
+function getECGSignal(t_sec) {
+  const heartPeriod = 0.85;
+  const hp = t_sec % heartPeriod;
+  if (hp < 0.08) {
+    return 800.0 * Math.sin((hp / 0.08) * 2 * Math.PI);
+  }
+  return 0;
+}
+
+// Render Continuous Multi-channel Stream Canvas
+function renderStreamCanvas() {
+  const w = cStream.width, h = cStream.height;
+  ctxStream.clearRect(0, 0, w, h);
+
+  const padLeft = 40, padRight = 16, padTop = 16, padBottom = 24;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  // Grid
+  ctxStream.strokeStyle = '#1e293b';
+  ctxStream.lineWidth = 1;
+  ctxStream.beginPath();
+  for (let s = 0; s <= 3; s += 0.5) {
+    let x = padLeft + (s / DURATION) * plotW;
+    ctxStream.moveTo(x, padTop); ctxStream.lineTo(x, padTop + plotH);
+  }
+  ctxStream.stroke();
+
+  // Channel Baselines
+  const yEEG = padTop + plotH * 0.32;
+  const yTR  = padTop + plotH * 0.68;
+  const yECG = padTop + plotH * 0.88;
+
+  // Time labels
+  ctxStream.fillStyle = '#94a3b8';
+  ctxStream.font = '10px ui-monospace, monospace';
+  for (let s = 0; s <= 3; s += 0.5) {
+    let x = padLeft + (s / DURATION) * plotW;
+    ctxStream.fillText(s.toFixed(1) + 's', x - 8, h - 8);
+  }
+
+  ctxStream.font = 'bold 10px sans-serif';
+  ctxStream.fillStyle = '#60a5fa';
+  ctxStream.fillText('EEG Lead O1', padLeft + 6, yEEG - 45);
+  ctxStream.fillStyle = '#64748b';
+  ctxStream.fillText('Scanner TR Clock (TTL)', padLeft + 6, yTR - 14);
+  ctxStream.fillStyle = '#f87171';
+  ctxStream.fillText('ECG Lead I', padLeft + 6, yECG - 14);
+
+  // 1. Draw Scanner Clock (Channel 2)
+  ctxStream.strokeStyle = '#64748b';
+  ctxStream.lineWidth = 1.4;
+  ctxStream.beginPath();
+  for (let i = 0; i < SAMPLES; i++) {
+    const t = i / FS;
+    const x = padLeft + (t / DURATION) * plotW;
+    const isPulse = (t % 1.0) < 0.04;
+    const y = yTR - (isPulse ? 18 : 0);
+    if (i === 0) ctxStream.moveTo(x, y);
+    else ctxStream.lineTo(x, y);
+  }
+  ctxStream.stroke();
+
+  // 2. Draw ECG Lead (Channel 3)
+  ctxStream.strokeStyle = '#f87171';
+  ctxStream.lineWidth = 1.4;
+  ctxStream.beginPath();
+  for (let i = 0; i < SAMPLES; i++) {
+    const t = i / FS;
+    const x = padLeft + (t / DURATION) * plotW;
+    const ecg = getECGSignal(t);
+    const y = yECG - (ecg / 800.0) * 16;
+    if (i === 0) ctxStream.moveTo(x, y);
+    else ctxStream.lineTo(x, y);
+  }
+  ctxStream.stroke();
+
+  // 3. Draw EEG Lead O1 (Channel 1) according to Pipeline Stage
+  ctxStream.strokeStyle = '#60a5fa';
+  ctxStream.lineWidth = 1.8;
+  ctxStream.beginPath();
+
+  // Scaling factor for display depending on stage
+  let eegScale = 1.0;
+  if (stage === 0) eegScale = 45.0 / gradAmp; // Fit 20,000 uV in channel height
+  else if (stage === 1) eegScale = 45.0 / (bcgAmp * 1.6); // Fit BCG in channel height
+  else eegScale = 45.0 / (erpAmp * 3.5); // Fit microvolts
+
+  for (let i = 0; i < SAMPLES; i++) {
+    const t = i / FS;
+    const x = padLeft + (t / DURATION) * plotW;
+
+    const grad = getGradientSignal(t);
+    const bcg = getBCGSignal(t);
+    const noise = (Math.sin(t * 18.0) * 8.0) + ((Math.sin(t * 123.0) * 5.0)); // ongoing alpha + noise
+    const erp = getGroundTruthERP((t % 0.5) * 1000 - 50);
+
+    let sig = 0;
+    if (stage === 0) {
+      sig = grad + bcg + noise + erp;
+    } else if (stage === 1) {
+      // AAS applied: gradients subtracted!
+      sig = (grad * 0.003) + bcg + noise + erp;
+    } else {
+      // OBS applied: BCG subtracted! Clean EEG stream
+      sig = (grad * 0.001) + (bcg * 0.02) + noise + erp;
+    }
+
+    const y = yEEG - sig * eegScale;
+    if (i === 0) ctxStream.moveTo(x, y);
+    else ctxStream.lineTo(x, y);
+  }
+  ctxStream.stroke();
+}
+
+// Render Trial-Averaged ERP Canvas (-50 to +300 ms)
+function renderERPCanvas() {
+  const w = cERP.width, h = cERP.height;
+  ctxERP.clearRect(0, 0, w, h);
+
+  const padLeft = 40, padRight = 18, padTop = 22, padBottom = 26;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  const tMin = -50, tMax = 300;
+  const midY = padTop + plotH * 0.55;
+
+  // Grid
+  ctxERP.strokeStyle = '#1e293b';
+  ctxERP.lineWidth = 1;
+  ctxERP.beginPath();
+  for (let t = 0; t <= tMax; t += 100) {
+    let x = padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
+    ctxERP.moveTo(x, padTop); ctxERP.lineTo(x, padTop + plotH);
+  }
+  ctxERP.moveTo(padLeft, midY); ctxERP.lineTo(padLeft + plotW, midY);
+  ctxERP.stroke();
+
+  // Time labels
+  ctxERP.fillStyle = '#94a3b8';
+  ctxERP.font = '10px ui-monospace, monospace';
+  for (let t = 0; t <= tMax; t += 100) {
+    let x = padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
+    ctxERP.fillText(t + 'ms', x - 12, h - 8);
+  }
+  ctxERP.fillText('0', padLeft - 10, midY + 3);
+  ctxERP.fillText(`+${erpAmp.toFixed(0)}µV`, padLeft - 26, midY - 45);
+  ctxERP.fillText(`-${erpAmp.toFixed(0)}µV`, padLeft - 26, midY + 50);
+
+  // 1. Draw Ground Truth Waveform (Purple dashed)
+  ctxERP.strokeStyle = '#c084fc';
+  ctxERP.lineWidth = 2.0;
+  ctxERP.setLineDash([4, 3]);
+  ctxERP.beginPath();
+  const nPts = 140;
+  for (let i = 0; i <= nPts; i++) {
+    const t = tMin + (i / nPts) * (tMax - tMin);
+    const x = padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
+    const val = getGroundTruthERP(t);
+    const y = midY - (val / (erpAmp * 1.5)) * 50;
+    if (i === 0) ctxERP.moveTo(x, y);
+    else ctxERP.lineTo(x, y);
+  }
+  ctxERP.stroke();
+  ctxERP.setLineDash([]);
+
+  // 2. Draw Recovered Waveform (Green) depending on stage
+  ctxERP.strokeStyle = '#34d399';
+  ctxERP.lineWidth = 2.4;
+  ctxERP.beginPath();
+
+  for (let i = 0; i <= nPts; i++) {
+    const t = tMin + (i / nPts) * (tMax - tMin);
+    const x = padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
+    const truth = getGroundTruthERP(t);
+
+    let noiseResidual = 0;
+    if (stage === 0) {
+      // Drowned in gradient noise
+      noiseResidual = (Math.sin(t * 0.4) * 80.0) + (Math.cos(t * 0.9) * 60.0);
+    } else if (stage === 1) {
+      // Drowned in BCG pulses
+      noiseResidual = (Math.sin(t * 0.1) * 25.0) + (Math.cos(t * 0.25) * 15.0);
+    } else if (stage === 2) {
+      // Single trial clean: noisy background EEG remaining
+      noiseResidual = (Math.sin(t * 0.35) * 8.0) + (Math.sin(t * 0.8) * 5.0);
+    } else {
+      // Averaged across numTrials: noise reduced by sqrt(N)
+      const avgNoise = 8.0 / Math.sqrt(numTrials);
+      noiseResidual = Math.sin(t * 0.35) * avgNoise;
+    }
+
+    const val = truth + noiseResidual;
+    const y = midY - (val / (erpAmp * 1.5)) * 50;
+    if (i === 0) ctxERP.moveTo(x, y);
+    else ctxERP.lineTo(x, y);
+  }
+  ctxERP.stroke();
+
+  // P100 Peak Indicator
+  if (stage >= 2) {
+    const x100 = padLeft + ((100 - tMin) / (tMax - tMin)) * plotW;
+    const y100 = midY - (erpAmp / (erpAmp * 1.5)) * 50;
+
+    ctxERP.fillStyle = '#34d399';
+    ctxERP.beginPath();
+    ctxERP.arc(x100, y100, 4.5, 0, 2 * Math.PI);
+    ctxERP.fill();
+
+    ctxERP.font = 'bold 11px sans-serif';
+    ctxERP.fillText('P100 Peak (100 ms)', x100 - 45, y100 - 12);
+  }
+}
+
+// Update UI text and metrics
+function updateAll() {
+  const bannerText = document.getElementById('bannerText');
+  const bannerSub = document.getElementById('bannerSub');
+
+  if (stage === 0) {
+    document.getElementById('dispStage').textContent = '1. Raw Scanner';
+    document.getElementById('dispPeak').textContent = `${gradAmp.toLocaleString()} µV`;
+    document.getElementById('dispSNR').textContent = '-66.0 dB';
+    document.getElementById('dispAtten').textContent = '0.0 dB (None)';
+    document.getElementById('dispP100').textContent = 'Hidden in Noise';
+    bannerText.innerHTML = '<strong>Stage 1: Raw Corrupted EEG:</strong> Rapidly switched imaging gradients induce massive 20,000 &mu;V Faraday voltages that completely overwhelm the 10 &mu;V visual evoked response.';
+    bannerSub.textContent = 'Gradient Noise: ~20,000 µV · Brain Signal: ~10 µV';
+  } else if (stage === 1) {
+    document.getElementById('dispStage').textContent = '2. AAS Applied';
+    document.getElementById('dispPeak').textContent = `${bcgAmp.toFixed(0)} µV (BCG)`;
+    document.getElementById('dispSNR').textContent = '-25.1 dB';
+    document.getElementById('dispAtten').textContent = '40.9 dB (99.1%)';
+    document.getElementById('dispP100').textContent = 'Masked by BCG';
+    bannerText.innerHTML = '<strong>Stage 2: Gradient Subtraction (AAS):</strong> Scanner clock synchronization removes the 20 mV gradient spikes, revealing the cardiac-pulsatile ballistocardiogram (BCG).';
+    bannerSub.textContent = 'Gradient Attenuation: >40 dB · BCG Remains: ~180 µV';
+  } else if (stage === 2) {
+    document.getElementById('dispStage').textContent = '3. OBS Applied';
+    document.getElementById('dispPeak').textContent = `${(erpAmp * 1.8).toFixed(1)} µV`;
+    document.getElementById('dispSNR').textContent = '+2.5 dB';
+    document.getElementById('dispAtten').textContent = '62.5 dB (99.9%)';
+    document.getElementById('dispP100').textContent = 'Detectable';
+    bannerText.innerHTML = '<strong>Stage 3: BCG Removal (OBS/PCA):</strong> PCA decomposition aligned to ECG peaks strips out the cardiac artifact, leaving the continuous microvolt EEG stream.';
+    bannerSub.textContent = 'BCG Removed · Residual: Spontaneous Alpha Rhythms';
+  } else if (stage === 3) {
+    document.getElementById('dispStage').textContent = '4. Averaged ERP';
+    document.getElementById('dispPeak').textContent = `${erpAmp.toFixed(1)} µV (P100)`;
+    const snr = (2.5 + 10 * Math.log10(numTrials)).toFixed(1);
+    document.getElementById('dispSNR').textContent = `+${snr} dB`;
+    document.getElementById('dispAtten').textContent = '74.0 dB';
+    document.getElementById('dispP100').textContent = 'Clear P100 Peak!';
+    bannerText.innerHTML = `<strong>Stage 4: Epoch Averaging (${numTrials} Trials):</strong> Time-locked averaging across stimulus trials cancels non-phase-locked background noise, reconstructing the clean visual P100 wave!`;
+    bannerSub.textContent = `Noise Attenuation: 1/√${numTrials} · Visual P100 Extracted`;
+  }
+
+  renderStreamCanvas();
+  renderERPCanvas();
+}
+
+// --- Step Selection ---
+function setStage(s) {
+  stage = s;
+  document.querySelectorAll('.step-bar button').forEach((b, idx) => {
+    b.classList.toggle('active', idx === s);
+    b.classList.toggle('secondary', idx !== s);
+  });
+  updateAll();
+}
+
+document.getElementById('step0').addEventListener('click', () => setStage(0));
+document.getElementById('step1').addEventListener('click', () => setStage(1));
+document.getElementById('step2').addEventListener('click', () => setStage(2));
+document.getElementById('step3').addEventListener('click', () => setStage(3));
+
+// Sliders
+document.getElementById('sliderGrad').addEventListener('input', (e) => {
+  gradAmp = parseFloat(e.target.value);
+  document.getElementById('valGrad').textContent = `${gradAmp.toLocaleString()} µV`;
+  updateAll();
+});
+document.getElementById('sliderBCG').addEventListener('input', (e) => {
+  bcgAmp = parseFloat(e.target.value);
+  document.getElementById('valBCG').textContent = `${bcgAmp.toFixed(0)} µV`;
+  updateAll();
+});
+document.getElementById('sliderERP').addEventListener('input', (e) => {
+  erpAmp = parseFloat(e.target.value);
+  document.getElementById('valERP').textContent = `${erpAmp.toFixed(1)} µV`;
+  updateAll();
+});
+document.getElementById('sliderTrials').addEventListener('input', (e) => {
+  numTrials = parseInt(e.target.value, 10);
+  document.getElementById('valTrials').textContent = `${numTrials} Trials`;
+  updateAll();
+});
+
+// Initial Setup
+setStage(0);
+</script>
+</body>
+</html>
