@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Neuroimaging: Diffuse Optics, fNIRS & Bedside Hemodynamics — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #10b981;
+            --accent-dark: #059669;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #ecfdf5;
+            --tag-bg: #e0e7ff;
+            --tag-color: #3730a3;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        /* Top Bar Navigation */
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .btn-nav {
+            background: var(--accent-color);
+            color: #ffffff !important;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none !important;
+            box-shadow: var(--shadow-sm);
+            transition: background 0.2s;
+        }
+
+        .btn-nav:hover {
+            background: var(--accent-dark);
+        }
+
+        /* Header */
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--accent-dark);
+            border-bottom-style: solid;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #065f46;
+            background-color: var(--highlight-bg);
+            border: 1px solid #a7f3d0;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .lecture-meta span strong {
+            color: var(--text-color);
+        }
+
+        .lecture-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            background: #ffffff;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            border-color: var(--text-color);
+            background: var(--card-bg);
+        }
+
+        .action-btn.primary {
+            background: var(--accent-color);
+            color: #ffffff;
+            border-color: var(--accent-color);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-dark);
+            border-color: var(--accent-dark);
+        }
+
+        /* Section styling */
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2 span.sec-num {
+            color: var(--accent-dark);
+            font-family: var(--code-font);
+            font-size: 1.1rem;
+        }
+
+        h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-top: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1.25rem;
+        }
+
+        /* Equation Blocks */
+        .equation-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin: 1.75rem 0;
+            overflow-x: auto;
+        }
+
+        .equation-caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* Callout Cards & Grids */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        /* Tables */
+        table.spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            margin: 1.5rem 0;
+        }
+
+        table.spec-table th,
+        table.spec-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        table.spec-table th {
+            background: #f3f4f6;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        table.spec-table tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        /* Grand Challenge Highlights */
+        .nicu-banner {
+            background: rgba(16, 185, 129, 0.08);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #065f46;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--secondary-text);
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html">Syllabus</a>
+            <a href="sensor_engineering_arrays.html">Week 5 Lecture</a>
+            <a href="optical_imaging_fnirs_slides.html">Week 6 Slides</a>
+            <a href="worksheet_fnirs_demo.html" class="btn-nav">Worksheet 6.1 Demo Lab</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 6 Lecture
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 2 · Instrumentation &amp; Sensor Architecture</div>
+            <h1>Optical Neuroimaging: <span class="serif">Diffuse Optics, fNIRS &amp; Bedside Hemodynamics</span></h1>
+            <p class="subtitle">
+                The biophysics of photon migration in turbid neural tissue: Radiative Transport, diffusion approximations, the modified Beer-Lambert law, differential pathlength factors, and clinical bedside oxygenation extraction ($\text{FTOE}$ &amp; $\text{rSO}_2$) for neonatal neuromonitoring.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Oct 02, 2026 (Week 6)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+                <span><strong>Prerequisites:</strong> Wave Optics, Beer-Lambert Law, Hemodynamic Response Function</span>
+            </div>
+
+            <div class="lecture-actions">
+                <a href="optical_imaging_fnirs_slides.html" class="action-btn primary">🖥️ Presentation Slide Deck</a>
+                <a href="worksheet_fnirs_demo.html" class="action-btn">🔬 Worksheet 6.1: fNIRS Demo Lab</a>
+                <a href="sensor_engineering_arrays.html" class="action-btn">📡 Week 5 Sensor Arrays</a>
+                <a href="IDNE701_FA2026.html" class="action-btn">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: The Optical Diagnostic Window -->
+        <section>
+            <h2><span class="sec-num">01.</span> The Near-Infrared Diagnostic Window</h2>
+            <p>
+                Biological tissue is largely opaque to ultraviolet and visible light due to strong electronic absorption by hemoglobin, melanin, and proteins ($\lambda < 650\,\text{nm}$). Above $\lambda > 950\,\text{nm}$, rotational-vibrational modes of water ($H_2O$) and lipids dominate attenuation.
+            </p>
+            <p>
+                Between these absorption regimes lies the <strong>optical diagnostic window</strong> ($\lambda \approx 650 - 900\,\text{nm}$), where absorption coefficients drop by orders of magnitude ($\mu_a \sim 0.01 - 0.1\,\text{mm}^{-1}$), permitting photons to penetrate several centimeters into biological tissue before being absorbed.
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🔴 Isosbestic Point ($\lambda \approx 805\,\text{nm}$)</h4>
+                    <p>
+                        At $\lambda = 805\,\text{nm}$, molar extinction coefficients are equal:
+                        $$\varepsilon_{\text{HbO}}(805) = \varepsilon_{\text{HbR}}(805) \approx 1.8 \times 10^3\,\text{M}^{-1}\text{cm}^{-1}$$
+                        Absorption at this wavelength is strictly proportional to <strong>total hemoglobin</strong> ($\text{HbT} = [\text{HbO}] + [\text{HbR}]$), serving as a direct proxy for regional cerebral blood volume (CBV).
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🔵 Deoxyhemoglobin ($\lambda \approx 760\,\text{nm}$)</h4>
+                    <p>
+                        At $\lambda = 760\,\text{nm}$, deoxyhemoglobin absorption significantly exceeds oxyhemoglobin:
+                        $$\varepsilon_{\text{HbR}}(760) \approx 3.8 \times 10^3\,\text{M}^{-1}\text{cm}^{-1} \gg \varepsilon_{\text{HbO}}(760)$$
+                        Crucial for tracking baseline venous desaturation, metabolic extraction, and transient hypoxic dips.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🟠 Oxyhemoglobin ($\lambda \approx 850\,\text{nm}$)</h4>
+                    <p>
+                        At $\lambda = 850\,\text{nm}$, oxyhemoglobin absorption dominates:
+                        $$\varepsilon_{\text{HbO}}(850) > \varepsilon_{\text{HbR}}(850)$$
+                        Pairing $760\,\text{nm}$ and $850\,\text{nm}$ provides maximum conditioning and determinant for the spectroscopic inversion matrix.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Radiative Transport & Diffusion Approximation -->
+        <section>
+            <h2><span class="sec-num">02.</span> Photon Migration in Turbid Media: Diffusion Approximation</h2>
+            <p>
+                Biological tissue is not merely absorbing; it is an intensely <strong>turbid, multiple-scattering medium</strong>. The reduced scattering coefficient $\mu_s' = \mu_s(1 - g)$ ranges from $0.8 - 1.5\,\text{mm}^{-1}$, where the scattering anisotropy parameter $g \approx 0.9$ reflects highly forward-peaked Mie scattering by cell membranes and mitochondria.
+            </p>
+            <p>
+                Because $\mu_s' \gg \mu_a$, photon trajectories undergo rapid spatial randomization within a transport mean free path $l_{\text{tr}} = 1/\mu_s' \approx 1\,\text{mm}$. Beyond this distance, directional photon radiance collapses into an isotropic photon fluence rate $\Phi(\vec{r}, t)$ governed by the <strong>Diffusion Equation</strong>:
+            </p>
+
+            <div class="equation-block">
+                $$\frac{1}{v} \frac{\partial \Phi(\vec{r}, t)}{\partial t} - \nabla \cdot \left[ D(\vec{r}) \nabla \Phi(\vec{r}, t) \right] + \mu_a(\vec{r}) \Phi(\vec{r}, t) = S(\vec{r}, t)$$
+                <div class="equation-caption">Equation 1: Time-dependent optical diffusion equation for turbid biological media</div>
+            </div>
+
+            <p>
+                where $v = c/n$ is the speed of light in tissue ($n \approx 1.37 - 1.40$), $S(\vec{r}, t)$ is the isotropic source term, and the optical diffusion coefficient is:
+                $$D = \frac{1}{3(\mu_a + \mu_s')} \approx \frac{1}{3\mu_s'}$$
+            </p>
+
+            <h3>The Banana-Shaped Sensitivity Kernel</h3>
+            <p>
+                For a point source and detector separated by distance $d_{\text{SD}}$ on a semi-infinite planar boundary, the photon adjoint probability distribution follows an arcing, banana-shaped profile. The mean physical penetration depth $\bar{z}_{\text{max}}$ scales roughly as:
+            </p>
+            <div class="equation-block">
+                $$\bar{z}_{\text{max}} \approx \frac{1}{2} \sqrt{d_{\text{SD}} \cdot \left( \frac{D}{\mu_a} \right)^{1/2}} \approx \frac{1}{2} d_{\text{SD}}$$
+                <div class="equation-caption">Equation 2: Empirical rule-of-thumb for mean photon sampling depth</div>
+            </div>
+            <p>
+                For an adult with $d_{\text{SD}} = 30\,\text{mm}$, photons sample approximately $10 - 15\,\text{mm}$ deep—sufficient to reach the superficial gyral crests of the cerebral cortex, though heavily contaminated by extracerebral scalp and skull blood flow.
+            </p>
+        </section>
+
+        <!-- Section 3: The Modified Beer-Lambert Law -->
+        <section>
+            <h2><span class="sec-num">03.</span> The Modified Beer-Lambert Law (MBLL)</h2>
+            <p>
+                Classical Beer-Lambert transmission $A = \varepsilon \cdot C \cdot d$ assumes a collimated beam in a pure, non-scattering absorber. In scattering tissue, multiple scattering lengthens the physical geometric distance $d_{\text{SD}}$ into an effective optical pathlength:
+                $$L_{\text{opt}} = d_{\text{SD}} \cdot \text{DPF}$$
+                where $\text{DPF}$ is the dimensionless <strong>Differential Pathlength Factor</strong> ($\approx 5.5 - 6.5$ in adult human head).
+            </p>
+
+            <p>
+                Taking temporal derivatives to cancel out static tissue scattering and constant background absorption, the <strong>Modified Beer-Lambert Law</strong> computes optical density changes ($\Delta \text{OD}$) as a linear combination of chromophore concentration changes:
+            </p>
+
+            <div class="equation-block">
+                $$\Delta \text{OD}(\lambda) = -\ln\left(\frac{I(t)}{I_0}\right) = \left[ \varepsilon_{\text{HbO}}(\lambda) \cdot \Delta[\text{HbO}] + \varepsilon_{\text{HbR}}(\lambda) \cdot \Delta[\text{HbR}] \right] \cdot d_{\text{SD}} \cdot \text{DPF}(\lambda)$$
+                <div class="equation-caption">Equation 3: Modified Beer-Lambert Law (MBLL) formulation</div>
+            </div>
+
+            <h3>Dual-Wavelength Spectroscopic Inversion Matrix</h3>
+            <p>
+                Evaluating at two distinct wavelengths ($\lambda_1 = 760\,\text{nm}$ and $\lambda_2 = 850\,\text{nm}$) yields a solvable $2 \times 2$ linear system:
+            </p>
+
+            <div class="equation-block">
+                $$\begin{bmatrix} \Delta[\text{HbO}] \\ \Delta[\text{HbR}] \end{bmatrix} = \frac{1}{d_{\text{SD}}} \begin{bmatrix} \varepsilon_{\text{HbO}}(\lambda_1) \cdot \text{DPF}(\lambda_1) & \varepsilon_{\text{HbR}}(\lambda_1) \cdot \text{DPF}(\lambda_1) \\ \varepsilon_{\text{HbO}}(\lambda_2) \cdot \text{DPF}(\lambda_2) & \varepsilon_{\text{HbR}}(\lambda_2) \cdot \text{DPF}(\lambda_2) \end{bmatrix}^{-1} \begin{bmatrix} \Delta \text{OD}(\lambda_1) \\ \Delta \text{OD}(\lambda_2) \end{bmatrix}$$
+                <div class="equation-caption">Equation 4: Matrix inversion for resolving oxy- and deoxyhemoglobin concentrations</div>
+            </div>
+        </section>
+
+        <!-- Section 4: Modality Topologies -->
+        <section>
+            <h2><span class="sec-num">04.</span> Optical System Topologies: CW, FD &amp; TD</h2>
+            <p>
+                Clinical and research fNIRS systems fall into three primary engineering paradigms with varying hardware complexity, cost, and quantitative information content:
+            </p>
+
+            <table class="spec-table">
+                <thead>
+                    <tr>
+                        <th>Modality Architecture</th>
+                        <th>Source &amp; Detector Technology</th>
+                        <th>Measured Quantities</th>
+                        <th>Primary Advantages &amp; Clinical Trade-Offs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Continuous-Wave (CW-fNIRS)</strong></td>
+                        <td>Dual-wavelength LEDs or VCSELs; SiPM or Photodiodes</td>
+                        <td>DC attenuation intensity $I(t)$</td>
+                        <td>Low cost, highly portable, lightweight conformal caps. Cannot separate $\mu_a$ from $\mu_s'$; measures only <em>relative changes</em> ($\Delta\text{HbO}, \Delta\text{HbR}$).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Frequency-Domain (FD-fNIRS)</strong></td>
+                        <td>RF-modulated laser diodes ($f_{\text{mod}} \sim 50 - 200\,\text{MHz}$); Avalanche Photodiodes / PMTs</td>
+                        <td>Amplitude attenuation $A$ and phase shift $\theta$</td>
+                        <td>Directly resolves absolute absorption $\mu_a$ and scattering $\mu_s'$ without assuming a DPF. Enables absolute tissue oxygen saturation ($\text{StO}_2$). Moderate hardware complexity.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Time-Domain (TD-fNIRS)</strong></td>
+                        <td>Picosecond pulsed lasers ($\Delta \tau \sim 50 - 100\,\text{ps}$); Single-Photon Avalanche Diodes (SPADs) + TCSPC</td>
+                        <td>Temporal Point Spread Function (TPSF), distribution of photon times-of-flight</td>
+                        <td>Gold standard physical accuracy. Depth discrimination via time-gating: late-arriving photons exclusively sample deep brain cortex, rejecting superficial scalp signals. High cost and bulky hardware.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 5: Grand Challenge Focus: Neonatal & Pediatric Neuromonitoring -->
+        <section>
+            <h2><span class="sec-num">05.</span> Grand Challenge Focus: Neonatal Bedside Brain Monitoring</h2>
+            
+            <div class="nicu-banner">
+                <h3>👶 NICU Bedside Physiology: Hypoxic-Ischemic Encephalopathy (HIE)</h3>
+                <p>
+                    Neonatal hypoxic-ischemic encephalopathy affects 1 to 3 per 1000 live births. Standard neuroprotective treatment is <strong>Therapeutic Hypothermia</strong> (cooling whole body to $33.5^\circ\text{C}$ for 72 hours). During this window, MRI is clinically dangerous due to patient transport risks, while bedside EEG detects electrical silence or late seizures. 
+                    <br><strong>Continuous optical monitoring</strong> offers direct, non-invasive insight into cerebral oxidative metabolism and vascular autoregulation at the bedside.
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card" style="border-top: 3px solid #10b981;">
+                    <h4>🧠 Anatomical Advantage: Thin Cranium</h4>
+                    <p>
+                        In term and preterm neonates, the scalp and unossified skull have a combined thickness of only <strong>$1.5 - 2.5\,\text{mm}$</strong> (compared to $8 - 14\,\text{mm}$ in adults).
+                    </p>
+                    <p>
+                        Because the extracerebral barrier is ultra-thin:
+                        <br>• Inter-optode distance can be reduced to $d_{\text{SD}} = 15 - 20\,\text{mm}$.
+                        <br>• Photons directly interrogate cortical grey matter with minimal scalp shunting.
+                        <br>• Baseline DPF is lower: $\text{DPF}_{\text{neo}} \approx 4.4 - 4.8$ (vs adult $6.0$).
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                    <h4>🩸 Biomarker: FTOE &amp; $\text{rSO}_2$</h4>
+                    <p>
+                        Regional cerebral tissue oxygen saturation ($\text{rSO}_2$) measures mixed vascular beds (approx. $75\%$ venous, $20\%$ arterial, $5\%$ capillary).
+                    </p>
+                    <p>
+                        Coupled with systemic arterial pulse oximetry ($\text{SpO}_2$), the <strong>Fractional Tissue Oxygen Extraction (FTOE)</strong> quantifies cerebral metabolic oxygen demand relative to supply:
+                    </p>
+                    <div class="equation-block" style="margin: 8px 0; padding: 8px;">
+                        $$\text{FTOE} = \frac{\text{SpO}_2 - \text{rSO}_2}{\text{SpO}_2}$$
+                    </div>
+                    <p>An elevated FTOE ($> 0.35 - 0.40$) indicates cerebral hypoperfusion or hypermetabolism; a collapsed FTOE ($< 0.15$) indicates mitochondrial failure.</p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                    <h4>⚙️ NICU Engineering Constraints</h4>
+                    <p>
+                        Designing optical instrumentation for preterm neonates imposes strict biophysical limits:
+                        <br>• <strong>Skin Pressure:</strong> Stratum corneum is fragile; interface pressure must remain $< 20\,\text{mmHg}$ to prevent skin necrosis.
+                        <br>• <strong>Thermal Dissipation:</strong> Optode surface heating must not exceed $41^\circ\text{C}$ (IEC 60601-1 limit).
+                        <br>• <strong>Phototherapy Rejection:</strong> High-power blue bilirubin phototherapy lamps ($\lambda \sim 450 - 470\,\text{nm}$) require $> 60\,\text{dB}$ optical notch or bandpass filtering on detectors.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 6: Artifact Removal & Processing Pipeline -->
+        <section>
+            <h2><span class="sec-num">06.</span> Signal Processing: Motion Artifacts &amp; Superficial Filtering</h2>
+            <p>
+                fNIRS signals are contaminated by three dominant noise sources: physiological oscillations (cardiac $\sim 1 - 2\,\text{Hz}$ neonatal, respiration $\sim 0.3 - 0.7\,\text{Hz}$, Mayer waves $\sim 0.1\,\text{Hz}$), sudden optode movement (baseline shifts and high-frequency spike spikes), and systemic extracerebral scalp hemodynamics.
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🌊 Wavelet / Spline Filtering</h4>
+                    <p>
+                        Abrupt head movements cause optodes to slide on scalp, creating instantaneous shear spikes. Wavelet decomposition filters out outlier detail coefficients with high kurtosis, restoring baseline continuity without blurring slow hemodynamic transitions.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>📏 Short-Separation Regression (SSR)</h4>
+                    <p>
+                        Adding dedicated short-separation detector channels ($d_{\text{short}} \approx 8\,\text{mm}$) ensures photons penetrate exclusively into superficial scalp. Subtracting the short-channel signal via adaptive GLM filtering isolates true cortical brain activation.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html">← Course Syllabus</a>
+                <a href="optical_imaging_fnirs_slides.html">🖥️ Presentation Slide Deck</a>
+                <a href="worksheet_fnirs_demo.html">🔬 Open Worksheet 6.1 Demo Lab →</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Neuroimaging & fNIRS — Lecture Slides | IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- Reveal.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --accent: #10b981;
+            --accent-light: #34d399;
+            --accent-dark: #059669;
+            --bg-dark: #090a0d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --card-hover: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        .reveal {
+            font-family: 'Inter', sans-serif;
+            font-size: 21px;
+            font-weight: 400;
+            color: var(--text-main);
+            background-color: var(--bg-dark);
+        }
+
+        .reveal .slides section {
+            padding: 40px 30px 24px 30px !important;
+            box-sizing: border-box;
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3,
+        .reveal h4 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: none;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+        }
+
+        .reveal h1 {
+            font-size: 1.85em;
+            line-height: 1.15;
+            margin-bottom: 12px;
+        }
+
+        .reveal h2 {
+            font-size: 1.35em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h3 {
+            font-size: 1.05em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h4 {
+            font-size: 0.88em;
+            margin-bottom: 6px;
+        }
+
+        .reveal h1 em,
+        .reveal h2 em,
+        .reveal h3 em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .reveal p {
+            font-size: 0.72em;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+        }
+
+        .reveal li {
+            font-size: 0.72em;
+            line-height: 1.45;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .reveal strong {
+            color: #ffffff;
+        }
+
+        .reveal a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .card-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .card-grid-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            backdrop-filter: blur(6px);
+            font-size: 0.76em;
+            line-height: 1.45;
+        }
+
+        .slide-card h4 {
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .slide-card .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            background: var(--accent);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 14px 0 10px 0;
+        }
+
+        .stat-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.55em;
+            font-weight: 800;
+            color: var(--accent-light);
+            display: block;
+            line-height: 1.1;
+        }
+
+        .stat-desc {
+            font-size: 0.64em;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .formula-box {
+            background: rgba(16, 185, 129, 0.06);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-left: 4px solid var(--accent);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin: 10px 0;
+            text-align: left;
+            font-size: 0.85em;
+        }
+
+        .formula-caption {
+            font-size: 0.62em;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: var(--accent-light) !important;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68em;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: var(--accent);
+            color: #ffffff !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+                    IDNE 701 · Week 6 Lecture
+                </div>
+                <h1>Optical Neuroimaging &amp; <em>fNIRS</em></h1>
+                <p style="font-size: 0.95em; color: #d1d5db; max-width: 900px; margin: 0 auto 16px auto;">
+                    Diffuse Optical Tomography, Hemodynamic Inversion &amp; Bedside Neuromonitoring
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="optical_imaging_fnirs.html" class="nav-link">📄 Lecture Notes</a>
+                    <a href="worksheet_fnirs_demo.html" class="nav-link">🔬 Demo Lab</a>
+                    <a href="IDNE701_FA2026.html" class="nav-link">📅 Course Syllabus</a>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: Core Physical Principles -->
+            <section>
+                <h2>The <em>Near-Infrared Diagnostic Window</em></h2>
+                <p>Why NIR light (650–900 nm) uniquely penetrates deep into human brain tissue.</p>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4><span class="badge">λ &lt; 650 nm</span> Electronic Absorption</h4>
+                        <p>Visible light is heavily absorbed by hemoglobin, melanin, and cytochromes. Penetration depth is limited to &lt; 1 mm (skin surface only).</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid var(--accent);">
+                        <h4><span class="badge">650–900 nm</span> Diagnostic Window</h4>
+                        <p>Absorption drops by orders of magnitude ($\mu_a \sim 0.01 - 0.1\,\text{mm}^{-1}$). Scattering dominates, allowing photons to diffuse several centimeters into tissue.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4><span class="badge">λ &gt; 950 nm</span> Water Absorption</h4>
+                        <p>Vibrational overtones of water ($H_2O$) and lipids cause strong infrared absorption, closing the deep penetration window.</p>
+                    </div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span class="stat-num">760 nm</span>
+                        <div class="stat-desc">HbR Absorption Peak</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">805 nm</span>
+                        <div class="stat-desc">Isosbestic Point (Total Hb)</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">850 nm</span>
+                        <div class="stat-desc">HbO Dominant Absorption</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">1.40</span>
+                        <div class="stat-desc">Tissue Refractive Index (n)</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Turbid Media & Diffusion Approximation -->
+            <section>
+                <h2>Photon Transport in <em>Turbid Media</em></h2>
+                <p>Tissue is multiple-scattering: transport mean free path $l_{\text{tr}} = 1/\mu_s' \approx 1\,\text{mm}$.</p>
+                <div class="formula-box">
+                    $$\frac{1}{v} \frac{\partial \Phi(\vec{r}, t)}{\partial t} - \nabla \cdot \left[ D(\vec{r}) \nabla \Phi(\vec{r}, t) \right] + \mu_a(\vec{r}) \Phi(\vec{r}, t) = S(\vec{r}, t)$$
+                    <div class="formula-caption">Diffusion Equation for Fluence Rate Φ(r,t) where D ≈ 1 / (3·μs')</div>
+                </div>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>🍌 Banana-Shaped Adjoint Profile</h4>
+                        <p>Photons entering at the source diffuse outwards and upwards to the detector, forming a curved banana-shaped sensitivity kernel.</p>
+                        <p><strong>Mean Penetration Depth:</strong> $\bar{z}_{\text{max}} \approx \frac{1}{2} d_{\text{SD}}$ (at $d_{\text{SD}} = 30\,\text{mm}$, depth $\approx 15\,\text{mm}$).</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>📏 Scattering Anisotropy ($g \approx 0.9$)</h4>
+                        <p>Mitochondria and cell membranes cause forward-peaked Mie scattering. Reduced scattering coefficient:</p>
+                        $$\mu_s' = \mu_s (1 - g) \approx 1.0\,\text{mm}^{-1}$$
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Modified Beer-Lambert Law -->
+            <section>
+                <h2>The <em>Modified Beer-Lambert Law (MBLL)</em></h2>
+                <p>Accounting for multiple scattering via Differential Pathlength Factor (DPF).</p>
+                <div class="formula-box">
+                    $$\Delta \text{OD}(\lambda) = -\ln\left(\frac{I(t)}{I_0}\right) = \left[ \varepsilon_{\text{HbO}}(\lambda) \cdot \Delta[\text{HbO}] + \varepsilon_{\text{HbR}}(\lambda) \cdot \Delta[\text{HbR}] \right] \cdot d_{\text{SD}} \cdot \text{DPF}(\lambda)$$
+                    <div class="formula-caption">Effective Optical Pathlength L_opt = d_SD · DPF (Adult DPF ≈ 6.0; Neonatal DPF ≈ 4.6)</div>
+                </div>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>Spectroscopic Inversion Matrix</h4>
+                        <p>Evaluating at $\lambda_1 = 760\,\text{nm}$ and $\lambda_2 = 850\,\text{nm}$ allows exact linear separation:</p>
+                        $$\begin{bmatrix} \Delta[\text{HbO}] \\ \Delta[\text{HbR}] \end{bmatrix} = \frac{1}{d_{\text{SD}}} \mathbf{E}^{-1} \begin{bmatrix} \Delta\text{OD}_{760} / \text{DPF}_{760} \\ \Delta\text{OD}_{850} / \text{DPF}_{850} \end{bmatrix}$$
+                    </div>
+                    <div class="slide-card">
+                        <h4>Total Hemoglobin &amp; Blood Volume</h4>
+                        <p>Summing both chromophores gives total hemoglobin change:</p>
+                        $$\Delta[\text{HbT}] = \Delta[\text{HbO}] + \Delta[\text{HbR}] \propto \Delta\text{CBV}$$
+                        <p>Serves as direct surrogate for regional cerebral blood volume changes.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Modality Architectures -->
+            <section>
+                <h2>Optical Instrumentation: <em>CW vs FD vs TD</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4><span class="badge" style="background: #10b981;">CW</span> Continuous-Wave</h4>
+                        <p><strong>Mechanism:</strong> Steady-state DC light injection.</p>
+                        <p><strong>Measures:</strong> Relative concentration changes ($\Delta\text{HbO}, \Delta\text{HbR}$).</p>
+                        <p><strong>Pros/Cons:</strong> Extremely low cost, lightweight portable caps, robust. Cannot measure absolute absorption ($\mu_a$).</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                        <h4><span class="badge" style="background: #3b82f6;">FD</span> Frequency-Domain</h4>
+                        <p><strong>Mechanism:</strong> Intensity-modulated RF lasers ($50 - 200\,\text{MHz}$).</p>
+                        <p><strong>Measures:</strong> Amplitude attenuation $A$ and phase shift $\theta$.</p>
+                        <p><strong>Pros/Cons:</strong> Uncouples $\mu_a$ and $\mu_s'$ directly. Yields absolute baseline $\text{StO}_2$. Moderate hardware cost.</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4><span class="badge" style="background: #f59e0b;">TD</span> Time-Domain (TCSPC)</h4>
+                        <p><strong>Mechanism:</strong> Picosecond laser pulses + SPAD detectors.</p>
+                        <p><strong>Measures:</strong> Photon time-of-flight distribution (TPSF).</p>
+                        <p><strong>Pros/Cons:</strong> Gold-standard depth discrimination via late photon time-gating. Bulky and expensive.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 6: Grand Challenge 06 Focus -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+                    Grand Challenge 06
+                </div>
+                <h2>Neonatal &amp; Pediatric <em>Bedside Neuromonitoring</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>👶 Hypoxic-Ischemic Encephalopathy</h4>
+                        <p>1–3 per 1,000 live births. Standard care: 72 hours of whole-body <strong>Therapeutic Hypothermia ($33.5^\circ\text{C}$)</strong>.</p>
+                        <p>Continuous bedside fNIRS assesses cerebral metabolic extraction and autoregulation without MRI transport risks.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>🩸 FTOE Biomarker</h4>
+                        <p><strong>Fractional Tissue Oxygen Extraction:</strong></p>
+                        $$\text{FTOE} = \frac{\text{SpO}_2 - \text{rSO}_2}{\text{SpO}_2}$$
+                        <p>Elevated FTOE (&gt; 0.38) flags severe ischemia/hypoperfusion; collapsed FTOE (&lt; 0.15) signals mitochondrial cell death.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>⚡ Autoregulation Index (COx)</h4>
+                        <p>Pearson correlation between Mean Arterial Pressure (MAP) and cerebral $\text{rSO}_2$.</p>
+                        <p>$\text{COx} \approx 0 \implies$ Intact autoregulation.<br>$\text{COx} > 0.3 \implies$ Pressure-passive circulation (high risk of IVH).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 7: Neonatal Anatomical Advantages -->
+            <section>
+                <h2>Neonatal Cranial Optics vs <em>Adults</em></h2>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card" style="border-top: 3px solid var(--accent);">
+                        <h4>👶 Neonatal Head Characteristics</h4>
+                        <p><strong>Scalp + Skull Thickness:</strong> $1.5 - 2.5\,\text{mm}$ (vs adult $8 - 14\,\text{mm}$).</p>
+                        <p><strong>Reduced Extracerebral Shunting:</strong> Minimal scalp muscle/bone allows photons to enter cortex almost directly.</p>
+                        <p><strong>Optode Separation:</strong> $d_{\text{SD}} = 15 - 20\,\text{mm}$ gives deep cortical sensitivity.</p>
+                        <p><strong>DPF:</strong> $\approx 4.4 - 4.8$ (calibrated for thin unmyelinated head).</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #ef4444;">
+                        <h4>⚠️ NICU Physical Constraints</h4>
+                        <p><strong>Skin Fragility:</strong> Stratum corneum is immature; interface pressure must remain <strong>&lt; 20 mmHg</strong> to prevent necrosis.</p>
+                        <p><strong>Phototherapy Interference:</strong> High-power blue phototherapy lamps (450 nm) for hyperbilirubinemia require &gt; 60 dB optical filtering.</p>
+                        <p><strong>Incubator Heating:</strong> Optode surface must not exceed 41°C (IEC 60601-1 standard).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 8: Artifact Removal Pipeline -->
+            <section>
+                <h2>Signal Processing &amp; <em>Artifact Removal</em></h2>
+                <p>Isolating true cortical signals from physiological noise and motion.</p>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>🌊 Motion Artifact Correction</h4>
+                        <p>Head movement causes shear displacement and optode decoupling.</p>
+                        <p><strong>Wavelet Filtering:</strong> Strips high-kurtosis detail coefficients.<br><strong>Spline Interpolation:</strong> Reconstructs baseline offsets seamlessly.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>📏 Short-Separation Regression</h4>
+                        <p>Short channels ($d_{\text{short}} \approx 8\,\text{mm}$) sample scalp/skin exclusively.</p>
+                        <p>Adaptive GLM subtraction eliminates systemic extracerebral cardiac and vasomotor Mayer waves ($0.1\,\text{Hz}$).</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>Bandpass Filtering</h4>
+                        <p>Passband: $0.01 - 0.2\,\text{Hz}$</p>
+                        <p>• Rejects cardiac pulsation ($1 - 2\,\text{Hz}$ neonate)<br>• Rejects respiratory rhythm ($0.3 - 0.7\,\text{Hz}$)<br>• Preserves slow neurovascular BOLD coupling</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: In-Class Demo Lab Preview -->
+            <section>
+                <h2>Today's Demo: <em>Worksheet 6.1 Lab</em></h2>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card" style="border-left: 4px solid var(--accent);">
+                        <h4>🔬 Real-Time Synthetic Pipeline</h4>
+                        <p>1. <strong>Simulate Raw Photons:</strong> Dual-wavelength attenuation curves at $760\,\text{nm}$ and $850\,\text{nm}$.</p>
+                        <p>2. <strong>MBLL Transformation:</strong> Solve the $2\times 2$ extinction matrix for $\Delta[\text{HbO}]$ and $\Delta[\text{HbR}]$.</p>
+                        <p>3. <strong>Calculate Bedside Biomarkers:</strong> Compute regional saturation $\text{rSO}_2$ and extraction $\text{FTOE}$.</p>
+                    </div>
+                    <div class="slide-card" style="border-left: 4px solid #3b82f6;">
+                        <h4>🎯 Student Objectives</h4>
+                        <p>• Evaluate HIE clinical scenarios (therapeutic hypothermia vs rewarming).</p>
+                        <p>• Assess how fontanelle proximity alters required optical source-detector spacing.</p>
+                        <p>• Prepare system block diagrams for next week's <strong>Mid-Semester Design Review</strong>.</p>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <a href="worksheet_fnirs_demo.html" class="nav-link" style="font-size: 0.85em; padding: 10px 20px;">🚀 Launch Worksheet 6.1 Demo Lab →</a>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Summary & Next Week -->
+            <section data-background-gradient="radial-gradient(circle at center, #064e3b 0%, #090a0d 100%)">
+                <h2>Looking Ahead to <em>Week 7</em></h2>
+                <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 20px;">
+                    Next Milestone: <strong>Mid-Semester Concept Pin-Up &amp; Preliminary Design Review</strong>
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="worksheet_fnirs_demo.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">🔬 Complete Worksheet 6.1</a>
+                    <a href="optical_imaging_fnirs.html" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📄 Read Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-7" class="nav-link" style="font-size: 0.8em; padding: 8px 16px;">📅 Week 7 Milestone Details</a>
+                </div>
+                <div style="margin-top: 30px; font-size: 0.65em; font-family: 'JetBrains Mono', monospace; color: #6b7280;">
+                    IDNE 701: Introduction to Neuroengineering · Department of Biomedical Engineering
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Reveal.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            controls: true,
+            progress: true,
+            center: true,
+            touch: true,
+            keyboard: true,
+            overview: true,
+            width: 1200,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 1.5
+        });
+
+        // Trigger MathJax re-render after slide transition
+        Reveal.on('slidechanged', event => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        });
+    </script>
+</body>
+
+</html>

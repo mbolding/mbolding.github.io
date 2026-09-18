@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worksheet 6.1: In-Class fNIRS Demonstration & Hemodynamic Inversion Lab — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0c;
+            --bg-secondary: #121215;
+            --bg-tertiary: #1a1a1f;
+            --text-primary: #f0f0f2;
+            --text-secondary: #9da0aa;
+            --text-muted: #646772;
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.25);
+            --accent-dark: #059669;
+            --accent-light: #34d399;
+            --border-light: rgba(255, 255, 255, 0.08);
+            --border-focus: var(--accent);
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #16161b;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent: #059669;
+            --accent-glow: rgba(5, 150, 105, 0.15);
+            --accent-dark: #047857;
+            --accent-light: #10b981;
+            --border-light: #e2e8f0;
+            --border-focus: var(--accent);
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #f8fafc;
+        }
+
+        body {
+            font-family: var(--sans-font);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 24px 100px 24px;
+        }
+
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            font-family: var(--code-font);
+            font-size: 0.82rem;
+        }
+
+        .top-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: var(--code-font);
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 1.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+
+        h1 {
+            font-size: 2.1rem;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        h1 span.italic {
+            font-family: var(--serif-font);
+            font-style: italic;
+            font-weight: 400;
+            color: var(--accent-light);
+        }
+
+        .subtitle {
+            font-size: 0.98rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .worksheet-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .section-num {
+            font-family: var(--code-font);
+            color: var(--accent);
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .section-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .field-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+        }
+
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            margin: 1rem 0;
+        }
+
+        .spec-table th,
+        .spec-table td {
+            border: 1px solid var(--border-light);
+            padding: 8px 10px;
+            text-align: left;
+        }
+
+        .spec-table th {
+            background: var(--bg-tertiary);
+            font-weight: 700;
+        }
+
+        /* Interactive Simulator Canvas & Controls */
+        .sim-container {
+            background: #090a0d;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 1.25rem 0;
+        }
+
+        .sim-toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .btn-calc {
+            background: var(--accent);
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-calc:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-light);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+        }
+
+        canvas {
+            width: 100%;
+            height: 220px;
+            background: #0d0e12;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: block;
+        }
+
+        .calc-result-box {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            text-align: center;
+        }
+
+        .calc-result-item .label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-family: var(--code-font);
+        }
+
+        .calc-result-item .value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--accent-light);
+            font-family: var(--code-font);
+        }
+
+        .callout-nicu {
+            background: rgba(16, 185, 129, 0.05);
+            border-left: 4px solid var(--accent);
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin: 14px 0;
+            font-size: 0.85rem;
+        }
+
+        .callout-nicu strong {
+            color: var(--accent-light);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 2rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .btn-save {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        .btn-print {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-light);
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        @media print {
+            .top-nav, .action-row, .theme-toggle, .sim-toolbar {
+                display: none !important;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            .worksheet-section {
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Top Navigation Bar -->
+        <div class="top-nav">
+            <div>
+                <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a>
+            </div>
+            <div class="nav-links">
+                <a href="optical_imaging_fnirs.html">Week 6 Lecture</a>
+                <a href="optical_imaging_fnirs_slides.html">Slides</a>
+                <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌓 Theme</button>
+            </div>
+        </div>
+
+        <header>
+            <div class="badge">In-Class Laboratory · Week 6</div>
+            <h1>Worksheet 6.1: <span class="italic">fNIRS Demonstration &amp; Hemodynamic Inversion</span></h1>
+            <p class="subtitle">
+                Interactive real-time optical data reconstruction: Modified Beer-Lambert Law inversion, differential pathlength calibration, and bedside biomarker extraction ($\text{rSO}_2$ &amp; $\text{FTOE}$) for neonatal hypoxic-ischemic neuromonitoring.
+            </p>
+        </header>
+
+        <!-- Section 1: Experimental Context & Subject Setup -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">01.</span>
+                <h2>Experimental Protocol &amp; Anatomical Parameters</h2>
+            </div>
+            <p class="section-desc">
+                Define the recording montage, optode geometry, and anatomical subject cohort (Adult Cognitive Task vs. NICU Bedside Neonate).
+            </p>
+
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="cohortType">Subject Cohort / Clinical Target</label>
+                    <select id="cohortType" onchange="updateCohortDefaults()">
+                        <option value="adult_prefrontal">Adult Cognitive Prefrontal (Executive Function Task)</option>
+                        <option value="adult_motor">Adult Motor Cortex (Finger Tapping / Hemodynamic BOLD)</option>
+                        <option value="neonatal_hie" selected>Neonatal Bedside NICU: Hypoxic-Ischemic Encephalopathy (HIE)</option>
+                        <option value="neonatal_preterm">Preterm Neonate: Germinal Matrix / IVH Surveillance</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sourceDetDist">Source-Detector Separation ($d_{\text{SD}}$ in mm)</label>
+                    <input type="number" id="sourceDetDist" value="20" step="1">
+                </div>
+                <div class="form-group">
+                    <label for="dpfValue">Differential Pathlength Factor (DPF)</label>
+                    <input type="number" id="dpfValue" value="4.6" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="optodeWavelengths">Wavelength Pair ($\lambda_1 / \lambda_2$ in nm)</label>
+                    <input type="text" id="optodeWavelengths" value="760 / 850" readonly>
+                </div>
+            </div>
+
+            <div class="callout-nicu">
+                <strong>👶 Grand Challenge 06: Neonatal Bedside Calibration Notes</strong>
+                In neonates, the unossified skull and thin scalp ($1.5 - 2.5\,\text{mm}$) allow shorter separations ($d_{\text{SD}} = 15 - 20\,\text{mm}$) to reach the cortical mantle with lower light loss. Calibrated DPF is $\approx 4.4 - 4.8$, compared to adult values of $5.5 - 6.5$.
+            </div>
+        </div>
+
+        <!-- Section 2: Interactive In-Class Hemodynamic Simulator -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">02.</span>
+                <h2>Real-Time Signal Inversion Sandbox (MBLL Engine)</h2>
+            </div>
+            <p class="section-desc">
+                Simulate or stream dual-wavelength optical intensity signals $I(t)$ at $760\,\text{nm}$ and $850\,\text{nm}$, convert to optical density ($\Delta\text{OD}$), and invert via the extinction coefficient matrix to resolve micromolar changes in $[\text{HbO}]$ and $[\text{HbR}]$.
+            </p>
+
+            <div class="sim-container">
+                <div class="sim-toolbar">
+                    <button class="btn-calc" onclick="runHemodynamicSimulation('activation')">▶ Simulate Neurovascular Coupling</button>
+                    <button class="btn-secondary" onclick="runHemodynamicSimulation('hypoxia')">⚠️ Simulate Neonatal Desaturation / Hypoxia</button>
+                    <button class="btn-secondary" onclick="runHemodynamicSimulation('motion')">⚡ Inject Motion Artifact Spike</button>
+                    <button class="btn-secondary" onclick="resetSim()">↺ Reset Baseline</button>
+                </div>
+
+                <canvas id="fnirsChart"></canvas>
+
+                <div class="calc-result-box">
+                    <div class="calc-result-item">
+                        <div class="label">Δ[HbO] Peak</div>
+                        <div class="value" id="valDeltaHbO">+0.00 µM</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Δ[HbR] Nadir</div>
+                        <div class="value" id="valDeltaHbR">-0.00 µM</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Δ[HbT] (Blood Vol)</div>
+                        <div class="value" id="valDeltaHbT">+0.00 µM</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Estimated rSO₂</div>
+                        <div class="value" id="valRSO2">68.5%</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Extraction (FTOE)</div>
+                        <div class="value" id="valFTOE">0.28</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Spectroscopic Inversion Derivation -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">03.</span>
+                <h2>Spectroscopic Matrix Form &amp; Sensitivity Analysis</h2>
+            </div>
+            <p class="section-desc">
+                Calculate the extinction matrix inverse using standard molar extinction coefficients:
+                <br>$\varepsilon_{\text{HbO}}(760) = 1.486\,\text{mM}^{-1}\text{cm}^{-1}$, $\varepsilon_{\text{HbR}}(760) = 3.843\,\text{mM}^{-1}\text{cm}^{-1}$
+                <br>$\varepsilon_{\text{HbO}}(850) = 2.526\,\text{mM}^{-1}\text{cm}^{-1}$, $\varepsilon_{\text{HbR}}(850) = 1.798\,\text{mM}^{-1}\text{cm}^{-1}$
+            </p>
+
+            <div class="form-group">
+                <label for="invMatrixWork">Matrix Determinant &amp; Conditioning (Show Student Work)</label>
+                <div class="field-hint">Compute $\det(\mathbf{E})$ and discuss how wavelength selection prevents ill-conditioned matrix inversion.</div>
+                <textarea id="invMatrixWork" placeholder="State det(E) and explain why selecting 760 nm (HbR dominant) and 850 nm (HbO dominant) maximizes spectral orthogonality..."></textarea>
+            </div>
+
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="calcDetE">Computed Matrix Determinant $\det(\mathbf{E})$</label>
+                    <input type="text" id="calcDetE" placeholder="e.g., -7.03 mM^-2 cm^-2">
+                </div>
+                <div class="form-group">
+                    <label for="calcCondNum">Matrix Condition Number ($\kappa$)</label>
+                    <input type="text" id="calcCondNum" placeholder="e.g., ~2.8 (well-conditioned)">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Bedside Biomarkers & Neonatal Autoregulation -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">04.</span>
+                <h2>Bedside Clinical Biomarkers: FTOE &amp; Vascular Autoregulation</h2>
+            </div>
+            <p class="section-desc">
+                Evaluate regional cerebral tissue oxygen saturation ($\text{rSO}_2$) and fractional tissue oxygen extraction ($\text{FTOE}$) for hypoxic-ischemic brain injury.
+            </p>
+
+            <table class="spec-table">
+                <thead>
+                    <tr>
+                        <th>Clinical Scenario</th>
+                        <th>Baseline SpO₂</th>
+                        <th>Measured Cerebral rSO₂</th>
+                        <th>Calculated FTOE</th>
+                        <th>Clinical Physiological Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Normoxic Baseline</strong></td>
+                        <td>98%</td>
+                        <td>71%</td>
+                        <td>0.28</td>
+                        <td>Normal resting cerebral oxygen extraction balance.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Severe Cerebral Ischemia (HIE)</strong></td>
+                        <td>96%</td>
+                        <td>48%</td>
+                        <td>0.50</td>
+                        <td>Severe hypoperfusion; tissue maximally extracting available oxygen.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mitochondrial Failure / Hyperemia</strong></td>
+                        <td>99%</td>
+                        <td>88%</td>
+                        <td>0.11</td>
+                        <td>Secondary energy failure; neurons dead/incapable of utilizing oxygen.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="form-group">
+                <label for="ftoeAnalysis">Physiological Analysis: FTOE Trajectory During Therapeutic Hypothermia</label>
+                <div class="field-hint">Explain how whole-body hypothermia ($33.5^\circ\text{C}$) depresses $\text{CMRO}_2$ and why a rising FTOE during rewarming indicates secondary brain injury.</div>
+                <textarea id="ftoeAnalysis" placeholder="Provide physiological reasoning regarding neurovascular uncoupling, cerebral metabolic rate depression at 33.5°C, and pressure-passivity..."></textarea>
+            </div>
+        </div>
+
+        <!-- Section 5: Artifact Mitigation & Midterm Design Link -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">05.</span>
+                <h2>Artifact Rejection &amp; Midterm Design Review Integration</h2>
+            </div>
+            <p class="section-desc">
+                How does today's optical instrumentation lab inform your team's preliminary transducer block diagram for next week's <strong>Mid-Semester Design Review</strong>?
+            </p>
+
+            <div class="form-group">
+                <label for="artifactPipeline">Motion &amp; Extracerebral Filtering Strategy</label>
+                <div class="field-hint">Specify your algorithm: Short-separation regression ($8\,\text{mm}$ detector), wavelet motion filtering, or adaptive Kalman filtering.</div>
+                <textarea id="artifactPipeline" placeholder="Describe hardware short-channel design or digital filtering algorithm to isolate brain cortical signals from scalp hemodynamics..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="midtermReadiness">Team Design Review Integration Notes</label>
+                <div class="field-hint">How will optical sensing or multi-modal integration (e.g., fNIRS + EEG, fNIRS + fUS) be presented in your Week 7 presentation deck?</div>
+                <textarea id="midtermReadiness" placeholder="Detail your team's sensor block diagram, chosen contrast mechanism, and expected spatial/temporal resolution for Week 7..."></textarea>
+            </div>
+        </div>
+
+        <!-- Action Row -->
+        <div class="action-row">
+            <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+            <button class="btn-save" onclick="saveToLocalStorage()">💾 Save Student Worksheet</button>
+        </div>
+    </div>
+
+    <script>
+        // Preset configurations by cohort
+        const cohortConfigs = {
+            adult_prefrontal: { dist: 30, dpf: 6.0, rso2: 72 },
+            adult_motor: { dist: 35, dpf: 6.2, rso2: 70 },
+            neonatal_hie: { dist: 20, dpf: 4.6, rso2: 68 },
+            neonatal_preterm: { dist: 15, dpf: 4.4, rso2: 64 }
+        };
+
+        function updateCohortDefaults() {
+            const cohort = document.getElementById("cohortType").value;
+            const c = cohortConfigs[cohort];
+            if (!c) return;
+            document.getElementById("sourceDetDist").value = c.dist;
+            document.getElementById("dpfValue").value = c.dpf;
+            runHemodynamicSimulation('baseline');
+        }
+
+        // Simple Chart Simulator Canvas
+        const canvas = document.getElementById("fnirsChart");
+        const ctx = canvas.getContext("2d");
+
+        let timeSteps = 100;
+        let hboData = new Array(timeSteps).fill(0);
+        let hbrData = new Array(timeSteps).fill(0);
+
+        function drawChart() {
+            const w = canvas.width = canvas.parentElement.clientWidth - 32;
+            const h = canvas.height = 220;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Grid lines
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(40, h / 2);
+            ctx.lineTo(w - 20, h / 2);
+            ctx.stroke();
+
+            // Y-axis labels
+            ctx.fillStyle = "#888";
+            ctx.font = "10px JetBrains Mono";
+            ctx.fillText("+10 µM", 5, 25);
+            ctx.fillText("0 µM", 10, h / 2 + 4);
+            ctx.fillText("-10 µM", 5, h - 15);
+
+            const dx = (w - 60) / (timeSteps - 1);
+
+            // Draw HbO (Red/Orange)
+            ctx.strokeStyle = "#ff4d4f";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let i = 0; i < timeSteps; i++) {
+                const x = 50 + i * dx;
+                const y = (h / 2) - (hboData[i] * 9);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw HbR (Blue)
+            ctx.strokeStyle = "#1890ff";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let i = 0; i < timeSteps; i++) {
+                const x = 50 + i * dx;
+                const y = (h / 2) - (hbrData[i] * 9);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Legend
+            ctx.fillStyle = "#ff4d4f";
+            ctx.fillText("■ Δ[HbO]", w - 140, 20);
+            ctx.fillStyle = "#1890ff";
+            ctx.fillText("■ Δ[HbR]", w - 70, 20);
+        }
+
+        function runHemodynamicSimulation(mode) {
+            const d = parseFloat(document.getElementById("sourceDetDist").value) || 20;
+            const dpf = parseFloat(document.getElementById("dpfValue").value) || 4.6;
+
+            for (let i = 0; i < timeSteps; i++) {
+                let t = i / 10;
+                let noise = (Math.random() - 0.5) * 0.4;
+
+                if (mode === 'activation') {
+                    // Standard hemodynamic canonical response (peak at t=5s)
+                    let hrf = Math.max(0, Math.pow(t - 2, 3) * Math.exp(-(t - 2) / 1.5) * 0.4);
+                    hboData[i] = hrf * 2.2 + noise;
+                    hbrData[i] = -hrf * 0.75 + noise * 0.6;
+                } else if (mode === 'hypoxia') {
+                    // Severe desaturation: HbR jumps up, HbO plummets
+                    let dip = Math.sin(i / 15) * 3.5;
+                    hboData[i] = -Math.abs(dip) + noise;
+                    hbrData[i] = Math.abs(dip) * 1.3 + noise;
+                } else if (mode === 'motion') {
+                    // Motion artifact shear spike
+                    let spike = (i >= 45 && i <= 52) ? 7.5 : 0;
+                    hboData[i] = spike + noise;
+                    hbrData[i] = spike * 0.9 + noise;
+                } else {
+                    hboData[i] = noise;
+                    hbrData[i] = noise * 0.5;
+                }
+            }
+
+            drawChart();
+
+            // Update Metrics
+            let maxHbO = Math.max(...hboData).toFixed(2);
+            let minHbR = Math.min(...hbrData).toFixed(2);
+            let hbt = (parseFloat(maxHbO) + parseFloat(minHbR)).toFixed(2);
+
+            document.getElementById("valDeltaHbO").innerText = (maxHbO >= 0 ? "+" : "") + maxHbO + " µM";
+            document.getElementById("valDeltaHbR").innerText = minHbR + " µM";
+            document.getElementById("valDeltaHbT").innerText = (hbt >= 0 ? "+" : "") + hbt + " µM";
+
+            let rso2 = (68.0 + parseFloat(maxHbO) * 1.5).toFixed(1);
+            rso2 = Math.min(Math.max(rso2, 35), 95);
+            document.getElementById("valRSO2").innerText = rso2 + "%";
+
+            let ftoe = ((98 - rso2) / 98).toFixed(2);
+            document.getElementById("valFTOE").innerText = ftoe;
+
+            saveToLocalStorage();
+        }
+
+        function resetSim() {
+            hboData.fill(0);
+            hbrData.fill(0);
+            drawChart();
+            document.getElementById("valDeltaHbO").innerText = "+0.00 µM";
+            document.getElementById("valDeltaHbR").innerText = "-0.00 µM";
+            document.getElementById("valDeltaHbT").innerText = "+0.00 µM";
+            document.getElementById("valRSO2").innerText = "68.0%";
+            document.getElementById("valFTOE").innerText = "0.31";
+        }
+
+        // Local Storage Persistence
+        function saveToLocalStorage() {
+            const keys = ["cohortType", "sourceDetDist", "dpfValue", "invMatrixWork", "calcDetE", "calcCondNum", "ftoeAnalysis", "artifactPipeline", "midtermReadiness"];
+            keys.forEach(k => {
+                const el = document.getElementById(k);
+                if (el) localStorage.setItem("idne701_worksheet61_" + k, el.value);
+            });
+        }
+
+        function loadFromLocalStorage() {
+            const keys = ["cohortType", "sourceDetDist", "dpfValue", "invMatrixWork", "calcDetE", "calcCondNum", "ftoeAnalysis", "artifactPipeline", "midtermReadiness"];
+            keys.forEach(k => {
+                const saved = localStorage.getItem("idne701_worksheet61_" + k);
+                const el = document.getElementById(k);
+                if (el && saved !== null) el.value = saved;
+            });
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute("data-theme");
+            const next = current === "light" ? "dark" : "light";
+            document.documentElement.setAttribute("data-theme", next);
+            localStorage.setItem("idne701_theme", next);
+            drawChart();
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            const savedTheme = localStorage.getItem("idne701_theme");
+            if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+            loadFromLocalStorage();
+            runHemodynamicSimulation('activation');
+        });
+
+        window.addEventListener("resize", drawChart);
+    </script>
+</body>
+</html>
