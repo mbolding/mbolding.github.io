@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>129Xe Polarizer Simulator - MRS Resources</title>
+    <meta name="description"
+        content="Teaching note, not peer reviewed. An interactive spin-exchange optical pumping model: turn laser power, cell temperature, pressure and gas mix, watch rubidium and xenon polarization build along the optical cell, and follow the magnetization budget through the bag and into the breath-hold.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #666666;
+            --accent-color: #007bff;
+            --border-color: #e0e0e0;
+            --card-bg: #f5f5f5;
+            --code-font: 'JetBrains Mono', monospace;
+            --c-laser: #d9730d;
+            --c-rb: #1f6feb;
+            --c-xe: #1a7f57;
+            --c-alt: #7c4dbe;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 32px 16px;
+            }
+        }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 4px solid var(--text-color);
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin: 0 0 16px 0;
+            letter-spacing: -1.5px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 32px;
+                letter-spacing: -1px;
+            }
+        }
+
+        .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--secondary-text);
+            max-width: 800px;
+            margin: 0;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--secondary-text);
+            text-decoration: none;
+            font-size: 0.9rem;
+            border-bottom: 1px dotted var(--secondary-text);
+        }
+
+        .back-link:hover {
+            color: var(--text-color);
+            border-bottom-style: solid;
+        }
+
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin: 2rem 0 0.75rem 0;
+        }
+
+        a {
+            color: var(--text-color);
+        }
+
+        .status-block {
+            margin-bottom: 2.5rem;
+        }
+
+        .status-line {
+            margin: 0 0 0.5rem 0;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--secondary-text);
+        }
+
+        .status-line .stamp {
+            color: var(--accent-color);
+            font-weight: 600;
+            letter-spacing: 0.12em;
+        }
+
+        .status-line .sep {
+            color: var(--border-color);
+            padding: 0 0.4em;
+        }
+
+        .status-body {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+        }
+
+        .key-concept {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .key-concept p {
+            margin: 0;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        strong {
+            color: var(--text-color);
+        }
+
+        code,
+        .mono {
+            font-family: var(--code-font);
+            font-size: 0.9em;
+        }
+
+        .nucleus-badge {
+            background: var(--text-color);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-family: var(--code-font);
+            font-size: 0.5em;
+            font-weight: 700;
+            vertical-align: middle;
+        }
+
+        /* ---- simulator ---- */
+
+        .sim-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 640px) {
+            .sim-panel {
+                padding: 1rem;
+            }
+        }
+
+        .sim-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 0.9rem 1.5rem;
+        }
+
+        .ctrl {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .ctrl .lab {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--secondary-text);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .ctrl .val {
+            font-family: var(--code-font);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-color);
+            text-transform: none;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+
+        .ctrl input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-color);
+            margin: 0;
+        }
+
+        .readouts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+            gap: 0.6rem;
+            margin-top: 1.25rem;
+        }
+
+        .readout {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.55rem 0.7rem;
+        }
+
+        .readout .k {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--secondary-text);
+            line-height: 1.4;
+        }
+
+        .readout .v {
+            font-family: var(--code-font);
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+
+        .readout.hero .v {
+            font-size: 1.3rem;
+            color: var(--accent-color);
+        }
+
+        .plot-wrap {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem;
+            margin-top: 1.25rem;
+        }
+
+        .plot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1.25rem;
+        }
+
+        .plot-grid .plot-wrap {
+            margin-top: 0;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+        }
+
+        .caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin: 0.6rem 0 0 0;
+        }
+
+        .warn {
+            margin-top: 1rem;
+            padding: 0.7rem 0.9rem;
+            border-radius: 6px;
+            border-left: 4px solid var(--c-laser);
+            background: #fff6ec;
+            font-size: 0.85rem;
+        }
+
+        .warn:empty {
+            display: none;
+        }
+
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1.1rem;
+        }
+
+        .preset {
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            padding: 0.4rem 0.7rem;
+            border: 1px solid var(--border-color);
+            background: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        .preset:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--secondary-text);
+            font-weight: 600;
+        }
+
+        td.num {
+            font-family: var(--code-font);
+            white-space: nowrap;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        ol.refs {
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+        }
+
+        ol.refs a {
+            color: var(--accent-color);
+        }
+
+        .noscript-note {
+            border-left: 4px solid var(--c-laser);
+            background: #fff6ec;
+            padding: 0.8rem 1rem;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&larr; Back to MRS Resources</a>
+
+        <header>
+            <h1><span class="nucleus-badge">129Xe</span> Polarizer Simulator</h1>
+            <p class="subtitle">Spin-exchange optical pumping from the laser to the breath-hold: build-up in the cell,
+                the flow trade, decay in the bag, and the flip-angle budget that spends what is left.</p>
+        </header>
+
+        <div class="status-block">
+            <p class="status-line"><span class="stamp">Teaching note</span><span class="sep">&middot;</span>version
+                1.0<span class="sep">&middot;</span><time datetime="2026-09-18">18 September 2026</time><span
+                    class="sep">&middot;</span>not peer reviewed</p>
+            <p class="status-body">A toy model built to give intuition for how a continuous-flow SEOP polarizer
+                behaves, not a design tool and not a substitute for measuring your own system. The rate coefficients
+                are literature values and the structure of the model is standard, but several terms are deliberately
+                simplified and the absolute polarization it predicts should be read as order-of-magnitude. Everything
+                it assumes, and everything it leaves out, is listed under <a href="#assumptions">assumptions and
+                    limits</a>.</p>
+        </div>
+
+        <section>
+            <h2>What the model does</h2>
+            <div class="key-concept">
+                <p>Laser light polarizes rubidium vapor, rubidium hands angular momentum to <sup>129</sup>Xe through
+                    collisions, and xenon accumulates polarization as it flows down the cell. Three rates compete:
+                    optical pumping <span class="mono">R<sub>OP</sub></span> builds Rb polarization, spin destruction
+                    <span class="mono">&Gamma;<sub>SD</sub></span> tears it down, and spin exchange <span
+                        class="mono">&gamma;<sub>SE</sub></span> moves it to xenon. Nearly every knob on a real
+                    polarizer changes more than one of the three, which is why the optima below are optima rather than
+                    monotonic trends.</p>
+            </div>
+            <p>The simulator integrates along the optical axis. At each slice it computes the local pumping rate from
+                the surviving photon flux, sets the Rb polarization from the balance of pumping and destruction,
+                removes the photons that Rb actually absorbed, and advances the xenon polarization by the time the gas
+                spent in that slice. Downstream panels then take the polarization the cell delivers and spend it:
+                cryogenic accumulation, decay in the bag, and the non-renewable magnetization budget of the scan.</p>
+            <noscript>
+                <p class="noscript-note"><strong>This page needs JavaScript.</strong> The simulator runs entirely in
+                    your browser, with no network calls after the page loads. With scripting off, the controls and
+                    plots below will not do anything, though the assumptions and reference sections still read
+                    normally.</p>
+            </noscript>
+        </section>
+
+        <section>
+            <h2>1. Inside the optical cell</h2>
+            <div class="sim-panel">
+                <div class="sim-controls" id="cellControls"></div>
+                <div class="btn-row">
+                    <button class="preset" data-preset="clinical">Clinical low-Xe (Polarean-like)</button>
+                    <button class="preset" data-preset="highxe">High-Xe research batch</button>
+                    <button class="preset" data-preset="runaway">Optically thick (too hot)</button>
+                    <button class="preset" data-preset="starved">Photon-starved</button>
+                </div>
+                <div class="warn" id="cellWarn"></div>
+                <div class="plot-wrap">
+                    <canvas id="cellCanvas" height="340" aria-label="Profiles of laser transmission, rubidium polarization and xenon polarization along the optical cell"></canvas>
+                </div>
+                <p class="caption">Along the cell: surviving laser flux (orange), local Rb polarization (blue), and the
+                    xenon polarization the flowing gas has accumulated by that point (green). When the cell is
+                    optically thick the orange curve collapses in the first few centimetres and the blue curve falls
+                    with it, so the back of the cell contributes almost nothing.</p>
+                <div class="readouts" id="cellReadouts"></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>2. The throughput trade</h2>
+            <p>Polarization per atom and polarized atoms per hour pull in opposite directions, but they do not pull in
+                the same shape. Slow the flow down and each atom spends longer in contact with polarized rubidium, so
+                polarization climbs toward the ceiling rubidium sets, but you make almost no gas. Speed it up and output
+                climbs and then <em>saturates</em>: a cell can only polarize atoms at the rate
+                <span class="mono">&gamma;<sub>SE</sub></span> allows, and every atom pushed through beyond that leaves
+                underpolarized. There is no peak in the output curve to find, only a knee past which you are giving up
+                polarization for almost nothing in return.</p>
+            <p>Cell temperature behaves differently, and it does have a true interior optimum you can overshoot. More
+                rubidium means faster spin exchange, right up until the vapor is thick enough to absorb the laser in the
+                first few centimetres. Past that point the back of the cell holds rubidium that is dense but
+                <em>unpolarized</em>, and because spin exchange runs both ways, that rubidium actively drags the xenon
+                back down on its way out. Set the temperature slider past the optimum and watch the green curve in panel
+                1 rise and then fall again before the gas reaches the exit.</p>
+            <div class="sim-panel">
+                <div class="plot-grid">
+                    <div class="plot-wrap">
+                        <canvas id="flowCanvas" height="300" aria-label="Xenon polarization and polarized gas production rate as a function of flow rate"></canvas>
+                    </div>
+                    <div class="plot-wrap">
+                        <canvas id="tempCanvas" height="300" aria-label="Xenon polarization and production rate as a function of cell temperature"></canvas>
+                    </div>
+                </div>
+                <p class="caption">Both plots use the cell settings from panel 1, sweeping one variable at a time; the
+                    dot marks where you currently sit. Output is litres of xenon per hour weighted by polarization, so
+                    1.0 means one litre per hour at 100&nbsp;% or two litres at 50&nbsp;%. The two shapes are not the
+                    same: output saturates with flow, while temperature has a genuine optimum with a cliff on the far
+                    side of it.</p>
+                <div class="readouts" id="tradeReadouts"></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>3. From the cell to the lung</h2>
+            <p>Polarization is non-renewable from the moment the gas leaves the cell. Xenon is frozen out to separate
+                it from the buffer gases, thawed into a bag, carried to the magnet, and inhaled, and every one of those
+                steps costs magnetization that nothing will restore.</p>
+            <div class="sim-panel">
+                <div class="sim-controls" id="doseControls"></div>
+                <div class="plot-wrap">
+                    <canvas id="doseCanvas" height="300" aria-label="Polarization decaying from cell exit through accumulation, bag storage and the breath-hold"></canvas>
+                </div>
+                <p class="caption">Polarization against wall-clock time from cell exit. The shaded stretch is
+                    cryogenic accumulation, where the batch is a mix of gas frozen early and gas frozen late; the drop
+                    at thaw is the mechanical loss; the slope after it is bag <span class="mono">T<sub>1</sub></span>;
+                    the steep final segment is the breath-hold, where alveolar oxygen dominates.</p>
+                <div class="readouts" id="doseReadouts"></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>4. Spending it: the flip-angle budget</h2>
+            <p>In proton imaging, longitudinal magnetization recovers between excitations and a flip angle is a
+                signal-to-noise choice. Here there is no recovery, so a flip angle is a spending decision: each pulse
+                removes <span class="mono">(1&nbsp;&minus;&nbsp;cos&nbsp;&alpha;)</span> of what remains, permanently.
+                A constant angle spends fastest at the start and leaves the late views starved; the variable-angle
+                schedule <span class="mono">&alpha;<sub>n</sub> = arctan(1/&radic;(N&nbsp;&minus;&nbsp;n))</span> is
+                built so every view returns the same signal and the last pulse is a 90&deg; that takes what is
+                left.</p>
+            <div class="sim-panel">
+                <div class="sim-controls" id="rfControls"></div>
+                <div class="plot-wrap">
+                    <canvas id="rfCanvas" height="300" aria-label="Signal per view across the acquisition for constant and variable flip angle schemes"></canvas>
+                </div>
+                <p class="caption">Signal per view across the acquisition, including <span
+                        class="mono">T<sub>1</sub></span> decay in the lung during the breath-hold. Constant angle in
+                    blue, the constant-signal variable schedule in purple. Watch what happens to the k-space weighting
+                    when the blue curve decays inside a single acquisition: that is a point-spread-function problem,
+                    not just an SNR problem.</p>
+                <div class="readouts" id="rfReadouts"></div>
+            </div>
+        </section>
+
+        <section id="assumptions">
+            <h2>Assumptions and limits</h2>
+
+            <h3>Constants the model uses</h3>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Quantity</th>
+                            <th>Value</th>
+                            <th>Source and caveat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Rb vapor pressure (liquid)</td>
+                            <td class="num">log<sub>10</sub>&nbsp;P<sub>torr</sub><br>= 7.193 &minus; 4040/T</td>
+                            <td>Steck, <em>Rubidium 87 D Line Data</em>. Assumes a saturated vapor in equilibrium with
+                                liquid Rb, which overestimates density in a cell that has lost its rubidium or is
+                                running a cold spot.</td>
+                        </tr>
+                        <tr>
+                            <td>Rb D<sub>1</sub> line</td>
+                            <td class="num">794.98 nm<br>f = 0.342</td>
+                            <td>Steck. Oscillator strength combined with &pi;r<sub>e</sub>c = 2.654&times;10<sup>&minus;2</sup>
+                                cm<sup>2</sup>&middot;Hz for the integrated cross section.</td>
+                        </tr>
+                        <tr>
+                            <td>Pressure broadening</td>
+                            <td class="num">18 GHz/amagat</td>
+                            <td>Lumped single value. Real coefficients differ by collision partner (He and N<sub>2</sub>
+                                near 18, Xe closer to 19 GHz/amagat FWHM), and the model ignores the accompanying line
+                                shift.</td>
+                        </tr>
+                        <tr>
+                            <td>Rb spin destruction</td>
+                            <td class="num">Xe 5.2&times;10<sup>&minus;15</sup><br>N<sub>2</sub>
+                                1.0&times;10<sup>&minus;17</sup><br>He 1.1&times;10<sup>&minus;18</sup><br>Rb
+                                4.2&times;10<sup>&minus;13</sup> cm<sup>3</sup>/s</td>
+                            <td>Typical values from the Walker and Happer review. Reported values scatter by tens of
+                                percent between measurements, and the Rb&ndash;Xe figure already folds in a van der
+                                Waals contribution that is itself density dependent.</td>
+                        </tr>
+                        <tr>
+                            <td>Rb&ndash;Xe spin exchange</td>
+                            <td class="num">binary 3.7&times;10<sup>&minus;16</sup> cm<sup>3</sup>/s<br>vdW 1.1&times;10<sup>&minus;15</sup>
+                                / n<sub>amagat</sub></td>
+                            <td>The binary term is a literature value. <strong>The van der Waals term is
+                                    phenomenological</strong>: it carries the correct 1/n third-body scaling and is
+                                normalized to give an effective coefficient near
+                                1.5&times;10<sup>&minus;15</sup>&nbsp;cm<sup>3</sup>/s at one amagat, but it is an
+                                interpolation, not a first-principles molecular calculation.</td>
+                        </tr>
+                        <tr>
+                            <td>Standard litre</td>
+                            <td class="num">0 &deg;C, 1 atm</td>
+                            <td>Flow in SLM is converted to cell conditions by number density. Mass-flow controllers
+                                are not all referenced to the same standard temperature, so check yours before
+                                comparing.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>What it leaves out</h3>
+            <ul>
+                <li><strong>A uniform laser.</strong> The beam is treated as a top hat filling the cell cross section,
+                    with no transverse profile, no divergence, and no wall reflections. Real beams are brightest on
+                    axis, so real cells have a radial polarization gradient this model cannot show.</li>
+                <li><strong>Thermal feedback.</strong> Absorbed laser power heats the cell and raises rubidium density,
+                    which absorbs more power. That runaway is real and is a large part of why high-power SEOP is hard;
+                    here temperature is simply whatever you set it to.</li>
+                <li><strong>Radiation trapping.</strong> N<sub>2</sub> is what quenches Rb fluorescence, and without a
+                    few percent of it the reemitted unpolarized photons destroy polarization. The model warns when
+                    N<sub>2</sub> is low but does not model the loss.</li>
+                <li><strong>Flow structure.</strong> Plug flow co-propagating with the laser, no back-mixing, no
+                    convection, no boundary layer. Counter-flow cells and cells with significant recirculation behave
+                    differently.</li>
+                <li><strong>Cell relaxation detail.</strong> Xenon <span class="mono">T<sub>1</sub></span> in the cell
+                    is a single slider standing in for wall relaxation, persistent dimers and contamination, all of
+                    which have their own density and temperature dependence.</li>
+                <li><strong>Isotopic enrichment.</strong> Polarization is per <sup>129</sup>Xe atom. Enriched gas at
+                    86&nbsp;% gives roughly three times the signal of natural abundance at the same polarization, and
+                    the dose figures here do not account for that.</li>
+                <li><strong>Oxygen.</strong> It appears only through the bag and lung <span
+                        class="mono">T<sub>1</sub></span> sliders. Contamination at the part-per-thousand level is
+                    the most common reason a real bag underperforms.</li>
+                <li><strong>RF and coil behaviour.</strong> The flip-angle panel assumes a perfectly uniform,
+                    perfectly calibrated excitation. <span class="mono">B<sub>1</sub></span> inhomogeneity means the
+                    real spending schedule varies across the lung.</li>
+            </ul>
+
+            <h3>How much to trust the output</h3>
+            <p>The <em>shapes</em> are the point and they are trustworthy: the flow optimum, the temperature optimum,
+                the collapse of mean Rb polarization once the cell goes optically thick, the trade between
+                polarization and throughput as xenon fraction rises, and the way a constant flip angle weights k-space.
+                The <em>absolute numbers</em> are not. Expect the predicted polarization to sit optimistically high
+                against a real machine, since every loss mechanism in the list above is either absent or compressed
+                into a slider. If you want numbers you can quote, measure your own polarizer against a calibrated
+                thermal reference.</p>
+        </section>
+
+        <section>
+            <h2>References</h2>
+            <ol class="refs">
+                <li>Walker TG, Happer W. Spin-exchange optical pumping of noble-gas nuclei. <em>Rev Mod Phys</em>
+                    1997;69:629. <a href="https://doi.org/10.1103/RevModPhys.69.629">doi:10.1103/RevModPhys.69.629</a>
+                    &mdash; the standard reference for every rate coefficient used here.</li>
+                <li>Nikolaou P, et al. Near-unity nuclear polarization with an open-source <sup>129</sup>Xe
+                    hyperpolarizer for NMR and MRI. <em>PNAS</em> 2013;110:14150. <a
+                        href="https://doi.org/10.1073/pnas.1306586110">doi:10.1073/pnas.1306586110</a> &mdash; shows
+                    the low-Xe-density regime this model reproduces at the high-polarization end.</li>
+                <li>Driehuys B, et al. High-volume production of laser-polarized <sup>129</sup>Xe. <em>Appl Phys
+                        Lett</em> 1996;69:1668. <a href="https://doi.org/10.1063/1.117022">doi:10.1063/1.117022</a>
+                    &mdash; the continuous-flow, cryogenic-accumulation architecture the panels follow.</li>
+                <li>Steck DA. <em>Rubidium 87 D Line Data.</em> <a href="https://steck.us/alkalidata/">steck.us/alkalidata</a>
+                    &mdash; vapor pressure and D<sub>1</sub> line parameters.</li>
+                <li>Mugler JP, Altes TA. Hyperpolarized <sup>129</sup>Xe MRI of the human lung. <em>J Magn Reson
+                        Imaging</em> 2013;37:313. <a href="https://doi.org/10.1002/jmri.23844">doi:10.1002/jmri.23844</a>
+                    &mdash; clinical context for the dose and breath-hold numbers.</li>
+                <li>Niedbalski PJ, et al. Protocols for multi-site trials using hyperpolarized <sup>129</sup>Xe MRI.
+                    <em>Magn Reson Med</em> 2021;86:2966. <a href="https://doi.org/10.1002/mrm.28985">doi:10.1002/mrm.28985</a>
+                    &mdash; realistic dose volumes, polarization at the magnet, and acquisition parameters.</li>
+                <li>Zhao L, Mulkern R, Tseng CH, et al. Gradient-echo imaging considerations for hyperpolarized
+                    <sup>129</sup>Xe MR. <em>J Magn Reson B</em> 1996;113:179. <a
+                        href="https://doi.org/10.1006/jmrb.1996.0173">doi:10.1006/jmrb.1996.0173</a> &mdash; the
+                    variable flip-angle schedule in panel 4.</li>
+            </ol>
+            <p class="caption">Related pages: <a href="129xe_hyperpolarized.html">hyperpolarized imaging and SEOP</a>
+                &middot; <a href="129xe_dissolved.html">dissolved-phase peaks</a> &middot; <a
+                    href="129xe_diffusion.html">diffusion and ADC</a></p>
+        </section>
+    </div>
+
+    <script>
+        'use strict';
+
+        /* ---------------- physical constants ---------------- */
+        const KB = 1.380649e-23;          // J/K
+        const HPL = 6.62607015e-34;       // J s
+        const CLIGHT = 2.99792458e8;      // m/s
+        const AMAGAT = 2.6868e19;         // cm^-3
+        const TORR_PA = 133.322;
+        const ATM_PA = 101325;
+        const LAMBDA_D1 = 794.98e-9;      // m
+        const E_PHOTON = HPL * CLIGHT / LAMBDA_D1;      // J
+        const PI_RE_C = 2.654e-2;         // cm^2 Hz
+        const F_OSC = 0.342;
+        const INTEG_XSEC = PI_RE_C * F_OSC;             // cm^2 Hz
+        const BROADEN = 18e9;             // Hz per amagat, FWHM, lumped
+
+        // Rb spin-destruction rate coefficients, cm^3/s
+        const KSD_XE = 5.2e-15, KSD_N2 = 1.0e-17, KSD_HE = 1.1e-18, KSD_RB = 4.2e-13;
+        // Rb-Xe spin exchange, cm^3/s
+        const SIGV_BINARY = 3.7e-16;
+        const SIGV_VDW_1AMG = 1.1e-15;    // phenomenological, scales as 1/n
+        // solid Xe T1 at 77 K in field, seconds
+        const T1_SOLID = 2.5 * 3600;
+
+        const NSTEP = 300;                // slices along the cell
+
+        // canvas cannot resolve CSS custom properties, so the plot colours are
+        // repeated here; keep them in step with the --c-* variables above.
+        const COL = {
+            laser: '#d9730d', rb: '#1f6feb', xe: '#1a7f57', alt: '#7c4dbe',
+            grid: '#ededed', axis: '#999', text: '#444', muted: '#666', drop: '#999'
+        };
+
+        /* ---------------- model ---------------- */
+
+        function rbDensity(TK) {
+            const pTorr = Math.pow(10, 7.193 - 4040 / TK);
+            return pTorr * TORR_PA / (KB * TK) * 1e-6;   // cm^-3
+        }
+
+        // p: {laserW, laserNm, tempC, pressAtm, fXe, fN2, lenCm, diamCm, flowSlm, t1CellMin}
+        function runCell(p) {
+            const TK = p.tempC + 273.15;
+            const nTot = p.pressAtm * ATM_PA / (KB * TK) * 1e-6;   // cm^-3 at cell conditions
+            const nAmg = nTot / AMAGAT;
+            const fHe = Math.max(0, 1 - p.fXe - p.fN2);
+            const nXe = nTot * p.fXe, nN2 = nTot * p.fN2, nHe = nTot * fHe;
+            const nRb = rbDensity(TK);
+
+            const gSD = nXe * KSD_XE + nN2 * KSD_N2 + nHe * KSD_HE + nRb * KSD_RB;
+
+            // effective cross section: laser and absorption both Lorentzian, on resonance
+            const gAbs = BROADEN * nAmg;
+            const dnuLaser = CLIGHT * (p.laserNm * 1e-9) / (LAMBDA_D1 * LAMBDA_D1);   // Hz FWHM
+            const sigEff = INTEG_XSEC * 2 / (Math.PI * (gAbs + dnuLaser));            // cm^2
+
+            const area = Math.PI * Math.pow(p.diamCm / 2, 2);        // cm^2
+            const phi0 = p.laserW / E_PHOTON / area;                 // photons cm^-2 s^-1
+
+            const sigvSE = SIGV_BINARY + (nAmg > 0 ? SIGV_VDW_1AMG / nAmg : 0);
+            const gSE = nRb * sigvSE;                                 // s^-1
+            const gXe = 1 / (p.t1CellMin * 60);                       // s^-1
+
+            // flow: SLM referenced to 0 C, 1 atm -> atoms/s -> volume flow at cell conditions
+            const atomsPerSec = (p.flowSlm * 1000 / 60) * AMAGAT;
+            const qCell = atomsPerSec / nTot;                         // cm^3/s
+            const vFlow = Math.max(qCell / area, 1e-9);               // cm/s
+            const tau = p.lenCm / vFlow;                              // s
+
+            const dz = p.lenCm / NSTEP;
+            const dt = dz / vFlow;
+            let phi = phi0, pxe = 0, sumPrb = 0;
+            const prof = { z: [], phi: [], prb: [], pxe: [] };
+
+            for (let i = 0; i < NSTEP; i++) {
+                const rop = sigEff * phi;
+                const prb = rop / (rop + gSD);
+                sumPrb += prb;
+
+                prof.z.push(i * dz);
+                prof.phi.push(phi / phi0);
+                prof.prb.push(prb);
+                prof.pxe.push(pxe);
+
+                // xenon, exact over the slice with prb held fixed
+                const b = gSE + gXe;
+                const pinf = b > 0 ? gSE * prb / b : 0;
+                pxe = pinf + (pxe - pinf) * Math.exp(-b * dt);
+                // photons, exact over the slice: only unpolarized Rb absorbs
+                phi = phi * Math.exp(-nRb * sigEff * (1 - prb) * dz);
+            }
+            prof.z.push(p.lenCm);
+            prof.phi.push(phi / phi0);
+            prof.prb.push(prof.prb[NSTEP - 1]);
+            prof.pxe.push(pxe);
+
+            const meanPrb = sumPrb / NSTEP;
+            const transmitted = phi / phi0;
+            return {
+                nRb: nRb, nTot: nTot, nAmg: nAmg, gSD: gSD, gSE: gSE, gXe: gXe,
+                sigEff: sigEff, phi0: phi0, ropIn: sigEff * phi0,
+                meanPrb: meanPrb, prbIn: prof.prb[0], prbOut: prof.prb[NSTEP - 1],
+                tau: tau, vFlow: vFlow, qCell: qCell,
+                transmitted: transmitted,
+                absorbedW: p.laserW * (1 - transmitted),
+                pOut: pxe,
+                prodLhr: p.flowSlm * p.fXe * 60 * pxe,   // polarization-weighted L of Xe per hour
+                xeLhr: p.flowSlm * p.fXe * 60,
+                prof: prof
+            };
+        }
+
+        /* ---------------- plotting ---------------- */
+
+        const cssHeights = new WeakMap();
+
+        function prepCanvas(cv) {
+            // cv.height reflects into the attribute, so capture the authored CSS
+            // height once rather than re-reading it on every redraw.
+            if (!cssHeights.has(cv)) {
+                cssHeights.set(cv, parseInt(cv.getAttribute('height'), 10) || 300);
+            }
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = cv.clientWidth || 600;
+            const cssH = cssHeights.get(cv);
+            cv.width = Math.round(cssW * dpr);
+            cv.height = Math.round(cssH * dpr);
+            cv.style.height = cssH + 'px';
+            const ctx = cv.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+            return { ctx: ctx, w: cssW, h: cssH };
+        }
+
+        function niceTicks(lo, hi, want) {
+            const span = hi - lo;
+            if (!isFinite(span) || span <= 0) return [lo];
+            const raw = span / Math.max(1, want);
+            const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+            const norm = raw / mag;
+            const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+            const out = [];
+            for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) {
+                out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+            }
+            return out;
+        }
+
+        function tickLabel(v, step) {
+            const dec = step < 0.01 ? 3 : step < 0.1 ? 2 : step < 1 ? 1 : 0;
+            return v.toFixed(dec);
+        }
+
+        // spec: {xLabel,yLabel,y2Label,xMin,xMax,yMin,yMax,y2Min,y2Max,
+        //        series:[{pts,color,label,axis,dash,width}], markers:[{x,y,color,axis}], bands:[{x0,x1,color}]}
+        function drawPlot(cv, spec) {
+            const c = prepCanvas(cv);
+            const ctx = c.ctx;
+            const hasY2 = !!spec.y2Label;
+            const m = { l: 52, r: hasY2 ? 56 : 14, t: 34, b: 40 };
+            const pw = Math.max(10, c.w - m.l - m.r);
+            const ph = Math.max(10, c.h - m.t - m.b);
+
+            const X = x => m.l + (x - spec.xMin) / (spec.xMax - spec.xMin) * pw;
+            const Y = y => m.t + ph - (y - spec.yMin) / (spec.yMax - spec.yMin) * ph;
+            const Y2 = y => m.t + ph - (y - spec.y2Min) / (spec.y2Max - spec.y2Min) * ph;
+            const yOf = s => (s.axis === 2 ? Y2 : Y);
+
+            ctx.font = '10px "JetBrains Mono", monospace';
+            ctx.textBaseline = 'middle';
+
+            (spec.bands || []).forEach(function (b) {
+                ctx.fillStyle = b.color;
+                const x0 = X(Math.max(b.x0, spec.xMin)), x1 = X(Math.min(b.x1, spec.xMax));
+                ctx.fillRect(x0, m.t, Math.max(0, x1 - x0), ph);
+            });
+
+            // grid + ticks
+            const xt = niceTicks(spec.xMin, spec.xMax, 6);
+            const xstep = xt.length > 1 ? xt[1] - xt[0] : 1;
+            const yt = niceTicks(spec.yMin, spec.yMax, 5);
+            const ystep = yt.length > 1 ? yt[1] - yt[0] : 1;
+            ctx.strokeStyle = COL.grid;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            xt.forEach(function (v) { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); });
+            yt.forEach(function (v) { const y = Math.round(Y(v)) + 0.5; ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); });
+            ctx.stroke();
+
+            ctx.fillStyle = COL.muted;
+            ctx.textAlign = 'center';
+            xt.forEach(function (v) { ctx.fillText(tickLabel(v, xstep), X(v), m.t + ph + 14); });
+            ctx.textAlign = 'right';
+            yt.forEach(function (v) { ctx.fillText(tickLabel(v, ystep), m.l - 7, Y(v)); });
+
+            if (hasY2) {
+                const y2t = niceTicks(spec.y2Min, spec.y2Max, 5);
+                const y2step = y2t.length > 1 ? y2t[1] - y2t[0] : 1;
+                ctx.textAlign = 'left';
+                ctx.fillStyle = spec.y2Color || COL.muted;
+                y2t.forEach(function (v) { ctx.fillText(tickLabel(v, y2step), m.l + pw + 7, Y2(v)); });
+            }
+
+            // axis frame
+            ctx.strokeStyle = COL.axis;
+            ctx.beginPath();
+            ctx.moveTo(m.l + 0.5, m.t); ctx.lineTo(m.l + 0.5, m.t + ph + 0.5); ctx.lineTo(m.l + pw, m.t + ph + 0.5);
+            ctx.stroke();
+
+            // axis labels
+            ctx.fillStyle = COL.text;
+            ctx.textAlign = 'center';
+            ctx.fillText(spec.xLabel, m.l + pw / 2, c.h - 10);
+            ctx.save();
+            ctx.translate(12, m.t + ph / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText(spec.yLabel, 0, 0);
+            ctx.restore();
+            if (hasY2) {
+                ctx.save();
+                ctx.translate(c.w - 10, m.t + ph / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.fillStyle = spec.y2Color || COL.text;
+                ctx.fillText(spec.y2Label, 0, 0);
+                ctx.restore();
+            }
+
+            // series
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(m.l, m.t - 2, pw, ph + 4);
+            ctx.clip();
+            (spec.series || []).forEach(function (s) {
+                if (!s.pts || s.pts.length < 2) return;
+                ctx.strokeStyle = s.color;
+                ctx.lineWidth = s.width || 2;
+                ctx.setLineDash(s.dash || []);
+                ctx.beginPath();
+                const fy = yOf(s);
+                s.pts.forEach(function (pt, i) {
+                    const x = X(pt[0]), y = fy(pt[1]);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+            (spec.markers || []).forEach(function (mk) {
+                const fy = mk.axis === 2 ? Y2 : Y;
+                ctx.fillStyle = mk.color;
+                ctx.beginPath();
+                ctx.arc(X(mk.x), fy(mk.y), 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // legend
+            let lx = m.l;
+            ctx.textAlign = 'left';
+            ctx.lineWidth = 2;
+            (spec.series || []).filter(function (s) { return s.label; }).forEach(function (s) {
+                ctx.strokeStyle = s.color;
+                ctx.setLineDash(s.dash || []);
+                ctx.beginPath();
+                ctx.moveTo(lx, 16); ctx.lineTo(lx + 16, 16);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = COL.text;
+                ctx.fillText(s.label, lx + 21, 16);
+                lx += 21 + ctx.measureText(s.label).width + 16;
+            });
+        }
+
+        /* ---------------- formatting ---------------- */
+
+        function sciHtml(x, digits) {
+            if (!isFinite(x)) return '&mdash;';
+            if (x === 0) return '0';
+            const e = Math.floor(Math.log10(Math.abs(x)));
+            if (e >= -2 && e <= 3) return x.toFixed(Math.max(0, 2 - e));
+            const mant = x / Math.pow(10, e);
+            return mant.toFixed(digits === undefined ? 2 : digits) + '&times;10<sup>' + e + '</sup>';
+        }
+        function pct(x) { return (100 * x).toFixed(1) + '%'; }
+        function secs(x) {
+            if (x >= 3600) return (x / 3600).toFixed(1) + ' h';
+            if (x >= 60) return (x / 60).toFixed(1) + ' min';
+            if (x >= 1) return x.toFixed(1) + ' s';
+            return (x * 1000).toFixed(0) + ' ms';
+        }
+
+        /* ---------------- control plumbing ---------------- */
+
+        const state = {};
+
+        function buildControls(hostId, defs, onChange) {
+            const host = document.getElementById(hostId);
+            defs.forEach(function (d) {
+                state[d.key] = d.value;
+                const wrap = document.createElement('div');
+                wrap.className = 'ctrl';
+                const lab = document.createElement('div');
+                lab.className = 'lab';
+                const name = document.createElement('span');
+                name.innerHTML = d.label;
+                const val = document.createElement('span');
+                val.className = 'val';
+                val.id = 'v_' + d.key;
+                lab.appendChild(name); lab.appendChild(val);
+                const input = document.createElement('input');
+                input.type = 'range';
+                input.min = d.min; input.max = d.max; input.step = d.step;
+                input.value = d.value;
+                input.id = 'i_' + d.key;
+                input.setAttribute('aria-label', name.textContent);
+                input.addEventListener('input', function () {
+                    state[d.key] = parseFloat(input.value);
+                    val.innerHTML = d.fmt(state[d.key]);
+                    onChange();
+                });
+                wrap.appendChild(lab); wrap.appendChild(input);
+                host.appendChild(wrap);
+                val.innerHTML = d.fmt(d.value);
+            });
+        }
+
+        function setControl(key, value) {
+            const input = document.getElementById('i_' + key);
+            if (!input) return;
+            input.value = value;
+            state[key] = parseFloat(input.value);
+            input.dispatchEvent(new Event('input'));
+        }
+
+        function readouts(hostId, items) {
+            const host = document.getElementById(hostId);
+            host.innerHTML = items.map(function (it) {
+                return '<div class="readout' + (it.hero ? ' hero' : '') + '">' +
+                    '<div class="k">' + it.k + '</div><div class="v">' + it.v + '</div></div>';
+            }).join('');
+        }
+
+        /* ---------------- panel 1: the cell ---------------- */
+
+        const cellDefs = [
+            { key: 'laserW', label: 'Laser power', min: 5, max: 300, step: 5, value: 100, fmt: function (v) { return v + ' W'; } },
+            { key: 'laserNm', label: 'Laser linewidth', min: 0.05, max: 2.5, step: 0.05, value: 0.25, fmt: function (v) { return v.toFixed(2) + ' nm'; } },
+            { key: 'tempC', label: 'Cell temperature', min: 60, max: 220, step: 1, value: 130, fmt: function (v) { return v + ' °C'; } },
+            { key: 'pressAtm', label: 'Cell pressure', min: 0.5, max: 10, step: 0.1, value: 2.0, fmt: function (v) { return v.toFixed(1) + ' atm'; } },
+            { key: 'fXePct', label: 'Xe fraction', min: 0.5, max: 90, step: 0.5, value: 2, fmt: function (v) { return v.toFixed(1) + '%'; } },
+            { key: 'fN2Pct', label: 'N<sub>2</sub> fraction', min: 0, max: 30, step: 0.5, value: 10, fmt: function (v) { return v.toFixed(1) + '%'; } },
+            { key: 'lenCm', label: 'Cell length', min: 5, max: 80, step: 1, value: 25, fmt: function (v) { return v + ' cm'; } },
+            { key: 'diamCm', label: 'Cell diameter', min: 1, max: 12, step: 0.5, value: 5, fmt: function (v) { return v.toFixed(1) + ' cm'; } },
+            { key: 'flowSlm', label: 'Gas flow', min: 0.05, max: 5, step: 0.05, value: 1.0, fmt: function (v) { return v.toFixed(2) + ' SLM'; } },
+            { key: 't1CellMin', label: 'Xe T<sub>1</sub> in cell', min: 1, max: 90, step: 1, value: 20, fmt: function (v) { return v + ' min'; } }
+        ];
+
+        function cellParams() {
+            const fXe = state.fXePct / 100;
+            let fN2 = state.fN2Pct / 100;
+            if (fXe + fN2 > 1) fN2 = 1 - fXe;
+            return {
+                laserW: state.laserW, laserNm: state.laserNm, tempC: state.tempC,
+                pressAtm: state.pressAtm, fXe: fXe, fN2: fN2,
+                lenCm: state.lenCm, diamCm: state.diamCm,
+                flowSlm: state.flowSlm, t1CellMin: state.t1CellMin
+            };
+        }
+
+        const presets = {
+            clinical: { laserW: 100, laserNm: 0.25, tempC: 130, pressAtm: 2.0, fXePct: 2, fN2Pct: 10, lenCm: 25, diamCm: 5, flowSlm: 1.0, t1CellMin: 20 },
+            highxe: { laserW: 200, laserNm: 0.25, tempC: 105, pressAtm: 2.5, fXePct: 50, fN2Pct: 5, lenCm: 25, diamCm: 5, flowSlm: 0.3, t1CellMin: 20 },
+            runaway: { laserW: 60, laserNm: 1.5, tempC: 150, pressAtm: 2.0, fXePct: 2, fN2Pct: 10, lenCm: 40, diamCm: 5, flowSlm: 1.0, t1CellMin: 20 },
+            starved: { laserW: 15, laserNm: 2.0, tempC: 120, pressAtm: 4.0, fXePct: 10, fN2Pct: 10, lenCm: 25, diamCm: 8, flowSlm: 2.0, t1CellMin: 20 }
+        };
+
+        let lastCell = null;
+
+        function updateCell() {
+            const p = cellParams();
+            const r = runCell(p);
+            lastCell = { p: p, r: r };
+
+            const prof = r.prof;
+            const mk = function (arr) { return prof.z.map(function (z, i) { return [z, arr[i]]; }); };
+            drawPlot(document.getElementById('cellCanvas'), {
+                xLabel: 'distance along cell (cm)',
+                yLabel: 'fraction / polarization',
+                xMin: 0, xMax: p.lenCm, yMin: 0, yMax: 1,
+                series: [
+                    { pts: mk(prof.phi), color: COL.laser, label: 'laser flux', width: 2 },
+                    { pts: mk(prof.prb), color: COL.rb, label: 'P(Rb)', width: 2.5 },
+                    { pts: mk(prof.pxe), color: COL.xe, label: 'P(Xe)', width: 2.5 }
+                ]
+            });
+
+            readouts('cellReadouts', [
+                { k: 'Xe polarization out', v: pct(r.pOut), hero: true },
+                { k: 'Production', v: r.prodLhr.toFixed(2) + ' L/h', hero: true },
+                { k: '[Rb]', v: sciHtml(r.nRb) + ' cm<sup>&minus;3</sup>' },
+                { k: 'Gas density', v: r.nAmg.toFixed(2) + ' amagat' },
+                { k: 'Mean P(Rb)', v: pct(r.meanPrb) },
+                { k: 'P(Rb) front &rarr; back', v: pct(r.prbIn) + ' &rarr; ' + pct(r.prbOut) },
+                { k: 'R<sub>OP</sub> at entrance', v: sciHtml(r.ropIn) + ' s<sup>&minus;1</sup>' },
+                { k: '&Gamma;<sub>SD</sub>', v: sciHtml(r.gSD) + ' s<sup>&minus;1</sup>' },
+                { k: '&gamma;<sub>SE</sub>', v: sciHtml(r.gSE) + ' s<sup>&minus;1</sup>' },
+                { k: 'Spin-exchange time', v: secs(1 / r.gSE) },
+                { k: 'Residence time', v: secs(r.tau) },
+                { k: 'Laser transmitted', v: pct(r.transmitted) + ' (' + r.absorbedW.toFixed(0) + ' W in)' }
+            ]);
+
+            const warns = [];
+            if (state.fN2Pct < 1) {
+                warns.push('N<sub>2</sub> below 1&thinsp;%: in a real cell there is not enough quenching and radiation trapping would destroy the polarization this model is happily predicting.');
+            }
+            if (r.transmitted < 0.05 && r.prbOut < 0.5) {
+                warns.push('The cell has gone optically thick. The laser is consumed before it reaches the far end, so the back of the cell holds dense but <em>unpolarized</em> rubidium, and since spin exchange runs both ways that rubidium is now pulling the xenon back down on its way out. This is the signature of running the oven too hot for the power you have.');
+            }
+            if (r.meanPrb < 0.3) {
+                warns.push('Mean Rb polarization is low: optical pumping is not keeping ahead of spin destruction anywhere in the cell. More power, a narrower laser line, or less xenon would all help, since xenon itself is the dominant destroyer of Rb polarization.');
+            }
+            if (state.fXePct / 100 + state.fN2Pct / 100 > 1) {
+                warns.push('Xe and N<sub>2</sub> fractions sum above 100&thinsp;%; N<sub>2</sub> has been clipped to fill the remainder and there is no helium left.');
+            }
+            if (r.tau * r.gSE > 8) {
+                warns.push('Residence time is many spin-exchange time constants, so the xenon has fully saturated and extra time in the cell is only costing you throughput.');
+            }
+            document.getElementById('cellWarn').innerHTML = warns.join('<br><br>');
+
+            updateTrade();
+            updateDose();
+        }
+
+        /* ---------------- panel 2: trades ---------------- */
+
+        function updateTrade() {
+            const base = lastCell.p;
+
+            const flowPts = [], prodPts = [];
+            for (let i = 0; i <= 60; i++) {
+                const f = 0.05 + (5 - 0.05) * i / 60;
+                const p = Object.assign({}, base, { flowSlm: f });
+                const r = runCell(p);
+                flowPts.push([f, r.pOut]);
+                prodPts.push([f, r.prodLhr]);
+            }
+            // Output saturates with flow rather than peaking, so the useful figure is the
+            // knee: the lowest flow already delivering 90% of what the cell can ever make.
+            const prodCeiling = prodPts[prodPts.length - 1][1];
+            let kneeIdx = prodPts.length - 1;
+            if (prodCeiling > 1e-6) {
+                for (let i = 0; i < prodPts.length; i++) {
+                    if (prodPts[i][1] >= 0.9 * prodCeiling) { kneeIdx = i; break; }
+                }
+            }
+            const knee = { flow: prodPts[kneeIdx][0], prod: prodPts[kneeIdx][1], pol: flowPts[kneeIdx][1] };
+            const prodMax = Math.max(0.001, prodPts.reduce(function (a, b) { return Math.max(a, b[1]); }, 0));
+
+            drawPlot(document.getElementById('flowCanvas'), {
+                xLabel: 'flow (SLM)',
+                yLabel: 'P(Xe) out',
+                y2Label: 'production (L/h)', y2Color: COL.alt,
+                xMin: 0, xMax: 5, yMin: 0, yMax: 1, y2Min: 0, y2Max: prodMax * 1.1,
+                series: [
+                    { pts: flowPts, color: COL.xe, label: 'P(Xe)', width: 2.5 },
+                    { pts: prodPts, color: COL.alt, label: 'production', axis: 2, width: 2.5, dash: [5, 3] }
+                ],
+                markers: [{ x: base.flowSlm, y: lastCell.r.pOut, color: COL.xe }]
+            });
+
+            const tempPts = [], tprodPts = [];
+            let bestTemp = null;
+            for (let i = 0; i <= 60; i++) {
+                const t = 60 + (220 - 60) * i / 60;
+                const p = Object.assign({}, base, { tempC: t });
+                const r = runCell(p);
+                tempPts.push([t, r.pOut]);
+                tprodPts.push([t, r.prodLhr]);
+                if (!bestTemp || r.pOut > bestTemp.pol) bestTemp = { temp: t, pol: r.pOut };
+            }
+            const tprodMax = Math.max(0.001, tprodPts.reduce(function (a, b) { return Math.max(a, b[1]); }, 0));
+
+            drawPlot(document.getElementById('tempCanvas'), {
+                xLabel: 'cell temperature (°C)',
+                yLabel: 'P(Xe) out',
+                y2Label: 'production (L/h)', y2Color: COL.alt,
+                xMin: 60, xMax: 220, yMin: 0, yMax: 1, y2Min: 0, y2Max: tprodMax * 1.1,
+                series: [
+                    { pts: tempPts, color: COL.xe, label: 'P(Xe)', width: 2.5 },
+                    { pts: tprodPts, color: COL.alt, label: 'production', axis: 2, width: 2.5, dash: [5, 3] }
+                ],
+                markers: [{ x: base.tempC, y: lastCell.r.pOut, color: COL.xe }]
+            });
+
+            readouts('tradeReadouts', [
+                { k: 'Knee: 90% of max output', v: knee.flow.toFixed(2) + ' SLM' },
+                { k: 'Polarization at knee', v: pct(knee.pol) },
+                { k: 'Output at knee', v: knee.prod.toFixed(2) + ' L/h' },
+                { k: 'Best polarization temp', v: bestTemp.temp.toFixed(0) + ' °C' },
+                { k: 'Polarization there', v: pct(bestTemp.pol) },
+                { k: 'Xe throughput now', v: lastCell.r.xeLhr.toFixed(2) + ' L/h' }
+            ]);
+        }
+
+        /* ---------------- panel 3: cell to lung ---------------- */
+
+        const doseDefs = [
+            { key: 'doseL', label: 'Dose volume', min: 0.2, max: 1.5, step: 0.05, value: 1.0, fmt: function (v) { return v.toFixed(2) + ' L'; } },
+            { key: 'etaThaw', label: 'Thaw / transfer yield', min: 0.4, max: 1.0, step: 0.01, value: 0.85, fmt: function (v) { return pct(v); } },
+            { key: 't1BagMin', label: 'Bag T<sub>1</sub>', min: 3, max: 60, step: 1, value: 30, fmt: function (v) { return v + ' min'; } },
+            { key: 'delayMin', label: 'Bag to inhale delay', min: 0, max: 45, step: 1, value: 8, fmt: function (v) { return v + ' min'; } },
+            { key: 't1LungS', label: 'Lung T<sub>1</sub>', min: 5, max: 45, step: 1, value: 20, fmt: function (v) { return v + ' s'; } },
+            { key: 'bhS', label: 'Breath-hold', min: 4, max: 20, step: 1, value: 12, fmt: function (v) { return v + ' s'; } }
+        ];
+
+        let lastDose = null;
+
+        function updateDose() {
+            if (!lastCell) return;
+            const r = lastCell.r;
+            const pOut = r.pOut;
+
+            // fill time for the dose, at the current xenon throughput
+            const xeLpm = Math.max(1e-6, r.xeLhr / 60);
+            const fillMin = state.doseL / xeLpm;
+            const fillS = fillMin * 60;
+            // mean decay over accumulation: gas frozen early waits longest
+            const meanSolid = fillS > 1e-6 ? -(T1_SOLID / fillS) * Math.expm1(-fillS / T1_SOLID) : 1;
+            const pAfterFill = pOut * meanSolid;
+            const pAfterThaw = pAfterFill * state.etaThaw;
+            const pAtInhale = pAfterThaw * Math.exp(-state.delayMin / state.t1BagMin);
+            const pAtScanEnd = pAtInhale * Math.exp(-state.bhS / state.t1LungS);
+
+            lastDose = { pAtInhale: pAtInhale, fillMin: fillMin };
+
+            // timeline in minutes
+            const pts = [];
+            const N = 90;
+            for (let i = 0; i <= N; i++) {
+                const t = fillMin * i / N;
+                const ts = t * 60;
+                const decay = ts > 1e-6 ? -(T1_SOLID / ts) * Math.expm1(-ts / T1_SOLID) : 1;
+                pts.push([t, pOut * decay]);
+            }
+            pts[0] = [0, pOut];
+            const accumEnd = fillMin;
+            const bagPts = [[accumEnd, pAfterThaw]];
+            for (let i = 1; i <= 60; i++) {
+                const t = state.delayMin * i / 60;
+                bagPts.push([accumEnd + t, pAfterThaw * Math.exp(-t / state.t1BagMin)]);
+            }
+            const bhStart = accumEnd + state.delayMin;
+            const bhPts = [];
+            for (let i = 0; i <= 40; i++) {
+                const t = state.bhS * i / 40;
+                bhPts.push([bhStart + t / 60, pAtInhale * Math.exp(-t / state.t1LungS)]);
+            }
+            const dropPts = [[accumEnd, pAfterFill], [accumEnd, pAfterThaw]];
+            const tMax = Math.max(0.5, bhStart + state.bhS / 60) * 1.02;
+
+            drawPlot(document.getElementById('doseCanvas'), {
+                xLabel: 'time since cell exit (min)',
+                yLabel: 'polarization',
+                xMin: 0, xMax: tMax, yMin: 0, yMax: Math.max(0.05, pOut * 1.1),
+                bands: [{ x0: 0, x1: accumEnd, color: '#eef4fb' }],
+                series: [
+                    { pts: pts, color: COL.rb, label: 'accumulating', width: 2.5 },
+                    { pts: dropPts, color: COL.drop, width: 1.5, dash: [3, 3] },
+                    { pts: bagPts, color: COL.xe, label: 'in the bag', width: 2.5 },
+                    { pts: bhPts, color: COL.laser, label: 'breath-hold', width: 2.5 }
+                ],
+                markers: [{ x: bhStart, y: pAtInhale, color: COL.laser }]
+            });
+
+            readouts('doseReadouts', [
+                { k: 'P at inhalation', v: pct(pAtInhale), hero: true },
+                { k: 'Dose equivalent', v: (state.doseL * pAtInhale * 1000).toFixed(0) + ' mL&middot;pol', hero: true },
+                { k: 'Time to fill dose', v: fillMin < 60 ? fillMin.toFixed(1) + ' min' : (fillMin / 60).toFixed(1) + ' h' },
+                { k: 'Loss while frozen', v: pct(1 - meanSolid) },
+                { k: 'P at end of scan', v: pct(pAtScanEnd) },
+                { k: 'Kept from cell exit', v: pct(pAtInhale / Math.max(pOut, 1e-9)) }
+            ]);
+
+            updateRf();
+        }
+
+        /* ---------------- panel 4: flip-angle budget ---------------- */
+
+        const rfDefs = [
+            { key: 'nViews', label: 'Views (projections)', min: 100, max: 6000, step: 50, value: 1600, fmt: function (v) { return v.toFixed(0); } },
+            { key: 'alphaDeg', label: 'Constant flip angle', min: 0.5, max: 20, step: 0.1, value: 3, fmt: function (v) { return v.toFixed(1) + '°'; } }
+        ];
+
+        function updateRf() {
+            const N = Math.round(state.nViews);
+            const alpha = state.alphaDeg * Math.PI / 180;
+            const bh = state.bhS, t1 = state.t1LungS;
+
+            const ca = Math.cos(alpha), sa = Math.sin(alpha);
+            const constPts = [], varPts = [];
+            let mz = 1, sumConst = 0;
+            let mzV = 1, sumVar = 0;
+            const stride = Math.max(1, Math.floor(N / 400));
+
+            for (let n = 1; n <= N; n++) {
+                const t = bh * (n - 1) / Math.max(1, N - 1);
+                const relax = Math.exp(-t / t1);
+                const s = mz * sa * relax;
+                sumConst += s;
+                mz *= ca;
+
+                const aV = Math.atan(1 / Math.sqrt(Math.max(1, N - n + 1)));
+                const sV = mzV * Math.sin(aV) * relax;
+                sumVar += sV;
+                mzV *= Math.cos(aV);
+
+                if (n % stride === 0 || n === 1 || n === N) {
+                    constPts.push([n, s]);
+                    varPts.push([n, sV]);
+                }
+            }
+            const peak = Math.max(
+                constPts.reduce(function (a, b) { return Math.max(a, b[1]); }, 0),
+                varPts.reduce(function (a, b) { return Math.max(a, b[1]); }, 0)
+            );
+
+            drawPlot(document.getElementById('rfCanvas'), {
+                xLabel: 'view number',
+                yLabel: 'signal per view (a.u.)',
+                xMin: 1, xMax: N, yMin: 0, yMax: Math.max(1e-6, peak * 1.1),
+                series: [
+                    { pts: constPts, color: COL.rb, label: 'constant α', width: 2.5 },
+                    { pts: varPts, color: COL.alt, label: 'variable α', width: 2.5 }
+                ]
+            });
+
+            const alphaOpt = Math.atan(1 / Math.sqrt(N)) * 180 / Math.PI;
+            const remaining = Math.pow(ca, N);
+            const lastFrac = constPts.length ? constPts[constPts.length - 1][1] / Math.max(1e-12, constPts[0][1]) : 0;
+            const pInh = lastDose ? lastDose.pAtInhale : 0;
+
+            readouts('rfReadouts', [
+                { k: 'Mz left after scan', v: pct(remaining) },
+                { k: 'Last view vs first', v: pct(lastFrac) },
+                { k: 'Total signal, constant', v: sumConst.toFixed(1) },
+                { k: 'Total signal, variable', v: sumVar.toFixed(1) },
+                { k: 'Variable / constant', v: (sumVar / Math.max(1e-9, sumConst)).toFixed(2) + '×' },
+                { k: 'Best constant α for N', v: alphaOpt.toFixed(2) + '°' },
+                { k: 'Signal scale at this dose', v: pInh > 0 ? (sumConst * pInh).toFixed(1) : '&mdash;' },
+                { k: 'Time per view', v: secs(bh / N) }
+            ]);
+        }
+
+        /* ---------------- boot ---------------- */
+
+        buildControls('cellControls', cellDefs, updateCell);
+        buildControls('doseControls', doseDefs, updateDose);
+        buildControls('rfControls', rfDefs, updateRf);
+
+        document.querySelectorAll('.preset').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const p = presets[btn.getAttribute('data-preset')];
+                Object.keys(p).forEach(function (k) {
+                    const input = document.getElementById('i_' + k);
+                    if (input) { input.value = p[k]; state[k] = parseFloat(input.value); }
+                    const val = document.getElementById('v_' + k);
+                    const def = cellDefs.filter(function (d) { return d.key === k; })[0];
+                    if (val && def) val.innerHTML = def.fmt(state[k]);
+                });
+                updateCell();
+            });
+        });
+
+        let resizeTimer = null;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(updateCell, 150);
+        });
+
+        updateCell();
+    </script>
+</body>
+
+</html>
