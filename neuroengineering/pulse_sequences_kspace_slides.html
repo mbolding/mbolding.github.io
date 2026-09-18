@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signal Acquisition & K-Space Dynamics — Lecture Slides | IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- Reveal.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --accent: #3b82f6;
+            --accent-light: #60a5fa;
+            --accent-dark: #2563eb;
+            --bg-dark: #090a0d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        .reveal {
+            font-family: 'Inter', sans-serif;
+            font-size: 21px;
+            font-weight: 400;
+            color: var(--text-main);
+            background-color: var(--bg-dark);
+        }
+
+        .reveal .slides section {
+            padding: 40px 30px 24px 30px !important;
+            box-sizing: border-box;
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3,
+        .reveal h4 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: none;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+        }
+
+        .reveal h1 {
+            font-size: 1.85em;
+            line-height: 1.15;
+            margin-bottom: 12px;
+        }
+
+        .reveal h2 {
+            font-size: 1.35em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h3 {
+            font-size: 1.05em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h1 em,
+        .reveal h2 em,
+        .reveal h3 em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .reveal p, .reveal li {
+            font-size: 0.72em;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+        }
+
+        .reveal strong {
+            color: #ffffff;
+        }
+
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .card-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            backdrop-filter: blur(6px);
+            font-size: 0.76em;
+            line-height: 1.45;
+        }
+
+        .slide-card h4 {
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .formula-box {
+            background: rgba(59, 130, 246, 0.06);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-left: 4px solid var(--accent);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin: 10px 0;
+            text-align: left;
+            font-size: 0.85em;
+        }
+
+        .formula-caption {
+            font-size: 0.62em;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: var(--accent-light) !important;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68em;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title -->
+            <section data-background-gradient="radial-gradient(circle at center, #1e3a8a 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+                    IDNE 701 · Week 8 Lecture
+                </div>
+                <h1>Signal Acquisition &amp; <em>K-Space Dynamics</em></h1>
+                <p style="font-size: 0.95em; color: #d1d5db; max-width: 900px; margin: 0 auto 16px auto;">
+                    Pulse Sequence Design, Spatial Frequency Trajectories &amp; Plane-Wave Ultrasound
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="pulse_sequences_kspace.html" class="nav-link">📄 Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-8" class="nav-link">📅 Course Syllabus</a>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: The MR Signal Equation -->
+            <section>
+                <h2>The Unified <em>Spatial Encoding Model</em></h2>
+                <p>Linking spatial gradient magnetic fields to the spatial frequency domain.</p>
+                <div class="formula-box">
+                    $$S(t) = \int_V \rho(\vec{r}) e^{-i 2\pi \vec{k}(t) \cdot \vec{r}} \, d\vec{r} \quad \text{where} \quad \vec{k}(t) = \frac{\gamma}{2\pi} \int_0^t \vec{G}(\tau) \, d\tau$$
+                    <div class="formula-caption">The MR Signal Equation: Continuous Fourier integral of effective object spin density</div>
+                </div>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>🎯 Spatial Resolution (Field of View)</h4>
+                        <p><strong>Step Size:</strong> $\Delta k = \frac{1}{\text{FOV}}$ (avoids spatial aliasing).</p>
+                        <p><strong>Maximum Extent:</strong> $k_{\text{max}} = \frac{1}{2\Delta x} \implies \Delta x = \frac{1}{2 k_{\text{max}}}$.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>⚡ Sampling Speed &amp; Gradient Slew</h4>
+                        <p>Traversing k-space requires dynamic magnetic gradient ramps limited by maximum amplitude ($G_{\text{max}}$) and slew rate ($SR = dG/dt$).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Trajectory Comparison -->
+            <section>
+                <h2>K-Space Trajectory <em>Architectures</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card" style="border-top: 3px solid #6b7280;">
+                        <h4>Cartesian Spin-Warp</h4>
+                        <p>• One $k_y$ line per TR.</p>
+                        <p>• Rectilinear FFT reconstruction.</p>
+                        <p>• Highly robust to $\Delta B_0$.</p>
+                        <p>• Slow: Minutes per volume.</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                        <h4>Echo Planar (EPI)</h4>
+                        <p>• Full 2D raster in single excitation.</p>
+                        <p>• Acquisition: $30 - 60\,\text{ms}$.</p>
+                        <p>• High acoustic gradient chatter.</p>
+                        <p>• Geometric distortion near sinuses.</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4>Spiral &amp; Radial</h4>
+                        <p>• Self-navigating center oversampling.</p>
+                        <p>• Inherent motion robustness.</p>
+                        <p>• Non-Cartesian gridding needed.</p>
+                        <p>• Ideal for un-sedated pediatric scans.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Ultrafast Plane-Wave Ultrasound -->
+            <section>
+                <h2>Ultrafast <em>Plane-Wave Ultrasound</em> (fUS)</h2>
+                <p>Replacing focused line scans with coherently compounded plane-wave transmissions.</p>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>✈️ Steered Plane Wave Emission</h4>
+                        <p>All array elements fire simultaneously with a linear phase tilt:</p>
+                        $$\tau_i(\alpha_m) = \frac{x_i \sin\alpha_m}{c}$$
+                        <p>Emits unfocused planar waves across angles $\alpha_m \in [-15^\circ, +15^\circ]$ at PRF up to $15\,\text{kHz}$.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>⚡ Frame Rates: 500–1000 Hz</h4>
+                        <p>Coherent compounding across 11–21 angles yields high-contrast, synthetic-focus images with $100\times$ the frame rate of clinical ultrasound.</p>
+                        <p>Crucial for microvascular power Doppler imaging without aliasing cardiac pulse waves.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Grand Challenge 06 Adaptations -->
+            <section data-background-gradient="radial-gradient(circle at center, #1e3a8a 0%, #090a0d 100%)">
+                <h2>Grand Challenge Focus: <em>Neonatal Sequence Design</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>🔇 Acoustic Safety (Quiet MR)</h4>
+                        <p>Standard EPI gradients create loud acoustic banging ($> 110\,\text{dBA}$).</p>
+                        <p>Neonatal protocols use <strong>Quiet Sequences</strong> with sinusoidal gradient derating, holding noise below $80\,\text{dBA}$ to protect fragile infant hearing.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>❤️ Rapid Neonatal Heart Rates</h4>
+                        <p>Neonatal resting heart rate is $120 - 160\,\text{bpm}$ ($RR \sim 400\,\text{ms}$).</p>
+                        <p>Cardiac gating must operate within extremely narrow diastolic rest periods to avoid pulsatile blurring in germinal matrix vessels.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>🪟 Fontanelle Aperture Limits</h4>
+                        <p>The anterior fontanelle is approximately $2 \times 2\,\text{cm}$.</p>
+                        <p>Transfontanellar arrays require wide sector beam steering ($\pm 45^\circ$) to cover the entire coronal slab of the neonatal brain from a compact footprint.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 6: Summary & Next Week -->
+            <section data-background-gradient="radial-gradient(circle at center, #1e3a8a 0%, #090a0d 100%)">
+                <h2>Looking Ahead to <em>Week 9</em></h2>
+                <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 20px;">
+                    Next: <strong>Reconstruction Pipelines &amp; Machine Learning Biomarker Extraction</strong>
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="pulse_sequences_kspace.html" class="nav-link">📄 Read Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-9" class="nav-link">📅 Week 9 Syllabus Outline</a>
+                </div>
+                <div style="margin-top: 30px; font-size: 0.65em; font-family: 'JetBrains Mono', monospace; color: #6b7280;">
+                    IDNE 701: Introduction to Neuroengineering · Department of Biomedical Engineering
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Reveal.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            controls: true,
+            progress: true,
+            center: true,
+            touch: true,
+            keyboard: true,
+            overview: true,
+            width: 1200,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 1.5
+        });
+
+        Reveal.on('slidechanged', event => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        });
+    </script>
+</body>
+
+</html>

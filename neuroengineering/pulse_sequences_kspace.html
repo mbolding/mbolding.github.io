@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signal Acquisition, K-Space & Pulse Sequence Design — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #3b82f6;
+            --accent-dark: #2563eb;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #eff6ff;
+            --tag-bg: #dbeafe;
+            --tag-color: #1e40af;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        .btn-nav {
+            background: var(--accent-color);
+            color: #ffffff !important;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none !important;
+        }
+
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #1e40af;
+            background-color: var(--highlight-bg);
+            border: 1px solid #bfdbfe;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .lecture-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            background: #ffffff;
+        }
+
+        .action-btn.primary {
+            background: var(--accent-color);
+            color: #ffffff;
+            border-color: var(--accent-color);
+        }
+
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2 span.sec-num {
+            color: var(--accent-dark);
+            font-family: var(--code-font);
+            font-size: 1.1rem;
+        }
+
+        .equation-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin: 1.75rem 0;
+            overflow-x: auto;
+        }
+
+        .equation-caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        .nicu-banner {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #1e40af;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-8">Syllabus</a>
+            <a href="pulse_sequences_kspace_slides.html">Week 8 Slides</a>
+            <a href="worksheet_pdr_rubric.html">Week 7 PDR</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 8 Lecture
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 3 · Signal Encoding &amp; Pulse Sequence Engineering</div>
+            <h1>Signal Acquisition, K-Space &amp; <span class="serif">Pulse Sequence Dynamics</span></h1>
+            <p class="subtitle">
+                The mathematics of spatial frequency encoding: Magnetic resonance k-space trajectories, ultrasound plane-wave beamforming, electrophysiological spatial sampling, and ultrafast acquisition for motion-vulnerable pediatric subjects.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Oct 16, 2026 (Week 8)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+            </div>
+
+            <div class="lecture-actions">
+                <a href="pulse_sequences_kspace_slides.html" class="action-btn primary">🖥️ Presentation Slide Deck</a>
+                <a href="worksheet_pdr_rubric.html" class="action-btn">📋 Week 7 Review Rubric</a>
+                <a href="IDNE701_FA2026.html#week-8" class="action-btn">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: The Unified Signal Model -->
+        <section>
+            <h2><span class="sec-num">01.</span> The Generalized Spatial Encoding Equation</h2>
+            <p>
+                In tomography and non-invasive neural sensing, our goal is to reconstruct an underlying spatial object property $\rho(\vec{r})$ (e.g., spin density, acoustic reflectivity, or bioelectric source distribution) from a time series of physical sensor measurements $S(t)$.
+            </p>
+            <p>
+                By applying spatial gradient fields $\vec{G}(t) = \nabla B_z$, the phase of transverse magnetization accumulates spatially according to:
+            </p>
+
+            <div class="equation-block">
+                $$\vec{k}(t) = \frac{\gamma}{2\pi} \int_0^t \vec{G}(\tau) \, d\tau \quad (\text{cm}^{-1} \text{ or } \text{m}^{-1})$$
+                <div class="equation-caption">Equation 1: K-space spatial frequency coordinate trajectory</div>
+            </div>
+
+            <p>
+                The received RF baseband voltage across the entire imaging volume $V$ is governed by the Fourier transform of the effective object magnetization:
+            </p>
+
+            <div class="equation-block">
+                $$S(t) = \int_V \rho(\vec{r}) e^{-i 2\pi \vec{k}(t) \cdot \vec{r}} \, d\vec{r}$$
+                <div class="equation-caption">Equation 2: The MR Signal Equation (K-space formulation)</div>
+            </div>
+        </section>
+
+        <!-- Section 2: K-Space Trajectories -->
+        <section>
+            <h2><span class="sec-num">02.</span> Trajectory Engineering: Cartesian, EPI &amp; Spiral</h2>
+            <p>
+                How we navigate k-space dictates scan time, acoustic noise, gradient slew demands, and vulnerability to subject movement.
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>📐 Cartesian Spin-Warp</h4>
+                    <p>
+                        Acquires one line of k-space per RF excitation ($TR$). Extremely robust to off-resonance and field inhomogeneities, but prohibitively slow ($T_{\text{scan}} = TR \times N_y$). Incompatible with uncooperative or un-sedated pediatric patients.
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                    <h4>⚡ Echo Planar Imaging (EPI)</h4>
+                    <p>
+                        Traverses the entirety of 2D k-space following a single RF excitation using a high-speed blipped gradient raster ($T_{\text{acq}} \sim 30 - 60\,\text{ms}$). Enables single-shot functional BOLD and diffusion neuroimaging, but suffers from severe geometric distortion near air-tissue interfaces ($\Delta B_0$).
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #10b981;">
+                    <h4>🌀 Spiral &amp; Radial Trajectories</h4>
+                    <p>
+                        Continuous oversampling of the k-space center ($k = 0$) on every readout trajectory. Provides inherent self-navigation and motion robustness. Off-resonance causes blurring rather than spatial shearing.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Plane-Wave Ultrasound Dynamics -->
+        <section>
+            <h2><span class="sec-num">03.</span> Plane-Wave Coherent Compounding in Ultrasound (fUS)</h2>
+            <p>
+                Traditional focused ultrasound scans line-by-line, achieving frame rates of only $30 - 50\,\text{Hz}$—far too slow to capture microvascular transient hemodynamics without aliasing pulsatile wall motion.
+            </p>
+            <p>
+                In <strong>ultrafast plane-wave imaging</strong>, the entire aperture emits unfocused plane waves tilted at angles $\alpha_m$:
+            </p>
+            <div class="equation-block">
+                $$\tau_i(\alpha_m) = \frac{x_i \sin\alpha_m}{c}$$
+                <div class="equation-caption">Equation 3: Element firing delay for steered plane wave emission</div>
+            </div>
+            <p>
+                By transmitting at pulse repetition frequencies up to $10 - 20\,\text{kHz}$ and coherently summing backscattered synthetic echoes across tilted angles, ultrafast ultrasound boosts contrast and SNR while delivering power Doppler frames at $500 - 1000\,\text{Hz}$.
+            </p>
+        </section>
+
+        <!-- Section 4: Grand Challenge 06 Focus -->
+        <section>
+            <h2><span class="sec-num">04.</span> Grand Challenge 06: Pulse Sequence Adaptation for Neonates</h2>
+            <div class="nicu-banner">
+                <h3>👶 Acoustic Noise, Slew Limits &amp; Fontanelle Sampling</h3>
+                <p>
+                    Designing pulse sequences and sampling schemes for neonates requires specialized acoustic, thermal, and mechanical adaptations:
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🔇 Acoustic Noise Limits (Quiet Sequences)</h4>
+                    <p>
+                        High-slew gradient switching in standard adult EPI produces acoustic noise up to $115 - 120\,\text{dBA}$. In premature neonates, this risks cochlear damage and autonomic decompensation. <strong>Quiet Sequences</strong> utilize sinusoidal or continuous radial readouts to restrict gradient $dG/dt$, keeping acoustic levels below $80\,\text{dBA}$.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ High Heart Rate &amp; Short $T_1$</h4>
+                    <p>
+                        Neonatal resting heart rate is $120 - 160\,\text{bpm}$ ($RR \approx 400\,\text{ms}$). Cardiac gating must accommodate extremely narrow diastolic resting phases. Furthermore, unmyelinated white matter exhibits prolonged $T_1$ and $T_2$ relaxation times ($T_1 \sim 1800 - 2200\,\text{ms}$ at 3T), demanding customized repetition times ($TR$).
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🪟 Transfontanellar Acoustic Sectoring</h4>
+                    <p>
+                        In transfontanellar fUS, the physical footprint of the anterior fontanelle is approximately $2 \times 2\,\text{cm}$. Ultrasound phased arrays must steer wide sector angles ($\pm 45^\circ$) through this narrow acoustic aperture to reconstruct coronal and sagittal volumetric slabs spanning the deep germinal matrix and basal ganglia.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-8">← Course Syllabus</a>
+                <a href="pulse_sequences_kspace_slides.html">🖥️ Presentation Slide Deck</a>
+                <a href="worksheet_pdr_rubric.html">📋 Week 7 Milestone Rubric</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

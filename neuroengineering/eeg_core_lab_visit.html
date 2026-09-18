@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Protocol: High-Density EEG & Electrophysiology Core — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #a855f7;
+            --accent-dark: #9333ea;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #faf5ff;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #7e22ce;
+            background-color: var(--highlight-bg);
+            border: 1px solid #e9d5ff;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        .equation-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin: 1.75rem 0;
+            overflow-x: auto;
+        }
+
+        .equation-caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .nicu-banner {
+            background: rgba(168, 85, 247, 0.08);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #7e22ce;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-11">Syllabus</a>
+            <a href="artifact_mitigation_motion.html">Week 10 Artifacts</a>
+            <a href="safety_limits_fda_strategy.html">Week 12 Regulatory</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 11 Core Visit
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 4 · Electrophysiology Core &amp; Instrumentation Visit</div>
+            <h1>Lab Visit: High-Density EEG &amp; <span class="serif">Electrophysiology Core</span></h1>
+            <p class="subtitle">
+                Experimental protocols for 128/256-channel high-density electroencephalography, Faraday cage isolation, electrode impedance physics, active shielding, and continuous neonatal amplitude-integrated EEG (aEEG).
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Nov 06, 2026 (Week 11)</span>
+                <span><strong>Location:</strong> Neuroengineering Electrophysiology Core</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+            </div>
+        </header>
+
+        <!-- Section 1: Core Facility Overview -->
+        <section>
+            <h2>01. Instrumentation &amp; Shielding Infrastructure</h2>
+            <p>
+                The Neuroengineering EEG Core facility features double-walled Faradaic copper-mesh shielded testing suites designed to attenuate ambient AC powerline induction ($60\,\text{Hz}$) by $> 80\,\text{dB}$.
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🛡️ Active Shielding &amp; Driven Right Leg (DRL)</h4>
+                    <p>
+                        Cable capacitance introduces $60\,\text{Hz}$ displacement currents. Active coaxial shielding drives outer cable shields at the common-mode voltage, eliminating dielectric leakage currents. DRL circuits invert common-mode noise and drive it back to the body, boosting CMRR to $> 110\,\text{dB}$.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ High-Density Montages (128 / 256 Channels)</h4>
+                    <p>
+                        Geodesic sensor nets use $\text{Ag/AgCl}$ sintered pellets with sponge reservoirs soaked in potassium chloride electrolyte. Enables whole-head scalp potential mapping with inter-electrode distance $\le 15\,\text{mm}$.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Forward Problem & Lead Field -->
+        <section>
+            <h2>02. Volume Conduction &amp; The Forward Lead-Field Matrix</h2>
+            <p>
+                Scalp surface potentials $V_e$ represent volume-conducted superposition of dipolar current sources $\vec{J}_p(\vec{r})$ across cortical pyramidal columns:
+            </p>
+            <div class="equation-block">
+                $$\nabla \cdot (\sigma(\vec{r}) \nabla \Phi(\vec{r})) = \nabla \cdot \vec{J}_p(\vec{r}) \implies \mathbf{v} = \mathbf{L}\mathbf{j} + \mathbf{n}$$
+                <div class="equation-caption">Equation 1: Quasi-static Poisson volume conduction and discrete lead-field matrix L</div>
+            </div>
+            <p>
+                Because skull conductivity is $\approx 1/15$ to $1/80$ of brain tissue, the adult skull acts as a spatial low-pass filter, blurring high spatial frequency electric fields.
+            </p>
+        </section>
+
+        <!-- Section 3: Grand Challenge 06 Focus -->
+        <section>
+            <h2>03. Grand Challenge Focus: Neonatal Amplitude-Integrated EEG (aEEG)</h2>
+            <div class="nicu-banner">
+                <h3>👶 Continuous Bedside Seizure &amp; Burst-Suppression Tracking</h3>
+                <p>
+                    In the neonatal intensive care unit (NICU), full 128-channel montages are impractical due to skin fragility and interference with incubator nursing care. Bedside monitoring relies on <strong>amplitude-integrated EEG (aEEG)</strong>:
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>📉 Asymmetric Compression &amp; Filtering</h4>
+                    <p>
+                        Raw single- or dual-channel EEG (C3–P3, C4–P4) is bandpass filtered ($2 - 15\,\text{Hz}$), rectified, and logarithmically compressed below $10\,\mu\text{V}$. The signal is displayed at a slow time scale ($6\,\text{cm/hr}$), allowing neonatologists to visually track sleep-wake cycling and burst-suppression trends over 72 hours at a glance.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🧠 Thin Fontanelle Conductivity Contrast</h4>
+                    <p>
+                        The neonatal cranium is thin ($1.5\,\text{mm}$) and fontanelles have the high electrical conductivity of CSF ($\sigma \approx 1.79\,\text{S/m}$), with no insulating bone. Consequently, neonatal scalp potentials exhibit much higher amplitude and higher spatial gradient sharpness than adult EEG.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-11">← Course Syllabus</a>
+                <a href="artifact_mitigation_motion.html">Week 10 Artifacts</a>
+                <a href="safety_limits_fda_strategy.html">Week 12 Regulatory →</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

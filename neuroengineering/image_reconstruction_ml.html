@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Reconstruction, Inverse Problems & ML Biomarker Extraction — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #3b82f6;
+            --accent-dark: #2563eb;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #eff6ff;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #1e40af;
+            background-color: var(--highlight-bg);
+            border: 1px solid #bfdbfe;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .lecture-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            background: #ffffff;
+        }
+
+        .action-btn.primary {
+            background: var(--accent-color);
+            color: #ffffff;
+            border-color: var(--accent-color);
+        }
+
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2 span.sec-num {
+            color: var(--accent-dark);
+            font-family: var(--code-font);
+            font-size: 1.1rem;
+        }
+
+        .equation-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin: 1.75rem 0;
+            overflow-x: auto;
+        }
+
+        .equation-caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        .nicu-banner {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #1e40af;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-9">Syllabus</a>
+            <a href="image_reconstruction_ml_slides.html">Week 9 Slides</a>
+            <a href="pulse_sequences_kspace.html">Week 8 Sequences</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 9 Lecture
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 3 · Computational Inversion &amp; Machine Learning</div>
+            <h1>Image Reconstruction, Inverse Problems &amp; <span class="serif">Biomarker Extraction</span></h1>
+            <p class="subtitle">
+                Mathematical formulations of ill-posed inverse problems: SENSE/GRAPPA parallel imaging unfolding, compressed sensing, diffuse optical tomography inversion, and deep learning for bedside biomarker classification in neonatal encephalopathy.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Oct 23, 2026 (Week 9)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+            </div>
+
+            <div class="lecture-actions">
+                <a href="image_reconstruction_ml_slides.html" class="action-btn primary">🖥️ Presentation Slide Deck</a>
+                <a href="pulse_sequences_kspace.html" class="action-btn">📡 Week 8 K-Space Dynamics</a>
+                <a href="IDNE701_FA2026.html#week-9" class="action-btn">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: The Linear Inverse Problem -->
+        <section>
+            <h2><span class="sec-num">01.</span> Formulating the Forward &amp; Inverse Problem</h2>
+            <p>
+                In any neuroimaging system, our measurement vector $\mathbf{y} \in \mathbb{C}^M$ is related to the discretized underlying neural source image $\mathbf{x} \in \mathbb{C}^N$ through a linear system operator $\mathbf{A}$ contaminated by additive noise $\mathbf{n}$:
+            </p>
+
+            <div class="equation-block">
+                $$\mathbf{y} = \mathbf{A}\mathbf{x} + \mathbf{n}$$
+                <div class="equation-caption">Equation 1: Generalized discrete forward imaging problem</div>
+            </div>
+
+            <p>
+                Because $M < N$ (undersampled parallel imaging) or because $\mathbf{A}$ has rapidly decaying singular values (diffuse optical tomography, EEG source localization), direct matrix inversion is unstable or ill-posed. We formulate the reconstruction as a penalized optimization problem:
+            </p>
+
+            <div class="equation-block">
+                $$\hat{\mathbf{x}} = \arg\min_{\mathbf{x}} \left\{ \|\mathbf{A}\mathbf{x} - \mathbf{y}\|_2^2 + \lambda \mathcal{R}(\mathbf{x}) \right\}$$
+                <div class="equation-caption">Equation 2: Regularized Tikhonov / Sparse Inverse Formulation</div>
+            </div>
+            <p>
+                where $\mathcal{R}(\mathbf{x}) = \|\mathbf{x}\|_2^2$ represents classical Tikhonov smoothing, and $\mathcal{R}(\mathbf{x}) = \|\mathbf{\Psi}\mathbf{x}\|_1$ enforces sparsity in a wavelet or finite-difference gradient domain (Compressed Sensing).
+            </p>
+        </section>
+
+        <!-- Section 2: Parallel Imaging: SENSE & GRAPPA -->
+        <section>
+            <h2><span class="sec-num">02.</span> Parallel Imaging Acceleration: SENSE &amp; GRAPPA</h2>
+            <p>
+                By skipping k-space phase-encoding lines by an acceleration factor $R$, scan duration is reduced by $1/R$. However, spatial undersampling causes $R$ equidistant aliased voxels to fold onto one another in image space:
+            </p>
+            <div class="equation-block">
+                $$\mathbf{I}_{\text{aliased},\gamma}(y) = \sum_{r=0}^{R-1} S_\gamma(y + r \cdot \Delta y) \cdot \rho(y + r \cdot \Delta y)$$
+                <div class="equation-caption">Equation 3: SENSE coil sensitivity unfolding equation for channel γ</div>
+            </div>
+            <p>
+                SENSE inverts this coil sensitivity matrix $\mathbf{S}$ at every pixel. The local noise amplification during unfolding is quantified by the <strong>Geometry Factor ($g$-factor)</strong>:
+                $$\text{SNR}_{\text{SENSE}} = \frac{\text{SNR}_{\text{full}}}{g \sqrt{R}}$$
+                where $g \ge 1$ depends on the spatial orthogonality of the receive array coil profiles.
+            </p>
+        </section>
+
+        <!-- Section 3: Machine Learning Biomarker Pipelines -->
+        <section>
+            <h2><span class="sec-num">03.</span> Physics-Informed Neural Networks &amp; Biomarker Models</h2>
+            <p>
+                Rather than treating neural networks as black-box image generators, modern neuroengineering employs <strong>unrolled physics-informed networks</strong> (e.g., MoDL, VarNet) where each network layer alternates between learned regularization and explicit data consistency projection with the forward operator $\mathbf{A}$.
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🔄 Unrolled Deep Reconstruction</h4>
+                    <p>
+                        Replaces gradient descent steps with learned convolutional blocks. Enforces strict consistency with acquired k-space or optical fluence data, preventing hallucination of non-existent anatomy.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🧠 Latent Space Biomarker Classifiers</h4>
+                    <p>
+                        High-dimensional reconstructed volumes or time series are projected into low-dimensional latent embeddings (Variational Autoencoders, 1D/3D CNNs) to classify pathological states: ischemic penumbra, burst-suppression ratio, and vascular autoregulation collapse.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Grand Challenge 06 Focus -->
+        <section>
+            <h2><span class="sec-num">04.</span> Grand Challenge 06: Neonatal Biomarker Extraction in the NICU</h2>
+            <div class="nicu-banner">
+                <h3>👶 Automated Bedside Biomarker Scoring for HIE &amp; IVH</h3>
+                <p>
+                    In neonatal intensive care, clinicians need continuous quantitative decision support rather than raw images. Computational pipelines must automatically extract and track physiological biomarkers:
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>📊 Cerebral Autoregulation Index (COx)</h4>
+                    <p>
+                        Computes the continuous moving Pearson correlation coefficient between slow fluctuations of Mean Arterial Blood Pressure (MAP) and optical $\text{rSO}_2$:
+                        $$\text{COx} = \frac{\text{Cov}(\text{MAP}, \text{rSO}_2)}{\sigma_{\text{MAP}} \sigma_{\text{rSO}_2}}$$
+                        A positive $\text{COx} > 0.3$ flags loss of autoregulatory vasoconstriction (pressure-passive perfusion), directly predicting secondary intraventricular hemorrhage (IVH).
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ Burst-Suppression Ratio (BSR)</h4>
+                    <p>
+                        In bedside neonatal aEEG, deep learning temporal segmentation models track the percentage of isoelectric silence ($< 5\,\mu\text{V}$) per epoch:
+                        $$\text{BSR} = \frac{T_{\text{suppression}}}{T_{\text{total}}} \times 100\%$$
+                        Rapid automated BSR tracking during 72-hour therapeutic hypothermia identifies evolving hypoxic-ischemic brain damage hours before clinical seizure onset.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-9">← Course Syllabus</a>
+                <a href="image_reconstruction_ml_slides.html">🖥️ Presentation Slide Deck</a>
+                <a href="pulse_sequences_kspace.html">📡 Week 8 K-Space Dynamics</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

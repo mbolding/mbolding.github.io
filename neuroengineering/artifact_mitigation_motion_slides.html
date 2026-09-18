@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact Mitigation & Motion Correction — Slides | IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- Reveal.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --accent: #a855f7;
+            --accent-light: #c084fc;
+            --accent-dark: #9333ea;
+            --bg-dark: #090a0d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        .reveal {
+            font-family: 'Inter', sans-serif;
+            font-size: 21px;
+            font-weight: 400;
+            color: var(--text-main);
+            background-color: var(--bg-dark);
+        }
+
+        .reveal .slides section {
+            padding: 40px 30px 24px 30px !important;
+            box-sizing: border-box;
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: none;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+        }
+
+        .reveal h1 {
+            font-size: 1.85em;
+            line-height: 1.15;
+            margin-bottom: 12px;
+        }
+
+        .reveal h2 {
+            font-size: 1.35em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h1 em,
+        .reveal h2 em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .reveal p, .reveal li {
+            font-size: 0.72em;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+        }
+
+        .reveal strong {
+            color: #ffffff;
+        }
+
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .card-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            backdrop-filter: blur(6px);
+            font-size: 0.76em;
+            line-height: 1.45;
+        }
+
+        .slide-card h4 {
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .formula-box {
+            background: rgba(168, 85, 247, 0.06);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-left: 4px solid var(--accent);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin: 10px 0;
+            text-align: left;
+            font-size: 0.85em;
+        }
+
+        .formula-caption {
+            font-size: 0.62em;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            color: var(--accent-light) !important;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68em;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title -->
+            <section data-background-gradient="radial-gradient(circle at center, #581c87 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+                    IDNE 701 · Week 10 Lecture
+                </div>
+                <h1>Artifact Mitigation &amp; <em>Motion Correction</em></h1>
+                <p style="font-size: 0.95em; color: #d1d5db; max-width: 900px; margin: 0 auto 16px auto;">
+                    Rigid-Body Tracking, Independent Component Analysis &amp; Pediatric Noise Robustness
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="artifact_mitigation_motion.html" class="nav-link">📄 Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-10" class="nav-link">📅 Course Syllabus</a>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: Clinical Artifacts -->
+            <section>
+                <h2>The Spectrum of <em>Clinical Artifacts</em></h2>
+                <p>Moving from pure simulation to real-world patient instrumentation.</p>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>🫀 Physiological Noise</h4>
+                        <p><strong>Cardiac:</strong> $1 - 2.5\,\text{Hz}$ in neonates; pulsatile vessel motion and Doppler shifts.</p>
+                        <p><strong>Respiratory:</strong> $0.3 - 0.7\,\text{Hz}$; bulk chest movement causes chest-induced $\Delta B_0$ drift.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>⚡ Head Motion &amp; Decoupling</h4>
+                        <p><strong>Rigid Movement:</strong> Induces k-space phase ramps and ghosting.</p>
+                        <p><strong>Optode Slippage:</strong> Sudden shear contact shifts create high-amplitude baseline steps.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>🔌 Electrical &amp; Ambient</h4>
+                        <p>• $60\,\text{Hz}$ AC powerline noise.</p>
+                        <p>• NICU radiant heater switching harmonics.</p>
+                        <p>• Intense blue bilirubin phototherapy light.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Motion Math -->
+            <section>
+                <h2>Rigid-Body <em>Motion Physics</em></h2>
+                <p>Modeling movement in 3D Euclidean space and its Fourier consequences.</p>
+                <div class="formula-box">
+                    $$\vec{r}' = \mathbf{R} \vec{r} + \vec{T} \implies \mathcal{F}\{\rho(\vec{r} - \vec{T})\} = S(\vec{k}) \cdot e^{-i 2\pi \vec{k} \cdot \vec{T}}$$
+                    <div class="formula-caption">Translation introduces linear phase ramps; rotation rotates the k-space grid</div>
+                </div>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>📹 Prospective Motion Correction (PROMO)</h4>
+                        <p>Optical cameras or navigator echoes track $\mathbf{R}$ and $\vec{T}$ at $> 50\,\text{Hz}$.</p>
+                        <p>Dynamically updates RF center frequency and gradient axes before readout, keeping the imaging slice locked onto anatomy in real time.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>🧩 Retrospective Motion Mitigation</h4>
+                        <p>Wavelet packet filtering and cubic spline reconstruction strip sudden spikes in continuous optical time series without blurring underlying hemodynamics.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Grand Challenge Focus -->
+            <section data-background-gradient="radial-gradient(circle at center, #581c87 0%, #090a0d 100%)">
+                <h2>Grand Challenge Focus: <em>Neonatal Motion Strategies</em></h2>
+                <div class="card-grid card-grid-3">
+                    <div class="slide-card">
+                        <h4>🚫 Zero Sedation</h4>
+                        <p>General anesthesia and deep sedation pose severe neurotoxic risks in neonates.</p>
+                        <p>Sensors and sequences must be 100% motion-tolerant by design rather than relying on chemical immobility.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>🩹 Conformal Hydrogels</h4>
+                        <p>Rigid caps slip when infants move their heads against incubator mattresses.</p>
+                        <p>Conformal silicone-embedded hydrogel arrays distribute pressure evenly ($< 15\,\text{mmHg}$) and resist shear motion.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>⚡ SVD Clutter Filtering</h4>
+                        <p>In fontanelle ultrasound, pulsatile vessel wall movement ($1 - 5\,\text{mm/s}$) swamps slow capillary blood flow ($< 0.5\,\text{mm/s}$).</p>
+                        <p>Spatiotemporal SVD filtering strips high-energy low-rank tissue wall clutter cleanly.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Looking Ahead -->
+            <section data-background-gradient="radial-gradient(circle at center, #581c87 0%, #090a0d 100%)">
+                <h2>Looking Ahead to <em>Week 11</em></h2>
+                <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 20px;">
+                    Next: <strong>Lab Tour: Neuroengineering EEG Core &amp; Electrophysiology</strong>
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="artifact_mitigation_motion.html" class="nav-link">📄 Read Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-11" class="nav-link">📅 Week 11 Syllabus Outline</a>
+                </div>
+                <div style="margin-top: 30px; font-size: 0.65em; font-family: 'JetBrains Mono', monospace; color: #6b7280;">
+                    IDNE 701: Introduction to Neuroengineering · Department of Biomedical Engineering
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Reveal.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            controls: true,
+            progress: true,
+            center: true,
+            touch: true,
+            keyboard: true,
+            overview: true,
+            width: 1200,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 1.5
+        });
+
+        Reveal.on('slidechanged', event => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        });
+    </script>
+</body>
+
+</html>

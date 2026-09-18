@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact Mitigation & Motion Correction — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #a855f7; /* Phase 4 Purple */
+            --accent-dark: #9333ea;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #faf5ff;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #7e22ce;
+            background-color: var(--highlight-bg);
+            border: 1px solid #e9d5ff;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .lecture-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            background: #ffffff;
+        }
+
+        .action-btn.primary {
+            background: var(--accent-color);
+            color: #ffffff;
+            border-color: var(--accent-color);
+        }
+
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2 span.sec-num {
+            color: var(--accent-dark);
+            font-family: var(--code-font);
+            font-size: 1.1rem;
+        }
+
+        .equation-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin: 1.75rem 0;
+            overflow-x: auto;
+        }
+
+        .equation-caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        .nicu-banner {
+            background: rgba(168, 85, 247, 0.08);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #7e22ce;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-10">Syllabus</a>
+            <a href="artifact_mitigation_motion_slides.html">Week 10 Slides</a>
+            <a href="image_reconstruction_ml.html">Week 9 ML</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 10 Lecture
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 4 · Signal Conditioning &amp; Clinical Robustness</div>
+            <h1>Artifact Mitigation, Motion Correction &amp; <span class="serif">SNR Optimization</span></h1>
+            <p class="subtitle">
+                Decontaminating physiological recordings from the messy reality of the clinic: Rigid-body prospective motion correction, independent component analysis (ICA), adaptive filtering, and motion tolerance in un-sedated pediatric neuroimaging.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Oct 30, 2026 (Week 10)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+            </div>
+
+            <div class="lecture-actions">
+                <a href="artifact_mitigation_motion_slides.html" class="action-btn primary">🖥️ Presentation Slide Deck</a>
+                <a href="image_reconstruction_ml.html" class="action-btn">📡 Week 9 Inversion &amp; ML</a>
+                <a href="IDNE701_FA2026.html#week-10" class="action-btn">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: The Spectrum of Artifacts -->
+        <section>
+            <h2><span class="sec-num">01.</span> Sources of Real-World Signal Corruption</h2>
+            <p>
+                In textbook equations, neural signals are assumed to be corrupted only by zero-mean white Gaussian noise $\mathcal{N}(0, \sigma^2)$. In live clinical recordings, real-world signals are engulfed by physiological rhythms, gross patient movement, and environmental interference:
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🫀 Physiological Pulsatility</h4>
+                    <p>
+                        Cardiac pulsatility ($1 - 2.5\,\text{Hz}$ in neonates) drives rhythmic brain expansion and acoustic tissue Doppler shifting. Respiratory chest motion ($0.3 - 0.7\,\text{Hz}$) causes periodic magnetic field modulation ($\Delta B_0$) and venous pooling.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ Gross Patient Movement</h4>
+                    <p>
+                        Head rotation and swallowing produce non-rigid shear displacement between skin and sensors, leading to catastrophic phase errors in k-space and decoupling baseline spikes in optical optodes.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🔌 Environmental Interference</h4>
+                    <p>
+                        $60\,\text{Hz}$ powerline harmonics, incubator switching power supplies, infusion pump motors, and blue bilirubin phototherapy lamps.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Motion Correction Mathematics -->
+        <section>
+            <h2><span class="sec-num">02.</span> Mathematical Models of Rigid-Body Motion Correction</h2>
+            <p>
+                In 3D spatial neuroimaging, subject movement is modeled as a 6-degree-of-freedom (6-DOF) affine rigid-body coordinate transformation:
+            </p>
+            <div class="equation-block">
+                $$\vec{r}' = \mathbf{R}(\theta_x, \theta_y, \theta_z) \vec{r} + \vec{T}(t_x, t_y, t_z)$$
+                <div class="equation-caption">Equation 1: 3D Rigid-body spatial transformation</div>
+            </div>
+            <p>
+                In k-space, translation introduces a linear phase ramp, whereas rotation rotates the k-space coordinate grid itself:
+            </p>
+            <div class="equation-block">
+                $$\mathcal{F}\{\rho(\vec{r} - \vec{T})\} = S(\vec{k}) \cdot e^{-i 2\pi \vec{k} \cdot \vec{T}}$$
+                <div class="equation-caption">Equation 2: Fourier Shift Theorem in spatial frequency domain</div>
+            </div>
+            <p>
+                <strong>Prospective Motion Correction (PROMO):</strong> High-speed optical tracking cameras or orbital k-space navigators measure $\mathbf{R}$ and $\vec{T}$ in real time ($< 10\,\text{ms}$), dynamically updating the RF excitation center frequency and gradient coordinate axes before each readout.
+            </p>
+        </section>
+
+        <!-- Section 3: Blind Source Separation & ICA -->
+        <section>
+            <h2><span class="sec-num">03.</span> Blind Source Separation: ICA &amp; Adaptive Filtering</h2>
+            <p>
+                In multi-channel electrophysiology and optical imaging, recorded signals $\mathbf{x}(t)$ represent a linear mixture of true cortical neural generators $\mathbf{s}_{\text{neural}}(t)$ and non-neural artifact generators $\mathbf{s}_{\text{artifact}}(t)$:
+            </p>
+            <div class="equation-block">
+                $$\mathbf{x}(t) = \mathbf{H}\mathbf{s}(t) \implies \hat{\mathbf{s}}(t) = \mathbf{W}\mathbf{x}(t)$$
+                <div class="equation-caption">Equation 3: Independent Component Analysis (ICA) unmixing</div>
+            </div>
+            <p>
+                ICA maximizes the statistical non-Gaussianity (negentropy / kurtosis) of unmixed sources $\hat{\mathbf{s}}(t)$, perfectly isolating ocular blinks, cardiac ECG spikes, and muscle EMG tremor into distinct components that can be zeroed before back-projecting clean brain signals.
+            </p>
+        </section>
+
+        <!-- Section 4: Grand Challenge 06 Focus -->
+        <section>
+            <h2><span class="sec-num">04.</span> Grand Challenge 06: Zero-Sedation Pediatric Motion Strategies</h2>
+            <div class="nicu-banner">
+                <h3>👶 Motion Artifact Management in Vulnerable Neonates</h3>
+                <p>
+                    Unlike adult subjects, neonates and toddlers cannot follow instructions to remain still, and pharmacological sedation is contraindicated due to neurotoxicity risks. Motion mitigation must be built into hardware and signal processing:
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🩹 Non-Adhesive Hydrogel Montages</h4>
+                    <p>
+                        Rigid electrode cups shear off fragile infant skin during restlessness. Soft, conductive hydrogel arrays conform to curvature with zero shear resistance, preserving low contact impedance without abrasive prep.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🌊 Wavelet Spline Reconstructions</h4>
+                    <p>
+                        In bedside fNIRS, head twitches create sudden sharp steps in optical density ($\Delta\text{OD}$). Discrete wavelet transforms identify coefficients whose absolute values exceed $3.5\sigma$, applying cubic spline interpolation to eliminate baseline jumps without distorting slow hemodynamic waves.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ Doppler Wall Clutter Filtering</h4>
+                    <p>
+                        In transfontanellar ultrafast ultrasound, large pulsatile vessel wall motion ($v_{\text{wall}} \sim 1 - 5\,\text{mm/s}$) obscures slow microcapillary blood flow ($v_{\text{blood}} \sim 0.1 - 1\,\text{mm/s}$). Singular Value Decomposition (SVD) spatiotemporal clutter filters selectively eliminate high-energy, low-rank tissue motion.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-10">← Course Syllabus</a>
+                <a href="artifact_mitigation_motion_slides.html">🖥️ Presentation Slide Deck</a>
+                <a href="image_reconstruction_ml.html">📡 Week 9 Inversion &amp; ML</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

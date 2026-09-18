@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Limits (SAR, Thermal, Optical) & FDA Regulatory Strategy — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #a855f7;
+            --accent-dark: #9333ea;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #faf5ff;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #7e22ce;
+            background-color: var(--highlight-bg);
+            border: 1px solid #e9d5ff;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        .equation-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin: 1.75rem 0;
+            overflow-x: auto;
+        }
+
+        .equation-caption {
+            font-size: 0.82rem;
+            color: var(--secondary-text);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        table.spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            margin: 1.5rem 0;
+        }
+
+        table.spec-table th,
+        table.spec-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        table.spec-table th {
+            background: #f3f4f6;
+            font-weight: 700;
+        }
+
+        .nicu-banner {
+            background: rgba(168, 85, 247, 0.08);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #7e22ce;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-12">Syllabus</a>
+            <a href="safety_limits_fda_strategy_slides.html">Week 12 Slides</a>
+            <a href="eeg_core_lab_visit.html">Week 11 Lab</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 12 Lecture
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 4 · Safety Limits &amp; FDA Translation</div>
+            <h1>Safety Physics (SAR, Thermal, Optical) &amp; <span class="serif">FDA Regulatory Strategy</span></h1>
+            <p class="subtitle">
+                Quantitative biophysical safety dose modeling across modalities, ISO 14971 risk management, and the FDA medical device regulatory pathway (510(k), De Novo, PMA) for neurotechnologies.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Nov 13, 2026 (Week 12)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+            </div>
+
+            <div class="lecture-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                <a href="safety_limits_fda_strategy_slides.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-decoration: none; background: var(--accent-color); color: #fff;">🖥️ Presentation Slide Deck</a>
+                <a href="IDNE701_FA2026.html#week-12" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-decoration: none; border: 1px solid var(--border-color); color: var(--text-color); background: #fff;">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: Biophysical Safety Dosimetry -->
+        <section>
+            <h2>01. Quantitative Safety Dosimetry Across Modalities</h2>
+            <p>
+                Every energetic perturbation introduced to the human nervous system has a strict thermodynamic and physiological threshold beyond which irreversible cellular damage occurs.
+            </p>
+
+            <table class="spec-table">
+                <thead>
+                    <tr>
+                        <th>Modality</th>
+                        <th>Safety Metric</th>
+                        <th>Governing Standard</th>
+                        <th>Regulatory Exposure Limit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>RF / MRI</strong></td>
+                        <td>Specific Absorption Rate (SAR)</td>
+                        <td>IEC 60601-2-33</td>
+                        <td>Head: $\le 3.2\,\text{W/kg}$ (10-min avg); Local: $\le 10\,\text{W/kg}$ (10-g tissue).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ultrasound (fUS)</strong></td>
+                        <td>Thermal Index (TI) &amp; Mechanical Index (MI)</td>
+                        <td>IEC 60601-2-37</td>
+                        <td>$\text{MI} \le 1.9$; $I_{\text{spta}} \le 720\,\text{mW/cm}^2$; Neonatal cranial $\text{TIS} \le 0.7$.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Optical / fNIRS</strong></td>
+                        <td>Maximum Permissible Exposure (MPE)</td>
+                        <td>ANSI Z136.1 / IEC 60825-1</td>
+                        <td>Skin irradiance $\le 0.2 - 0.4\,\text{W/cm}^2$ (continuous exposure, NIR).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Electrophysiology</strong></td>
+                        <td>Patient Leakage Current</td>
+                        <td>IEC 60601-1 (Type BF/CF)</td>
+                        <td>Normal: $\le 10\,\mu\text{A}$ (CF) / $100\,\mu\text{A}$ (BF); Fault: $\le 50\,\mu\text{A}$.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Pennes Bioheat Transfer Equation</h3>
+            <p>
+                Tissue temperature rise $\Delta T$ under electromagnetic or acoustic dissipation is governed by Pennes Bioheat equation:
+            </p>
+            <div class="equation-block">
+                $$\rho C_p \frac{\partial T}{\partial t} = \nabla \cdot (k \nabla T) - \omega_b C_b (T - T_a) + Q_{\text{met}} + Q_{\text{absorbed}}$$
+                <div class="equation-caption">Equation 1: Pennes Bioheat Transfer Equation with capillary perfusion cooling</div>
+            </div>
+        </section>
+
+        <!-- Section 2: FDA Classification Pathway -->
+        <section>
+            <h2>02. The FDA Medical Device Regulatory Pathway</h2>
+            <p>
+                The FDA Center for Devices and Radiological Health (CDRH) classifies medical devices into three risk tiers:
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>Class I: General Controls (Low Risk)</h4>
+                    <p>
+                        Stethoscopes, manual surgical instruments, basic surface electrodes. Mostly 510(k)-exempt; requires Good Manufacturing Practice (GMP) registration.
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #3b82f6;">
+                    <h4>Class II: Special Controls &amp; 510(k) (Moderate Risk)</h4>
+                    <p>
+                        Diagnostic fNIRS systems, diagnostic ultrasound, clinical EEG monitors. Requires demonstrating <strong>Substantial Equivalence (SE)</strong> to a legally marketed predicate device via a 510(k) premarket notification. If no predicate exists, follow the <strong>De Novo</strong> pathway.
+                    </p>
+                </div>
+
+                <div class="slide-card" style="border-top: 3px solid #ef4444;">
+                    <h4>Class III: Premarket Approval (PMA) (High Risk)</h4>
+                    <p>
+                        Implantable deep brain stimulators (DBS), cortical neural prosthetics, life-supporting devices. Requires randomized clinical trial pivotal safety/efficacy evidence.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Grand Challenge 06 Focus -->
+        <section>
+            <h2>03. Grand Challenge Focus: Pediatric Device Regulations (FDA Section 515A)</h2>
+            <div class="nicu-banner">
+                <h3>👶 Neonatal Vulnerabilities in FDA Review</h3>
+                <p>
+                    Medical devices designed for neonates and infants are subject to stringent additional scrutiny under FDA Section 515A (Pediatric Medical Device Safety and Improvement Act):
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🌡️ Immature Thermoregulation</h4>
+                    <p>
+                        Neonates have a high body surface area-to-volume ratio and impaired thermal dissipation. In therapeutic hypothermia protocols ($33.5^\circ\text{C}$), transducer surface heating over $41^\circ\text{C}$ causes rapid local burns and triggers catastrophic rebound vasodilation.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🪟 Fontanelle Cavitation Thresholds</h4>
+                    <p>
+                        The unossified anterior fontanelle lacks the high acoustic attenuation of adult bone. Ultrasound pulses propagate with zero bone damping directly into brain parenchyma, lowering the cavitation safety margin ($\text{MI}$ limit reduced to $< 0.7$ for neonatal cranial imaging).
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-12">← Course Syllabus</a>
+                <a href="safety_limits_fda_strategy_slides.html">🖥️ Presentation Slide Deck</a>
+                <a href="virtual_prototyping_irb.html">Week 13 Prototyping &amp; IRB →</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worksheet 7.1: Preliminary Design Review (PDR) & Evaluation Rubric — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0c;
+            --bg-secondary: #121215;
+            --bg-tertiary: #1a1a1f;
+            --text-primary: #f0f0f2;
+            --text-secondary: #9da0aa;
+            --text-muted: #646772;
+            --accent: #3b82f6; /* Phase 3 Blue */
+            --accent-glow: rgba(59, 130, 246, 0.25);
+            --accent-dark: #2563eb;
+            --accent-light: #60a5fa;
+            --border-light: rgba(255, 255, 255, 0.08);
+            --border-focus: var(--accent);
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --input-bg: #16161b;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent: #2563eb;
+            --accent-glow: rgba(37, 99, 235, 0.15);
+            --accent-dark: #1d4ed8;
+            --accent-light: #3b82f6;
+            --border-light: #e2e8f0;
+            --border-focus: var(--accent);
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --input-bg: #f8fafc;
+        }
+
+        body {
+            font-family: var(--sans-font);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 24px 100px 24px;
+        }
+
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            font-family: var(--code-font);
+            font-size: 0.82rem;
+        }
+
+        .top-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: var(--code-font);
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 1.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+
+        h1 {
+            font-size: 2.1rem;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        h1 span.italic {
+            font-family: var(--serif-font);
+            font-style: italic;
+            font-weight: 400;
+            color: var(--accent-light);
+        }
+
+        .subtitle {
+            font-size: 0.98rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .worksheet-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .section-num {
+            font-family: var(--code-font);
+            color: var(--accent);
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .section-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .field-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+        }
+
+        .rubric-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            margin: 1.25rem 0;
+        }
+
+        .rubric-table th,
+        .rubric-table td {
+            border: 1px solid var(--border-light);
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .rubric-table th {
+            background: var(--bg-tertiary);
+            font-weight: 700;
+        }
+
+        .score-select {
+            width: 90px !important;
+            padding: 6px !important;
+            font-weight: 700;
+        }
+
+        .score-total-card {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1.5rem 0;
+        }
+
+        .score-total-val {
+            font-family: var(--code-font);
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--accent-light);
+        }
+
+        .callout-nicu {
+            background: rgba(59, 130, 246, 0.05);
+            border-left: 4px solid var(--accent);
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin: 14px 0;
+            font-size: 0.85rem;
+        }
+
+        .callout-nicu strong {
+            color: var(--accent-light);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 2rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .btn-save {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        .btn-print {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-light);
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        @media print {
+            .top-nav, .action-row, .theme-toggle {
+                display: none !important;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            .worksheet-section {
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Top Navigation Bar -->
+        <div class="top-nav">
+            <div>
+                <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a> / <a href="IDNE701_FA2026.html#week-7">Syllabus</a>
+            </div>
+            <div class="nav-links">
+                <a href="optical_imaging_fnirs.html">Week 6 Optical</a>
+                <a href="worksheet_fnirs_demo.html">Lab 6.1</a>
+                <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌓 Theme</button>
+            </div>
+        </div>
+
+        <header>
+            <div class="badge">Mid-Semester Milestone · Week 7</div>
+            <h1>Worksheet 7.1: <span class="italic">Preliminary Design Review (PDR) &amp; Evaluation Rubric</span></h1>
+            <p class="subtitle">
+                Formal design milestone assessment for student neurotechnologies. Evaluates biophysical contrast justification, sensor hardware architecture, noise budget margin, signal encoding/reconstruction strategy, and Grand Challenge 06 (Neonatal &amp; Pediatric Brain Monitoring) alignment.
+            </p>
+        </header>
+
+        <!-- Section 1: Review Metadata -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">01.</span>
+                <h2>Project Identification &amp; Review Mode</h2>
+            </div>
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="reviewType">Review Mode</label>
+                    <select id="reviewType">
+                        <option value="self">Team Self-Assessment (Internal Pre-Flight)</option>
+                        <option value="peer">Peer Review Assessment (Assigned Team)</option>
+                        <option value="faculty">Faculty / Guest Clinician Panel Evaluation</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="teamName">Presenting Team Identifier</label>
+                    <input type="text" id="teamName" placeholder="e.g., Team NeoOptix, Team FontanelleSound">
+                </div>
+                <div class="form-group">
+                    <label for="evaluatorName">Evaluator Name / Reviewer ID</label>
+                    <input type="text" id="evaluatorName" placeholder="e.g., Dr. Bolding / Peer Reviewer #3">
+                </div>
+                <div class="form-group">
+                    <label for="clinicalFocus">Clinical Target / Grand Challenge</label>
+                    <select id="clinicalFocus">
+                        <option value="gc06_hie" selected>GC 06: Neonatal Hypoxic-Ischemic Encephalopathy (HIE / Therapeutic Hypothermia)</option>
+                        <option value="gc06_ivh">GC 06: Preterm Intraventricular Hemorrhage (IVH / Germinal Matrix)</option>
+                        <option value="gc06_seizures">GC 06: Neonatal Subclinical Seizures (Bedside aEEG / HD-DOT)</option>
+                        <option value="adult_general">Other Grand Challenge / Adult Neurotechnology</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="callout-nicu">
+                <strong>👶 Grand Challenge 06 Core Criteria</strong>
+                Projects focused on neonatal and pediatric neuromonitoring must explicitly defend mechanical compliance (skin pressure &lt; 20 mmHg, no abrasion), ambient NICU rejection (phototherapy lighting, incubator radiant heat), and biomarker clinical validity (e.g., FTOE, pulsatility index, burst suppression).
+            </div>
+        </div>
+
+        <!-- Section 2: Scored Evaluation Rubric -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">02.</span>
+                <h2>Structured Evaluation Matrix (100 Points Total)</h2>
+            </div>
+            <p class="section-desc">
+                Evaluate the presenting team across 5 core engineering domains (20 points each).
+            </p>
+
+            <table class="rubric-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Evaluation Domain</th>
+                        <th style="width: 45%;">Criteria &amp; Technical Benchmarks</th>
+                        <th style="width: 15%;">Score (0–20)</th>
+                        <th style="width: 15%;">Weighted Pts</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Domain 1 -->
+                    <tr>
+                        <td>
+                            <strong>1. Biophysical Contrast Mechanism</strong>
+                            <br><span style="color: var(--text-muted); font-size: 0.75rem;">Weeks 2–4 Material</span>
+                        </td>
+                        <td>
+                            • Rigorous forward physical model linking neural state to perturbation field (Maxwell, Bloch, Diffusion, or Bioheat).
+                            <br>• Clear physical justification for chosen contrast mechanism (e.g., BOLD, phase velocity, optical density).
+                            <br>• Identification of physical limits on spatial and temporal resolution.
+                        </td>
+                        <td>
+                            <select id="score1" class="score-select" onchange="calculateRubricScore()">
+                                <option value="20">20 - Exceptional</option>
+                                <option value="18" selected>18 - Proficient</option>
+                                <option value="15">15 - Competent</option>
+                                <option value="12">12 - Developing</option>
+                                <option value="8">8 - Inadequate</option>
+                            </select>
+                        </td>
+                        <td id="pts1" style="font-family: var(--code-font); font-weight: 700; color: var(--accent-light);">18 / 20</td>
+                    </tr>
+
+                    <!-- Domain 2 -->
+                    <tr>
+                        <td>
+                            <strong>2. Sensor Array &amp; Noise Budget</strong>
+                            <br><span style="color: var(--text-muted); font-size: 0.75rem;">Week 5 Material (Worksheet 5.1)</span>
+                        </td>
+                        <td>
+                            • Calculated Johnson-Nyquist thermal limits and sample-noise crossover ($Q_U / Q_L > 2.5$).
+                            <br>• Transducer array geometry and inter-element decoupling strategy (preamp decoupling, overlap, active shield).
+                            <br>• Analog front-end (AFE) amplification, noise figure ($NF < 1.5\,\text{dB}$), and dynamic range specification.
+                        </td>
+                        <td>
+                            <select id="score2" class="score-select" onchange="calculateRubricScore()">
+                                <option value="20">20 - Exceptional</option>
+                                <option value="18" selected>18 - Proficient</option>
+                                <option value="15">15 - Competent</option>
+                                <option value="12">12 - Developing</option>
+                                <option value="8">8 - Inadequate</option>
+                            </select>
+                        </td>
+                        <td id="pts2" style="font-family: var(--code-font); font-weight: 700; color: var(--accent-light);">18 / 20</td>
+                    </tr>
+
+                    <!-- Domain 3 -->
+                    <tr>
+                        <td>
+                            <strong>3. Signal Encoding &amp; Inversion Plan</strong>
+                            <br><span style="color: var(--text-muted); font-size: 0.75rem;">Weeks 6 &amp; 8 Material</span>
+                        </td>
+                        <td>
+                            • Mathematical formulation of the inverse problem (e.g., MBLL matrix, k-space trajectories, lead-field inversion).
+                            <br>• Inversion stability, condition number ($\kappa$), and ill-posedness mitigation (regularization, Tikhonov).
+                            <br>• Defined extraction pipeline for clinical biomarkers (e.g., $\text{rSO}_2$, $\text{FTOE}$, CBV, latency).
+                        </td>
+                        <td>
+                            <select id="score3" class="score-select" onchange="calculateRubricScore()">
+                                <option value="20">20 - Exceptional</option>
+                                <option value="17" selected>17 - Proficient</option>
+                                <option value="14">14 - Competent</option>
+                                <option value="11">11 - Developing</option>
+                                <option value="7">7 - Inadequate</option>
+                            </select>
+                        </td>
+                        <td id="pts3" style="font-family: var(--code-font); font-weight: 700; color: var(--accent-light);">17 / 20</td>
+                    </tr>
+
+                    <!-- Domain 4 -->
+                    <tr>
+                        <td>
+                            <strong>4. Clinical Translation &amp; NICU Fit</strong>
+                            <br><span style="color: var(--text-muted); font-size: 0.75rem;">Grand Challenge 06 Alignment</span>
+                        </td>
+                        <td>
+                            • Specific relevance to bedside neonatal monitoring (HIE, IVH, or seizures).
+                            <br>• Mechanical safety: Contact pressure &lt; 20 mmHg, no scalp abrasive prep, biocompatible substrate.
+                            <br>• Environmental robustness: Phototherapy optical filtering ($\sim 450\,\text{nm}$), incubator thermal limits ($< 41^\circ\text{C}$).
+                        </td>
+                        <td>
+                            <select id="score4" class="score-select" onchange="calculateRubricScore()">
+                                <option value="20">20 - Exceptional</option>
+                                <option value="19" selected>19 - Proficient</option>
+                                <option value="15">15 - Competent</option>
+                                <option value="12">12 - Developing</option>
+                                <option value="8">8 - Inadequate</option>
+                            </select>
+                        </td>
+                        <td id="pts4" style="font-family: var(--code-font); font-weight: 700; color: var(--accent-light);">19 / 20</td>
+                    </tr>
+
+                    <!-- Domain 5 -->
+                    <tr>
+                        <td>
+                            <strong>5. Presentation, Visuals &amp; Concept Boards</strong>
+                            <br><span style="color: var(--text-muted); font-size: 0.75rem;">Design Review Delivery</span>
+                        </td>
+                        <td>
+                            • 12-minute pitch clarity, professional system architecture block diagrams.
+                            <br>• Effective concept pin-up boards visualizing physical device ergonomics and patient montage.
+                            <br>• Rigorous and candid defense during 8-minute panel Q&amp;A.
+                        </td>
+                        <td>
+                            <select id="score5" class="score-select" onchange="calculateRubricScore()">
+                                <option value="20">20 - Exceptional</option>
+                                <option value="18" selected>18 - Proficient</option>
+                                <option value="15">15 - Competent</option>
+                                <option value="12">12 - Developing</option>
+                                <option value="8">8 - Inadequate</option>
+                            </select>
+                        </td>
+                        <td id="pts5" style="font-family: var(--code-font); font-weight: 700; color: var(--accent-light);">18 / 20</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="score-total-card">
+                <div>
+                    <strong style="font-size: 1.05rem;">Total Milestone PDR Score:</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Threshold for Unconditional Phase 4 Advance: 80 / 100</div>
+                </div>
+                <div class="score-total-val" id="totalScore">90 / 100</div>
+            </div>
+        </div>
+
+        <!-- Section 3: Written Qualitative Feedback -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">03.</span>
+                <h2>Qualitative Critique &amp; Action Items</h2>
+            </div>
+
+            <div class="form-group">
+                <label for="critiqueStrengths">Key Architectural Strengths</label>
+                <div class="field-hint">What is most technically compelling about the chosen transducer, contrast physics, or biomarker pipeline?</div>
+                <textarea id="critiqueStrengths" placeholder="Highlight rigorous thermal noise calculations, clever geometric decoupling, or clinical bedside fit..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="critiqueVulnerabilities">Primary Engineering Risks &amp; Vulnerabilities</label>
+                <div class="field-hint">Where is the design most fragile? (e.g., motion artifact vulnerability, ill-conditioned inverse matrix, thermal heating, excessive skin contact pressure).</div>
+                <textarea id="critiqueVulnerabilities" placeholder="Identify potential points of failure to be addressed in Phase 4 simulation prototyping..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="actionItemsPhase4">Action Items for Phase 4 (Weeks 8–10)</label>
+                <div class="field-hint">Specific technical revisions required prior to virtual simulation lock-in.</div>
+                <textarea id="actionItemsPhase4" placeholder="1. Perform short-separation channel regression; 2. Simulate k-space trajectory under motion..."></textarea>
+            </div>
+        </div>
+
+        <!-- Section 4: Phase 3 Sign-Off -->
+        <div class="worksheet-section">
+            <div class="section-header">
+                <span class="section-num">04.</span>
+                <h2>Milestone Verdict &amp; Phase 4 Advancement Sign-Off</h2>
+            </div>
+            <div class="input-grid">
+                <div class="form-group">
+                    <label for="milestoneVerdict">Review Recommendation</label>
+                    <select id="milestoneVerdict">
+                        <option value="pass_unconditional" selected>Pass (Unconditional) — Advance directly to Phase 4 Acquisition &amp; ML Pipelines</option>
+                        <option value="pass_conditional">Pass (Conditional) — Minor revisions required in Week 8 Simulation Memo</option>
+                        <option value="revise_resubmit">Revise &amp; Re-present — Major redesign required for sensor noise or contrast physics</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="leadFacultySign">Reviewer Signature / Lead Evaluator</label>
+                    <input type="text" id="leadFacultySign" placeholder="e.g., Mark Bolding, PhD">
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Row -->
+        <div class="action-row">
+            <button class="btn-print" onclick="window.print()">🖨️ Print / Save Evaluation PDF</button>
+            <button class="btn-save" onclick="saveToLocalStorage()">💾 Save Rubric Assessment</button>
+        </div>
+    </div>
+
+    <script>
+        function calculateRubricScore() {
+            let s1 = parseInt(document.getElementById("score1").value) || 0;
+            let s2 = parseInt(document.getElementById("score2").value) || 0;
+            let s3 = parseInt(document.getElementById("score3").value) || 0;
+            let s4 = parseInt(document.getElementById("score4").value) || 0;
+            let s5 = parseInt(document.getElementById("score5").value) || 0;
+
+            document.getElementById("pts1").innerText = s1 + " / 20";
+            document.getElementById("pts2").innerText = s2 + " / 20";
+            document.getElementById("pts3").innerText = s3 + " / 20";
+            document.getElementById("pts4").innerText = s4 + " / 20";
+            document.getElementById("pts5").innerText = s5 + " / 20";
+
+            let total = s1 + s2 + s3 + s4 + s5;
+            document.getElementById("totalScore").innerText = total + " / 100";
+            saveToLocalStorage();
+        }
+
+        function saveToLocalStorage() {
+            const fields = ["reviewType", "teamName", "evaluatorName", "clinicalFocus", "score1", "score2", "score3", "score4", "score5", "critiqueStrengths", "critiqueVulnerabilities", "actionItemsPhase4", "milestoneVerdict", "leadFacultySign"];
+            fields.forEach(f => {
+                const el = document.getElementById(f);
+                if (el) localStorage.setItem("idne701_worksheet71_" + f, el.value);
+            });
+        }
+
+        function loadFromLocalStorage() {
+            const fields = ["reviewType", "teamName", "evaluatorName", "clinicalFocus", "score1", "score2", "score3", "score4", "score5", "critiqueStrengths", "critiqueVulnerabilities", "actionItemsPhase4", "milestoneVerdict", "leadFacultySign"];
+            fields.forEach(f => {
+                const el = document.getElementById(f);
+                const val = localStorage.getItem("idne701_worksheet71_" + f);
+                if (el && val !== null) el.value = val;
+            });
+            calculateRubricScore();
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute("data-theme");
+            const next = current === "light" ? "dark" : "light";
+            document.documentElement.setAttribute("data-theme", next);
+            localStorage.setItem("idne701_theme", next);
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            const savedTheme = localStorage.getItem("idne701_theme");
+            if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+            loadFromLocalStorage();
+        });
+    </script>
+</body>
+
+</html>

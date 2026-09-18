@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Reconstruction & ML Biomarkers — Lecture Slides | IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- Reveal.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --accent: #3b82f6;
+            --accent-light: #60a5fa;
+            --accent-dark: #2563eb;
+            --bg-dark: #090a0d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        .reveal {
+            font-family: 'Inter', sans-serif;
+            font-size: 21px;
+            font-weight: 400;
+            color: var(--text-main);
+            background-color: var(--bg-dark);
+        }
+
+        .reveal .slides section {
+            padding: 40px 30px 24px 30px !important;
+            box-sizing: border-box;
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: none;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+        }
+
+        .reveal h1 {
+            font-size: 1.85em;
+            line-height: 1.15;
+            margin-bottom: 12px;
+        }
+
+        .reveal h2 {
+            font-size: 1.35em;
+            margin-bottom: 8px;
+        }
+
+        .reveal h1 em,
+        .reveal h2 em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .reveal p, .reveal li {
+            font-size: 0.72em;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+        }
+
+        .reveal strong {
+            color: #ffffff;
+        }
+
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .card-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            backdrop-filter: blur(6px);
+            font-size: 0.76em;
+            line-height: 1.45;
+        }
+
+        .slide-card h4 {
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .formula-box {
+            background: rgba(59, 130, 246, 0.06);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-left: 4px solid var(--accent);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin: 10px 0;
+            text-align: left;
+            font-size: 0.85em;
+        }
+
+        .formula-caption {
+            font-size: 0.62em;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: var(--accent-light) !important;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68em;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title -->
+            <section data-background-gradient="radial-gradient(circle at center, #1e3a8a 0%, #090a0d 100%)">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7em; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+                    IDNE 701 · Week 9 Lecture
+                </div>
+                <h1>Image Reconstruction &amp; <em>ML Biomarkers</em></h1>
+                <p style="font-size: 0.95em; color: #d1d5db; max-width: 900px; margin: 0 auto 16px auto;">
+                    Inverse Problems, Parallel Imaging Acceleration, Compressed Sensing &amp; Bedside Classifiers
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="image_reconstruction_ml.html" class="nav-link">📄 Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-9" class="nav-link">📅 Course Syllabus</a>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: Inverse Problem Formulation -->
+            <section>
+                <h2>The Discrete <em>Inverse Problem</em></h2>
+                <p>Solving for underlying anatomy $\mathbf{x}$ from noisy measurements $\mathbf{y} = \mathbf{A}\mathbf{x} + \mathbf{n}$.</p>
+                <div class="formula-box">
+                    $$\hat{\mathbf{x}} = \arg\min_{\mathbf{x}} \left\{ \|\mathbf{A}\mathbf{x} - \mathbf{y}\|_2^2 + \lambda \mathcal{R}(\mathbf{x}) \right\}$$
+                    <div class="formula-caption">Regularized Penalized Optimization (Data Fidelity + Prior Penalty)</div>
+                </div>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>⚖️ Tikhonov L2 Regularization</h4>
+                        <p>$\mathcal{R}(\mathbf{x}) = \|\mathbf{x}\|_2^2 \implies \hat{\mathbf{x}} = (\mathbf{A}^H \mathbf{A} + \lambda \mathbf{I})^{-1} \mathbf{A}^H \mathbf{y}$.</p>
+                        <p>Stabilizes ill-conditioned singular values, but causes edge blurring in reconstructed image edges.</p>
+                    </div>
+                    <div class="slide-card">
+                        <h4>🎯 Compressed Sensing (L1 Sparsity)</h4>
+                        <p>$\mathcal{R}(\mathbf{x}) = \|\mathbf{\Psi} \mathbf{x}\|_1$ (Wavelet / Total Variation).</p>
+                        <p>Permits exact image recovery from undersampled k-space when aliasing artifacts are incoherent (pseudo-random trajectory).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Parallel Imaging (SENSE) -->
+            <section>
+                <h2>Parallel Imaging: <em>SENSE Unfolding</em></h2>
+                <p>Accelerating scans by factor $R$ via multi-channel spatial coil profiles.</p>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card">
+                        <h4>Matrix Inversion in Image Space</h4>
+                        <p>Aliased pixel values across $C$ receive coils fold $R$ spatial locations:</p>
+                        $$\mathbf{y}_{\text{alias}} = \mathbf{S} \mathbf{x}_{\text{true}} \implies \hat{\mathbf{x}} = (\mathbf{S}^H \mathbf{\Psi}_n^{-1} \mathbf{S})^{-1} \mathbf{S}^H \mathbf{\Psi}_n^{-1} \mathbf{y}_{\text{alias}}$$
+                    </div>
+                    <div class="slide-card">
+                        <h4>The Geometry Factor ($g$-Factor)</h4>
+                        <p>Noise penalty during algebraic unfolding:</p>
+                        $$\text{SNR}_{\text{SENSE}} = \frac{\text{SNR}_{\text{full}}}{g \sqrt{R}} \quad (g \ge 1)$$
+                        <p>High $g$-factor occurs when coil sensitivity fields overlap collinear spatial directions.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Grand Challenge 06 Focus -->
+            <section data-background-gradient="radial-gradient(circle at center, #1e3a8a 0%, #090a0d 100%)">
+                <h2>Grand Challenge Focus: <em>Neonatal Bedside AI</em></h2>
+                <div class="card-grid card-grid-2">
+                    <div class="slide-card" style="border-top: 3px solid #10b981;">
+                        <h4>🩸 Cerebral Autoregulation Index (COx)</h4>
+                        <p><strong>Mechanism:</strong> Real-time rolling Pearson correlation between arterial blood pressure (MAP) and cerebral tissue oxygen saturation ($\text{rSO}_2$).</p>
+                        <p><strong>Clinical Value:</strong> Identifies loss of myogenic tone ($\text{COx} > 0.3$) during therapeutic hypothermia, forecasting germinal matrix hemorrhage (IVH).</p>
+                    </div>
+                    <div class="slide-card" style="border-top: 3px solid #f59e0b;">
+                        <h4>⚡ Automated Burst-Suppression (BSR)</h4>
+                        <p><strong>Mechanism:</strong> 1D convolutional neural network segments isoelectric suppressions (&lt; 5 µV) in continuous bedside neonatal aEEG.</p>
+                        <p><strong>Clinical Value:</strong> Tracks severity of hypoxic injury during cooling and flags subclinical seizures hours before motor signs appear.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Looking Ahead -->
+            <section data-background-gradient="radial-gradient(circle at center, #1e3a8a 0%, #090a0d 100%)">
+                <h2>Looking Ahead to <em>Week 10</em></h2>
+                <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 20px;">
+                    Next: <strong>Artifact Mitigation, Motion Correction &amp; SNR Optimization</strong>
+                </p>
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="image_reconstruction_ml.html" class="nav-link">📄 Read Lecture Notes</a>
+                    <a href="IDNE701_FA2026.html#week-10" class="nav-link">📅 Week 10 Syllabus Outline</a>
+                </div>
+                <div style="margin-top: 30px; font-size: 0.65em; font-family: 'JetBrains Mono', monospace; color: #6b7280;">
+                    IDNE 701: Introduction to Neuroengineering · Department of Biomedical Engineering
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Reveal.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            controls: true,
+            progress: true,
+            center: true,
+            touch: true,
+            keyboard: true,
+            overview: true,
+            width: 1200,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 1.5
+        });
+
+        Reveal.on('slidechanged', event => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Prototyping, Clinical Protocol & IRB Strategy — IDNE 701</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax 3 with TeX support -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --secondary-text: #555566;
+            --accent-color: #ff3300; /* Phase 5 Red/Coral */
+            --accent-dark: #cc2900;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --border-color: #e5e7eb;
+            --card-bg: #f9fafb;
+            --card-border: #e5e7eb;
+            --highlight-bg: #fef2f2;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 60px 40px 100px 40px;
+        }
+
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+        }
+
+        .top-nav a {
+            color: var(--secondary-text);
+            text-decoration: none;
+        }
+
+        .top-nav a:hover {
+            color: var(--accent-dark);
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+        }
+
+        header {
+            margin-top: 2rem;
+            margin-bottom: 3.5rem;
+            border-bottom: 3px solid var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.85rem;
+            font-family: var(--code-font);
+            color: var(--secondary-text);
+            margin-bottom: 1rem;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #991b1b;
+            background-color: var(--highlight-bg);
+            border: 1px solid #fecaca;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin: 0 0 1rem 0;
+        }
+
+        h1 span.serif {
+            font-family: var(--serif-font);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--accent-dark);
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--secondary-text);
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .lecture-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin: 1.75rem 0;
+        }
+
+        .slide-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .slide-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .slide-card p {
+            font-size: 0.88rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            line-height: 1.55;
+        }
+
+        .nicu-banner {
+            background: rgba(255, 51, 0, 0.06);
+            border-left: 5px solid var(--accent-color);
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .nicu-banner h3 {
+            margin: 0 0 8px 0;
+            color: #991b1b;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div>
+            <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
+        </div>
+        <div class="top-nav-links">
+            <a href="IDNE701_FA2026.html#week-13">Syllabus</a>
+            <a href="safety_limits_fda_strategy.html">Week 12 Safety</a>
+            <a href="symposium_guidelines.html">Week 14 Showcase</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html">Syllabus</a> / Week 13 Lecture
+        </div>
+
+        <header>
+            <div class="phase-badge">Phase 5 · Virtual Verification &amp; Clinical Translation</div>
+            <h1>Virtual Prototyping, Validation &amp; <span class="serif">Clinical IRB Protocols</span></h1>
+            <p class="subtitle">
+                Assembling the complete digital twin simulation pipeline, statistical power modeling for clinical validation, ethical human subjects protections (IRB), and pitch symposium readiness.
+            </p>
+
+            <div class="lecture-meta">
+                <span><strong>Course:</strong> IDNE 701 (Fall 2026)</span>
+                <span><strong>Date:</strong> Nov 20, 2026 (Week 13)</span>
+                <span><strong>Duration:</strong> 80 Minutes</span>
+                <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
+            </div>
+
+            <div class="lecture-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                <a href="symposium_guidelines.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-decoration: none; background: var(--accent-color); color: #fff;">🏆 Final Symposium Guidelines</a>
+                <a href="IDNE701_FA2026.html#week-13" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-decoration: none; border: 1px solid var(--border-color); color: var(--text-color); background: #fff;">📅 Course Syllabus</a>
+            </div>
+        </header>
+
+        <!-- Section 1: The End-to-End Digital Twin -->
+        <section>
+            <h2>01. The End-to-End Virtual Prototype Pipeline</h2>
+            <p>
+                Prior to physical fabricating costly medical hardware, neuroengineers build an integrated <strong>computational digital twin</strong> encompassing four coupled simulation stages:
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>1. Biological Substrate Model</h4>
+                    <p>
+                        High-resolution 3D anatomical mesh (voxelized or boundary element) assigned with tissue physical tensors: electrical conductivity $\sigma(\vec{r})$, optical absorption/scattering $\mu_a, \mu_s'$, and acoustic impedance $Z(\vec{r})$.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>2. Forward Field Physics</h4>
+                    <p>
+                        Numerical solution of Maxwell, Diffusion, or Wave equations producing synthetic noise-free sensor signals $\mathbf{y}_0 = \mathbf{A}(\mathbf{x})$.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>3. Front-End Noise &amp; Movement</h4>
+                    <p>
+                        Injection of thermal Johnson noise, preamplifier noise figure, motion displacement vectors ($\mathbf{R}, \vec{T}$), and physiological baseline drift.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>4. Inversion &amp; Diagnostic Metric</h4>
+                    <p>
+                        Execution of the reconstruction and ML biomarker pipeline to output clinical classifications with quantified ROC-AUC and RMSE error.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Clinical Protocol & IRB Design -->
+        <section>
+            <h2>02. Clinical Study Design &amp; IRB Submission</h2>
+            <p>
+                Translating an engineering prototype into clinical utility requires an Institutional Review Board (IRB) approved protocol following 45 CFR 46 (The Common Rule):
+            </p>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🎯 Primary &amp; Secondary Endpoints</h4>
+                    <p>
+                        Clearly defined, measurable clinical hypotheses (e.g., sensitivity of optical FTOE in detecting HIE autoregulation failure compared to MRI diffusion restricted lesions at day 4).
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>📊 Statistical Sample Size Power Analysis</h4>
+                    <p>
+                        Computing minimum subject cohort size $N$ based on type I error $\alpha = 0.05$ and statistical power $1 - \beta = 0.80$:
+                        $$N = \frac{2 (Z_{\alpha/2} + Z_\beta)^2 \sigma^2}{(\mu_1 - \mu_2)^2}$$
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚠️ Risk-Benefit Stratification</h4>
+                    <p>
+                        Non-significant risk (NSR) vs Significant Risk (SR) determination. Device biocompatibility (ISO 10993 cytotoxicity, sensitization, irritation) and electrical isolation certifications.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Grand Challenge Focus -->
+        <section>
+            <h2>03. Grand Challenge Focus: Vulnerable Neonatal Human Subjects Protections</h2>
+            <div class="nicu-banner">
+                <h3>👶 Subpart D Protections for Neonatal Clinical Research</h3>
+                <p>
+                    Under HHS 45 CFR 46 Subpart D, neonates and children are federally designated as vulnerable populations requiring elevated ethical safeguards:
+                </p>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>📋 Parental Permission &amp; Assent</h4>
+                    <p>
+                        In emergency HIE cooling protocols, obtaining informed parental consent during maternal post-delivery recovery requires sensitive, structured consent procedures. Both parents' permission is required for research involving greater than minimal risk without direct benefit.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🛡️ Prospect of Direct Clinical Benefit</h4>
+                    <p>
+                        To satisfy 45 CFR 46.405, investigational neuromonitoring must demonstrate a plausible prospect of direct benefit to the individual infant (e.g., early automated detection of occult status epilepticus) that justifies the risk of skin contact and sensor placement.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
+            <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <a href="IDNE701_FA2026.html#week-13">← Course Syllabus</a>
+                <a href="safety_limits_fda_strategy.html">Week 12 Safety</a>
+                <a href="symposium_guidelines.html">Week 14 Final Symposium Guidelines →</a>
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>
