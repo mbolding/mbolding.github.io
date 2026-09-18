@@ -604,6 +604,11 @@
                         <option value="eeg_electrodes">Active / Dry Ag-AgCl Electrodes (High-Density EEG)</option>
                         <option value="meg_opm">Optically Pumped Magnetometers (OPM-MEG)</option>
                         <option value="fus_array">PZT / CMUT Ultrasound Phased Array (fUS / FUS)</option>
+                        <optgroup label="Grand Challenge 06: Neonatal &amp; Pediatric Brain Monitoring">
+                            <option value="neonatal_hd_fnirs">Neonatal Bedside HD-fNIRS / DOT (NICU Conformal Cap)</option>
+                            <option value="transfontanellar_fus">Neonatal Transfontanellar Ultrasound Array (fUS / Fontanelle Window)</option>
+                            <option value="neonatal_aeeg">Neonatal Amplitude-Integrated EEG (NICU aEEG / Hydrogel Array)</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="form-group">
@@ -616,6 +621,19 @@
                 <label for="arrayGeometry">Array Mechanical &amp; Spatial Montage</label>
                 <div class="field-hint">Describe layout geometry (e.g., rigid helmet, conformal stretchable cap, curved saddle coil), element spacing, inter-element distance, and anatomical landmark alignment (10-20 system, cranial fiducials).</div>
                 <textarea id="arrayGeometry" placeholder="Specify physical dimensions, radius of curvature, spacing pitch, and mechanical substrate (flex-PCB, 3D-printed SLA scaffold, stretchable elastomer)..."></textarea>
+            </div>
+
+            <!-- Grand Challenge 06 Callout -->
+            <div style="background: rgba(16, 185, 129, 0.05); border-left: 4px solid #10b981; padding: 12px 16px; border-radius: 4px; margin-top: 15px; font-size: 0.88rem;">
+                <strong style="color: #065f46; display: flex; align-items: center; gap: 6px;">
+                    👶 Grand Challenge 06 Focus: Neonatal &amp; Pediatric Brain Monitoring Considerations
+                </strong>
+                <p style="margin: 6px 0 0 0; color: #374151; font-size: 0.85rem; line-height: 1.5;">
+                    If designing for neonatal applications (NICU HIE, IVH, therapeutic hypothermia):
+                    <br>• <em>Anatomy:</em> Scalp/skull thickness is only ~\(1.5 - 2.5\,\text{mm}\) (vs adult \(8 - 12\,\text{mm}\)); anterior fontanelle acts as an open acoustic window (zero bone attenuation).
+                    <br>• <em>Skin Fragility:</em> Stratum corneum is underdeveloped; contact pressure must remain \(&lt; 20\,\text{mmHg}\) to avoid ischemia/necrosis; zero skin abrasion permitted.
+                    <br>• <em>NICU Environment:</em> Modality must tolerate intense blue phototherapy lighting (\(\sim 450\,\text{nm}\)), incubator radiant heat, and patient hypothermia (\(33.5^\circ\text{C} = 306.65\,\text{K}\)).
+                </p>
             </div>
         </div>
 
@@ -969,6 +987,45 @@
                 isolation: "< -25 dB acoustic crosstalk",
                 depth: "exp(-2*alpha*z) acoustic loss",
                 gfactor: 1.10
+            },
+            neonatal_hd_fnirs: {
+                count: 32,
+                temp: 306.5, // 33.5°C Therapeutic Hypothermia NICU protocol
+                res: 450,
+                bw: 100,
+                nf: 0.9,
+                sig: 180.0,
+                qratio: 1.1,
+                decoupling: "tdm_fdm",
+                isolation: "< -45 dB optical crosstalk",
+                depth: "exp(-mu_eff * z) (DPF ~ 4.6, thin scalp 1.5mm)",
+                gfactor: 1.04
+            },
+            transfontanellar_fus: {
+                count: 128,
+                temp: 306.5, // 33.5°C Therapeutic Hypothermia
+                res: 50,
+                bw: 3500000, // 7.5 MHz Ultrafast Doppler band
+                nf: 1.8,
+                sig: 85.0,
+                qratio: 3.5,
+                decoupling: "capacitive_network",
+                isolation: "< -28 dB acoustic crosstalk",
+                depth: "exp(-2*alpha*z) (0 dB bone loss at fontanelle)",
+                gfactor: 1.08
+            },
+            neonatal_aeeg: {
+                count: 8,
+                temp: 306.5,
+                res: 3000, // Low-abrasion hydrogel interface
+                bw: 40,    // 0.5 - 30 Hz standard aEEG passband
+                nf: 1.2,
+                sig: 15.0,
+                qratio: 1.05,
+                decoupling: "active_shielding",
+                isolation: "< -32 dB cross-channel isolation",
+                depth: "1/r^2 volume conduction (thin skull, high conductance)",
+                gfactor: 1.12
             }
         };
 
