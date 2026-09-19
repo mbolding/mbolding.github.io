@@ -1,144 +1,495 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magnetic Spins: Dephasing and Rephasing (Grid)</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-        }
-        canvas {
-            border: 1px solid #000;
-            background-color: #fff;
-        }
-        button {
-            margin: 10px;
-            padding: 5px 10px;
-            font-size: 16px;
-        }
-    </style>
+    <title>Dephasing &amp; Rephasing Across the Sample</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <h1>Magnetic Spins: Dephasing and Rephasing (Grid)</h1>
-    <canvas id="spinCanvas" width="400" height="400"></canvas>
-    <div>
-        <button id="dephaseBtn">Dephase</button>
-        <button id="rephaseBtn">Rephase</button>
-        <button id="reverseTimeBtn">Reverse Time</button>
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Field maps &middot; T2* &middot; refocusing</p>
+            <h1>Dephasing &amp; Rephasing Across the Sample</h1>
+            <p class="subtitle">Looking straight down the bore at a slice of tissue. Each cell precesses at the rate
+                its own local field dictates, and the coil adds them all up.</p>
+        </header>
+
+        <div class="status" id="status">Press <b>90&deg; excite</b> to tip everything into the transverse plane.</div>
+
+        <div class="toolbar">
+            <button type="button" id="playBtn" class="primary">Pause</button>
+            <button type="button" id="exciteBtn">90&deg; excite</button>
+            <button type="button" id="refocusBtn">180&deg; refocus</button>
+            <button type="button" id="echoBtn">Run a spin echo</button>
+            <span class="sep"></span>
+            <button type="button" id="reverseBtn">Reverse time</button>
+            <button type="button" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="figs two">
+            <div class="fig">
+                <canvas id="grid" aria-label="Grid of spins across the sample, coloured by phase"></canvas>
+                <p class="cap">Cell shading is the <b>field offset</b> at that location; arrow direction and colour are
+                    the <b>phase</b> accumulated there.</p>
+            </div>
+            <div class="fig">
+                <canvas id="dial" aria-label="All spin phases drawn from a common origin, with the vector sum"></canvas>
+                <p class="cap">The same spins redrawn from one origin, with the vector sum in red.</p>
+                <canvas id="trace" style="margin-top:10px" aria-label="Signal against time"></canvas>
+                <div class="legend">
+                    <span><i style="background:var(--c-mxy)"></i>|signal|</span>
+                    <span><i style="background:var(--c-env)"></i>T<sub>2</sub> envelope</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>The field map</h3>
+            <div class="controls">
+                <div class="control">
+                    <label for="grad"><span>Linear field gradient</span> <b id="gradVal"></b></label>
+                    <input type="range" id="grad" min="0" max="30" step="0.5" value="6">
+                    <span class="hint">A smooth shim error straight across the slice.</span>
+                </div>
+                <div class="control">
+                    <label for="blob"><span>Local susceptibility blob</span> <b id="blobVal"></b></label>
+                    <input type="range" id="blob" min="0" max="40" step="0.5" value="0">
+                    <span class="hint">A sinus, an ear canal or a metal clip: a big offset over a small region.</span>
+                </div>
+                <div class="control">
+                    <label for="t2"><span>T<sub>2</sub> (irreversible)</span> <b id="t2Val"></b></label>
+                    <input type="range" id="t2" min="50" max="2000" step="25" value="900">
+                    <span class="hint">Random molecular-scale dephasing. No pulse can undo this.</span>
+                </div>
+                <div class="control">
+                    <label for="tau"><span>&tau; (half the echo time)</span> <b id="tauVal"></b></label>
+                    <input type="range" id="tau" min="50" max="700" step="10" value="300">
+                    <span class="hint">The echo lands at TE = 2&tau; after the 90&deg;.</span>
+                </div>
+                <div class="control">
+                    <label for="n"><span>Grid size</span> <b id="nVal"></b></label>
+                    <input type="range" id="n" min="4" max="16" step="1" value="10">
+                    <span class="hint">Number of cells across the slice.</span>
+                </div>
+                <div class="control">
+                    <label for="speed"><span>Playback speed</span> <b id="speedVal"></b></label>
+                    <input type="range" id="speed" min="20" max="800" step="10" value="150">
+                    <span class="hint">Simulated milliseconds per second.</span>
+                </div>
+            </div>
+            <div class="checkrow" style="margin-top:16px">
+                <label><input type="checkbox" id="showField" checked> <span>Shade cells by field offset</span></label>
+                <label><input type="checkbox" id="showSum" checked> <span>Show the vector sum</span></label>
+            </div>
+            <div class="readouts">
+                <div class="readout"><span>|signal|</span><b id="rSig">0.000</b></div>
+                <div class="readout"><span>T<sub>2</sub> envelope</span><b id="rEnv">1.000</b></div>
+                <div class="readout"><span>field range</span><b id="rRange">0 Hz</b></div>
+                <div class="readout"><span>t since 90&deg;</span><b id="rT">0 ms</b></div>
+            </div>
+        </div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>The previous figures treat the sample as a single vector. This one insists on the fact that
+                <em>position matters</em>: every cell sits in a slightly different magnetic field, so every cell
+                accumulates phase at a different rate. The coil has no idea which cell is which. It receives one
+                number, the vector sum, and that number collapses as soon as the cells disagree.</p>
+            <ul>
+                <li><b>Watch the colours, not the arrows.</b> Immediately after the 90&deg; every cell is the same
+                    colour. As time passes the hue sweeps across the slice in step with the field map, which is
+                    exactly the phase ramp that a frequency-encoding gradient deliberately imposes during readout.</li>
+                <li><b>180&deg; versus reverse time.</b> <b>Reverse time</b> is the cheat: it flips the sign of every
+                    precession rate, which no experiment can do. The <b>180&deg;</b> pulse achieves the identical
+                    refocusing by flipping the <em>accumulated phase</em> instead and letting the spins keep running
+                    forward at the same rates. Both bring the colours back together; only one of them is physics you
+                    can buy.</li>
+                <li><b>The blob is refocused too.</b> Turn the susceptibility blob up to 30 Hz. Its cells race away
+                    from the rest and the signal dies almost at once, but a 180&deg; still recovers the echo. This is
+                    why spin-echo EPI keeps signal near the sinuses where gradient-echo EPI drops out.</li>
+                <li><b>What is never recovered.</b> Lower T<sub>2</sub> to 200 ms and run the echo. The echo comes
+                    back on time but shorter, and it always lands on the dashed T<sub>2</sub> curve. That curve is
+                    the ceiling: refocusing buys back the field-map dephasing and nothing else.</li>
+            </ul>
+            <p><b>Try this in class:</b> set &tau; to 500 ms, press <b>Run a spin echo</b>, and ask the room to
+                predict where the echo peak will fall before it happens. Then change T<sub>2</sub> and ask them to
+                predict how tall it will be.</p>
+        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="dephase_rephase_2.html">The phase fan and full echo trains</a>
+                <a href="spheres_n_arrows_2.html">The same physics in three dimensions</a>
+                <a href="vector.html">One vector, full Bloch equation</a>
+            </div>
+        </footer>
     </div>
+
     <script>
-        const canvas = document.getElementById('spinCanvas');
-        const ctx = canvas.getContext('2d');
-        const dephaseBtn = document.getElementById('dephaseBtn');
-        const rephaseBtn = document.getElementById('rephaseBtn');
-        const reverseTimeBtn = document.getElementById('reverseTimeBtn');
+        (function () {
+            'use strict';
 
-        const gridSize = 8; // 8x8 grid
-        const cellSize = 40;
-        const spinLength = 15;
-        const margin = (canvas.width - gridSize * cellSize) / 2;
+            var S = SpinLib;
+            S.wireThemeToggle();
 
-        let spins = [];
-        let timeDirection = 1; // 1 for forward, -1 for backward
-        let isAnimating = false;
-        let animationId;
+            /* ------------------------------------------------ state */
 
-        function initializeSpins() {
-            spins = [];
-            for (let row = 0; row < gridSize; row++) {
-                for (let col = 0; col < gridSize; col++) {
-                    spins.push({
-                        angle: 0,
-                        x: margin + col * cellSize + cellSize / 2,
-                        y: margin + row * cellSize + cellSize / 2,
-                        dephaseSpeed: Math.random() * 0.1 - 0.05
-                    });
+            var cells = [];         // {u, v, df, phase, mag}
+            var t = 0;              // ms since the last 90 degree pulse
+            var excited = false;
+            var direction = 1;      // +1 forward, -1 when time is reversed
+            var pending = null;
+            var marks = [];
+            var sig = new S.Trace(4000);
+            var env = new S.Trace(4000);
+            var WINDOW = 1800;
+
+            var statusEl = document.getElementById('status');
+            function status(html) { statusEl.innerHTML = html; }
+
+            /* ------------------------------------------------ controls */
+
+            var grad = S.bind('grad', { fmt: function (v) { return '±' + v.toFixed(1) + ' Hz'; }, on: rebuildField });
+            var blob = S.bind('blob', { fmt: function (v) { return '+' + v.toFixed(1) + ' Hz'; }, on: rebuildField });
+            var t2 = S.bind('t2', { fmt: function (v) { return v + ' ms'; } });
+            var tau = S.bind('tau', { fmt: function (v) { return v + ' ms'; } });
+            var nCtl = S.bind('n', {
+                fmt: function (v) { return v + ' × ' + v; },
+                on: function () {
+                    /* keep the demo running rather than dropping back to equilibrium */
+                    var was = excited;
+                    build();
+                    if (was) { excite(); }
+                }
+            });
+            var speed = S.bind('speed', { fmt: function (v) { return v + ' ms/s'; } });
+            var showField = S.bind('showField', {});
+            var showSum = S.bind('showSum', {});
+
+            /* ------------------------------------------------ field map */
+
+            function fieldAt(u, v) {
+                var lin = grad.value * (0.9 * u + 0.2 * v);
+                var du = u - 0.45, dv = v + 0.35;
+                var r2 = du * du + dv * dv;
+                return lin + blob.value * Math.exp(-r2 / 0.18);
+            }
+
+            function build() {
+                var n = Math.round(nCtl.value);
+                cells = [];
+                for (var i = 0; i < n; i++) {
+                    for (var j = 0; j < n; j++) {
+                        var u = n > 1 ? (2 * i / (n - 1) - 1) : 0;
+                        var v = n > 1 ? (2 * j / (n - 1) - 1) : 0;
+                        cells.push({ i: i, j: j, u: u, v: v, df: fieldAt(u, v), phase: 0, mag: 0 });
+                    }
+                }
+                reset();
+            }
+
+            function rebuildField() {
+                for (var k = 0; k < cells.length; k++) {
+                    cells[k].df = fieldAt(cells[k].u, cells[k].v);
+                }
+                draw();
+            }
+
+            function reset() {
+                t = 0;
+                excited = false;
+                direction = 1;
+                pending = null;
+                marks.length = 0;
+                sig.clear();
+                env.clear();
+                for (var k = 0; k < cells.length; k++) {
+                    cells[k].phase = 0;
+                    cells[k].mag = 0;
+                }
+                status('Press <b>90&deg; excite</b> to tip everything into the transverse plane.');
+                draw();
+            }
+
+            function excite() {
+                t = 0;
+                direction = 1;
+                excited = true;
+                pending = null;
+                marks.length = 0;
+                sig.clear();
+                env.clear();
+                for (var k = 0; k < cells.length; k++) {
+                    cells[k].phase = 0;
+                    cells[k].mag = 1;
+                }
+                marks.push({ x: 0, color: S.theme().b1, label: '90' });
+                status('Excited. Every cell starts in phase; the field map immediately starts pulling them apart.');
+                play(true);
+            }
+
+            function refocus() {
+                if (!excited) { return; }
+                for (var k = 0; k < cells.length; k++) {
+                    cells[k].phase = -cells[k].phase;
+                }
+                marks.push({ x: t, color: S.theme().b1, label: '180' });
+                status('180&deg;: every accumulated phase is negated. The cells keep precessing forward at the same ' +
+                    'rates, so they now converge instead of diverging.');
+                play(true);
+            }
+
+            /* ------------------------------------------------ evolution */
+
+            function stepPhysics(dtMs) {
+                if (!excited) { return; }
+                var decay = Math.exp(-dtMs / t2.value);
+                for (var k = 0; k < cells.length; k++) {
+                    var c = cells[k];
+                    c.phase += direction * 2 * Math.PI * c.df * dtMs / 1000;
+                    c.mag *= decay;
+                }
+                t += dtMs;
+
+                if (pending !== null && t >= pending) {
+                    pending = null;
+                    refocus();
+                }
+
+                var s = sumVector();
+                sig.push(t, s.mag);
+                env.push(t, Math.exp(-t / t2.value));
+            }
+
+            function sumVector() {
+                var x = 0, y = 0;
+                for (var k = 0; k < cells.length; k++) {
+                    x += cells[k].mag * Math.cos(cells[k].phase);
+                    y += cells[k].mag * Math.sin(cells[k].phase);
+                }
+                var n = cells.length || 1;
+                x /= n;
+                y /= n;
+                return { x: x, y: y, mag: Math.hypot(x, y), ang: Math.atan2(y, x) };
+            }
+
+            /* ------------------------------------------------ drawing */
+
+            function fieldColour(df, maxAbs) {
+                var f = maxAbs > 0 ? S.clamp(df / maxAbs, -1, 1) : 0;
+                var d = Math.abs(f);
+                return 'hsl(' + (f < 0 ? 214 : 4) + ', ' + (15 + d * 65).toFixed(0) + '%, ' +
+                    (72 - d * 22).toFixed(0) + '%)';
+            }
+
+            var vGrid = S.fitCanvas(document.getElementById('grid'), 1.0);
+            var vDial = S.fitCanvas(document.getElementById('dial'), 0.92);
+            var vTrace = S.fitCanvas(document.getElementById('trace'), 0.46);
+
+            function maxField() {
+                var m = 0;
+                for (var k = 0; k < cells.length; k++) {
+                    m = Math.max(m, Math.abs(cells[k].df));
+                }
+                return m;
+            }
+
+            function drawGrid() {
+                var ctx = vGrid.ctx, w = vGrid.w, h = vGrid.h, th = S.theme();
+                S.clear(ctx, w, h);
+
+                var n = Math.round(nCtl.value);
+                var pad = 8;
+                var size = Math.min(w, h) - 2 * pad;
+                var cell = size / n;
+                var x0 = (w - size) / 2, y0 = (h - size) / 2;
+                var mx = maxField();
+                var len = cell * 0.36;
+
+                for (var k = 0; k < cells.length; k++) {
+                    var c = cells[k];
+                    var cx = x0 + (c.i + 0.5) * cell;
+                    var cy = y0 + (c.j + 0.5) * cell;
+
+                    if (showField.value) {
+                        ctx.fillStyle = fieldColour(c.df, mx);
+                        ctx.globalAlpha = 0.5;
+                        ctx.fillRect(x0 + c.i * cell, y0 + c.j * cell, cell, cell);
+                        ctx.globalAlpha = 1;
+                    }
+                    ctx.strokeStyle = th.grid;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x0 + c.i * cell, y0 + c.j * cell, cell, cell);
+
+                    if (c.mag > 0.004) {
+                        S.arrow2(ctx, cx, cy,
+                            cx + len * Math.cos(c.phase), cy - len * Math.sin(c.phase),
+                            { color: S.phaseColor(c.phase), width: Math.max(1.6, cell * 0.075),
+                              head: Math.max(5, cell * 0.22), alpha: S.clamp(c.mag, 0.15, 1) });
+                    } else {
+                        ctx.fillStyle = th.muted;
+                        ctx.globalAlpha = 0.4;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, Math.max(1.5, cell * 0.05), 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                    }
+                }
+
+                if (direction < 0) {
+                    ctx.fillStyle = th.accent;
+                    ctx.font = '600 12px "IBM Plex Mono", ui-monospace, monospace';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText('TIME REVERSED', 8, 8);
                 }
             }
-        }
 
-        function drawSpins() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw grid
-            ctx.strokeStyle = '#ddd';
-            for (let i = 0; i <= gridSize; i++) {
+            function drawDial() {
+                var ctx = vDial.ctx, w = vDial.w, h = vDial.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var cx = w / 2, cy = h / 2;
+                var r = Math.min(w, h) * 0.40;
+
+                ctx.save();
+                ctx.strokeStyle = th.border;
+                ctx.setLineDash([4, 4]);
                 ctx.beginPath();
-                ctx.moveTo(margin + i * cellSize, margin);
-                ctx.lineTo(margin + i * cellSize, canvas.height - margin);
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
                 ctx.stroke();
+                ctx.restore();
+
+                ctx.save();
+                ctx.strokeStyle = th.grid;
                 ctx.beginPath();
-                ctx.moveTo(margin, margin + i * cellSize);
-                ctx.lineTo(canvas.width - margin, margin + i * cellSize);
+                ctx.moveTo(cx - r, cy);
+                ctx.lineTo(cx + r, cy);
+                ctx.moveTo(cx, cy - r);
+                ctx.lineTo(cx, cy + r);
                 ctx.stroke();
+                ctx.restore();
+
+                for (var k = 0; k < cells.length; k++) {
+                    var c = cells[k];
+                    if (c.mag <= 0.004) { continue; }
+                    S.arrow2(ctx, cx, cy,
+                        cx + r * c.mag * Math.cos(c.phase), cy - r * c.mag * Math.sin(c.phase),
+                        { color: S.phaseColor(c.phase), width: 1.3, head: 5, alpha: 0.38 });
+                }
+
+                if (showSum.value) {
+                    var s = sumVector();
+                    var ex = cx + r * s.mag * Math.cos(s.ang);
+                    var ey = cy - r * s.mag * Math.sin(s.ang);
+                    /* a halo in the canvas colour keeps the sum readable on top of the fan */
+                    S.arrow2(ctx, cx, cy, ex, ey, { color: th.canvasBg, width: 7, head: 15 });
+                    S.arrow2(ctx, cx, cy, ex, ey, { color: th.net, width: 3.4, head: 11 });
+                    ctx.fillStyle = th.net;
+                    ctx.font = '600 11px "IBM Plex Mono", ui-monospace, monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillText('sum', ex, ey - 9);
+                }
+
+                ctx.fillStyle = th.muted;
+                ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText("x'", cx + r + 5, cy);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText("y'", cx, cy - r - 4);
             }
 
-            // Draw spins
-            ctx.strokeStyle = '#000';
-            spins.forEach(spin => {
-                const endX = spin.x + spinLength * Math.cos(spin.angle);
-                const endY = spin.y + spinLength * Math.sin(spin.angle);
-                ctx.beginPath();
-                ctx.moveTo(spin.x, spin.y);
-                ctx.lineTo(endX, endY);
-                ctx.stroke();
-            });
-        }
-
-        function animate() {
-            if (isAnimating) {
-                spins.forEach(spin => {
-                    spin.angle += spin.dephaseSpeed * timeDirection;
+            function drawTrace() {
+                var ctx = vTrace.ctx, w = vTrace.w, h = vTrace.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var box = { x: 34, y: 12, w: w - 46, h: h - 36 };
+                var xmax = Math.max(t, WINDOW * 0.3);
+                S.plot(ctx, box, {
+                    xmin: Math.max(0, xmax - WINDOW), xmax: xmax,
+                    ymin: 0, ymax: 1.05,
+                    yTicks: [0.5, 1],
+                    marks: marks,
+                    series: [
+                        { pts: env.pts, color: th.env, width: 1.4, dash: [4, 4] },
+                        { pts: sig.pts, color: th.mxy, width: 2.2 }
+                    ],
+                    xlabel: 'ms since 90°'
                 });
-                drawSpins();
-                animationId = requestAnimationFrame(animate);
             }
-        }
 
-        function startAnimation() {
-            if (!isAnimating) {
-                isAnimating = true;
-                animate();
+            var rSig = document.getElementById('rSig');
+            var rEnv = document.getElementById('rEnv');
+            var rRange = document.getElementById('rRange');
+            var rT = document.getElementById('rT');
+
+            function draw() {
+                drawGrid();
+                drawDial();
+                drawTrace();
+                var s = sumVector();
+                rSig.textContent = S.fmt(s.mag, 3);
+                rEnv.textContent = excited ? S.fmt(Math.exp(-t / t2.value), 3) : '1.000';
+                rRange.textContent = '±' + S.fmt(maxField(), 1) + ' Hz';
+                rT.textContent = excited ? S.fmt(t, 0) + ' ms' : '--';
             }
-        }
 
-        function stopAnimation() {
-            isAnimating = false;
-            cancelAnimationFrame(animationId);
-        }
+            /* ------------------------------------------------ loop */
 
-        function dephase() {
-            timeDirection = 1;
-            startAnimation();
-            setTimeout(stopAnimation, 3000);
-        }
-
-        function rephase() {
-            spins.forEach(spin => {
-                spin.angle = 0;
+            var loop = new S.Loop(function (dt) {
+                var simMs = dt * speed.value;
+                var steps = Math.max(1, Math.ceil(simMs / 4));
+                for (var i = 0; i < steps; i++) { stepPhysics(simMs / steps); }
+                draw();
             });
-            drawSpins();
-            stopAnimation();
-        }
 
-        function reverseTime() {
-            timeDirection *= -1;
-            if (!isAnimating) {
-                startAnimation();
+            var playBtn = document.getElementById('playBtn');
+            function play(on) {
+                if (on) { loop.start(); } else { loop.stop(); }
+                playBtn.textContent = loop.running ? 'Pause' : 'Play';
             }
-        }
+            playBtn.addEventListener('click', function () { play(!loop.running); });
 
-        dephaseBtn.addEventListener('click', dephase);
-        rephaseBtn.addEventListener('click', rephase);
-        reverseTimeBtn.addEventListener('click', reverseTime);
+            S.on('exciteBtn', excite);
+            S.on('refocusBtn', function () { refocus(); });
+            S.on('resetBtn', reset);
+            S.on('reverseBtn', function () {
+                direction *= -1;
+                marks.push({ x: t, color: S.theme().accent, label: 'rev' });
+                status(direction < 0
+                    ? 'Time reversed. Every precession rate has changed sign, which brings the phases back together ' +
+                      'but is not something any scanner can do.'
+                    : 'Running forward again.');
+                play(true);
+            });
+            S.on('echoBtn', function () {
+                excite();
+                pending = tau.value;
+                status('Spin echo: 90&deg; now, 180&deg; at &tau; = ' + tau.value + ' ms, echo at TE = ' +
+                    (2 * tau.value) + ' ms.');
+            });
 
-        initializeSpins();
-        drawSpins();
+            window.addEventListener('spins:theme', draw);
+
+            build();
+            excite();
+        }());
     </script>
 </body>
+
 </html>

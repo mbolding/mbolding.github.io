@@ -1,133 +1,392 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three Spinning Vectors</title>
-    <style>
-        canvas {
-            border: 1px solid black;
-        }
-        .controls {
-            display: inline-block;
-            margin-right: 20px;
-        }
-    </style>
+    <title>Adding Rotating Vectors: Chemical Shift &amp; Beats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <canvas id="vectorCanvas" width="400" height="400"></canvas>
-    <br>
-    <div class="controls">
-        <h3>Vector 1 (Red)</h3>
-        <label for="speedInput1">Rotation Speed:</label>
-        <input type="range" id="speedInput1" min="1" max="10" value="5">
-        <br>
-        <label for="lengthInput1">Vector Length:</label>
-        <input type="range" id="lengthInput1" min="50" max="150" value="100">
-    </div>
-    <div class="controls">
-        <h3>Vector 2 (Blue)</h3>
-        <label for="speedInput2">Rotation Speed:</label>
-        <input type="range" id="speedInput2" min="1" max="10" value="3">
-        <br>
-        <label for="lengthInput2">Vector Length:</label>
-        <input type="range" id="lengthInput2" min="50" max="150" value="80">
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Chemical shift &middot; in-phase / opposed-phase &middot; Dixon</p>
+            <h1>Adding Rotating Vectors</h1>
+            <p class="subtitle">Two chemical species in one voxel, turning at two different rates. Their sum beats in
+                and out of phase, and where you sit in that beat decides what the voxel looks like.</p>
+        </header>
+
+        <div class="status" id="status">Fat and water in one voxel at 3 T.</div>
+
+        <div class="toolbar">
+            <button type="button" id="playBtn" class="primary">Pause</button>
+            <button type="button" id="p15">Fat &amp; water at 1.5 T</button>
+            <button type="button" id="p3">Fat &amp; water at 3 T</button>
+            <button type="button" id="pEq">Equal amounts</button>
+            <span class="sep"></span>
+            <button type="button" id="resetBtn">Restart the clock</button>
+        </div>
+
+        <div class="figs two-even">
+            <div class="fig">
+                <canvas id="dial" aria-label="Two rotating vectors and their sum"></canvas>
+                <div class="legend">
+                    <span><i style="background:var(--c-mz)"></i>species A (water)</span>
+                    <span><i style="background:var(--c-b1)"></i>species B (fat)</span>
+                    <span><i style="background:var(--c-net)"></i>sum</span>
+                </div>
+                <p class="cap">B is redrawn from the tip of A, so the red sum closes the triangle. The faint curve is
+                    the path the sum's tip has traced.</p>
+            </div>
+            <div class="fig">
+                <canvas id="trace" aria-label="Magnitude of the sum against echo time"></canvas>
+                <p class="cap">Signal magnitude against echo time. The dashed lines are the perfectly in-phase sum
+                    (A+B) and the perfectly opposed sum (|A&minus;B|).</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>The two species</h3>
+            <div class="controls">
+                <div class="control">
+                    <label for="f1"><span>A: frequency offset</span> <b id="f1Val"></b></label>
+                    <input type="range" id="f1" min="-500" max="500" step="1" value="0">
+                    <span class="hint">Water is conventionally put on resonance, at 0 Hz.</span>
+                </div>
+                <div class="control">
+                    <label for="f2"><span>B: frequency offset</span> <b id="f2Val"></b></label>
+                    <input type="range" id="f2" min="-500" max="500" step="1" value="-434">
+                    <span class="hint">Fat sits 3.4 ppm below water: &minus;217 Hz at 1.5 T, &minus;434 Hz at 3 T.</span>
+                </div>
+                <div class="control">
+                    <label for="a1"><span>A: amount</span> <b id="a1Val"></b></label>
+                    <input type="range" id="a1" min="0" max="100" step="1" value="70">
+                    <span class="hint">Fraction of the voxel that is water.</span>
+                </div>
+                <div class="control">
+                    <label for="a2"><span>B: amount</span> <b id="a2Val"></b></label>
+                    <input type="range" id="a2" min="0" max="100" step="1" value="30">
+                    <span class="hint">Fraction of the voxel that is fat.</span>
+                </div>
+                <div class="control">
+                    <label for="speed"><span>Playback speed</span> <b id="speedVal"></b></label>
+                    <input type="range" id="speed" min="1" max="40" step="1" value="6">
+                    <span class="hint">Simulated milliseconds per second. Real fat and water beat far too fast to
+                        watch.</span>
+                </div>
+            </div>
+            <div class="checkrow" style="margin-top:16px">
+                <label><input type="checkbox" id="showTipToTail" checked> <span>Draw B from the tip of A</span></label>
+                <label><input type="checkbox" id="showPath" checked> <span>Path of the sum</span></label>
+            </div>
+            <div class="readouts">
+                <div class="readout"><span>&Delta;f</span><b id="rDf">434 Hz</b></div>
+                <div class="readout"><span>phase difference</span><b id="rPhase">0&deg;</b></div>
+                <div class="readout"><span>|sum|</span><b id="rMag">1.000</b></div>
+                <div class="readout"><span>first opposed-phase TE</span><b id="rOpp">--</b></div>
+                <div class="readout"><span>first in-phase TE</span><b id="rIn">--</b></div>
+                <div class="readout"><span>t</span><b id="rT">0.00 ms</b></div>
+            </div>
+        </div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>A voxel almost never contains one substance. Protons in fat are shielded by their surrounding
+                electrons, so they feel a slightly smaller field and precess about 3.4&nbsp;ppm slower than protons
+                in water. Two vectors, two rates, one sum, and the sum depends on when you choose to measure it.</p>
+            <p class="eq">&Delta;f = 3.4 ppm &times; f<sub>0</sub> &nbsp;&nbsp;|&nbsp;&nbsp; TE<sub>opposed</sub> = 1/(2&Delta;f) &nbsp;&nbsp;|&nbsp;&nbsp; TE<sub>in</sub> = 1/&Delta;f</p>
+            <ul>
+                <li><b>The beat is the whole point.</b> At TE = 0 the two species add. Half a beat later they
+                    subtract. The readouts give both times for the current &Delta;f, and the dashed lines on the plot
+                    give both amplitudes. At 3&nbsp;T the first opposed-phase echo lands at about 1.15&nbsp;ms and the
+                    first in-phase echo at about 2.3&nbsp;ms, which is why those two numbers appear on abdominal
+                    protocols.</li>
+                <li><b>Chemical-shift imaging falls out of this.</b> Take one image at each TE and you can solve for
+                    the two species separately: (in + opposed)/2 is water, (in &minus; opposed)/2 is fat. That is
+                    two-point Dixon, and it is why an adrenal adenoma or a fatty liver darkens on the
+                    opposed-phase image.</li>
+                <li><b>Amount matters.</b> Set both amounts equal and the opposed-phase signal goes to zero: a voxel
+                    that is half fat and half water cancels completely. Make one species dominant and the dip becomes
+                    shallow. The India-ink outline around organs is this cancellation happening in the voxels that
+                    straddle a fat-water boundary.</li>
+                <li><b>Set &Delta;f to zero</b> and the beating stops: the sum is just A+B forever. Everything
+                    interesting here comes from the <em>difference</em> in frequency, not from the frequencies
+                    themselves, which is exactly why the rotating frame is a legitimate place to work.</li>
+            </ul>
+            <p><b>Try this in class:</b> switch between the 1.5&nbsp;T and 3&nbsp;T presets and watch the beat period
+                halve. Chemical shift in hertz scales with field strength, which is why chemical-shift artifacts get
+                worse, and Dixon echo times get shorter, as you go up in field.</p>
+        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="dephase_rephase_2.html">The same addition with many spins: the spin echo</a>
+                <a href="vector.html">One vector, full Bloch equation</a>
+                <a href="index.html">All spin demos</a>
+            </div>
+        </footer>
     </div>
 
     <script>
-        const canvas = document.getElementById('vectorCanvas');
-        const ctx = canvas.getContext('2d');
+        (function () {
+            'use strict';
 
-        const speedInput1 = document.getElementById('speedInput1');
-        const lengthInput1 = document.getElementById('lengthInput1');
-        const speedInput2 = document.getElementById('speedInput2');
-        const lengthInput2 = document.getElementById('lengthInput2');
+            var S = SpinLib;
+            S.wireThemeToggle();
 
-        let angle1 = 0;
-        let speed1 = 0.05;
-        let length1 = 100;
+            var t = 0;              // ms, wrapped to one display window
+            var path = [];
 
-        let angle2 = 0;
-        let speed2 = 0.03;
-        let length2 = 80;
+            var statusEl = document.getElementById('status');
+            function status(html) { statusEl.innerHTML = html; }
 
-        function drawVector(x, y, angle, length, color) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
+            var f1 = S.bind('f1', { fmt: function (v) { return v + ' Hz'; }, on: restart });
+            var f2 = S.bind('f2', { fmt: function (v) { return v + ' Hz'; }, on: restart });
+            var a1 = S.bind('a1', { scale: function (v) { return v / 100; },
+                                    fmt: function (v) { return (v * 100).toFixed(0) + '%'; }, on: restart });
+            var a2 = S.bind('a2', { scale: function (v) { return v / 100; },
+                                    fmt: function (v) { return (v * 100).toFixed(0) + '%'; }, on: restart });
+            var speed = S.bind('speed', { fmt: function (v) { return v + ' ms/s'; } });
+            var showTipToTail = S.bind('showTipToTail', {});
+            var showPath = S.bind('showPath', {});
 
-            ctx.strokeStyle = color;
-            ctx.fillStyle = color;
+            function df() { return f2.value - f1.value; }
 
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(length, 0);
-            ctx.stroke();
+            /* The window is chosen to show about three beats, whatever df is. */
+            function span() {
+                var d = Math.abs(df());
+                return d < 1 ? 20 : S.clamp(3000 / d, 1, 60);
+            }
 
-            ctx.beginPath();
-            ctx.moveTo(length, 0);
-            ctx.lineTo(length - 10, -5);
-            ctx.lineTo(length - 10, 5);
-            ctx.closePath();
-            ctx.fill();
+            function restart() {
+                t = 0;
+                path = [];
+                draw();
+            }
 
-            ctx.restore();
-        }
+            /* |sum| is a closed-form function of TE, so plot the whole curve at
+               once and run a marker along it rather than accumulating samples */
+            function beatCurve(sp) {
+                var pts = [];
+                var N = 420;
+                for (var i = 0; i <= N; i++) {
+                    var tt = sp * i / N;
+                    var q1 = 2 * Math.PI * f1.value * tt / 1000;
+                    var q2 = 2 * Math.PI * f2.value * tt / 1000;
+                    var x = a1.value * Math.cos(q1) + a2.value * Math.cos(q2);
+                    var y = a1.value * Math.sin(q1) + a2.value * Math.sin(q2);
+                    pts.push([tt, Math.hypot(x, y)]);
+                }
+                return pts;
+            }
 
-        function calculateSumVector(x1, y1, x2, y2) {
-            return {
-                x: x1 + x2,
-                y: y1 + y2
-            };
-        }
+            function phases() {
+                return {
+                    p1: 2 * Math.PI * f1.value * t / 1000,
+                    p2: 2 * Math.PI * f2.value * t / 1000
+                };
+            }
 
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            function sum() {
+                var p = phases();
+                var x = a1.value * Math.cos(p.p1) + a2.value * Math.cos(p.p2);
+                var y = a1.value * Math.sin(p.p1) + a2.value * Math.sin(p.p2);
+                return { x: x, y: y, mag: Math.hypot(x, y) };
+            }
 
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
+            /* ------------------------------------------------ drawing */
 
-            // Calculate end points of vectors
-            const x1 = length1 * Math.cos(angle1);
-            const y1 = length1 * Math.sin(angle1);
-            const x2 = length2 * Math.cos(angle2);
-            const y2 = length2 * Math.sin(angle2);
+            var vDial = S.fitCanvas(document.getElementById('dial'), 0.92);
+            var vTrace = S.fitCanvas(document.getElementById('trace'), 0.92);
 
-            // Draw Vector 1
-            drawVector(centerX, centerY, angle1, length1, 'red');
+            function drawDial() {
+                var ctx = vDial.ctx, w = vDial.w, h = vDial.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var cx = w / 2, cy = h / 2;
+                var total = Math.max(0.001, a1.value + a2.value);
+                var R = Math.min(w, h) * 0.40 / Math.max(1, total);
 
-            // Draw Vector 2
-            drawVector(centerX, centerY, angle2, length2, 'blue');
+                var p = phases();
+                var ax = a1.value * Math.cos(p.p1), ay = a1.value * Math.sin(p.p1);
+                var bx = a2.value * Math.cos(p.p2), by = a2.value * Math.sin(p.p2);
 
-            // Calculate and draw sum vector
-            const sumVector = calculateSumVector(x1, y1, x2, y2);
-            const sumLength = Math.sqrt(sumVector.x * sumVector.x + sumVector.y * sumVector.y);
-            const sumAngle = Math.atan2(sumVector.y, sumVector.x);
-            drawVector(centerX, centerY, sumAngle, sumLength, 'green');
+                /* the circle the sum can never leave */
+                ctx.save();
+                ctx.strokeStyle = th.border;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(cx, cy, R * total, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
 
-            angle1 += speed1;
-            angle2 += speed2;
+                ctx.save();
+                ctx.strokeStyle = th.grid;
+                ctx.beginPath();
+                ctx.moveTo(cx - R * total, cy);
+                ctx.lineTo(cx + R * total, cy);
+                ctx.moveTo(cx, cy - R * total);
+                ctx.lineTo(cx, cy + R * total);
+                ctx.stroke();
+                ctx.restore();
 
-            requestAnimationFrame(animate);
-        }
+                if (showPath.value && path.length > 1) {
+                    ctx.save();
+                    ctx.strokeStyle = th.net;
+                    ctx.lineWidth = 1.2;
+                    ctx.globalAlpha = 0.3;
+                    ctx.beginPath();
+                    for (var i = 0; i < path.length; i++) {
+                        var px = cx + R * path[i][0], py = cy - R * path[i][1];
+                        if (i === 0) { ctx.moveTo(px, py); } else { ctx.lineTo(px, py); }
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
 
-        speedInput1.addEventListener('input', (e) => {
-            speed1 = e.target.value * 0.01;
-        });
+                /* both species from the common origin */
+                S.arrow2(ctx, cx, cy, cx + R * ax, cy - R * ay, { color: th.mz, width: 2.6, head: 10 });
+                S.arrow2(ctx, cx, cy, cx + R * bx, cy - R * by, { color: th.b1, width: 2.6, head: 10, alpha: 0.85 });
 
-        lengthInput1.addEventListener('input', (e) => {
-            length1 = parseInt(e.target.value);
-        });
+                /* B again, from the tip of A, closing the triangle */
+                if (showTipToTail.value) {
+                    S.arrow2(ctx, cx + R * ax, cy - R * ay, cx + R * (ax + bx), cy - R * (ay + by),
+                        { color: th.b1, width: 1.8, head: 8, dash: [5, 4], alpha: 0.75 });
+                }
 
-        speedInput2.addEventListener('input', (e) => {
-            speed2 = e.target.value * 0.01;
-        });
+                var sx = cx + R * (ax + bx), sy = cy - R * (ay + by);
+                S.arrow2(ctx, cx, cy, sx, sy, { color: th.canvasBg, width: 7, head: 15 });
+                S.arrow2(ctx, cx, cy, sx, sy, { color: th.net, width: 3.4, head: 12 });
 
-        lengthInput2.addEventListener('input', (e) => {
-            length2 = parseInt(e.target.value);
-        });
+                ctx.fillStyle = th.muted;
+                ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText("x'", cx + R * total + 5, cy);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText("y'", cx, cy - R * total - 4);
+            }
 
-        animate();
+            function drawTrace() {
+                var ctx = vTrace.ctx, w = vTrace.w, h = vTrace.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var box = { x: 44, y: 14, w: w - 58, h: h - 40 };
+                var sp = span();
+                var hi = a1.value + a2.value;
+                var lo = Math.abs(a1.value - a2.value);
+                var d = Math.abs(df());
+
+                var marks = [];
+                if (d > 1) {
+                    var opp = 1000 / (2 * d), inp = 1000 / d, k = 1;
+                    while (opp * (2 * k - 1) < sp) {
+                        marks.push({ x: opp * (2 * k - 1), color: th.b1, label: k === 1 ? 'opp' : '' });
+                        k++;
+                    }
+                    k = 1;
+                    while (inp * k < sp) {
+                        marks.push({ x: inp * k, color: th.mz, label: k === 1 ? 'in' : '' });
+                        k++;
+                    }
+                }
+
+                S.plot(ctx, box, {
+                    xmin: 0, xmax: sp, ymin: 0, ymax: Math.max(0.05, hi * 1.12),
+                    marks: marks,
+                    series: [
+                        { pts: [[0, hi], [sp, hi]], color: th.env, width: 1.2, dash: [4, 4] },
+                        { pts: [[0, lo], [sp, lo]], color: th.env, width: 1.2, dash: [4, 4] },
+                        { pts: beatCurve(sp), color: th.mxy, width: 2.4 }
+                    ],
+                    points: [{ pts: [[t, sum().mag]], color: th.net, r: 5 }],
+                    xlabel: 'TE (ms)',
+                    ylabel: '|sum|'
+                });
+            }
+
+            var rDf = document.getElementById('rDf');
+            var rPhase = document.getElementById('rPhase');
+            var rMag = document.getElementById('rMag');
+            var rOpp = document.getElementById('rOpp');
+            var rIn = document.getElementById('rIn');
+            var rT = document.getElementById('rT');
+
+            function draw() {
+                drawDial();
+                drawTrace();
+                var d = Math.abs(df());
+                var p = phases();
+                var dp = ((p.p2 - p.p1) * 180 / Math.PI) % 360;
+                if (dp < 0) { dp += 360; }
+                rDf.textContent = S.fmt(d, 0) + ' Hz';
+                rPhase.textContent = S.fmt(dp, 0) + '°';
+                rMag.textContent = S.fmt(sum().mag, 3);
+                rOpp.textContent = d > 1 ? S.fmt(1000 / (2 * d), 2) + ' ms' : '--';
+                rIn.textContent = d > 1 ? S.fmt(1000 / d, 2) + ' ms' : '--';
+                rT.textContent = S.fmt(t, 2) + ' ms';
+            }
+
+            /* ------------------------------------------------ loop */
+
+            var loop = new S.Loop(function (dt) {
+                var simMs = dt * speed.value;
+                var steps = Math.max(1, Math.ceil(simMs * Math.max(Math.abs(f1.value), Math.abs(f2.value)) / 8000));
+                for (var i = 0; i < steps; i++) {
+                    t += simMs / steps;
+                    var s = sum();
+                    path.push([s.x, s.y]);
+                    if (path.length > 900) { path.shift(); }
+                }
+                /* wrap the clock so the marker laps the beat curve */
+                var sp = span();
+                if (t > sp) { t -= sp; }
+                draw();
+            });
+
+            var playBtn = document.getElementById('playBtn');
+            playBtn.addEventListener('click', function () {
+                playBtn.textContent = loop.toggle() ? 'Pause' : 'Play';
+            });
+
+            function preset(f2v, a1v, a2v, msg) {
+                f2.set(f2v);
+                f1.set(0);
+                a1.set(a1v);
+                a2.set(a2v);
+                status(msg);
+                restart();
+            }
+
+            S.on('p15', function () {
+                preset(-217, 70, 30, 'Fat and water at 1.5 T: &Delta;f = 217 Hz, so the beat period is 4.6 ms.');
+            });
+            S.on('p3', function () {
+                preset(-434, 70, 30, 'Fat and water at 3 T: &Delta;f = 434 Hz, so the beat period halves to 2.3 ms.');
+            });
+            S.on('pEq', function () {
+                preset(f2.value, 50, 50, 'Equal amounts: at the opposed-phase echo the voxel cancels to zero. ' +
+                    'This is the India-ink edge around fat-water boundaries.');
+            });
+            S.on('resetBtn', restart);
+
+            window.addEventListener('spins:theme', draw);
+
+            restart();
+            loop.start();
+        }());
     </script>
 </body>
+
 </html>
