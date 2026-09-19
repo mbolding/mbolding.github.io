@@ -1,118 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+    <title>Thermal Equilibrium: Random Phase</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js 3x3 Array of Independently Rotating Spheres with Sum Vector</title>
-    <style>
-        body { margin: 0; }
-        canvas { display: block; }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script src="spin-ensemble.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Equilibrium &middot; polarisation &middot; silence</p>
+            <h1>Thermal Equilibrium &amp; Random Phase</h1>
+            <p class="subtitle">Every moment is precessing. The sample is fully magnetised. And the receive coil detects nothing at all, until you do something about it.</p>
+        </header>
+
+        <div id="app"></div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>Students reliably expect a magnet full of precessing protons to produce a signal. It does not, and
+                this figure shows why. Each moment sits on a cone about B<sub>0</sub> with a random azimuth. Sum
+                them: the transverse components cancel term by term, and all that survives is the small longitudinal
+                excess that makes the sample magnetised in the first place.</p>
+            <ul>
+                <li><b>Magnetisation is not signal.</b> M<sub>z</sub> is a constant vector along B<sub>0</sub>.
+                    Faraday's law asks for a <em>changing</em> flux, so a constant M<sub>z</sub> induces no voltage
+                    no matter how large it is.</li>
+                <li><b>Excitation creates phase coherence.</b> Apply the 90&deg; pulse. The pulse acts on every
+                    moment at once and with the same phase, which is what converts a random fan into an ordered one.
+                    Only then does the sum have a transverse component to detect.</li>
+                <li><b>The cone is a cartoon.</b> A single proton is a quantum object and does not really sit at a
+                    fixed angle on a classical cone. What is rigorously true is the behaviour of the <em>net</em>
+                    vector, which follows the Bloch equations exactly. Use the cone to build intuition, then trust
+                    the sum.</li>
+            </ul>
+            <p><b>Try this in class:</b> before pressing anything, ask the room to predict the reading in
+                &ldquo;|M<sub>xy</sub>| of sum&rdquo;. It hovers near zero and gets closer to zero the more spins you
+                add, because the cancellation is statistical: the residue falls off like 1/&radic;N.</p>        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="spheres_n_arrows_same.html">The coherent case for contrast</a>
+                <a href="spheres_n_arrows.html">Full ensemble controls</a>
+                <a href="vector.html">What the net vector does next</a>
+            </div>
+        </footer>
+    </div>
+
     <script>
-        // Set up the scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        // Array to store all sphere-arrow groups
-        const sphereGroups = [];
-
-        // Function to create a sphere with an arrow
-        function createSphereWithArrow(x, y, z) {
-            const group = new THREE.Group();
-
-            // Create a sphere
-            const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-            const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x3399ff });
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            group.add(sphere);
-
-            // Create an arrow
-            const arrowDirection = new THREE.Vector3(1, 0, 0);
-            const arrowOrigin = new THREE.Vector3(-1.5, 0, 0);
-            const arrowLength = 3;
-            const arrowColor = 0xff0000;
-            const arrowHelper = new THREE.ArrowHelper(arrowDirection, arrowOrigin, arrowLength, arrowColor, 0.3, 0.2);
-            group.add(arrowHelper);
-
-            group.position.set(x, y, z);
-            // Add random rotation speeds
-            group.userData = {
-                rotationSpeed: {
-                    x: Math.random() * 0.02 - 0.01,
-                    y: Math.random() * 0.02 - 0.01,
-                    z: Math.random() * 0.02 - 0.01
-                }
-            };
-            return group;
-        }
-
-        // Create a 3x3 array of spheres with arrows
-        for (let i = -1; i <= 1; i++) {
-            for (let j = -1; j <= 1; j++) {
-                const sphereWithArrow = createSphereWithArrow(i * 2.5, j * 2.5, 0);
-                scene.add(sphereWithArrow);
-                sphereGroups.push(sphereWithArrow);
-            }
-        }
-
-        // Create the sum vector
-        const sumVectorOrigin = new THREE.Vector3(0, 0, 0);
-        const sumVectorDirection = new THREE.Vector3(1, 0, 0);
-        const sumVectorLength = 5;
-        const sumVectorColor = 0x00ff00;
-        const sumVectorArrow = new THREE.ArrowHelper(sumVectorDirection, sumVectorOrigin, sumVectorLength, sumVectorColor, 0.5, 0.3);
-        scene.add(sumVectorArrow);
-
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        scene.add(ambientLight);
-
-        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-        pointLight.position.set(5, 5, 5);
-        scene.add(pointLight);
-
-        camera.position.z = 12;
-
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Rotate each sphere-arrow group independently
-            sphereGroups.forEach((group) => {
-                group.rotation.x += group.userData.rotationSpeed.x;
-                group.rotation.y += group.userData.rotationSpeed.y;
-                group.rotation.z += group.userData.rotationSpeed.z;
-            });
-
-            // Update the sum vector
-            const sumVector = new THREE.Vector3(0, 0, 0);
-            sphereGroups.forEach((group) => {
-                const arrowDirection = new THREE.Vector3(1, 0, 0);
-                arrowDirection.applyQuaternion(group.quaternion);
-                sumVector.add(arrowDirection);
-            });
-            sumVector.normalize();
-            sumVectorArrow.setDirection(sumVector);
-
-            renderer.render(scene, camera);
-        }
-
-        animate();
-
-        // Handle window resizing
-        window.addEventListener('resize', onWindowResize, false);
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        SpinLib.wireThemeToggle();
+        SpinEnsemble.mount('#app', {
+            mode: 'equilibrium',
+            controls: ['n', 'cone', 'speed'],
+            buttons: ['play', 'p90', 'reset'],
+            values: { n: 5, cone: 54, speed: 200 },
+            showTrace: true
+        });
     </script>
 </body>
+
 </html>

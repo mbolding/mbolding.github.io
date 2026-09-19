@@ -1,183 +1,458 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magnetic Spins: Dephasing and Rephasing (Grid)</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-        }
-        canvas {
-            border: 1px solid #000;
-            background-color: #fff;
-        }
-        button {
-            margin: 10px;
-            padding: 5px 10px;
-            font-size: 16px;
-        }
-    </style>
+    <title>The Spin Echo: Phase Fan &amp; Echo Trains</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <h1>Magnetic Spins: Dephasing and Rephasing</h1>
-    <canvas id="spinCanvas" width="400" height="400"></canvas>
-    <div>
-        <button id="dephaseBtn">Dephase</button>
-        <button id="rephaseBtn">Rephase</button>
-        <button id="reverseTimeBtn">Reverse Time</button>
-        <button id="toggleSumVectorBtn">Toggle Sum Vector</button>
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Spin echo &middot; CPMG &middot; measuring T2</p>
+            <h1>The Spin Echo &amp; Echo Trains</h1>
+            <p class="subtitle">The phase fan opens, a 180&deg; pulse mirrors it, and the fan closes again. Repeat the
+                refocusing and the echo peaks trace out T<sub>2</sub> itself.</p>
+        </header>
+
+        <div class="status" id="status">Ready.</div>
+
+        <div class="toolbar">
+            <button type="button" id="playBtn" class="primary">Pause</button>
+            <button type="button" id="echoBtn">Single spin echo</button>
+            <button type="button" id="trainBtn">Run the echo train</button>
+            <button type="button" id="fidBtn">FID only (no refocusing)</button>
+            <span class="sep"></span>
+            <button type="button" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="figs two-even">
+            <div class="fig">
+                <canvas id="fan" aria-label="Isochromat phases drawn from a common origin"></canvas>
+                <p class="cap">Each thin arrow is one isochromat: a group of spins sharing a Larmor frequency. The
+                    thick red arrow is their sum.</p>
+            </div>
+            <div class="fig">
+                <canvas id="trace" aria-label="Signal against time showing the echo train"></canvas>
+                <div class="legend">
+                    <span><i style="background:var(--c-mxy)"></i>|signal|</span>
+                    <span><i style="background:var(--c-env)"></i>T<sub>2</sub> envelope</span>
+                    <span><i style="background:var(--c-net)"></i>echo peaks</span>
+                </div>
+                <p class="cap">Every echo peak lands on the T<sub>2</sub> curve. Fitting those peaks is how a
+                    multi-echo sequence measures T<sub>2</sub>.</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Sequence and tissue</h3>
+            <div class="controls">
+                <div class="control">
+                    <label for="te"><span>Echo spacing TE</span> <b id="teVal"></b></label>
+                    <input type="range" id="te" min="80" max="600" step="10" value="240">
+                    <span class="hint">The first 180&deg; comes at TE/2; echoes form at TE, 2TE, 3TE &hellip;</span>
+                </div>
+                <div class="control">
+                    <label for="nEcho"><span>Echoes in the train</span> <b id="nEchoVal"></b></label>
+                    <input type="range" id="nEcho" min="1" max="8" step="1" value="5">
+                    <span class="hint">A CPMG train: one excitation, many refocusing pulses.</span>
+                </div>
+                <div class="control">
+                    <label for="spread"><span>Field inhomogeneity</span> <b id="spreadVal"></b></label>
+                    <input type="range" id="spread" min="0" max="20" step="0.5" value="4">
+                    <span class="hint">Sets T<sub>2</sub>*: how fast the fan opens between echoes.</span>
+                </div>
+                <div class="control">
+                    <label for="t2"><span>T<sub>2</sub></span> <b id="t2Val"></b></label>
+                    <input type="range" id="t2" min="100" max="2000" step="25" value="800">
+                    <span class="hint">The true decay the echo peaks are chasing.</span>
+                </div>
+                <div class="control">
+                    <label for="nIso"><span>Isochromats</span> <b id="nIsoVal"></b></label>
+                    <input type="range" id="nIso" min="8" max="120" step="4" value="48">
+                    <span class="hint">More isochromats give a smoother, more realistic decay.</span>
+                </div>
+                <div class="control">
+                    <label for="speed"><span>Playback speed</span> <b id="speedVal"></b></label>
+                    <input type="range" id="speed" min="20" max="800" step="10" value="200">
+                    <span class="hint">Simulated milliseconds per second.</span>
+                </div>
+            </div>
+            <div class="checkrow" style="margin-top:16px">
+                <label><input type="checkbox" id="showFan" checked> <span>Show individual isochromats</span></label>
+                <label><input type="checkbox" id="showTrail" checked> <span>Trail of the sum</span></label>
+            </div>
+            <div class="readouts">
+                <div class="readout"><span>|signal|</span><b id="rSig">0.000</b></div>
+                <div class="readout"><span>echoes so far</span><b id="rN">0</b></div>
+                <div class="readout"><span>last echo</span><b id="rLast">--</b></div>
+                <div class="readout"><span>predicted e<sup>&minus;TE/T2</sup></span><b id="rPred">--</b></div>
+                <div class="readout"><span>t</span><b id="rT">0 ms</b></div>
+            </div>
+        </div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>This is the figure to draw on the board when someone asks why we bother with a 180&deg; pulse. The fan
+                on the left is the whole argument: dephasing is <em>ordering</em>, not loss, and order can be
+                reversed.</p>
+            <p class="eq">1/T2* = 1/T2 + &gamma;&Delta;B<sub>0</sub> &nbsp;&nbsp;&rarr;&nbsp;&nbsp; echo(n&middot;TE) = M<sub>0</sub> e<sup>&minus;n&middot;TE/T2</sup></p>
+            <ul>
+                <li><b>Run the train and watch the peaks, not the wiggles.</b> The signal between echoes is
+                    T<sub>2</sub>*-limited and tells you mostly about your shim. The peaks are T<sub>2</sub>-limited
+                    and tell you about the tissue. A multi-echo sequence fits an exponential through those red dots,
+                    which is exactly how a T<sub>2</sub> map is made.</li>
+                <li><b>Press FID only.</b> With no refocusing you see the raw T<sub>2</sub>* decay, and the signal is
+                    gone long before T<sub>2</sub> has run its course. The gap between that curve and the dashed
+                    envelope is what the 180&deg; pulses buy back.</li>
+                <li><b>The inhomogeneity slider does not move the peaks.</b> Push it to 20 Hz: the fan opens faster,
+                    the signal between echoes vanishes sooner, and the echo peaks stay exactly where they were.
+                    That independence is the entire point of the spin echo, and it is why spin-echo T<sub>2</sub>
+                    values are reproducible across scanners while T<sub>2</sub>* values are not.</li>
+                <li><b>Why TE controls contrast.</b> Set T<sub>2</sub> to 300 ms and then 1500 ms, and compare the
+                    height of the last echo. Long-T<sub>2</sub> tissue such as CSF still has signal at a long TE
+                    while short-T<sub>2</sub> tissue has none. That difference is T<sub>2</sub> weighting.</li>
+            </ul>
+            <p><b>Careful with the cartoon:</b> the isochromats here keep a constant frequency, so refocusing is
+                perfect. Real spins diffuse between regions of different field and molecular tumbling randomises
+                their phase. That randomness is precisely T<sub>2</sub>, and it is what stops the echo train from
+                going on forever.</p>
+        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="dephase_rephase.html">Where the dephasing comes from: the field map</a>
+                <a href="spheres_n_arrows_2.html">The same echo in three dimensions</a>
+                <a href="spinning_vector_sum.html">Adding rotating vectors by hand</a>
+            </div>
+        </footer>
     </div>
+
     <script>
-        const canvas = document.getElementById('spinCanvas');
-        const ctx = canvas.getContext('2d');
-        const dephaseBtn = document.getElementById('dephaseBtn');
-        const rephaseBtn = document.getElementById('rephaseBtn');
-        const reverseTimeBtn = document.getElementById('reverseTimeBtn');
-        const toggleSumVectorBtn = document.getElementById('toggleSumVectorBtn');
+        (function () {
+            'use strict';
 
-        const gridSize = 8; // 8x8 grid
-        const cellSize = 40;
-        const spinLength = 15;
-        const margin = (canvas.width - gridSize * cellSize) / 2;
+            var S = SpinLib;
+            S.wireThemeToggle();
 
-        let spins = [];
-        let timeDirection = 1; // 1 for forward, -1 for backward
-        let isAnimating = false;
-        let animationId;
-        let showSumVector = false;
+            var iso = [];           // {w, phase, mag}
+            var t = 0;
+            var excited = false;
+            var schedule = [];      // upcoming 180 degree pulse times
+            var echoTimes = [];     // upcoming echo sample times
+            var peaks = [];         // [t, amplitude] measured at each echo
+            var marks = [];
+            var sig = new S.Trace(6000);
+            var env = new S.Trace(6000);
+            var trail = [];
+            var span = 1600;        // ms shown on the x axis
 
-        function initializeSpins() {
-            spins = [];
-            for (let row = 0; row < gridSize; row++) {
-                for (let col = 0; col < gridSize; col++) {
-                    spins.push({
-                        angle: 0,
-                        x: margin + col * cellSize + cellSize / 2,
-                        y: margin + row * cellSize + cellSize / 2,
-                        dephaseSpeed: Math.random() * 0.1 - 0.05
-                    });
+            var statusEl = document.getElementById('status');
+            function status(html) { statusEl.innerHTML = html; }
+
+            var te = S.bind('te', { fmt: function (v) { return v + ' ms'; } });
+            var nEcho = S.bind('nEcho', { fmt: function (v) { return String(v); } });
+            var spread = S.bind('spread', { fmt: function (v) { return '±' + v.toFixed(1) + ' Hz'; } });
+            var t2 = S.bind('t2', { fmt: function (v) { return v + ' ms'; } });
+            var nIso = S.bind('nIso', { fmt: function (v) { return String(v); }, on: seed });
+            var speed = S.bind('speed', { fmt: function (v) { return v + ' ms/s'; } });
+            var showFan = S.bind('showFan', {});
+            var showTrail = S.bind('showTrail', {});
+
+            /* ------------------------------------------------ setup */
+
+            function seed() {
+                var n = Math.round(nIso.value);
+                iso = [];
+                for (var k = 0; k < n; k++) {
+                    /* evenly spaced weights give a clean, reproducible fan; a
+                       touch of jitter stops the sinc lobes from being perfect */
+                    var base = n > 1 ? (2 * k / (n - 1) - 1) : 0;
+                    iso.push({ w: S.clamp(base + 0.08 * S.gauss(), -1.15, 1.15), phase: 0, mag: 0 });
+                }
+                reset();
+            }
+
+            function reset() {
+                t = 0;
+                excited = false;
+                schedule = [];
+                echoTimes = [];
+                peaks = [];
+                marks = [];
+                trail = [];
+                sig.clear();
+                env.clear();
+                for (var k = 0; k < iso.length; k++) {
+                    iso[k].phase = 0;
+                    iso[k].mag = 0;
+                }
+                status('Ready. Choose a single echo, a full train, or an unrefocused FID.');
+                draw();
+            }
+
+            function excite() {
+                reset();
+                excited = true;
+                for (var k = 0; k < iso.length; k++) {
+                    iso[k].phase = 0;
+                    iso[k].mag = 1;
+                }
+                marks.push({ x: 0, color: S.theme().b1, label: '90' });
+                play(true);
+            }
+
+            function planTrain(count) {
+                var TE = te.value;
+                schedule = [];
+                echoTimes = [];
+                for (var k = 0; k < count; k++) {
+                    schedule.push(TE / 2 + k * TE);
+                    echoTimes.push((k + 1) * TE);
+                }
+                span = Math.max(600, (count + 0.6) * TE);
+            }
+
+            /* ------------------------------------------------ evolution */
+
+            function stepPhysics(dtMs) {
+                if (!excited) { return; }
+                var decay = Math.exp(-dtMs / t2.value);
+                for (var k = 0; k < iso.length; k++) {
+                    var c = iso[k];
+                    c.phase += 2 * Math.PI * spread.value * c.w * dtMs / 1000;
+                    c.mag *= decay;
+                }
+                t += dtMs;
+
+                while (schedule.length && t >= schedule[0]) {
+                    var at = schedule.shift();
+                    for (var j = 0; j < iso.length; j++) { iso[j].phase = -iso[j].phase; }
+                    marks.push({ x: at, color: S.theme().b1, label: '180' });
+                }
+
+                var s = sumVector();
+
+                while (echoTimes.length && t >= echoTimes[0]) {
+                    var et = echoTimes.shift();
+                    peaks.push([et, s.mag]);
+                }
+
+                sig.push(t, s.mag);
+                env.push(t, Math.exp(-t / t2.value));
+
+                if (showTrail.value) {
+                    trail.push([s.x, s.y]);
+                    if (trail.length > 400) { trail.shift(); }
                 }
             }
-        }
 
-        function drawSpins() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw grid
-            ctx.strokeStyle = '#ddd';
-            for (let i = 0; i <= gridSize; i++) {
-                ctx.beginPath();
-                ctx.moveTo(margin + i * cellSize, margin);
-                ctx.lineTo(margin + i * cellSize, canvas.height - margin);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(margin, margin + i * cellSize);
-                ctx.lineTo(canvas.width - margin, margin + i * cellSize);
-                ctx.stroke();
+            function sumVector() {
+                var x = 0, y = 0;
+                for (var k = 0; k < iso.length; k++) {
+                    x += iso[k].mag * Math.cos(iso[k].phase);
+                    y += iso[k].mag * Math.sin(iso[k].phase);
+                }
+                var n = iso.length || 1;
+                x /= n;
+                y /= n;
+                return { x: x, y: y, mag: Math.hypot(x, y), ang: Math.atan2(y, x) };
             }
 
-            // Draw spins
-            ctx.strokeStyle = '#000';
-            spins.forEach(spin => {
-                const endX = spin.x + spinLength * Math.cos(spin.angle);
-                const endY = spin.y + spinLength * Math.sin(spin.angle);
+            /* ------------------------------------------------ drawing */
+
+            var vFan = S.fitCanvas(document.getElementById('fan'), 0.95);
+            var vTrace = S.fitCanvas(document.getElementById('trace'), 0.78);
+
+            function drawFan() {
+                var ctx = vFan.ctx, w = vFan.w, h = vFan.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var cx = w / 2, cy = h / 2;
+                var r = Math.min(w, h) * 0.40;
+
+                ctx.save();
+                ctx.strokeStyle = th.border;
+                ctx.setLineDash([4, 4]);
                 ctx.beginPath();
-                ctx.moveTo(spin.x, spin.y);
-                ctx.lineTo(endX, endY);
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
                 ctx.stroke();
-            });
+                ctx.restore();
 
-            // Draw sum vector if enabled
-            if (showSumVector) {
-                drawSumVector();
+                ctx.save();
+                ctx.strokeStyle = th.grid;
+                ctx.beginPath();
+                ctx.moveTo(cx - r, cy);
+                ctx.lineTo(cx + r, cy);
+                ctx.moveTo(cx, cy - r);
+                ctx.lineTo(cx, cy + r);
+                ctx.stroke();
+                ctx.restore();
+
+                /* how long the individual arrows can possibly be right now:
+                   their length is set by T2, their spread by T2* */
+                if (excited) {
+                    var rEnv = r * Math.exp(-t / t2.value);
+                    ctx.save();
+                    ctx.strokeStyle = th.env;
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, rEnv, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = th.env;
+                    ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText('T2 envelope', cx, cy + rEnv + 4);
+                    ctx.restore();
+                }
+
+                if (showFan.value) {
+                    for (var k = 0; k < iso.length; k++) {
+                        var c = iso[k];
+                        if (c.mag <= 0.004) { continue; }
+                        S.arrow2(ctx, cx, cy,
+                            cx + r * c.mag * Math.cos(c.phase), cy - r * c.mag * Math.sin(c.phase),
+                            { color: S.phaseColor(c.phase), width: 1.3, head: 5, alpha: 0.42 });
+                    }
+                }
+
+                if (showTrail.value && trail.length > 1) {
+                    ctx.save();
+                    ctx.lineWidth = 1.4;
+                    ctx.strokeStyle = th.net;
+                    for (var i = 1; i < trail.length; i++) {
+                        ctx.globalAlpha = 0.05 + 0.35 * (i / trail.length);
+                        ctx.beginPath();
+                        ctx.moveTo(cx + r * trail[i - 1][0], cy - r * trail[i - 1][1]);
+                        ctx.lineTo(cx + r * trail[i][0], cy - r * trail[i][1]);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                var s = sumVector();
+                var ex = cx + r * s.mag * Math.cos(s.ang);
+                var ey = cy - r * s.mag * Math.sin(s.ang);
+                S.arrow2(ctx, cx, cy, ex, ey, { color: th.canvasBg, width: 7, head: 15 });
+                S.arrow2(ctx, cx, cy, ex, ey, { color: th.net, width: 3.4, head: 11 });
+
+                ctx.fillStyle = th.muted;
+                ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText("x'", cx + r + 5, cy);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText("y'", cx, cy - r - 4);
             }
-        }
 
-        function drawSumVector() {
-            let sumX = 0;
-            let sumY = 0;
-            spins.forEach(spin => {
-                sumX += Math.cos(spin.angle);
-                sumY += Math.sin(spin.angle);
-            });
-
-            const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
-            const maxMagnitude = spins.length; // Maximum possible magnitude
-            const scaleFactor = 100; // Scale factor for better visibility
-
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const vectorLength = (magnitude / maxMagnitude) * scaleFactor;
-
-            ctx.strokeStyle = '#FF0000';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(centerX + sumX * vectorLength / magnitude, centerY + sumY * vectorLength / magnitude);
-            ctx.stroke();
-            ctx.lineWidth = 1;
-        }
-
-        function animate() {
-            if (isAnimating) {
-                spins.forEach(spin => {
-                    spin.angle += spin.dephaseSpeed * timeDirection;
+            function drawTrace() {
+                var ctx = vTrace.ctx, w = vTrace.w, h = vTrace.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var box = { x: 38, y: 14, w: w - 52, h: h - 40 };
+                S.plot(ctx, box, {
+                    xmin: 0, xmax: span, ymin: 0, ymax: 1.06,
+                    yTicks: [0.25, 0.5, 0.75, 1],
+                    marks: marks,
+                    series: [
+                        { pts: env.pts, color: th.env, width: 1.5, dash: [5, 4] },
+                        { pts: sig.pts, color: th.mxy, width: 2.2 }
+                    ],
+                    points: [{ pts: peaks, color: th.net, r: 4 }],
+                    xlabel: 'ms since 90°',
+                    ylabel: '|signal|'
                 });
-                drawSpins();
-                animationId = requestAnimationFrame(animate);
             }
-        }
 
-        function startAnimation() {
-            if (!isAnimating) {
-                isAnimating = true;
-                animate();
+            var rSig = document.getElementById('rSig');
+            var rN = document.getElementById('rN');
+            var rLast = document.getElementById('rLast');
+            var rPred = document.getElementById('rPred');
+            var rT = document.getElementById('rT');
+
+            function draw() {
+                drawFan();
+                drawTrace();
+                var s = sumVector();
+                rSig.textContent = S.fmt(s.mag, 3);
+                rN.textContent = String(peaks.length);
+                if (peaks.length) {
+                    var last = peaks[peaks.length - 1];
+                    rLast.textContent = S.fmt(last[1], 3);
+                    rPred.textContent = S.fmt(Math.exp(-last[0] / t2.value), 3);
+                } else {
+                    rLast.textContent = '--';
+                    rPred.textContent = '--';
+                }
+                rT.textContent = S.fmt(t, 0) + ' ms';
             }
-        }
 
-        function stopAnimation() {
-            isAnimating = false;
-            cancelAnimationFrame(animationId);
-        }
+            /* ------------------------------------------------ loop */
 
-        function dephase() {
-            timeDirection = 1;
-            startAnimation();
-            setTimeout(stopAnimation, 3000);
-        }
-
-        function rephase() {
-            spins.forEach(spin => {
-                spin.angle = 0;
+            var loop = new S.Loop(function (dt) {
+                var simMs = dt * speed.value;
+                var steps = Math.max(1, Math.ceil(simMs / 3));
+                for (var i = 0; i < steps; i++) { stepPhysics(simMs / steps); }
+                draw();
             });
-            drawSpins();
-            stopAnimation();
-        }
 
-        function reverseTime() {
-            timeDirection *= -1;
-            if (!isAnimating) {
-                startAnimation();
+            var playBtn = document.getElementById('playBtn');
+            function play(on) {
+                if (on) { loop.start(); } else { loop.stop(); }
+                playBtn.textContent = loop.running ? 'Pause' : 'Play';
             }
-        }
+            playBtn.addEventListener('click', function () { play(!loop.running); });
 
-        function toggleSumVector() {
-            showSumVector = !showSumVector;
-            drawSpins();
-        }
+            S.on('echoBtn', function () {
+                excite();
+                planTrain(1);
+                status('One 180&deg; at TE/2 = ' + (te.value / 2) + ' ms. The echo peaks at TE = ' +
+                    te.value + ' ms, on the T<sub>2</sub> curve.');
+            });
 
-        dephaseBtn.addEventListener('click', dephase);
-        rephaseBtn.addEventListener('click', rephase);
-        reverseTimeBtn.addEventListener('click', reverseTime);
-        toggleSumVectorBtn.addEventListener('click', toggleSumVector);
+            S.on('trainBtn', function () {
+                excite();
+                planTrain(Math.round(nEcho.value));
+                status('CPMG train: ' + Math.round(nEcho.value) + ' refocusing pulses. Watch the red peaks, ' +
+                    'not the signal in between.');
+            });
 
-        initializeSpins();
-        drawSpins();
+            S.on('fidBtn', function () {
+                excite();
+                schedule = [];
+                echoTimes = [];
+                span = Math.max(600, (Math.round(nEcho.value) + 0.6) * te.value);
+                status('No refocusing: this is the bare FID, decaying at T<sub>2</sub>* while the dashed ' +
+                    'T<sub>2</sub> envelope carries on without it.');
+            });
+
+            S.on('resetBtn', reset);
+
+            document.getElementById('showTrail').addEventListener('change', function () {
+                trail = [];
+            });
+
+            window.addEventListener('spins:theme', draw);
+
+            seed();
+            excite();
+            planTrain(Math.round(nEcho.value));
+            status('CPMG train running. Every echo peak lands on the dashed T<sub>2</sub> curve.');
+        }());
     </script>
 </body>
+
 </html>

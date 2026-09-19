@@ -1,145 +1,418 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magnetic Domain Simulator</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
-        .container {
-            text-align: center;
-        }
-        canvas {
-            border: 1px solid #000;
-            background-color: #fff;
-        }
-        .controls {
-            margin-top: 20px;
-        }
-        .slider {
-            width: 200px;
-            margin: 10px 0;
-        }
-    </style>
+    <title>Magnetic Domains, Susceptibility &amp; Hysteresis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <div class="container">
-        <h1>Magnetic Domain Simulator</h1>
-        <canvas id="canvas" width="400" height="400"></canvas>
-        <div class="controls">
-            <div>
-                <label for="domainSize">Domain Size:</label>
-                <input type="range" id="domainSize" class="slider" min="5" max="50" value="20">
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Magnetism of materials &middot; susceptibility &middot; MR safety</p>
+            <h1>Magnetic Domains &amp; Hysteresis</h1>
+            <p class="subtitle">Why a paperclip is a projectile and a titanium screw is not. An Ising lattice of
+                coupled moments, an applied field, and the memory that separates ferromagnets from everything else in
+                the scanner room.</p>
+        </header>
+
+        <div class="status" id="status">Below the Curie temperature: neighbouring moments pull each other into
+            domains. Press <b>Randomise</b> at any time to start the growth over.</div>
+
+        <div class="toolbar">
+            <button type="button" id="playBtn" class="primary">Pause</button>
+            <button type="button" id="sweepBtn">Sweep the field</button>
+            <button type="button" id="randBtn">Randomise</button>
+            <button type="button" id="alignBtn">Saturate</button>
+            <span class="sep"></span>
+            <button type="button" id="clearBtn">Clear the loop</button>
+        </div>
+
+        <div class="figs two">
+            <div class="fig">
+                <canvas id="lattice" aria-label="Lattice of magnetic moments forming domains"></canvas>
+                <div class="legend">
+                    <span><i style="background:var(--c-up)"></i>moment up</span>
+                    <span><i style="background:var(--c-down)"></i>moment down</span>
+                </div>
+                <p class="cap">Each cell is one magnetic moment. Regions of one colour are <b>domains</b>: the walls
+                    between them are where the material stores its magnetic history.</p>
             </div>
-            <div>
-                <label for="magneticStrength">Magnetic Strength:</label>
-                <input type="range" id="magneticStrength" class="slider" min="1" max="100" value="50">
-            </div>
-            <div>
-                <label for="temperature">Temperature:</label>
-                <input type="range" id="temperature" class="slider" min="0" max="100" value="25">
+            <div class="fig">
+                <canvas id="loop" aria-label="Magnetisation against applied field"></canvas>
+                <p class="cap">Magnetisation against applied field. A closed loop with area is a ferromagnet; a
+                    straight line through the origin is a paramagnet.</p>
+                <canvas id="mtrace" style="margin-top:10px" aria-label="Magnetisation against time"></canvas>
+                <div class="legend">
+                    <span><i style="background:var(--c-net)"></i>M</span>
+                    <span><i style="background:var(--c-b1)"></i>applied field H</span>
+                </div>
             </div>
         </div>
+
+        <div class="panel">
+            <h3>Material and field</h3>
+            <div class="controls">
+                <div class="control">
+                    <label for="temp"><span>Temperature T / T<sub>c</sub></span> <b id="tempVal"></b></label>
+                    <input type="range" id="temp" min="5" max="220" step="1" value="85">
+                    <span class="hint">Below 1.0 the exchange coupling wins and domains survive. Above it, thermal
+                        motion wins.</span>
+                </div>
+                <div class="control">
+                    <label for="field"><span>Applied field H</span> <b id="fieldVal"></b></label>
+                    <input type="range" id="field" min="-150" max="150" step="1" value="0">
+                    <span class="hint">In units of the exchange energy. B<sub>0</sub> in the bore is enormous by this
+                        measure.</span>
+                </div>
+                <div class="control">
+                    <label for="size"><span>Lattice size</span> <b id="sizeVal"></b></label>
+                    <input type="range" id="size" min="16" max="80" step="4" value="48">
+                    <span class="hint">Bigger lattices show cleaner domain walls.</span>
+                </div>
+                <div class="control">
+                    <label for="rate"><span>Update rate</span> <b id="rateVal"></b></label>
+                    <input type="range" id="rate" min="1" max="8" step="1" value="2">
+                    <span class="hint">Monte Carlo sweeps of the whole lattice per frame.</span>
+                </div>
+                <div class="control">
+                    <label for="sweepRate"><span>Field sweep speed</span> <b id="sweepRateVal"></b></label>
+                    <input type="range" id="sweepRate" min="1" max="20" step="1" value="6">
+                    <span class="hint">How fast the automatic sweep drives H up and down.</span>
+                </div>
+            </div>
+            <div class="checkrow" style="margin-top:16px">
+                <label><input type="checkbox" id="showArrows"> <span>Draw moments as arrows (small lattices)</span></label>
+            </div>
+            <div class="readouts">
+                <div class="readout"><span>M per moment</span><b id="rM">0.000</b></div>
+                <div class="readout"><span>H</span><b id="rH">0.00</b></div>
+                <div class="readout"><span>T / T<sub>c</sub></span><b id="rT">0.85</b></div>
+                <div class="readout"><span>remanence</span><b id="rRem">--</b></div>
+                <div class="readout"><span>coercivity</span><b id="rCoer">--</b></div>
+            </div>
+        </div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>Nuclear spins are not the only magnetism in the scanner room. The electrons in the surrounding
+                material matter just as much, and how they respond to B<sub>0</sub> decides whether an object is
+                harmless, an artifact, or a projectile. This is the lattice version of that story.</p>
+            <ul>
+                <li><b>Ferromagnetic (T &lt; T<sub>c</sub>, the default).</b> Neighbouring moments align with each
+                    other even without a field, forming domains. Sweep the field and you get a loop with area: the
+                    material remembers. Bring the field back to zero and magnetisation remains, which is
+                    <b>remanence</b>. Iron, nickel, cobalt, most steels. This is the projectile category, and the
+                    force does not switch off when the scan ends, because the magnet is always on.</li>
+                <li><b>Paramagnetic (raise T above 1.0).</b> The domains dissolve and the loop collapses onto a
+                    single line through the origin: M follows H and forgets it immediately. Susceptibility is small
+                    and positive. Titanium, aluminium, gadolinium chelates, deoxyhaemoglobin. Safe to bring in,
+                    but still enough to distort the local field and cause susceptibility artifact.</li>
+                <li><b>Coercivity is the width of the loop.</b> It is the reverse field needed to force the
+                    magnetisation back to zero. A wide loop is a hard magnet, a narrow one is soft. Lower the
+                    temperature and watch the loop widen.</li>
+                <li><b>Why this matters at the console.</b> The field gradient at the bore entrance is what grabs a
+                    ferromagnetic object, so the danger peak is at the door, not at isocentre. And an implant labelled
+                    MR Conditional is one whose material sits in the second category, or whose geometry keeps the
+                    force and heating within limits.</li>
+            </ul>
+            <p><b>Watch the domains coarsen.</b> Straight after <b>Randomise</b> the lattice is a patchwork. Left
+                alone, the domain walls cost energy, so the patches merge and the largest domain eats the rest until
+                a single domain fills the lattice. Lower the temperature to freeze that process part-way; raise it
+                toward 1.0 and the walls churn continuously.</p>
+            <p><b>Try this in class:</b> set T/T<sub>c</sub> to 0.6, press <b>Sweep the field</b>, and let one
+                full loop draw. Then raise the temperature past 1.0 without clearing the plot. The fat loop and the
+                thin line appear on the same axes, which is the clearest single picture of the difference between
+                a ferromagnet and a paramagnet.</p>
+            <p><b>A note on the model:</b> this is a two-dimensional Ising model with nearest-neighbour coupling,
+                solved by Metropolis Monte Carlo. It is a cartoon of a real ferromagnet, but it produces genuine
+                domains, a genuine Curie transition and a genuine hysteresis loop, all from one rule about
+                neighbours.</p>
+        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="../MRI_safety/index.html">MRI safety</a>
+                <a href="spheres_n_arrows_rand.html">Nuclear moments at equilibrium</a>
+                <a href="index.html">All spin demos</a>
+            </div>
+        </footer>
     </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
+        (function () {
+            'use strict';
 
-        let domains = [];
-        let domainSize = 20;
-        let magneticStrength = 50;
-        let temperature = 25;
+            var S = SpinLib;
+            S.wireThemeToggle();
 
-        function createDomains() {
-            domains = [];
-            const cols = Math.floor(width / domainSize);
-            const rows = Math.floor(height / domainSize);
+            /* Onsager's exact critical temperature for the 2D square Ising
+               model, in units of the coupling J. Temperatures on the slider are
+               quoted relative to this. */
+            var TC = 2 / Math.log(1 + Math.SQRT2);   /* 2.2692 */
 
-            for (let i = 0; i < rows; i++) {
-                for (let j = 0; j < cols; j++) {
-                    domains.push({
-                        x: j * domainSize,
-                        y: i * domainSize,
-                        direction: Math.random() > 0.5 ? 1 : -1
-                    });
+            var N = 48;
+            var spins = null;       // Int8Array, +1 / -1
+            var mag = 0;            // net magnetisation per moment
+            var sweeping = false;
+            var sweepPhase = 0;
+            var loopPts = [];       // [H, M] traced while running
+            var mHist = new S.Trace(1200);
+            var hHist = new S.Trace(1200);
+            var frame = 0;
+            var rem = null, coer = null;
+            var prevM = 0, prevH = 0;
+
+            var statusEl = document.getElementById('status');
+            function status(html) { statusEl.innerHTML = html; }
+
+            var temp = S.bind('temp', { scale: function (v) { return v / 100; },
+                                        fmt: function (v) { return v.toFixed(2); } });
+            var field = S.bind('field', { scale: function (v) { return v / 100; },
+                                          fmt: function (v) { return v.toFixed(2); } });
+            var size = S.bind('size', { fmt: function (v) { return v + ' × ' + v; }, on: build });
+            var rate = S.bind('rate', { fmt: function (v) { return v + '×'; } });
+            var sweepRate = S.bind('sweepRate', { fmt: function (v) { return v + '×'; } });
+            var showArrows = S.bind('showArrows', {});
+
+            /* ------------------------------------------------ lattice */
+
+            function build() {
+                N = Math.round(size.value);
+                spins = new Int8Array(N * N);
+                randomise();
+            }
+
+            function randomise() {
+                for (var k = 0; k < spins.length; k++) {
+                    spins[k] = Math.random() < 0.5 ? 1 : -1;
+                }
+                recount();
+                clearLoop();
+                status('Randomised, as if quenched from high temperature. Domains will grow and coarsen.');
+            }
+
+            function saturate() {
+                var s = field.value >= 0 ? 1 : -1;
+                for (var k = 0; k < spins.length; k++) { spins[k] = s; }
+                recount();
+                status('Saturated: every moment aligned. This is the state a ferromagnet is left in after a trip ' +
+                    'past the bore.');
+            }
+
+            function recount() {
+                var sum = 0;
+                for (var k = 0; k < spins.length; k++) { sum += spins[k]; }
+                mag = sum / spins.length;
+            }
+
+            /* One Metropolis sweep: N*N attempted single-moment flips. */
+            function sweep() {
+                var T = Math.max(0.02, temp.value * TC);
+                var H = field.value;
+                var n = spins.length;
+                for (var a = 0; a < n; a++) {
+                    var i = (Math.random() * N) | 0;
+                    var j = (Math.random() * N) | 0;
+                    var idx = j * N + i;
+                    var s = spins[idx];
+                    /* periodic boundaries by index arithmetic: no searching */
+                    var nb = spins[j * N + (i + 1) % N] +
+                             spins[j * N + (i + N - 1) % N] +
+                             spins[((j + 1) % N) * N + i] +
+                             spins[((j + N - 1) % N) * N + i];
+                    var dE = 2 * s * (nb + H);
+                    if (dE <= 0 || Math.random() < Math.exp(-dE / T)) {
+                        spins[idx] = -s;
+                    }
+                }
+                recount();
+            }
+
+            /* ------------------------------------------------ hysteresis */
+
+            function clearLoop() {
+                loopPts = [];
+                mHist.clear();
+                hHist.clear();
+                rem = null;
+                coer = null;
+                frame = 0;
+            }
+
+            function record() {
+                var H = field.value;
+                loopPts.push([H, mag]);
+                if (loopPts.length > 5000) { loopPts.shift(); }
+                mHist.push(frame, mag);
+                hHist.push(frame, H);
+                frame++;
+
+                /* remanence: |M| as the field crosses zero.
+                   coercivity: |H| as M crosses zero. */
+                if ((prevH < 0 && H >= 0) || (prevH > 0 && H <= 0)) { rem = Math.abs(mag); }
+                if ((prevM < 0 && mag >= 0) || (prevM > 0 && mag <= 0)) { coer = Math.abs(H); }
+                prevH = H;
+                prevM = mag;
+            }
+
+            /* ------------------------------------------------ drawing */
+
+            var vLat = S.fitCanvas(document.getElementById('lattice'), 1.0);
+            var vLoop = S.fitCanvas(document.getElementById('loop'), 0.92);
+            var vM = S.fitCanvas(document.getElementById('mtrace'), 0.44);
+
+            function drawLattice() {
+                var ctx = vLat.ctx, w = vLat.w, h = vLat.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var pad = 6;
+                var sizePx = Math.min(w, h) - 2 * pad;
+                var cell = sizePx / N;
+                var x0 = (w - sizePx) / 2, y0 = (h - sizePx) / 2;
+
+                for (var j = 0; j < N; j++) {
+                    for (var i = 0; i < N; i++) {
+                        ctx.fillStyle = spins[j * N + i] > 0 ? th.up : th.down;
+                        ctx.fillRect(x0 + i * cell, y0 + j * cell, cell + 0.6, cell + 0.6);
+                    }
+                }
+
+                if (showArrows.value && N <= 24) {
+                    for (j = 0; j < N; j++) {
+                        for (i = 0; i < N; i++) {
+                            var cx = x0 + (i + 0.5) * cell;
+                            var cy = y0 + (j + 0.5) * cell;
+                            var dir = spins[j * N + i] > 0 ? -1 : 1;
+                            S.arrow2(ctx, cx, cy - dir * cell * 0.3, cx, cy + dir * cell * 0.3,
+                                { color: '#ffffff', width: Math.max(1.2, cell * 0.08),
+                                  head: Math.max(4, cell * 0.24), alpha: 0.85 });
+                        }
+                    }
+                }
+
+                ctx.strokeStyle = th.border;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x0 + 0.5, y0 + 0.5, sizePx, sizePx);
+
+                if (temp.value > 1) {
+                    ctx.fillStyle = th.accent;
+                    ctx.font = '600 12px "IBM Plex Mono", ui-monospace, monospace';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText('ABOVE Tc — PARAMAGNETIC', x0 + 8, y0 + 8);
                 }
             }
-        }
 
-        function drawDomains() {
-            ctx.clearRect(0, 0, width, height);
-            domains.forEach(domain => {
-                ctx.fillStyle = domain.direction > 0 ? 'red' : 'blue';
-                ctx.fillRect(domain.x, domain.y, domainSize, domainSize);
+            function drawLoop() {
+                var ctx = vLoop.ctx, w = vLoop.w, h = vLoop.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var box = { x: 44, y: 14, w: w - 58, h: h - 42 };
+                S.plot(ctx, box, {
+                    xmin: -1.55, xmax: 1.55, ymin: -1.1, ymax: 1.1,
+                    xTicks: [-1, 0, 1], yTicks: [-1, -0.5, 0, 0.5, 1], tickLabels: true,
+                    series: [{ pts: loopPts, color: th.net, width: 1.6 }],
+                    points: [{ pts: [[field.value, mag]], color: th.accent, r: 4 }],
+                    xlabel: 'H',
+                    ylabel: 'M'
+                });
+            }
+
+            function drawM() {
+                var ctx = vM.ctx, w = vM.w, h = vM.h, th = S.theme();
+                S.clear(ctx, w, h);
+                var box = { x: 34, y: 10, w: w - 46, h: h - 32 };
+                var xmax = Math.max(frame, 200);
+                S.plot(ctx, box, {
+                    xmin: Math.max(0, xmax - 600), xmax: xmax, ymin: -1.6, ymax: 1.6,
+                    yTicks: [-1, 0, 1],
+                    series: [
+                        { pts: hHist.pts, color: th.b1, width: 1.4 },
+                        { pts: mHist.pts, color: th.net, width: 2 }
+                    ],
+                    xlabel: 'frames'
+                });
+            }
+
+            var rM = document.getElementById('rM');
+            var rH = document.getElementById('rH');
+            var rTemp = document.getElementById('rT');
+            var rRem = document.getElementById('rRem');
+            var rCoer = document.getElementById('rCoer');
+
+            function draw() {
+                drawLattice();
+                drawLoop();
+                drawM();
+                rM.textContent = S.fmt(mag, 3);
+                rH.textContent = S.fmt(field.value, 2);
+                rTemp.textContent = S.fmt(temp.value, 2);
+                rRem.textContent = rem === null ? '--' : S.fmt(rem, 3);
+                rCoer.textContent = coer === null ? '--' : S.fmt(coer, 2);
+            }
+
+            /* ------------------------------------------------ loop */
+
+            var loop = new S.Loop(function (dt) {
+                if (sweeping) {
+                    sweepPhase += dt * sweepRate.value * 0.06;
+                    /* triangle wave between -1.5 and +1.5 */
+                    var tri = Math.abs(((sweepPhase % 2) + 2) % 2 - 1) * 2 - 1;
+                    field.set(Math.round(tri * 150));
+                }
+                var sweeps = Math.round(rate.value);
+                for (var k = 0; k < sweeps; k++) { sweep(); }
+                record();
+                draw();
             });
-        }
 
-        function updateDomains() {
-            domains.forEach(domain => {
-                const neighborDirection = getNeighborDirection(domain);
-                const alignmentForce = neighborDirection * (magneticStrength / 100);
-                const randomForce = (Math.random() - 0.5) * (temperature / 50);
+            var playBtn = document.getElementById('playBtn');
+            playBtn.addEventListener('click', function () {
+                playBtn.textContent = loop.toggle() ? 'Pause' : 'Play';
+            });
 
-                if (Math.random() < Math.abs(alignmentForce + randomForce)) {
-                    domain.direction = Math.sign(alignmentForce + randomForce);
+            var sweepBtn = document.getElementById('sweepBtn');
+            sweepBtn.addEventListener('click', function () {
+                sweeping = !sweeping;
+                sweepBtn.classList.toggle('on', sweeping);
+                if (sweeping) {
+                    sweepPhase = 0.5;   /* start at H = 0 heading positive */
+                    status('Sweeping H up and down. Below T<sub>c</sub> the two branches separate: that gap is the ' +
+                        'material remembering which way it was last magnetised.');
+                    loop.start();
+                    playBtn.textContent = 'Pause';
+                } else {
+                    status('Sweep stopped. The field is now held where you left it.');
                 }
             });
-        }
 
-        function getNeighborDirection(domain) {
-            let sum = 0;
-            let count = 0;
-
-            domains.forEach(neighbor => {
-                const dx = Math.abs(domain.x - neighbor.x);
-                const dy = Math.abs(domain.y - neighbor.y);
-                if ((dx === domainSize && dy === 0) || (dx === 0 && dy === domainSize)) {
-                    sum += neighbor.direction;
-                    count++;
-                }
+            S.on('randBtn', randomise);
+            S.on('alignBtn', saturate);
+            S.on('clearBtn', function () {
+                clearLoop();
+                status('Loop cleared. Change the temperature and sweep again to overlay a second material.');
+                draw();
             });
 
-            return count > 0 ? sum / count : 0;
-        }
+            window.addEventListener('spins:theme', draw);
 
-        function simulate() {
-            updateDomains();
-            drawDomains();
-            requestAnimationFrame(simulate);
-        }
-
-        function initSimulation() {
-            createDomains();
-            drawDomains();
-            simulate();
-        }
-
-        // Event listeners for sliders
-        document.getElementById('domainSize').addEventListener('input', (e) => {
-            domainSize = parseInt(e.target.value);
-            createDomains();
-        });
-
-        document.getElementById('magneticStrength').addEventListener('input', (e) => {
-            magneticStrength = parseInt(e.target.value);
-        });
-
-        document.getElementById('temperature').addEventListener('input', (e) => {
-            temperature = parseInt(e.target.value);
-        });
-
-        initSimulation();
+            build();
+            draw();
+            loop.start();
+        }());
     </script>
 </body>
+
 </html>

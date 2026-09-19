@@ -1,91 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+    <title>Spin Ensembles &amp; the Net Magnetisation</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js 3x3 Array of Independently Rotating Spheres with Arrows</title>
-    <style>
-        body { margin: 0; }
-        canvas { display: block; }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script src="spin-ensemble.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Ensembles &middot; coherence &middot; the vector sum</p>
+            <h1>Spin Ensembles &amp; the Net Magnetisation</h1>
+            <p class="subtitle">A lattice of magnetic moments, each precessing at its own Larmor frequency. The coil never sees any of them individually. It only sees the sum.</p>
+        </header>
+
+        <div id="app"></div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>An imaging voxel holds something like 10<sup>19</sup> protons. This figure shows a handful of them,
+                arranged on a lattice so you can see where each one sits in the sample, and asks the only question
+                that matters for signal: <em>do they agree on the phase?</em></p>
+            <ul>
+                <li><b>Thermal equilibrium.</b> Every moment precesses about B<sub>0</sub>, but the azimuths are
+                    random. The transverse parts cancel exactly and the sum lies along z. A stationary vector along
+                    B<sub>0</sub> induces no voltage, which is why a magnet full of polarised protons is silent until
+                    you excite it.</li>
+                <li><b>Coherent.</b> After a 90&deg; pulse every moment points the same way in the transverse plane.
+                    Now the sum is as large as it can be and it rotates, so the coil sees a signal.</li>
+                <li><b>Spread of fields.</b> Give each location a slightly different field and the phases fan out.
+                    The individual moments are undiminished, but their sum shrinks. Nothing has been lost yet, only
+                    scrambled, which is exactly why a 180&deg; pulse can bring it back.</li>
+            </ul>
+            <p>Turn on <b>Shade spheres by field offset</b> to see the field map itself: warm spheres sit in a higher
+                field and run ahead, cool spheres lag. Then watch the phase colours sort themselves along that same
+                gradient.</p>
+            <p><b>Try this in class:</b> set the inhomogeneity to zero, apply a 90&deg;, and note the flat signal.
+                Now raise the inhomogeneity slider while it runs. The decay you create is T<sub>2</sub>*, and the
+                dashed envelope shows how much slower the true T<sub>2</sub> decay is underneath it.</p>        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="spheres_n_arrows_rand.html">Random phase in detail</a>
+                <a href="spheres_n_arrows_same.html">Perfect coherence in detail</a>
+                <a href="spheres_n_arrows_2.html">Dephasing in detail</a>
+                <a href="vector.html">One vector, full Bloch equation</a>
+            </div>
+        </footer>
+    </div>
+
     <script>
-        // Set up the scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        // Array to store all sphere-arrow groups
-        const sphereGroups = [];
-
-        // Function to create a sphere with an arrow
-        function createSphereWithArrow(x, y, z) {
-            const group = new THREE.Group();
-
-            // Create a sphere
-            const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-            const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x3399ff });
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            group.add(sphere);
-
-            // Create an arrow
-            const arrowDirection = new THREE.Vector3(1, 0, 0);
-            const arrowOrigin = new THREE.Vector3(-1.5, 0, 0);
-            const arrowLength = 3;
-            const arrowColor = 0xff0000;
-            const arrowHelper = new THREE.ArrowHelper(arrowDirection, arrowOrigin, arrowLength, arrowColor, 0.3, 0.2);
-            group.add(arrowHelper);
-
-            group.position.set(x, y, z);
-            return group;
-        }
-
-        // Create a 3x3 array of spheres with arrows
-        for (let i = -1; i <= 1; i++) {
-            for (let j = -1; j <= 1; j++) {
-                const sphereWithArrow = createSphereWithArrow(i * 2.5, j * 2.5, 0);
-                scene.add(sphereWithArrow);
-                sphereGroups.push(sphereWithArrow);
-            }
-        }
-
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        scene.add(ambientLight);
-
-        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-        pointLight.position.set(5, 5, 5);
-        scene.add(pointLight);
-
-        camera.position.z = 10;
-
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Rotate each sphere-arrow group independently
-            sphereGroups.forEach((group, index) => {
-                group.rotation.x += 0.01 * (index + 1);
-                group.rotation.y += 0.02 / (index + 1);
-            });
-
-            renderer.render(scene, camera);
-        }
-
-        animate();
-
-        // Handle window resizing
-        window.addEventListener('resize', onWindowResize, false);
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        SpinLib.wireThemeToggle();
+        SpinEnsemble.mount('#app', {
+            mode: 'dephasing',
+            controls: ['mode', 'n', 'spread', 't2', 'speed'],
+            buttons: ['play', 'p90', 'p180', 'echo', 'reset'],
+            values: { n: 5, spread: 2, t2: 800, speed: 200 },
+            showTrace: true
+        });
     </script>
 </body>
+
 </html>

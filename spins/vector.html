@@ -1,118 +1,492 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Precessing Vector with Three.js and Keyboard Controls</title>
-    <style>
-        body { margin: 0; }
-        canvas { display: block; }
-    </style>
+    <title>Larmor Precession &amp; the Rotating Frame</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="spins.css">
+    <script src="spin-lib.js"></script>
+    <script>SpinLib.applyStoredTheme();</script>
 </head>
+
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <div class="wrap">
+        <div class="topbar">
+            <a href="index.html" class="nav-link">&larr; Spin demos</a>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Bloch equations &middot; excitation &middot; relaxation</p>
+            <h1>Larmor Precession &amp; the Rotating Frame</h1>
+            <p class="subtitle">One magnetisation vector, integrated with the full Bloch equation. Tip it with a
+                B<sub>1</sub> pulse, push it off resonance, and watch T<sub>1</sub> and T<sub>2</sub> pull it back to
+                equilibrium.</p>
+        </header>
+
+        <div class="status" id="status">Equilibrium &mdash; M lies along B<sub>0</sub>. Play a 90&deg; pulse.</div>
+
+        <div class="toolbar">
+            <button type="button" id="playBtn" class="primary">Pause</button>
+            <button type="button" id="p90x">90&deg;<sub>x</sub></button>
+            <button type="button" id="p90y">90&deg;<sub>y</sub></button>
+            <button type="button" id="p180x">180&deg;<sub>x</sub></button>
+            <button type="button" id="holdBtn">Hold B<sub>1</sub> on</button>
+            <span class="sep"></span>
+            <button type="button" id="resetBtn">Reset to equilibrium</button>
+        </div>
+
+        <div class="figs two">
+            <div class="fig">
+                <canvas id="c3d" aria-label="Three-dimensional view of the magnetisation vector"></canvas>
+                <p class="cap">Drag to rotate the view. <b>z</b> is B<sub>0</sub>; the dashed circle is the transverse
+                    plane the receive coil actually sees.</p>
+            </div>
+            <div class="fig">
+                <canvas id="cplot" aria-label="Plot of longitudinal and transverse magnetisation against time"></canvas>
+                <div class="legend">
+                    <span><i style="background:var(--c-mz)"></i>M<sub>z</sub> (longitudinal)</span>
+                    <span><i style="background:var(--c-mxy)"></i>|M<sub>xy</sub>| (signal)</span>
+                    <span><i style="background:var(--c-b1)"></i>RF on</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Parameters</h3>
+            <div class="controls">
+                <div class="control">
+                    <label for="df"><span>Off-resonance &Delta;f</span> <b id="dfVal"></b></label>
+                    <input type="range" id="df" min="-120" max="120" step="1" value="0">
+                    <span class="hint">How far this spin sits from the RF carrier frequency.</span>
+                </div>
+                <div class="control">
+                    <label for="b1"><span>B<sub>1</sub> strength &gamma;B<sub>1</sub>/2&pi;</span> <b id="b1Val"></b></label>
+                    <input type="range" id="b1" min="20" max="600" step="10" value="250">
+                    <span class="hint">Sets the nutation rate, so a 90&deg; pulse lasts 250/f<sub>1</sub> ms.</span>
+                </div>
+                <div class="control">
+                    <label for="t1"><span>T<sub>1</sub></span> <b id="t1Val"></b></label>
+                    <input type="range" id="t1" min="100" max="3000" step="50" value="1200">
+                    <span class="hint">Longitudinal recovery time constant.</span>
+                </div>
+                <div class="control">
+                    <label for="t2"><span>T<sub>2</sub></span> <b id="t2Val"></b></label>
+                    <input type="range" id="t2" min="10" max="800" step="10" value="200">
+                    <span class="hint">Transverse decay time constant (T<sub>2</sub> &le; T<sub>1</sub> physically).</span>
+                </div>
+                <div class="control">
+                    <label for="speed"><span>Playback speed</span> <b id="speedVal"></b></label>
+                    <input type="range" id="speed" min="20" max="1500" step="10" value="250">
+                    <span class="hint">Simulated milliseconds per second of wall-clock time.</span>
+                </div>
+                <div class="control">
+                    <label for="frame">Reference frame</label>
+                    <select id="frame">
+                        <option value="rot" selected>Rotating frame (on-resonance observer)</option>
+                        <option value="lab">Laboratory frame (slowed down)</option>
+                    </select>
+                    <span class="hint">The lab frame adds the carrier precession back in, at a watchable rate.</span>
+                </div>
+            </div>
+            <div class="checkrow" style="margin-top:16px">
+                <label><input type="checkbox" id="showTrail" checked> <span>Tip trail</span></label>
+                <label><input type="checkbox" id="showBeff" checked> <span>Effective field B<sub>eff</sub></span></label>
+                <label><input type="checkbox" id="showComp"> <span>M<sub>z</sub> / M<sub>xy</sub> components</span></label>
+                <label><input type="checkbox" id="relax" checked> <span>Relaxation on</span></label>
+            </div>
+            <div class="readouts">
+                <div class="readout"><span>M<sub>z</sub></span><b id="rMz">1.000</b></div>
+                <div class="readout"><span>|M<sub>xy</sub>|</span><b id="rMxy">0.000</b></div>
+                <div class="readout"><span>phase</span><b id="rPhase">0&deg;</b></div>
+                <div class="readout"><span>tip angle</span><b id="rFlip">0&deg;</b></div>
+                <div class="readout"><span>t</span><b id="rT">0 ms</b></div>
+            </div>
+        </div>
+
+        <section class="note">
+            <h2>What this figure is for</h2>
+            <p>Everything in MRI starts here. The net magnetisation <b>M</b> precesses about B<sub>0</sub> at the Larmor
+                frequency, and the only thing a receive coil can detect is the component turning in the transverse
+                plane.</p>
+            <p class="eq">dM/dt = M &times; &gamma;B &minus; (M<sub>x</sub>, M<sub>y</sub>, 0)/T<sub>2</sub> &minus; (M<sub>z</sub> &minus; M<sub>0</sub>)&#7825;/T<sub>1</sub></p>
+            <ul>
+                <li><b>Why a rotating frame.</b> At 3 T protons precess at about 128 MHz, which no animation can show.
+                    Sit on a carousel turning at that same rate and the precession vanishes: only the difference
+                    &Delta;f between the spin and the carrier is left. Switch to the lab frame to see the fast motion
+                    that the carousel hides.</li>
+                <li><b>Excitation is just more precession.</b> Turn on B<sub>1</sub> and M precesses about the
+                    <i>effective</i> field instead. On resonance B<sub>eff</sub> lies in the transverse plane and M
+                    tips cleanly from z. Drag &Delta;f away from zero and B<sub>eff</sub> tilts back toward z, so the
+                    same pulse produces a smaller, wobbling flip. That is the whole story of slice profile and
+                    off-resonance excitation.</li>
+                <li><b>Two independent clocks.</b> T<sub>2</sub> shrinks the transverse component; T<sub>1</sub>
+                    regrows the longitudinal one. Set T<sub>2</sub> to 20 ms and T<sub>1</sub> to 3000 ms and watch
+                    the signal disappear long before M has returned to equilibrium. That gap is why we have to wait
+                    a TR.</li>
+                <li><b>Convention.</b> A pulse applied along x&prime; rotates M from +z toward &minus;y&prime;. Spins
+                    with &Delta;f &gt; 0 precess anticlockwise seen from +z.</li>
+            </ul>
+            <p><b>Try this in class:</b> set T<sub>2</sub> to 800 ms, play a 90&deg;<sub>x</sub> pulse, then set
+                &Delta;f to 30 Hz. The vector now crawls around the transverse plane at exactly 30 revolutions per
+                second of simulated time. Every spin in the body is doing this at a slightly different rate, which is
+                the subject of the dephasing demos.</p>
+        </section>
+
+        <footer class="related">
+            Related figures
+            <div class="links">
+                <a href="spheres_n_arrows.html">A whole ensemble of these vectors</a>
+                <a href="dephase_rephase_2.html">What happens when they disagree: the spin echo</a>
+                <a href="index.html">All spin demos</a>
+            </div>
+        </footer>
+    </div>
+
     <script>
-        // Set up the scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        (function () {
+            'use strict';
 
-        // Create an arrow helper to represent the vector
-        const arrowDir = new THREE.Vector3(1, 0, 0); // Initial direction of the vector
-        const arrowLength = 5;
-        const arrowColor = 0xffff00;
-        const arrowHeadLength = 1;
-        const arrowHeadWidth = 0.5;
-        const arrowHelper = new THREE.ArrowHelper(arrowDir, new THREE.Vector3(0, 0, 0), arrowLength, arrowColor, arrowHeadLength, arrowHeadWidth);
-        scene.add(arrowHelper);
+            var S = SpinLib;
+            S.wireThemeToggle();
 
-        // Set the camera position
-        camera.position.z = 10;
+            /* ---------------- state ---------------- */
 
-        // Precession parameters
-        let angle = 0;
-        const axis = new THREE.Vector3(0, 1, 0); // Axis around which the vector precesses
-        const precessionSpeed = 0.02; // Speed of precession
+            var M = [0, 0, 1];          // magnetisation, M0 = 1
+            var t = 0;                  // simulated time, ms
+            var labPhase = 0;           // carrier phase for the lab-frame view
+            var rf = null;              // {axis, flipDone, flipTarget, hold}
+            var trail = [];
+            var marks = [];
+            var traceMz = new S.Trace(4000);
+            var traceMxy = new S.Trace(4000);
+            var WINDOW = 2400;          // ms visible in the plot
+            var LAB_RATE = 1.2;         // displayed carrier revolutions per simulated second
 
-        // Rotation control variables
-        const rotationSpeed = 0.02;
-        let rotateLeft = false;
-        let rotateRight = false;
-        let rotateUp = false;
-        let rotateDown = false;
+            /* ---------------- controls ---------------- */
 
-        // Handle keydown events
-        document.addEventListener('keydown', (event) => {
-            switch (event.code) {
-                case 'ArrowLeft':
-                    rotateLeft = true;
-                    break;
-                case 'ArrowRight':
-                    rotateRight = true;
-                    break;
-                case 'ArrowUp':
-                    rotateUp = true;
-                    break;
-                case 'ArrowDown':
-                    rotateDown = true;
-                    break;
-            }
-        });
+            var df = S.bind('df', { fmt: function (v) { return v + ' Hz'; } });
+            var b1 = S.bind('b1', { fmt: function (v) { return v + ' Hz'; } });
+            var t1 = S.bind('t1', { fmt: function (v) { return v + ' ms'; } });
+            var t2 = S.bind('t2', { fmt: function (v) { return v + ' ms'; } });
+            var speed = S.bind('speed', { fmt: function (v) { return v + ' ms/s'; } });
+            var frame = S.bind('frame', {});
+            var showTrail = S.bind('showTrail', {});
+            var showBeff = S.bind('showBeff', {});
+            var showComp = S.bind('showComp', {});
+            var relaxOn = S.bind('relax', {});
 
-        // Handle keyup events
-        document.addEventListener('keyup', (event) => {
-            switch (event.code) {
-                case 'ArrowLeft':
-                    rotateLeft = false;
-                    break;
-                case 'ArrowRight':
-                    rotateRight = false;
-                    break;
-                case 'ArrowUp':
-                    rotateUp = false;
-                    break;
-                case 'ArrowDown':
-                    rotateDown = false;
-                    break;
-            }
-        });
+            var statusEl = document.getElementById('status');
 
-        // Render loop
-        function animate() {
-            requestAnimationFrame(animate);
+            function setStatus(html) { statusEl.innerHTML = html; }
 
-            // Update the vector direction to show precession
-            angle += precessionSpeed;
-            arrowDir.set(Math.cos(angle), 0, Math.sin(angle));
-            arrowHelper.setDirection(arrowDir);
+            /* ---------------- physics ---------------- */
 
-            // Handle scene rotation based on key presses
-            if (rotateLeft) {
-                scene.rotation.y -= rotationSpeed;
-            }
-            if (rotateRight) {
-                scene.rotation.y += rotationSpeed;
-            }
-            if (rotateUp) {
-                scene.rotation.x -= rotationSpeed;
-            }
-            if (rotateDown) {
-                scene.rotation.x += rotationSpeed;
+            function rotate(v, axis, ang) {
+                /* Rodrigues rotation; axis must be a unit vector. */
+                var c = Math.cos(ang), s = Math.sin(ang);
+                var dot = axis[0] * v[0] + axis[1] * v[1] + axis[2] * v[2];
+                var cx = axis[1] * v[2] - axis[2] * v[1];
+                var cy = axis[2] * v[0] - axis[0] * v[2];
+                var cz = axis[0] * v[1] - axis[1] * v[0];
+                return [
+                    v[0] * c + cx * s + axis[0] * dot * (1 - c),
+                    v[1] * c + cy * s + axis[1] * dot * (1 - c),
+                    v[2] * c + cz * s + axis[2] * dot * (1 - c)
+                ];
             }
 
-            renderer.render(scene, camera);
-        }
+            /* Angular velocity vector in the rotating frame, rad/ms. */
+            function omega() {
+                var wz = 2 * Math.PI * df.value / 1000;
+                var w1 = rf ? 2 * Math.PI * b1.value / 1000 : 0;
+                return rf && rf.axis === 'y' ? [0, w1, wz] : [w1, 0, wz];
+            }
 
-        animate();
+            function advance(dtMs) {
+                /* A timestep must never carry the pulse past its target flip, or
+                   a 90 degree pulse quietly becomes a 125 degree one. Split the
+                   step at the moment the pulse ends. */
+                var guard = 0;
+                while (dtMs > 1e-9 && guard++ < 64) {
+                    var slice = dtMs;
+                    if (rf && !rf.hold) {
+                        var degPerMs = 360 * b1.value / 1000;
+                        var left = (rf.flipTarget - rf.flipDone) / degPerMs;
+                        if (left < slice) { slice = Math.max(left, 1e-9); }
+                    }
+                    integrate(slice);
+                    dtMs -= slice;
+                }
+            }
 
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            function integrate(dtMs) {
+                var w = omega();
+                var mag = Math.hypot(w[0], w[1], w[2]);
+                if (mag > 1e-9) {
+                    M = rotate(M, [w[0] / mag, w[1] / mag, w[2] / mag], mag * dtMs);
+                }
+                if (rf) {
+                    rf.flipDone += 360 * (b1.value / 1000) * dtMs;
+                }
+
+                if (relaxOn.value) {
+                    var e2 = Math.exp(-dtMs / t2.value);
+                    var e1 = Math.exp(-dtMs / t1.value);
+                    M[0] *= e2;
+                    M[1] *= e2;
+                    M[2] = 1 + (M[2] - 1) * e1;
+                }
+
+                if (rf && !rf.hold && rf.flipDone >= rf.flipTarget - 1e-9) {
+                    rf = null;
+                    setStatus('Pulse finished &mdash; free precession and relaxation.');
+                }
+
+                t += dtMs;
+                labPhase += 2 * Math.PI * LAB_RATE * dtMs / 1000;
+
+                traceMz.push(t, M[2]);
+                traceMxy.push(t, Math.hypot(M[0], M[1]));
+                if (showTrail.value) {
+                    trail.push(display(M));
+                    if (trail.length > 260) { trail.shift(); }
+                }
+            }
+
+            /* The vector as drawn: the lab frame adds the carrier rotation back. */
+            function display(v) {
+                if (frame.value !== 'lab') { return [v[0], v[1], v[2]]; }
+                var c = Math.cos(labPhase), s = Math.sin(labPhase);
+                return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+            }
+
+            function pulse(axis, deg) {
+                rf = { axis: axis, flipDone: 0, flipTarget: deg, hold: false };
+                marks.push({ x: t, color: S.theme().b1, label: deg + '°' });
+                if (marks.length > 40) { marks.shift(); }
+                setStatus('Applying a ' + deg + '° pulse about ' + axis + '′ — watch M precess about B<sub>eff</sub>.');
+                loop.start();
+                playBtn.textContent = 'Pause';
+            }
+
+            /* ---------------- 3D view ---------------- */
+
+            var c3d = document.getElementById('c3d');
+            var cam = new S.Camera({ yaw: -0.62, pitch: 0.30 });
+            var v3 = S.fitCanvas(c3d, 0.78, function (w, h) {
+                cam.cx = w / 2;
+                cam.cy = h / 2 + h * 0.03;
+                cam.scale = Math.min(w, h) * 0.40;
+            });
+            S.orbit(c3d, cam, function () { if (!loop.running) { draw(); } });
+
+            function draw3d() {
+                var ctx = v3.ctx, w = v3.w, h = v3.h, th = S.theme();
+                S.clear(ctx, w, h);
+
+                S.circle3(ctx, cam, 1, 0, { color: th.border });
+                S.axes3(ctx, cam, 1.25, {
+                    names: frame.value === 'lab' ? ['x', 'y', 'z'] : ["x'", "y'", 'z']
+                });
+
+                /* B0 always points along +z */
+                S.arrow3(ctx, cam, [-1.25, 0, -0.35], [-1.25, 0, 1.15],
+                    { color: th.b0, width: 2, alpha: 0.6 });
+                S.label3(ctx, cam, [-1.25, 0, 1.34], 'B0', th.b0);
+
+                /* effective field in the rotating frame */
+                if (showBeff.value && rf && frame.value !== 'lab') {
+                    var w1 = b1.value, wz = df.value;
+                    var n = Math.hypot(w1, wz);
+                    if (n > 1e-6) {
+                        var e = rf.axis === 'y' ? [0, w1 / n, wz / n] : [w1 / n, 0, wz / n];
+                        S.arrow3(ctx, cam, [0, 0, 0], [e[0] * 1.15, e[1] * 1.15, e[2] * 1.15],
+                            { color: th.b1, width: 2, dash: [5, 4] });
+                        S.label3(ctx, cam, [e[0] * 1.3, e[1] * 1.3, e[2] * 1.3], 'Beff', th.b1);
+                    }
+                }
+
+                /* tip trail */
+                if (showTrail.value && trail.length > 1) {
+                    ctx.save();
+                    ctx.lineWidth = 1.6;
+                    ctx.lineJoin = 'round';
+                    for (var i = 1; i < trail.length; i++) {
+                        var a = cam.project(trail[i - 1]);
+                        var b = cam.project(trail[i]);
+                        ctx.globalAlpha = 0.06 + 0.5 * (i / trail.length);
+                        ctx.strokeStyle = th.net;
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(b.x, b.y);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                var d = display(M);
+
+                /* component decomposition */
+                if (showComp.value) {
+                    S.arrow3(ctx, cam, [0, 0, 0], [0, 0, d[2]], { color: th.mz, width: 2, alpha: 0.85 });
+                    S.arrow3(ctx, cam, [0, 0, 0], [d[0], d[1], 0], { color: th.mxy, width: 2, alpha: 0.85 });
+                    ctx.save();
+                    ctx.strokeStyle = th.muted;
+                    ctx.setLineDash([3, 3]);
+                    ctx.lineWidth = 1;
+                    var p1 = cam.project([d[0], d[1], 0]);
+                    var p2 = cam.project(d);
+                    var p3 = cam.project([0, 0, d[2]]);
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.lineTo(p3.x, p3.y);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                S.arrow3(ctx, cam, [0, 0, 0], d, { color: th.net, width: 3.4 });
+                S.label3(ctx, cam, [d[0] * 1.18, d[1] * 1.18, d[2] * 1.18 + 0.06], 'M', th.net);
+
+                if (rf) {
+                    ctx.save();
+                    ctx.fillStyle = th.b1;
+                    ctx.font = '600 12px "IBM Plex Mono", ui-monospace, monospace';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText('RF ON  (B1 along ' + rf.axis + "')", 10, 10);
+                    ctx.restore();
+                }
+            }
+
+            /* ---------------- plot ---------------- */
+
+            var cplot = document.getElementById('cplot');
+            var vp = S.fitCanvas(cplot, 1.0);
+
+            function drawPlot() {
+                var ctx = vp.ctx, w = vp.w, h = vp.h, th = S.theme();
+                S.clear(ctx, w, h);
+
+                var box = { x: 42, y: 14, w: w - 58, h: h - 46 };
+                var xmax = Math.max(t, WINDOW * 0.35);
+                var xmin = xmax - WINDOW;
+
+                S.plot(ctx, box, {
+                    xmin: xmin, xmax: xmax, ymin: -1.08, ymax: 1.08,
+                    yTicks: [-1, -0.5, 0, 0.5, 1],
+                    marks: marks,
+                    series: [
+                        { pts: traceMz.pts, color: th.mz, width: 2 },
+                        { pts: traceMxy.pts, color: th.mxy, width: 2 }
+                    ],
+                    xlabel: 'time (ms)'
+                });
+
+                ctx.save();
+                ctx.fillStyle = th.muted;
+                ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('+1', box.x - 6, box.y);
+                ctx.fillText('0', box.x - 6, box.y + box.h / 2);
+                ctx.fillText('-1', box.x - 6, box.y + box.h);
+                ctx.restore();
+            }
+
+            /* ---------------- readouts ---------------- */
+
+            var rMz = document.getElementById('rMz');
+            var rMxy = document.getElementById('rMxy');
+            var rPhase = document.getElementById('rPhase');
+            var rFlip = document.getElementById('rFlip');
+            var rT = document.getElementById('rT');
+
+            function readouts() {
+                var mxy = Math.hypot(M[0], M[1]);
+                rMz.textContent = S.fmt(M[2], 3);
+                rMxy.textContent = S.fmt(mxy, 3);
+                var ph = Math.atan2(M[1], M[0]) * 180 / Math.PI;
+                rPhase.textContent = (mxy < 1e-3 ? '--' : S.fmt(ph, 0) + '°');
+                rFlip.textContent = S.fmt(Math.acos(S.clamp(M[2] / Math.max(1e-9, Math.hypot(M[0], M[1], M[2])), -1, 1)) * 180 / Math.PI, 0) + '°';
+                rT.textContent = S.fmt(t, 0) + ' ms';
+            }
+
+            /* ---------------- loop ---------------- */
+
+            function draw() {
+                draw3d();
+                drawPlot();
+                readouts();
+            }
+
+            var loop = new S.Loop(function (dt) {
+                var simMs = dt * speed.value;
+                /* sub-step so a strong B1 never rotates more than a few degrees per step */
+                var steps = Math.max(1, Math.ceil(simMs / 0.5));
+                for (var i = 0; i < steps; i++) { advance(simMs / steps); }
+                draw();
+            });
+
+            /* ---------------- wiring ---------------- */
+
+            var playBtn = document.getElementById('playBtn');
+            playBtn.addEventListener('click', function () {
+                playBtn.textContent = loop.toggle() ? 'Pause' : 'Play';
+            });
+
+            S.on('p90x', function () { pulse('x', 90); });
+            S.on('p90y', function () { pulse('y', 90); });
+            S.on('p180x', function () { pulse('x', 180); });
+
+            var holdBtn = document.getElementById('holdBtn');
+            holdBtn.addEventListener('click', function () {
+                if (rf && rf.hold) {
+                    rf = null;
+                    holdBtn.classList.remove('on');
+                    setStatus('B<sub>1</sub> off &mdash; free precession.');
+                } else {
+                    rf = { axis: 'x', flipDone: 0, flipTarget: Infinity, hold: true };
+                    holdBtn.classList.add('on');
+                    setStatus('B<sub>1</sub> held on &mdash; M nutates continuously about B<sub>eff</sub>. ' +
+                        'With &Delta;f &ne; 0 it never reaches the transverse plane.');
+                    loop.start();
+                    playBtn.textContent = 'Pause';
+                }
+            });
+
+            S.on('resetBtn', function () {
+                M = [0, 0, 1];
+                t = 0;
+                labPhase = 0;
+                rf = null;
+                holdBtn.classList.remove('on');
+                trail.length = 0;
+                marks.length = 0;
+                traceMz.clear();
+                traceMxy.clear();
+                setStatus('Equilibrium &mdash; M lies along B<sub>0</sub>. Play a 90&deg; pulse.');
+                draw();
+            });
+
+            document.getElementById('frame').addEventListener('change', function () {
+                trail.length = 0;
+            });
+            document.getElementById('showTrail').addEventListener('change', function () {
+                trail.length = 0;
+            });
+
+            window.addEventListener('spins:theme', draw);
+
+            draw();
+            loop.start();
+        }());
     </script>
 </body>
+
 </html>
