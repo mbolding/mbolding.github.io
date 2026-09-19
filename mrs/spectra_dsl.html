@@ -1,0 +1,2810 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modelling MRS Spectra &mdash; A Small Language</title>
+<meta name="description" content="A single-page domain specific language and interpreter for simulating in vivo magnetic resonance spectra on 1H, 2H, 13C, 19F, 23Na, 31P and 129Xe.">
+<style>
+/* ============================================================
+   Spectrum Workbench
+   Same warm paper and et-book as the rest of the commonplace
+   book; the apparatus is wide, the prose is not.
+   ============================================================ */
+
+@font-face {
+    font-family: 'et-book';
+    src: url('https://edwardtufte.github.io/tufte-css/et-book/et-book-roman-line-figures/et-book-roman-line-figures.woff') format('woff');
+    font-weight: normal; font-style: normal;
+}
+@font-face {
+    font-family: 'et-book';
+    src: url('https://edwardtufte.github.io/tufte-css/et-book/et-book-display-italic-old-style-figures/et-book-display-italic-old-style-figures.woff') format('woff');
+    font-weight: normal; font-style: italic;
+}
+@font-face {
+    font-family: 'et-book';
+    src: url('https://edwardtufte.github.io/tufte-css/et-book/et-book-bold-line-figures/et-book-bold-line-figures.woff') format('woff');
+    font-weight: bold; font-style: normal;
+}
+
+:root {
+    --paper: #fffff8;
+    --ink: #111111;
+    --quiet: #5a5a52;
+    --rule: #dddad0;
+    --panel: #faf9f0;
+    --accent: #a8402c;
+    --mono: 'SF Mono', 'Menlo', 'DejaVu Sans Mono', 'Consolas', monospace;
+}
+
+html { font-size: 15px; }
+
+body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: 'et-book', 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 1.4rem;
+    line-height: 2;
+    margin: 0;
+    padding: 0;
+    counter-reset: sidenote-counter;
+}
+
+article { padding: 4rem 12% 6rem 10%; max-width: 1500px; }
+
+h1 {
+    font-weight: 400;
+    font-size: 3.1rem;
+    line-height: 1.05;
+    margin: 1rem 0 1.4rem 0;
+    width: 90%;
+}
+
+h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 2.1rem;
+    line-height: 1.2;
+    margin: 3.4rem 0 0.6rem 0;
+}
+
+h3 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6rem;
+    margin: 2.2rem 0 0.2rem 0;
+}
+
+p, ol, ul, table, dl { width: 55%; }
+p { margin: 1.2rem 0; }
+li { margin: 0.4rem 0; padding-left: 0.2rem; }
+
+.subtitle {
+    display: block;
+    font-style: italic;
+    font-size: 1.7rem;
+    color: #3a3a34;
+    margin: 0 0 2.4rem 0;
+    width: 55%;
+}
+
+.epigraph { width: 55%; margin: 2.6rem 0 3.4rem 0; font-style: italic; color: #33332c; }
+.epigraph p { width: 100%; margin: 0; line-height: 1.7; }
+.epigraph footer { font-style: normal; font-size: 1.1rem; color: var(--quiet); margin-top: 0.4rem; }
+
+a { color: var(--ink); text-decoration: underline; text-decoration-color: #c9c6bb; }
+a:hover { text-decoration-color: var(--ink); }
+
+hr { border: none; border-top: 1px solid var(--rule); margin: 3rem 0; width: 100%; }
+
+/* ---------- Sidenotes ---------- */
+
+.sidenote, .marginnote {
+    float: right;
+    clear: right;
+    margin-right: -60%;
+    width: 50%;
+    margin-top: 0.3rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    line-height: 1.45;
+    vertical-align: baseline;
+    position: relative;
+    color: #33332c;
+}
+.sidenote-number { counter-increment: sidenote-counter; }
+.sidenote-number:after, .sidenote:before { position: relative; vertical-align: baseline; }
+.sidenote-number:after { content: counter(sidenote-counter); font-size: 1rem; top: -0.5rem; left: 0.1rem; }
+.sidenote:before { content: counter(sidenote-counter) " "; font-size: 1rem; top: -0.5rem; }
+.marginnote code, .sidenote code { font-size: 0.95em; }
+
+/* ---------- Full width apparatus ---------- */
+
+.fullwidth { width: 100%; max-width: 1180px; clear: both; }
+
+figure { margin: 2.4rem 0; padding: 0; }
+figcaption { font-size: 1.1rem; line-height: 1.45; color: var(--quiet); width: 60%; margin-top: 0.6rem; }
+
+code, .mono { font-family: var(--mono); font-size: 0.82em; }
+p code, li code, td code { background: #f3f1e6; padding: 0 0.22em; }
+
+pre.sample {
+    font-family: var(--mono);
+    font-size: 1rem;
+    line-height: 1.6;
+    background: var(--panel);
+    border-left: 2px solid var(--rule);
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    width: 55%;
+    box-sizing: border-box;
+}
+
+/* ---------- Workbench ---------- */
+
+.bench {
+    display: grid;
+    grid-template-columns: minmax(370px, 0.86fr) minmax(430px, 1.14fr);
+    gap: 1.6rem;
+    align-items: start;
+}
+
+.panel { border: 1px solid var(--rule); background: var(--paper); box-sizing: border-box; }
+
+.panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.35rem 0.7rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--panel);
+    font-size: 1rem;
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+    color: var(--quiet);
+}
+.panel-head .hint { font-variant: normal; letter-spacing: 0; font-style: italic; font-size: 0.95rem; text-align: right; }
+
+/* Editor: highlighted <pre> beneath a transparent <textarea> */
+
+.editor-wrap { position: relative; height: 520px; overflow: hidden; background: var(--paper); }
+.editor-wrap pre, .editor-wrap textarea {
+    margin: 0;
+    padding: 0.8rem 0.9rem;
+    border: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.62;
+    tab-size: 2;
+    -moz-tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+    word-wrap: normal;
+    letter-spacing: 0;
+}
+.editor-wrap pre { position: absolute; inset: 0; color: var(--ink); pointer-events: none; overflow: hidden; }
+.editor-wrap textarea {
+    position: relative;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--accent);
+    resize: none;
+    outline: none;
+    display: block;
+}
+.editor-wrap textarea::selection { background: #d9e2ea; }
+
+.tk-com { color: #9b978a; font-style: italic; }
+.tk-sec { color: #1c1c1c; font-weight: bold; }
+.tk-key { color: #3c5a78; }
+.tk-num { color: #a8402c; }
+.tk-unit { color: #8a7b2f; }
+.tk-str { color: #4f7a6f; }
+.tk-nuc { color: #6b5b95; font-weight: bold; }
+
+/* Controls */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.6rem 0.7rem;
+    border-top: 1px solid var(--rule);
+    background: var(--panel);
+}
+
+button {
+    font-family: 'et-book', Palatino, serif;
+    font-size: 1.12rem;
+    line-height: 1;
+    padding: 0.35rem 0.7rem;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid #cbc8bc;
+    cursor: pointer;
+}
+button:hover { background: #f1efe2; border-color: #8d8a7e; }
+button:active { background: #e7e4d5; }
+button.primary { border-color: #8d8a7e; font-weight: bold; }
+button[disabled] { color: #aaa; border-color: #e3e0d5; cursor: default; background: var(--paper); }
+
+.controls label { font-size: 1.05rem; color: var(--quiet); display: inline-flex; align-items: center; gap: 0.3rem; }
+select {
+    font-family: 'et-book', Palatino, serif;
+    font-size: 1.05rem;
+    background: var(--paper);
+    border: 1px solid #cbc8bc;
+    padding: 0.25rem 0.3rem;
+    color: var(--ink);
+    max-width: 15rem;
+}
+input[type=range] { width: 120px; accent-color: #6b6b60; vertical-align: middle; }
+input[type=checkbox] { accent-color: #6b6b60; }
+
+.params { padding: 0.5rem 0.7rem; border-top: 1px solid var(--rule); font-size: 1.05rem; }
+.params:empty { display: none; }
+.param-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0.2rem 0; }
+.param-row .pname { font-family: var(--mono); font-size: 0.95rem; min-width: 7.5em; }
+.param-row .pval { font-family: var(--mono); font-size: 0.95rem; color: var(--accent); min-width: 4.4em; text-align: right; }
+
+.errbox {
+    display: none;
+    border-top: 1px solid var(--rule);
+    background: #fdf3ef;
+    padding: 0.6rem 0.8rem;
+    font-size: 1.05rem;
+    color: #7c2d18;
+}
+.errbox.on { display: block; }
+.errbox pre { font-family: var(--mono); font-size: 0.95rem; margin: 0.35rem 0 0 0; color: #5a2313; white-space: pre; overflow-x: auto; }
+
+/* Canvases */
+
+.stage { display: block; width: 100%; background: var(--paper); }
+#spectrumStage { height: 520px; cursor: crosshair; }
+#fidStage { height: 170px; }
+
+.strip { margin-top: 1.6rem; }
+
+.statline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1.1rem;
+    padding: 0.45rem 0.7rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    color: var(--quiet);
+}
+.statline b { font-weight: normal; color: var(--ink); }
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.9rem;
+    padding: 0.5rem 0.7rem;
+    border-top: 1px solid var(--rule);
+    font-size: 1.05rem;
+    align-items: center;
+}
+.swatch { display: inline-block; width: 0.9em; height: 0.22em; border-radius: 1px; margin-right: 0.35em; vertical-align: 0.2em; }
+.legend .count { font-family: var(--mono); font-size: 0.9rem; color: var(--quiet); }
+
+.reportgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.1rem 1.4rem;
+    padding: 0.5rem 0.7rem;
+}
+.reportgrid:empty { display: none; }
+.rrow { display: flex; align-items: baseline; gap: 0.5rem; border-bottom: 1px dotted #e6e3d6; padding: 0.12rem 0; }
+.rrow .rname { font-size: 1.1rem; color: #33332c; }
+.rrow .rval { margin-left: auto; font-family: var(--mono); font-size: 0.95rem; color: var(--accent); }
+.rrow .runit { font-family: var(--mono); font-size: 0.85rem; color: var(--quiet); }
+
+/* Reference tables */
+
+table { border-collapse: collapse; font-size: 1.15rem; line-height: 1.5; margin: 1.2rem 0 2rem 0; }
+table.wide { width: 100%; }
+.tablewrap { width: 78%; overflow-x: auto; }
+th, td { text-align: left; vertical-align: top; padding: 0.3rem 1.2rem 0.3rem 0; border-bottom: 1px solid #eceadf; }
+th { font-weight: 400; font-style: italic; color: var(--quiet); border-bottom: 1px solid var(--rule); }
+td:first-child { font-family: var(--mono); font-size: 0.88rem; white-space: nowrap; padding-right: 1.6rem; }
+td.num { font-family: var(--mono); font-size: 0.88rem; text-align: right; white-space: nowrap; }
+
+.examples { list-style: none; padding: 0; width: 78%; }
+.examples li { display: flex; gap: 1rem; align-items: baseline; margin: 0.1rem 0; padding: 0.35rem 0; border-bottom: 1px solid #eceadf; }
+.examples .ex-name { min-width: 15rem; }
+.examples .ex-desc { font-size: 1.15rem; color: #33332c; line-height: 1.4; }
+
+footer.colophon {
+    margin-top: 5rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+    font-size: 1.1rem;
+    color: var(--quiet);
+    width: 78%;
+}
+
+@media (max-width: 1100px) {
+    article { padding: 2.5rem 6%; }
+    p, ol, ul, table, dl, .subtitle, .epigraph, pre.sample { width: 100%; box-sizing: border-box; }
+    ol, ul { padding-left: 1.4rem; }
+    .examples { padding-left: 0; }
+    .sidenote, .marginnote {
+        float: none; clear: both; display: block;
+        margin: 1rem 0 1.2rem 5%; width: 92%;
+        border-left: 2px solid var(--rule); padding-left: 0.8rem;
+    }
+    .bench { grid-template-columns: 1fr; }
+    figcaption, .examples, .tablewrap, footer.colophon { width: 100%; }
+    #spectrumStage { height: 400px; }
+}
+@media (max-width: 700px) {
+    html { font-size: 14px; }
+    .editor-wrap { height: 360px; }
+    .examples li { flex-direction: column; gap: 0.1rem; }
+    .examples .ex-name { min-width: 0; }
+}
+</style>
+</head>
+
+<body>
+<article>
+
+<h1>Modelling MRS Spectra</h1>
+<p class="subtitle">A small language for writing down a spectrum, and an interpreter that draws what you wrote &mdash; on <sup>1</sup>H, <sup>2</sup>H, <sup>13</sup>C, <sup>19</sup>F, <sup>23</sup>Na, <sup>31</sup>P and <sup>129</sup>Xe</p>
+
+<div class="epigraph">
+<p>&ldquo;The spectrum is not the tissue. It is the shortest description of the tissue that a Fourier transform will accept.&rdquo;</p>
+<footer>&mdash; what the fitting program is really telling you</footer>
+</div>
+
+<p>Almost everything an in vivo spectrum does can be written as one line of arithmetic. The free induction decay is a sum of complex exponentials, each one a resonance: an amplitude, a frequency, a starting phase, and a decay. The spectrum is its Fourier transform. Line broadening, zero filling, phase correction, echo time, decoupling, the difference between a doublet and a triplet &mdash; all of them are operations on that sum, applied before the transform or after it.</p>
+
+<p><span class="sidenote-number"></span><span class="sidenote">The honest version of that sentence is that the sum is what <em>survives</em> the physics. Getting from a spin Hamiltonian to a list of frequencies and amplitudes is the hard part, and for strongly coupled spin systems it cannot be done on the back of an envelope. What this page models is the easy part, which happens to be the part that describes most of what an in vivo spectrum looks like.</span>Writing the sum out by hand is tedious in a way that hides the structure. So this page contains a small domain specific language for declaring it &mdash; nucleus, field, a list of resonances with their shifts and widths and couplings, an acquisition, a processing chain &mdash; together with a complete interpreter for that language: lexer, parser, compiler, and a simulator that synthesises the time-domain signal and transforms it. Nothing is fetched, nothing is uploaded, and the program you write is the whole of the model.</p>
+
+<p>The reason to do this across nuclei rather than for protons alone is that the interesting differences between <sup>31</sup>P, <sup>13</sup>C and <sup>129</sup>Xe spectroscopy are almost entirely differences in three numbers, and a language makes that visible in a way a paragraph does not. The gyromagnetic ratio sets how many hertz a part per million is worth. The chemical shift range sets how many parts per million you have to spend. The coupling constants set whether a resonance arrives as one line or seven. Change those three things in the program below and a phosphorus spectrum becomes a carbon spectrum.</p>
+
+<h2>The workbench</h2>
+
+<figure class="fullwidth">
+<div class="bench">
+
+    <div class="panel">
+        <div class="panel-head">
+            <span>Program</span>
+            <span class="hint">&#8984;/Ctrl + Enter to build</span>
+        </div>
+        <div class="editor-wrap">
+            <pre id="highlight" aria-hidden="true"></pre>
+            <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Spectrum program"></textarea>
+        </div>
+        <div class="controls">
+            <button id="btnBuild" class="primary">Build</button>
+            <button id="btnNoise">New noise</button>
+            <button id="btnZoom">Zoom to band</button>
+            <button id="btnFull">Full axis</button>
+            <label><input type="checkbox" id="optComp" checked> components</label>
+            <label><input type="checkbox" id="optLabels" checked> labels</label>
+            <label>example <select id="examples"></select></label>
+            <button id="btnLink">Copy link</button>
+        </div>
+        <div class="params" id="params"></div>
+        <div class="errbox" id="errbox"></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <span>Spectrum</span>
+            <span class="hint">drag across a region to integrate it</span>
+        </div>
+        <canvas id="spectrumStage" class="stage"></canvas>
+        <div class="legend" id="legend"></div>
+        <div class="statline" id="statline"></div>
+    </div>
+
+</div>
+
+<div class="panel strip fullwidth">
+    <div class="panel-head">
+        <span>Free induction decay</span>
+        <span class="hint">real and imaginary channels, with the apodisation envelope</span>
+    </div>
+    <canvas id="fidStage" class="stage"></canvas>
+    <div class="panel-head" style="border-top:1px solid var(--rule)">
+        <span>Report</span>
+        <span class="hint">everything below is measured from the simulated spectrum, not read back from the program</span>
+    </div>
+    <div class="reportgrid" id="report"></div>
+</div>
+
+<figcaption>The time domain is the honest one. Truncation, apodisation and the dead time before the first sample are all obvious in the FID and all disguised in the spectrum, where they arrive as wiggles at the foot of a peak, as a linewidth you did not ask for, and as a baseline roll that looks like biology.</figcaption>
+</figure>
+
+<h3>The examples in the menu</h3>
+
+<ul class="examples" id="exampleList"></ul>
+
+<h2>The language in one page</h2>
+
+<p>A program is a sequence of statements in any order. Every statement has a fixed number of arguments, so several may share a line &mdash; which is what makes a one-line pool declaration legible &mdash; and an expression can never run past the end of a line. Comments run from <code>#</code> to the end of the line, except where a <code>#</code> is followed immediately by three or six hexadecimal digits, which is a colour.</p>
+
+<p><span class="sidenote-number"></span><span class="sidenote">The one place the grammar is stricter than it looks: a statement taking two numbers, such as <code>couple</code>, <code>line</code> and <code>axis</code>, reads each of them as a single term rather than as arithmetic, so that <code>line -0.03 0.5</code> is two arguments rather than one subtraction. Put brackets around anything more complicated than a name or a number.</span>Numbers may carry a unit &mdash; <code>ppm</code>, <code>Hz</code>, <code>kHz</code>, <code>ms</code>, <code>us</code>, <code>s</code>, <code>T</code>, <code>deg</code> &mdash; and the unit decides how the number is read, so <code>width 8 Hz</code> and <code>width 0.15 ppm</code> are both linewidths and mean different things at different fields. Times default to seconds, shifts to ppm, and linewidths and couplings to hertz, but it costs nothing to write the unit and the examples always do.</p>
+
+<pre class="sample">
+nucleus 31P
+field 3 T
+sweep 40 ppm
+center -5 ppm
+points 2048
+noise 0.08
+
+param pH = 7.05 [6.2, 7.6]
+param Pi_ppm = 3.29 + 2.39 / (1 + pow(10, 6.75 - pH))
+
+pool PCr  { shift 0        amp 1.00  width 10 Hz }
+pool Pi   { shift Pi_ppm   amp 0.33  width 10 Hz }
+pool bATP { shift -16.26   amp 0.85  width 10 Hz  couple 2 16.5 Hz }
+
+process { lb 2 Hz  zerofill 4 }
+
+report {
+  "PCr/ATP" = area(PCr) / area(bATP)
+  SNR       = snr(PCr)
+}
+</pre>
+
+<p><span class="sidenote-number"></span><span class="sidenote">The &beta;-ATP triplet is the cleanest demonstration in the language that a &ldquo;peak&rdquo; and a &ldquo;resonance&rdquo; are different objects. One pool, one amplitude, one chemical shift &mdash; and three lines, in a 1:2:1 ratio, because the &beta; phosphate is coupled to two others. Its integral is unchanged by the splitting; only its height falls.</span>Every pool is a chemical species or, more precisely, a set of chemically equivalent nuclei. It has a shift, an amplitude, a width, and optionally a list of couplings, each of which splits every line the pool has so far into a first-order multiplet with binomial intensities. The amplitude is the integral of the whole multiplet and is conserved by splitting, which is the point.</p>
+
+<h3>Acquisition</h3>
+
+<p>These statements stand on their own at the top level, or may be gathered inside an <code>acquire { … }</code> block, which changes nothing but the tidiness.</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Statement</th><th>Meaning</th></tr>
+<tr><td>nucleus 31P</td><td>The observed nucleus: <code>1H 2H 13C 19F 23Na 31P 129Xe</code>, or the names <code>proton deuterium carbon fluorine sodium phosphorus xenon</code>. Sets the gyromagnetic ratio and therefore the hertz-per-ppm of everything else.</td></tr>
+<tr><td>field 3 T</td><td>B<sub>0</sub> in tesla.</td></tr>
+<tr><td>center 4.7 ppm</td><td>The centre of the ppm axis, which is also the transmitter frequency and the zero of the hertz axis.</td></tr>
+<tr><td>sweep 40 ppm</td><td>Spectral width, in <code>ppm</code>, <code>Hz</code> or <code>kHz</code>. It sets the dwell time, so a resonance outside it does not vanish &mdash; it aliases, exactly as it would on the scanner.</td></tr>
+<tr><td>points 2048</td><td>Complex points acquired, rounded up to a power of two.</td></tr>
+<tr><td>delay 0.5 ms</td><td>Dead time between excitation and the first sample. The source of first-order phase and of rolling baselines.</td></tr>
+<tr><td>te 144 ms</td><td>Echo time. Applies <var>e</var><sup>&minus;TE/T2</sup> to pools that declare a <code>t2</code>, and modulates homonuclear multiplets.</td></tr>
+<tr><td>tr 2 s</td><td>Repetition time. With <code>flip</code> and a pool's <code>t1</code> it applies the steady-state saturation factor.</td></tr>
+<tr><td>flip 90 deg</td><td>Excitation flip angle, used only by the saturation factor.</td></tr>
+<tr><td>noise 0.002</td><td>Standard deviation of the complex Gaussian noise added to each point of the FID, in units of the amplitude scale. Zero for a noiseless model.</td></tr>
+<tr><td>seed 11</td><td>Seeds the noise, so a spectrum is reproducible to the pixel.</td></tr>
+<tr><td>decouple 1H noe 1.8 if d</td><td>Collapse every coupling to that nucleus and multiply pools by their NOE factor. The <code>noe</code> and <code>if</code> clauses are optional; <code>if</code> takes any expression, so a parameter can switch the decoupler.</td></tr>
+<tr><td>jmod off</td><td>Suppress J modulation at TE, leaving only the T2 weighting. On by default.</td></tr>
+<tr><td>axis 10 -20 ppm</td><td>The displayed window, left edge first. Defaults to the whole sweep.</td></tr>
+<tr><td>ymax 0.02</td><td>Clip the vertical scale, in spectrum units. Indispensable when one peak is two orders of magnitude taller than the ones you care about.</td></tr>
+<tr><td>param p = v [lo, hi]</td><td>A named constant with a slider; the bounds are optional. A parameter whose value is a plain number is a knob. One computed from other parameters or from the acquisition &mdash; <code>param lw = 5 + 1.8 * B0</code> &mdash; is <em>derived</em>: it gets no slider of its own and is recomputed every time anything it depends on moves.</td></tr>
+</table></div>
+
+<h3>Pools</h3>
+
+<p>A <code>pool</code> is a set of chemically equivalent nuclei &mdash; a metabolite, or one carbon of one. Everything inside is optional; an empty pool is a unit singlet at 0 ppm.</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Statement</th><th>Meaning</th></tr>
+<tr><td>shift 4.85 ppm</td><td>Chemical shift. <code>Hz</code> is accepted and is read as an offset from the centre of the axis.</td></tr>
+<tr><td>amp 0.22</td><td>The integral of the whole pool, in arbitrary units. Splitting redistributes it; it never creates or destroys it.</td></tr>
+<tr><td>width 9 Hz</td><td>Full width at half maximum of the Lorentzian part, which is to say an apparent T2* of 1/&pi;&Delta;. <code>ppm</code> is accepted.</td></tr>
+<tr><td>gauss 4 Hz</td><td>FWHM of a Gaussian part, multiplied into the same decay. With both, the line is a Voigt profile: Lorentzian in the wings, Gaussian in the shoulders, which is what shim imperfection actually produces.</td></tr>
+<tr><td>t2 90 ms</td><td>The true T2, used <em>only</em> for the <var>e</var><sup>&minus;TE/T2</sup> weighting. Declaring it does not change the linewidth, because in vivo the linewidth is T2* and the two are not the same number.</td></tr>
+<tr><td>t1 4 s</td><td>Used only by the <code>tr</code>/<code>flip</code> saturation factor.</td></tr>
+<tr><td>phase 0 deg</td><td>A starting phase for this pool alone. Useful for the <sup>129</sup>Xe membrane resonance, which is really two components with nearly opposite phase.</td></tr>
+<tr><td>noe 1.8</td><td>The factor applied when the relevant decoupler is on. Carbons with no attached proton get very little; this is why carbonyls are underestimated.</td></tr>
+<tr><td>couple 2 16 Hz</td><td>First-order splitting by two equivalent partners: three lines at 1:2:1, spaced 16 Hz. Repeatable, so a doublet of doublets is two <code>couple</code> lines. Add <code>to 1H</code> to mark a coupling heteronuclear and therefore removable by a decoupler.</td></tr>
+<tr><td>line -0.03 0.5 ppm</td><td>An explicit line at an offset from the pool centre with a relative amplitude, for multiplets that are not binomial. The first <code>line</code> replaces the implicit singlet; later couplings split each one.</td></tr>
+<tr><td>label "…"</td><td>The name used in the legend and on the peak label. Defaults to the pool's identifier.</td></tr>
+<tr><td>color #a8402c</td><td>Its colour in the component trace.</td></tr>
+</table></div>
+
+<h3>Processing</h3>
+
+<p>Everything in the <code>process</code> block happens after the signal exists and before it is drawn, which is the whole of the distinction between acquisition and post-processing.</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Statement</th><th>Meaning</th></tr>
+<tr><td>lb 2 Hz</td><td>Exponential apodisation. Adds exactly 2 Hz to every Lorentzian linewidth and improves SNR; the two facts are the same fact.</td></tr>
+<tr><td>gb 3 Hz</td><td>Gaussian apodisation. With a negative <code>lb</code> it is the Lorentz-to-Gauss resolution enhancement, which buys narrower lines with noise and wiggles.</td></tr>
+<tr><td>window none|sine|hamming</td><td>An additional window over the acquisition, applied on top of <code>lb</code> and <code>gb</code>.</td></tr>
+<tr><td>truncate 256</td><td>Keep only the first <var>n</var> points, or, with <code>ms</code>, the first <var>t</var> milliseconds. The rest of the FID is set to zero, which is not the same as never having acquired it.</td></tr>
+<tr><td>zerofill 2</td><td>Pad the FID to this multiple of its length before transforming. Interpolates the lineshape; adds no information.</td></tr>
+<tr><td>phase0 0 deg</td><td>Zero-order phase correction, applied to every frequency equally.</td></tr>
+<tr><td>phase1 0 deg</td><td>First-order phase correction, in degrees across the full sweep, applied linearly in frequency. What you use to undo a <code>delay</code>.</td></tr>
+<tr><td>firstpoint 0.5</td><td>The weight given to the first point of the FID. One half is the correct value and removes the constant baseline offset; set it to 1 to see the offset you are removing.</td></tr>
+<tr><td>mode real|magnitude|imaginary</td><td>What is plotted. Magnitude mode needs no phasing and costs a factor near &radic;2 in SNR and a good deal of resolution.</td></tr>
+</table></div>
+
+<h3>Report</h3>
+
+<p><span class="sidenote-number"></span><span class="sidenote">The distinction between <code>area()</code> and <code>integral()</code> is the point of the whole block. The first asks the model what it put there; the second measures the drawn spectrum between two ppm values, the way a person with a cursor does. Where peaks overlap the two disagree, and the size of the disagreement is the quantification bias you would have had.</span>A <code>report</code> block is a list of named expressions, evaluated against the finished spectrum and printed under the FID. An optional string after the expression is a unit label.</p>
+
+<pre class="sample">
+report {
+  pH        = 6.75 + log10((shiftmax(3.5, 6.5) - 3.29) / (5.68 - shiftmax(3.5, 6.5)))
+  "PCr/ATP" = area(PCr) / area(bATP)
+  linewidth = fwhm(PCr) "Hz"
+  SNR       = height(PCr) / rms(-25, -20)
+}
+</pre>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Function</th><th>Value</th></tr>
+<tr><td>area(P)</td><td>The integral of pool <var>P</var>'s own contribution over the whole axis. With no processing losses it equals the declared amplitude.</td></tr>
+<tr><td>height(P)</td><td>The tallest point of that pool's contribution.</td></tr>
+<tr><td>shift(P)</td><td>Its declared centre, in ppm.</td></tr>
+<tr><td>fwhm(P)</td><td>Its linewidth in hertz, measured from the simulated lineshape after apodisation, not read back from <code>width</code>.</td></tr>
+<tr><td>snr(P)</td><td>Its height divided by the analytic noise standard deviation of the spectrum.</td></tr>
+<tr><td>integral(a, b)</td><td>The integral of the drawn spectrum between two ppm values, noise, neighbours, baseline and all.</td></tr>
+<tr><td>peak(a, b)</td><td>The largest value in that ppm range.</td></tr>
+<tr><td>shiftmax(a, b)</td><td>Where that largest value is, in ppm, refined to sub-bin precision by a parabolic fit. This is how you measure a shift rather than assume it.</td></tr>
+<tr><td>rms(a, b)</td><td>Root mean square of the spectrum in that range. Over a signal-free stretch it is an honest noise estimate.</td></tr>
+<tr><td>noise()</td><td>The analytic noise standard deviation, computed from the input noise and the apodisation.</td></tr>
+</table></div>
+
+<h3>Expressions</h3>
+
+<p>Guards, shifts, amplitudes and report lines are all ordinary arithmetic over parameters and a few read-only quantities. Comparisons yield 1 and 0; <code>and</code>, <code>or</code> and <code>not</code> work on those.</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Name</th><th>Value</th></tr>
+<tr><td>b0, f0</td><td>The field in tesla, and the Larmor frequency in MHz.</td></tr>
+<tr><td>hzppm</td><td>Hertz per ppm, which is <code>f0</code>. The number that makes a carbon spectrum hard and a xenon spectrum easy.</td></tr>
+<tr><td>sw, np, dt, tacq</td><td>Sweep width in Hz, points acquired, dwell time in seconds, total acquisition time in seconds.</td></tr>
+<tr><td>df, nfft, center</td><td>Hertz per point of the finished spectrum, the transform length after zero filling, and the centre of the ppm axis.</td></tr>
+<tr><td>te, tr, pi</td><td>Echo and repetition time in seconds, and 3.14159&hellip;</td></tr>
+<tr><td>min max abs floor ceil round sqrt exp log log10 sin cos tan pow clamp mod sgn if</td><td>The usual arithmetic. <code>if(c, a, b)</code> evaluates both branches.</td></tr>
+</table></div>
+
+<h2>What one part per million is worth</h2>
+
+<p><span class="marginnote">Gyromagnetic ratios in MHz/T, with the sign dropped; <sup>129</sup>Xe is negative, and the gas-phase value 11.777 is used rather than the bare-nucleus 11.860, because in vivo xenon work references itself to the gas peak in the same breath. Natural abundance is irrelevant for the hyperpolarised nuclei, where the polarisation is five orders of magnitude from thermal equilibrium and the isotope is enriched anyway.</span>The chemical shift scale is defined in ppm precisely so that it does not depend on the field. The linewidth is not, and neither is the shim, and neither is anything else that happens in hertz. That mismatch is the whole of multinuclear spectroscopy's difficulty, and it is arithmetic:</p>
+
+<div class="tablewrap"><table class="wide">
+<tr><th>Nucleus</th><th>Spin</th><th class="num">MHz/T</th><th class="num">Abundance</th><th class="num">Larmor at 3 T</th><th class="num">Hz per ppm at 3 T</th><th>Range in use</th></tr>
+<tr><td>1H</td><td>1/2</td><td class="num">42.5775</td><td class="num">99.99 %</td><td class="num">127.7 MHz</td><td class="num">127.7</td><td>about 5 ppm, and water sits in the middle of it</td></tr>
+<tr><td>2H</td><td>1</td><td class="num">6.5359</td><td class="num">0.0115 %</td><td class="num">19.6 MHz</td><td class="num">19.6</td><td>3.5 ppm, which is 69 Hz &mdash; DMI is a shimming problem</td></tr>
+<tr><td>13C</td><td>1/2</td><td class="num">10.7084</td><td class="num">1.07 %</td><td class="num">32.1 MHz</td><td class="num">32.1</td><td>170 ppm, but a 130 Hz one-bond coupling is 4 ppm of it</td></tr>
+<tr><td>19F</td><td>1/2</td><td class="num">40.0775</td><td class="num">100 %</td><td class="num">120.2 MHz</td><td class="num">120.2</td><td>hundreds of ppm, and no background signal at all</td></tr>
+<tr><td>23Na</td><td>3/2</td><td class="num">11.2688</td><td class="num">100 %</td><td class="num">33.8 MHz</td><td class="num">33.8</td><td>one line; the interest is in biexponential T2, not shift</td></tr>
+<tr><td>31P</td><td>1/2</td><td class="num">17.235</td><td class="num">100 %</td><td class="num">51.7 MHz</td><td class="num">51.7</td><td>23 ppm from PE to &beta;-ATP, or 1.2 kHz at 3 T</td></tr>
+<tr><td>129Xe</td><td>1/2</td><td class="num">11.777</td><td class="num">26.4 %</td><td class="num">35.3 MHz</td><td class="num">35.3</td><td>218 ppm of it, which is why the compartments resolve</td></tr>
+</table></div>
+
+<p>Read the last two columns together. A 10 Hz line is 0.08 ppm on protons and 0.5 ppm on deuterium: the same shim, the same magnet, the same voxel, and a sixfold difference in what counts as resolved. <sup>129</sup>Xe has the opposite luck. Its gyromagnetic ratio is poor, so a dissolved-phase line 150 Hz wide is a perfectly ordinary 4 ppm &mdash; and the red cell and membrane resonances are 20.6 ppm apart, which is 730 Hz at 3 T and separable by a one-point Dixon with no fitting at all. The nucleus with almost the worst sensitivity has almost the best-resolved spectrum, because its electron cloud is enormous and polarisable and its chemical shift range runs to thousands of ppm.</p>
+
+<p><span class="sidenote-number"></span><span class="sidenote">Which is also why <code>decouple 1H</code> is not a convenience in <sup>13</sup>C work but a precondition. Without it, the 30.2 ppm lipid methylene arrives as a triplet 125 Hz wide and every carbon in the spectrum overlaps its neighbour's multiplet.</span>Carbon is the awkward case in the other direction. Its 200 ppm range looks generous until you notice that the one-bond <sup>13</sup>C&ndash;<sup>1</sup>H coupling is 125 to 170 Hz and does <em>not</em> shrink with field: at 3 T that splitting is 4 to 5 ppm wide, comparable to the entire separation between glutamate C4 and glutamine C4. Couplings are in hertz, shifts are in ppm, and going to a higher field is the only operation that improves the ratio between them.</p>
+
+<h2>Things worth trying</h2>
+
+<p>The examples are starting points rather than results. A few ways of pulling on them:</p>
+
+<ul>
+<li><strong>Take the field away.</strong> Load the phosphorus example and drag <code>B0</code> from 7 T down to 1.5 T. Nothing in the program changes except one number, and the phosphomonoester and phosphodiester pairs merge into the two anonymous humps that clinical 31P at 1.5 T actually delivers. Resolution in ppm is linear in field; nothing else in the model is.</li>
+<li><strong>Turn off the decoupler.</strong> In the natural-abundance carbon example, drag <code>dec</code> to zero. Every carbon with attached protons explodes into a 125 Hz multiplet, the NOE evaporates, and a spectrum that was legible becomes a comb. Then put it back and watch the integrals change by more than the peaks do.</li>
+<li><strong>Sweep the echo time.</strong> In the proton example, take <code>TE</code> from 30 ms to 288 ms. The lactate doublet flattens near 72 ms, inverts at 144, and comes back upright at 288, while everything else simply fades. The inversion is not relaxation; it is the coupling evolving through half a cycle, and the model shows the two effects separately because they are separate.</li>
+<li><strong>Undersample on purpose.</strong> In the xenon lung example, reduce <code>sweep</code> until the enormous gas peak folds. Because the FID here is sampled rather than assembled in the frequency domain, aliasing happens for the right reason and lands in the right place, which is the cheapest way to convince yourself where a fold comes from.</li>
+<li><strong>Look at what a huge peak does far away from itself.</strong> In the xenon lung example the gas resonance is a hundred times the two peaks that matter, and its line is given a Gaussian width because that is what shim imperfection produces. Change it to a pure Lorentzian of the same width and its wings alone &mdash; 200 ppm from the line that made them &mdash; lift the baseline under the membrane and red cell peaks. This is the same arithmetic that makes residual water a problem at 2 ppm in a proton spectrum.</li>
+<li><strong>Truncate and apodise.</strong> In the lineshape example, set <code>lb</code> to zero and <code>truncate</code> to a few hundred points. The sinc wiggles at the foot of every peak are the Fourier transform of the rectangular window you just applied. Then raise <code>lb</code> until they vanish, and note what it cost in linewidth.</li>
+<li><strong>Add a dead time.</strong> Set <code>delay</code> to 1.5 ms anywhere. The baseline rolls, the peaks go dispersive at the edges of the sweep, and <code>phase1</code> set to 360&nbsp;&times;&nbsp;delay&nbsp;&times;&nbsp;sweep degrees puts it all back. First-order phase is not a mystery; it is a time shift seen from the other side of the transform.</li>
+<li><strong>Set the noise to zero and zero-fill.</strong> The peaks get smoother and the SNR in the report does not change. Zero filling interpolates; it is the one free operation in the chain, and it is free because it adds nothing.</li>
+</ul>
+
+<h2>What this does not model</h2>
+
+<p><span class="marginnote">If you need a basis set to fit real data with, this is not the tool: use a density-matrix simulation of the actual pulse sequence &mdash; GAMMA, FID-A, Vespa, or the vendor basis sets built with them. This page is for understanding and for teaching, and for sketching what an experiment might look like before you book the magnet.</span>The model is first-order throughout, and it is worth being explicit about what falls outside it.</p>
+
+<ul>
+<li><strong>Strong coupling.</strong> Multiplets here are binomial and symmetric. Real spin systems whose chemical shift difference is comparable to their coupling &mdash; citrate, glutamate, myo-inositol, most of the interesting proton metabolites &mdash; show roofing, extra lines, and intensities that no amount of arithmetic on <code>couple</code> will reproduce. Where the examples show those metabolites, the multiplets are drawn as explicit <code>line</code> lists chosen to look right, not derived.</li>
+<li><strong>Localisation.</strong> There is no PRESS, no STEAM, no sLASER, no slice profile, and therefore no chemical shift displacement error, no outer volume contamination, and no J evolution during the pulses. TE enters as a single ideal weak-coupling factor.</li>
+<li><strong>B<sub>0</sub> inhomogeneity.</strong> A real voxel contains a distribution of field offsets. Here that is represented by a Gaussian component in the lineshape, which is a decent approximation and not a model.</li>
+<li><strong>Water suppression, eddy currents, sidebands, motion.</strong> None of them. The residual water in the proton example is a pool you declare, not something the simulation left behind.</li>
+<li><strong>Concentration.</strong> Amplitudes are arbitrary units. Turning a peak area into millimolar requires relaxation correction, a reference signal, and a set of assumptions this page does not make for you.</li>
+<li><strong>Hyperpolarised dynamics.</strong> The carbon and xenon examples show one spectrum from a series. Polarisation decay, flip-angle consumption and the kinetics that make those experiments worth doing are not simulated.</li>
+</ul>
+
+<p>The chemical shifts and couplings in the examples are literature central values, gathered for the <a href="periodic_table.html">periodic chart for MR</a> on this site and reused here. They are the middle of a reported range, not a measurement, and several of them move with pH, temperature, oxygenation and tissue.</p>
+
+<h2>How the interpreter works</h2>
+
+<p><span class="marginnote">Roughly twelve hundred lines of ordinary JavaScript in the source of this page, with no dependencies and no build step. View source and read from <code>function lex</code>.</span>The pipeline is the textbook one. A <strong>lexer</strong> turns the source into tokens, keeping line and column so that errors can point at something, and emitting newlines as tokens, because one statement per line is what lets <code>couple 2 16 Hz</code> be a statement rather than a four-argument ambiguity. It also recognises nucleus names, which is the one place the grammar has to cope with an identifier that starts with a digit. A <strong>recursive-descent parser</strong> reads the statements and hands arithmetic to a precedence climber, producing a syntax tree.</p>
+
+<p>The tree is then <strong>compiled to closures</strong>: every expression becomes a JavaScript function of one argument, the evaluation context. Identifier resolution happens once, at compile time, which is where an undefined parameter or a misspelled pool name is caught. Pool names inside <code>area()</code> and its relatives are resolved to indices at the same moment.</p>
+
+<p>The <strong>simulator</strong> then does the only physics in the page. It evaluates the acquisition in dependency order, expands every pool into a list of lines by applying each <code>couple</code> in turn, and synthesises the complex FID one pool at a time by direct summation of decaying exponentials. Noise is added to the sum alone, so each component trace stays clean and the total does not. Apodisation, truncation, the first-point weight and zero filling are applied to all of them identically, then each is transformed by an iterative radix-2 FFT and phased. Keeping a separate spectrum per pool costs a little memory and buys the component traces, the measured linewidths, and an honest answer to the question of how much of that peak was actually the metabolite you named.</p>
+
+<footer class="colophon">
+<p>Written as a single file, with no dependencies, no build step, and no network calls after the typeface loads. The source is the documentation. &mdash; <a href="index.html">UAB MRS Resources</a> &middot; <a href="periodic_table.html">Periodic chart for MR</a> &middot; <a href="../toys/graph_automata.html">Graph automata</a> &middot; <a href="../index.html">Commonplace Book</a></p>
+</footer>
+
+</article>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. Utilities
+   ============================================================ */
+
+function mulberry32(a) {
+    return function () {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+
+/* Box-Muller, one value at a time; the spare is cached. */
+function gaussian(rng) {
+    var u = 0, v = 0;
+    while (u === 0) u = rng();
+    v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function dslError(msg, line, col) {
+    var e = new Error(msg);
+    e.dsl = true; e.line = line; e.col = col;
+    return e;
+}
+
+function nextPow2(n) {
+    var p = 1;
+    while (p < n) p *= 2;
+    return p;
+}
+
+var LN2 = Math.LN2;
+var MONO = "'SF Mono','Menlo','DejaVu Sans Mono','Consolas',monospace";
+var noiseBump = 0;
+var PALETTE = ['#a8402c', '#3c5a78', '#4f7a6f', '#8a7b2f', '#6b5b95', '#b5651d',
+    '#7a2e3b', '#2f5d50', '#55606b', '#96703a', '#1f6f7a', '#8c4a6b'];
+
+/* ---- iterative radix-2 FFT, forward transform, exp(-2 pi i j k / n) ---- */
+
+var TWIDDLE = {};
+function twiddle(n) {
+    if (TWIDDLE[n]) return TWIDDLE[n];
+    var half = n / 2;
+    var c = new Float64Array(half), s = new Float64Array(half);
+    for (var k = 0; k < half; k++) {
+        var a = -2 * Math.PI * k / n;
+        c[k] = Math.cos(a); s[k] = Math.sin(a);
+    }
+    return (TWIDDLE[n] = { c: c, s: s });
+}
+
+function fft(re, im) {
+    var n = re.length, i, j, k;
+    for (i = 1, j = 0; i < n; i++) {
+        var bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) {
+            var tr = re[i]; re[i] = re[j]; re[j] = tr;
+            var ti = im[i]; im[i] = im[j]; im[j] = ti;
+        }
+    }
+    var W = twiddle(n);
+    for (var len = 2; len <= n; len <<= 1) {
+        var half = len >> 1, stride = n / len;
+        for (i = 0; i < n; i += len) {
+            for (k = 0; k < half; k++) {
+                var wr = W.c[k * stride], wi = W.s[k * stride];
+                var a = i + k, b = a + half;
+                var xr = re[b] * wr - im[b] * wi;
+                var xi = re[b] * wi + im[b] * wr;
+                re[b] = re[a] - xr; im[b] = im[a] - xi;
+                re[a] += xr; im[a] += xi;
+            }
+        }
+    }
+}
+
+/* ============================================================
+   2. Nuclei
+   The gamma values are the practical in vivo ones: 31P is the
+   compound value that puts a 3 T scanner at 51.7 MHz, and 129Xe
+   is the gas-phase 11.777 rather than the bare-nucleus 11.860,
+   because in vivo xenon references itself to the gas peak.
+   ============================================================ */
+
+var NUCLEI = {
+    '1h':   { name: '1H',   label: '¹H',            gamma: 42.5775, spin: '1/2', abundance: 99.99 },
+    '2h':   { name: '2H',   label: '²H',            gamma: 6.5359,  spin: '1',   abundance: 0.0115 },
+    '3he':  { name: '3He',  label: '³He',           gamma: 32.434,  spin: '1/2', abundance: 0.000137 },
+    '7li':  { name: '7Li',  label: '⁷Li',           gamma: 16.5483, spin: '3/2', abundance: 92.41 },
+    '13c':  { name: '13C',  label: '¹³C',      gamma: 10.7084, spin: '1/2', abundance: 1.07 },
+    '17o':  { name: '17O',  label: '¹⁷O',      gamma: 5.7742,  spin: '5/2', abundance: 0.038 },
+    '19f':  { name: '19F',  label: '¹⁹F',      gamma: 40.0775, spin: '1/2', abundance: 100 },
+    '23na': { name: '23Na', label: '²³Na',     gamma: 11.2688, spin: '3/2', abundance: 100 },
+    '31p':  { name: '31P',  label: '³¹P',      gamma: 17.235,  spin: '1/2', abundance: 100 },
+    '129xe':{ name: '129Xe',label: '¹²⁹Xe', gamma: 11.777, spin: '1/2', abundance: 26.44 }
+};
+
+var NUCLEUS_ALIAS = {
+    'proton': '1h', 'h1': '1h', 'hydrogen': '1h',
+    'deuterium': '2h', 'h2': '2h', 'deuteron': '2h',
+    'helium': '3he', 'he3': '3he',
+    'lithium': '7li', 'li7': '7li',
+    'carbon': '13c', 'c13': '13c',
+    'oxygen': '17o', 'o17': '17o',
+    'fluorine': '19f', 'f19': '19f',
+    'sodium': '23na', 'na23': '23na',
+    'phosphorus': '31p', 'phosphorous': '31p', 'p31': '31p',
+    'xenon': '129xe', 'xe129': '129xe'
+};
+
+function resolveNucleus(word, line, col) {
+    var k = String(word).toLowerCase();
+    if (NUCLEI[k]) return k;
+    if (NUCLEUS_ALIAS[k]) return NUCLEUS_ALIAS[k];
+    throw dslError('unknown nucleus "' + word + '"', line, col);
+}
+
+/* ============================================================
+   3. Lexer
+   Newlines survive as tokens: one statement per line is what
+   keeps "couple 2 16 Hz" from being a four-argument ambiguity.
+   The one awkwardness of the domain is that nucleus names begin
+   with a digit, so they are matched before numbers are.
+   ============================================================ */
+
+var NUC_RE = /^(1H|2H|3He|7Li|13C|17O|19F|23Na|31P|129Xe)\b/i;
+var PUNCT2 = ['==', '!=', '<=', '>='];
+var PUNCT1 = '{}()[],;=<>+-*/%';
+var UNITS = { ppm: 1, hz: 1, khz: 1, ms: 1, us: 1, s: 1, min: 1, t: 1, mt: 1, deg: 1, rad: 1, pts: 1, points: 1, percent: 1 };
+
+function lex(src) {
+    var toks = [], i = 0, line = 1, col = 1, N = src.length;
+    function push(type, value) { toks.push({ type: type, value: value, line: line, col: col }); }
+    while (i < N) {
+        var c = src[i];
+        if (c === '\n') { push('nl', '\n'); i++; line++; col = 1; continue; }
+        if (c === ' ' || c === '\t' || c === '\r') { i++; col++; continue; }
+        if (c === '#') {
+            var mc = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/.exec(src.slice(i, i + 9));
+            if (mc) { push('color', mc[0]); i += mc[0].length; col += mc[0].length; continue; }
+            while (i < N && src[i] !== '\n') { i++; col++; }
+            continue;
+        }
+        if (c === '"' || c === "'") {
+            var quote = c, j = i + 1, buf = '';
+            while (j < N && src[j] !== quote) {
+                if (src[j] === '\n') throw dslError('unterminated string', line, col);
+                buf += src[j]; j++;
+            }
+            if (j >= N) throw dslError('unterminated string', line, col);
+            push('str', buf);
+            col += (j - i + 1); i = j + 1;
+            continue;
+        }
+        if (c >= '0' && c <= '9') {
+            var mnuc = NUC_RE.exec(src.slice(i, i + 8));
+            if (mnuc) { push('nuc', mnuc[0]); i += mnuc[0].length; col += mnuc[0].length; continue; }
+        }
+        if ((c >= '0' && c <= '9') || (c === '.' && /[0-9]/.test(src[i + 1] || ''))) {
+            var mn = /^[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?/.exec(src.slice(i));
+            push('num', parseFloat(mn[0])); i += mn[0].length; col += mn[0].length; continue;
+        }
+        if (/[A-Za-z_]/.test(c)) {
+            var mi = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
+            push('id', mi[0]); i += mi[0].length; col += mi[0].length; continue;
+        }
+        var two = src.substr(i, 2);
+        if (PUNCT2.indexOf(two) >= 0) { push('op', two); i += 2; col += 2; continue; }
+        if (PUNCT1.indexOf(c) >= 0) { push('op', c); i++; col++; continue; }
+        throw dslError('unexpected character ' + JSON.stringify(c), line, col);
+    }
+    push('eof', null);
+    return toks;
+}
+
+/* ============================================================
+   4. Parser
+   ============================================================ */
+
+var ACQ_WORDS = {
+    nucleus: 1, field: 1, center: 1, centre: 1, sweep: 1, points: 1, delay: 1,
+    te: 1, tr: 1, flip: 1, noise: 1, seed: 1, decouple: 1, jmod: 1, axis: 1, ymax: 1
+};
+
+function parse(src) {
+    var toks = lex(src), p = 0;
+
+    function peek(k) { return toks[p + (k || 0)]; }
+    function at(type, value) {
+        var t = toks[p];
+        return t.type === type && (value === undefined || String(t.value).toLowerCase() === String(value).toLowerCase());
+    }
+    function eat(type, value) { return at(type, value) ? toks[p++] : null; }
+    function describe(t) {
+        if (t.type === 'eof') return 'end of program';
+        if (t.type === 'nl') return 'end of line';
+        return '"' + t.value + '"';
+    }
+    function expect(type, value, what) {
+        var t = eat(type, value);
+        if (!t) throw dslError('expected ' + (what || value || type) + ', found ' + describe(peek()), peek().line, peek().col);
+        return t;
+    }
+    function skipNl() { while (at('nl')) p++; }
+
+    /* A nucleus is the one token that may begin with a digit. If the lexer
+       did not recognise it, it will have split it into a number and a name,
+       so put it back together for the error message. */
+    function eatNucleus(what) {
+        var n = peek();
+        if (n.type === 'nuc' || n.type === 'id') { p++; return resolveNucleus(n.value, n.line, n.col); }
+        if (n.type === 'num' && peek(1).type === 'id') {
+            throw dslError('unknown nucleus "' + n.value + peek(1).value + '"', n.line, n.col);
+        }
+        throw dslError('expected ' + what + ', found ' + describe(n), n.line, n.col);
+    }
+    /* Statements have fixed arity and newlines survive as tokens, so a
+       separator is optional: several properties may share a line, and an
+       expression can never run past the end of one. */
+    function endStatement() {
+        while (at('nl') || at('op', ';')) p++;
+    }
+
+    var prog = {
+        nucleus: '1h', pools: [], poolIndex: {}, params: [], paramIndex: {},
+        report: [], decouple: null, source: src,
+        acq: {}, proc: {}
+    };
+
+    /* ---- expressions: precedence climbing ---- */
+
+    function primary() {
+        var t = peek();
+        if (t.type === 'num') { p++; return { k: 'num', v: t.value, line: t.line, col: t.col }; }
+        if (t.type === 'op' && t.value === '(') {
+            p++; var e = expression(); expect('op', ')', '")"'); return e;
+        }
+        if (t.type === 'op' && (t.value === '-' || t.value === '+')) {
+            p++; return { k: 'un', op: t.value, a: primary(), line: t.line, col: t.col };
+        }
+        if (t.type === 'id' && t.value.toLowerCase() === 'not') {
+            p++; return { k: 'un', op: 'not', a: primary(), line: t.line, col: t.col };
+        }
+        if (t.type === 'id') {
+            p++;
+            if (at('op', '(')) {
+                p++;
+                var args = [];
+                if (!at('op', ')')) { do { args.push(expression()); } while (eat('op', ',')); }
+                expect('op', ')', '")" to close ' + t.value + '(');
+                return { k: 'call', name: t.value, args: args, line: t.line, col: t.col };
+            }
+            return { k: 'var', name: t.value, line: t.line, col: t.col };
+        }
+        throw dslError('expected a number or a name, found ' + describe(t), t.line, t.col);
+    }
+
+    var LEVELS = [['or'], ['and'], ['==', '!='], ['<', '<=', '>', '>='], ['+', '-'], ['*', '/', '%']];
+
+    function binaryLevel(level) {
+        if (level >= LEVELS.length) return primary();
+        var ops = LEVELS[level];
+        var left = binaryLevel(level + 1);
+        for (;;) {
+            var t = peek(), match = null;
+            if (t.type === 'op' && ops.indexOf(t.value) >= 0) match = t.value;
+            else if (t.type === 'id' && ops.indexOf(String(t.value).toLowerCase()) >= 0) match = String(t.value).toLowerCase();
+            if (!match) return left;
+            p++;
+            var right = binaryLevel(level + 1);
+            left = { k: 'bin', op: match, a: left, b: right, line: t.line, col: t.col };
+        }
+    }
+
+    function expression() { return binaryLevel(0); }
+
+    /* A statement that takes more than one number takes atoms, not
+       expressions, so that "line -0.03 0.5" is two arguments and not
+       one subtraction. Parentheses restore the full grammar. */
+    function atom() { return primary(); }
+
+    /* ---- units ---- */
+
+    function unit(def) {
+        var t = peek();
+        if (t.type === 'id' && UNITS[String(t.value).toLowerCase()]) { p++; return String(t.value).toLowerCase(); }
+        return def || null;
+    }
+    function valued(def, useAtom) {
+        var t = peek();
+        var e = useAtom ? atom() : expression();
+        return { e: e, u: unit(def), line: t.line, col: t.col };
+    }
+
+    /* ---- statements ---- */
+
+    function parseParam() {
+        var nameTok = expect('id', undefined, 'a parameter name');
+        expect('op', '=', '"=" after the parameter name');
+        var val = expression();
+        var lo = null, hi = null;
+        if (eat('op', '[')) {
+            lo = expression();
+            expect('op', ',', '"," between the bounds');
+            hi = expression();
+            expect('op', ']', '"]" after the bounds');
+        }
+        if (prog.paramIndex.hasOwnProperty(nameTok.value)) {
+            throw dslError('parameter "' + nameTok.value + '" declared twice', nameTok.line, nameTok.col);
+        }
+        prog.paramIndex[nameTok.value] = prog.params.length;
+        prog.params.push({ name: nameTok.value, value: val, lo: lo, hi: hi });
+        endStatement();
+    }
+
+    function parseAcqStatement() {
+        var t = expect('id');
+        var w = String(t.value).toLowerCase();
+        var A = prog.acq;
+        switch (w) {
+            case 'nucleus':
+                prog.nucleus = eatNucleus('a nucleus');
+                break;
+            case 'field': A.field = valued('t'); break;
+            case 'center': case 'centre': A.center = valued('ppm'); break;
+            case 'sweep': A.sweep = valued('hz'); break;
+            case 'points': A.points = valued(null); break;
+            case 'delay': A.delay = valued('s'); break;
+            case 'te': A.te = valued('s'); break;
+            case 'tr': A.tr = valued('s'); break;
+            case 'flip': A.flip = valued('deg'); break;
+            case 'noise': A.noise = valued(null); break;
+            case 'seed': A.seed = valued(null); break;
+            case 'ymax': A.ymax = valued(null); break;
+            case 'jmod': {
+                var v = expect('id', undefined, '"on" or "off"');
+                A.jmod = (String(v.value).toLowerCase() === 'on');
+                break;
+            }
+            case 'axis': {
+                var a1 = atom(), a2 = atom();
+                A.axis = { lo: a1, hi: a2, u: unit('ppm') };
+                break;
+            }
+            case 'decouple': {
+                var d = { nucleus: eatNucleus('a nucleus to decouple'), noe: null, cond: null };
+                for (;;) {
+                    if (at('id', 'noe')) { p++; d.noe = expression(); continue; }
+                    if (at('id', 'if')) { p++; d.cond = expression(); continue; }
+                    break;
+                }
+                prog.decouple = d;
+                break;
+            }
+            default:
+                throw dslError('unknown statement "' + t.value + '"', t.line, t.col);
+        }
+        endStatement();
+    }
+
+    function parsePool() {
+        var nameTok = expect('id', undefined, 'a pool name');
+        if (prog.poolIndex.hasOwnProperty(nameTok.value)) {
+            throw dslError('pool "' + nameTok.value + '" declared twice', nameTok.line, nameTok.col);
+        }
+        var pool = {
+            name: nameTok.value, label: null, color: null,
+            shift: null, amp: null, width: null, gauss: null,
+            t1: null, t2: null, phase: null, noe: null,
+            couples: [], lines: [], line: nameTok.line
+        };
+        skipNl();
+        expect('op', '{', '"{" after the pool name');
+        skipNl();
+        while (!at('op', '}')) {
+            if (at('eof')) throw dslError('unterminated pool block', peek().line, peek().col);
+            var t = expect('id', undefined, 'a pool property');
+            var w = String(t.value).toLowerCase();
+            switch (w) {
+                case 'shift': pool.shift = valued('ppm'); break;
+                case 'amp': case 'amplitude': pool.amp = valued(null); break;
+                case 'width': case 'lw': pool.width = valued('hz'); break;
+                case 'gauss': pool.gauss = valued('hz'); break;
+                case 't1': pool.t1 = valued('s'); break;
+                case 't2': pool.t2 = valued('s'); break;
+                case 'phase': pool.phase = valued('deg'); break;
+                case 'noe': pool.noe = valued(null); break;
+                case 'label': pool.label = expect('str', undefined, 'a quoted label').value; break;
+                case 'color': case 'colour': pool.color = expect('color', undefined, 'a #hex colour').value; break;
+                case 'couple': {
+                    var n = atom(), j = atom(), u = unit('hz'), to = null;
+                    if (at('id', 'to')) { p++; to = eatNucleus('a nucleus after "to"'); }
+                    pool.couples.push({ n: n, j: j, u: u, to: to });
+                    break;
+                }
+                case 'line': {
+                    var off = atom(), amp = atom(), lu = unit('ppm');
+                    pool.lines.push({ off: off, amp: amp, u: lu });
+                    break;
+                }
+                default:
+                    throw dslError('unknown pool property "' + t.value + '"', t.line, t.col);
+            }
+            endStatement();
+        }
+        expect('op', '}');
+        prog.poolIndex[pool.name] = prog.pools.length;
+        prog.pools.push(pool);
+        endStatement();
+    }
+
+    function parseProcess() {
+        skipNl();
+        expect('op', '{', '"{" after process');
+        skipNl();
+        var P = prog.proc;
+        while (!at('op', '}')) {
+            if (at('eof')) throw dslError('unterminated process block', peek().line, peek().col);
+            var t = expect('id', undefined, 'a processing step');
+            var w = String(t.value).toLowerCase();
+            switch (w) {
+                case 'lb': P.lb = valued('hz'); break;
+                case 'gb': P.gb = valued('hz'); break;
+                case 'zerofill': case 'zf': P.zerofill = valued(null); break;
+                case 'phase0': case 'ph0': P.phase0 = valued('deg'); break;
+                case 'phase1': case 'ph1': P.phase1 = valued('deg'); break;
+                case 'firstpoint': P.firstpoint = valued(null); break;
+                case 'truncate': P.truncate = valued('pts'); break;
+                case 'window': {
+                    var v = expect('id', undefined, 'none, sine or hamming');
+                    var vv = String(v.value).toLowerCase();
+                    if (['none', 'sine', 'hamming'].indexOf(vv) < 0) throw dslError('unknown window "' + v.value + '"', v.line, v.col);
+                    P.window = vv;
+                    break;
+                }
+                case 'mode': {
+                    var m = expect('id', undefined, 'real, magnitude or imaginary');
+                    var mm = String(m.value).toLowerCase();
+                    if (['real', 'magnitude', 'imaginary', 'imag', 'abs'].indexOf(mm) < 0) throw dslError('unknown mode "' + m.value + '"', m.line, m.col);
+                    P.mode = (mm === 'abs') ? 'magnitude' : (mm === 'imag' ? 'imaginary' : mm);
+                    break;
+                }
+                default:
+                    throw dslError('unknown processing step "' + t.value + '"', t.line, t.col);
+            }
+            endStatement();
+        }
+        expect('op', '}');
+        endStatement();
+    }
+
+    function parseReport() {
+        skipNl();
+        expect('op', '{', '"{" after report');
+        skipNl();
+        while (!at('op', '}')) {
+            if (at('eof')) throw dslError('unterminated report block', peek().line, peek().col);
+            var nameTok = peek(), label;
+            if (nameTok.type === 'str') { p++; label = nameTok.value; }
+            else { label = expect('id', undefined, 'a name or a quoted label').value; }
+            expect('op', '=', '"=" after the report name');
+            var e = expression();
+            var u = at('str') ? toks[p++].value : '';
+            prog.report.push({ label: label, e: e, unit: u });
+            endStatement();
+        }
+        expect('op', '}');
+        endStatement();
+    }
+
+    /* ---- top level ---- */
+
+    skipNl();
+    while (!at('eof')) {
+        var t = peek();
+        if (t.type !== 'id') throw dslError('expected a statement, found ' + describe(t), t.line, t.col);
+        var w = String(t.value).toLowerCase();
+        if (w === 'param') { p++; parseParam(); }
+        else if (w === 'pool') { p++; parsePool(); }
+        else if (w === 'process') { p++; parseProcess(); }
+        else if (w === 'report') { p++; parseReport(); }
+        else if (w === 'acquire') {
+            p++; skipNl();
+            expect('op', '{', '"{" after acquire');
+            skipNl();
+            while (!at('op', '}')) {
+                if (at('eof')) throw dslError('unterminated acquire block', peek().line, peek().col);
+                parseAcqStatement();
+            }
+            expect('op', '}');
+            endStatement();
+        }
+        else if (ACQ_WORDS[w]) parseAcqStatement();
+        else throw dslError('unknown statement "' + t.value + '"', t.line, t.col);
+        skipNl();
+    }
+
+    if (!prog.pools.length) throw dslError('the program declares no pools, so there is nothing to transform', 1, 1);
+    return prog;
+}
+
+/* ============================================================
+   5. Compiler: syntax tree to closures over an evaluation context
+   ============================================================ */
+
+var MATH1 = {
+    abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round,
+    sqrt: Math.sqrt, exp: Math.exp, log: Math.log, sin: Math.sin, cos: Math.cos,
+    tan: Math.tan, atan: Math.atan, asin: Math.asin, acos: Math.acos
+};
+var READONLY = { b0: 1, f0: 1, hzppm: 1, sw: 1, np: 1, dt: 1, tacq: 1, df: 1, nfft: 1, center: 1, te: 1, tr: 1, flip: 1 };
+var POOL_FN = { area: 1, height: 1, shift: 1, fwhm: 1, snr: 1 };
+var RANGE_FN = { integral: 1, peak: 1, shiftmax: 1, rms: 1 };
+
+function compile(ast, prog, opts) {
+    opts = opts || {};
+    var maxParam = (opts.maxParam === undefined) ? prog.params.length : opts.maxParam;
+
+    function C(node) {
+        switch (node.k) {
+            case 'num': {
+                var v = node.v;
+                return function () { return v; };
+            }
+            case 'un': {
+                var a = C(node.a);
+                if (node.op === '-') return function (x) { return -a(x); };
+                if (node.op === '+') return a;
+                return function (x) { return a(x) ? 0 : 1; };
+            }
+            case 'bin': {
+                var l = C(node.a), r = C(node.b);
+                switch (node.op) {
+                    case '+': return function (x) { return l(x) + r(x); };
+                    case '-': return function (x) { return l(x) - r(x); };
+                    case '*': return function (x) { return l(x) * r(x); };
+                    case '/': return function (x) { return l(x) / r(x); };
+                    case '%': return function (x) { var b = r(x); return b === 0 ? 0 : l(x) - b * Math.floor(l(x) / b); };
+                    case '==': return function (x) { return l(x) === r(x) ? 1 : 0; };
+                    case '!=': return function (x) { return l(x) !== r(x) ? 1 : 0; };
+                    case '<': return function (x) { return l(x) < r(x) ? 1 : 0; };
+                    case '<=': return function (x) { return l(x) <= r(x) ? 1 : 0; };
+                    case '>': return function (x) { return l(x) > r(x) ? 1 : 0; };
+                    case '>=': return function (x) { return l(x) >= r(x) ? 1 : 0; };
+                    case 'and': return function (x) { return (l(x) && r(x)) ? 1 : 0; };
+                    case 'or': return function (x) { return (l(x) || r(x)) ? 1 : 0; };
+                }
+                throw dslError('unknown operator "' + node.op + '"', node.line, node.col);
+            }
+            case 'var': {
+                var nm = node.name, lower = nm.toLowerCase();
+                if (lower === 'pi') return function () { return Math.PI; };
+                if (lower === 'e') return function () { return Math.E; };
+                if (prog.paramIndex.hasOwnProperty(nm)) {
+                    var i = prog.paramIndex[nm];
+                    if (i >= maxParam) throw dslError('parameter "' + nm + '" is used before it is declared', node.line, node.col);
+                    return function (x) { return x.p[i]; };
+                }
+                if (READONLY[lower]) return function (x) { var v = x.v[lower]; return v === undefined ? 0 : v; };
+                if (prog.poolIndex.hasOwnProperty(nm)) {
+                    throw dslError('"' + nm + '" is a pool, so it needs a function around it: area(' + nm + '), height(' + nm + '), shift(' + nm + ')', node.line, node.col);
+                }
+                throw dslError('unknown name "' + nm + '"', node.line, node.col);
+            }
+            case 'call': {
+                var name = node.name.toLowerCase(), args = node.args, n = args.length;
+                function need(k) {
+                    if (n !== k) throw dslError(name + '() takes ' + k + ' argument' + (k === 1 ? '' : 's') + ', not ' + n, node.line, node.col);
+                }
+                if (MATH1[name]) { need(1); var a1 = C(args[0]), f1 = MATH1[name]; return function (x) { return f1(a1(x)); }; }
+                if (name === 'log10') { need(1); var al = C(args[0]); return function (x) { return Math.log(al(x)) / Math.LN10; }; }
+                if (name === 'sgn') { need(1); var as = C(args[0]); return function (x) { var v = as(x); return v > 0 ? 1 : (v < 0 ? -1 : 0); }; }
+                if (name === 'min' || name === 'max') {
+                    if (n < 2) throw dslError(name + '() needs at least two arguments', node.line, node.col);
+                    var cs = args.map(C), pick = (name === 'min') ? Math.min : Math.max;
+                    return function (x) { var v = cs[0](x); for (var i = 1; i < cs.length; i++) v = pick(v, cs[i](x)); return v; };
+                }
+                if (name === 'pow') { need(2); var pa = C(args[0]), pb = C(args[1]); return function (x) { return Math.pow(pa(x), pb(x)); }; }
+                if (name === 'mod') { need(2); var ma = C(args[0]), mb = C(args[1]); return function (x) { var b = mb(x); return b === 0 ? 0 : ma(x) - b * Math.floor(ma(x) / b); }; }
+                if (name === 'clamp') { need(3); var ca = C(args[0]), cl = C(args[1]), ch = C(args[2]); return function (x) { return Math.max(cl(x), Math.min(ch(x), ca(x))); }; }
+                if (name === 'if') { need(3); var ic = C(args[0]), it = C(args[1]), ie = C(args[2]); return function (x) { return ic(x) ? it(x) : ie(x); }; }
+                if (POOL_FN[name]) {
+                    need(1);
+                    if (!opts.report) throw dslError(name + '() measures the finished spectrum, so it can only be used inside a report block', node.line, node.col);
+                    var target = args[0];
+                    if (target.k !== 'var' || !prog.poolIndex.hasOwnProperty(target.name)) {
+                        throw dslError(name + '() takes the name of a pool', node.line, node.col);
+                    }
+                    var pi = prog.poolIndex[target.name];
+                    return function (x) { return measurePool(x.sim, pi, name); };
+                }
+                if (RANGE_FN[name]) {
+                    need(2);
+                    if (!opts.report) throw dslError(name + '() measures the finished spectrum, so it can only be used inside a report block', node.line, node.col);
+                    var ra = C(args[0]), rb = C(args[1]), rn = name;
+                    return function (x) { return measureRange(x.sim, ra(x), rb(x), rn); };
+                }
+                if (name === 'noise') {
+                    need(0);
+                    if (!opts.report) throw dslError('noise() can only be used inside a report block', node.line, node.col);
+                    return function (x) { return x.sim.sigmaSpec; };
+                }
+                throw dslError('unknown function "' + node.name + '()"', node.line, node.col);
+            }
+        }
+        throw dslError('cannot compile this expression', node.line, node.col);
+    }
+
+    return C(ast);
+}
+
+function referencesNames(ast, prog) {
+    if (!ast) return false;
+    switch (ast.k) {
+        case 'var':
+            return prog.paramIndex.hasOwnProperty(ast.name) || !!READONLY[ast.name.toLowerCase()];
+        case 'un': return referencesNames(ast.a, prog);
+        case 'bin': return referencesNames(ast.a, prog) || referencesNames(ast.b, prog);
+        case 'call':
+            for (var i = 0; i < ast.args.length; i++) if (referencesNames(ast.args[i], prog)) return true;
+            return false;
+    }
+    return false;
+}
+
+function compileValue(v, prog, opts) {
+    if (!v) return null;
+    return { f: compile(v.e, prog, opts), u: v.u };
+}
+
+function compileProgram(prog) {
+    var A = prog.acq, P = prog.proc, c = {};
+    ['field', 'center', 'sweep', 'points', 'delay', 'te', 'tr', 'flip', 'noise', 'seed', 'ymax'].forEach(function (k) {
+        c[k] = compileValue(A[k], prog);
+    });
+    c.jmod = (A.jmod === undefined) ? true : A.jmod;
+    c.axis = A.axis ? { lo: compile(A.axis.lo, prog), hi: compile(A.axis.hi, prog), u: A.axis.u } : null;
+    c.proc = {};
+    ['lb', 'gb', 'zerofill', 'phase0', 'phase1', 'firstpoint', 'truncate'].forEach(function (k) {
+        c.proc[k] = compileValue(P[k], prog);
+    });
+    c.proc.window = P.window || 'none';
+    c.proc.mode = P.mode || 'real';
+    c.decouple = prog.decouple ? {
+        nucleus: prog.decouple.nucleus,
+        noe: prog.decouple.noe ? compile(prog.decouple.noe, prog) : null,
+        cond: prog.decouple.cond ? compile(prog.decouple.cond, prog) : null
+    } : null;
+
+    c.pools = prog.pools.map(function (pool, idx) {
+        return {
+            name: pool.name,
+            label: pool.label || pool.name,
+            color: pool.color || PALETTE[idx % PALETTE.length],
+            shift: compileValue(pool.shift, prog),
+            amp: compileValue(pool.amp, prog),
+            width: compileValue(pool.width, prog),
+            gauss: compileValue(pool.gauss, prog),
+            t1: compileValue(pool.t1, prog),
+            t2: compileValue(pool.t2, prog),
+            phase: compileValue(pool.phase, prog),
+            noe: compileValue(pool.noe, prog),
+            couples: pool.couples.map(function (cp) {
+                return { n: compile(cp.n, prog), j: compile(cp.j, prog), u: cp.u, to: cp.to };
+            }),
+            lines: pool.lines.map(function (ln) {
+                return { off: compile(ln.off, prog), amp: compile(ln.amp, prog), u: ln.u };
+            })
+        };
+    });
+
+    /* A parameter whose value is a plain number is a knob and keeps
+       whatever the slider last set. One computed from other parameters,
+       or from the acquisition, is derived: no slider, and recomputed
+       every time the simulation runs. */
+    c.params = prog.params.map(function (pd, i) {
+        return {
+            name: pd.name,
+            derived: referencesNames(pd.value, prog),
+            value: compile(pd.value, prog, { maxParam: i }),
+            lo: pd.lo ? compile(pd.lo, prog, { maxParam: i }) : null,
+            hi: pd.hi ? compile(pd.hi, prog, { maxParam: i }) : null
+        };
+    });
+
+    c.report = prog.report.map(function (r) {
+        return { label: r.label, unit: r.unit, f: compile(r.e, prog, { report: true }) };
+    });
+
+    prog.c = c;
+    return prog;
+}
+
+function initialParams(prog) {
+    var C = { p: [], v: { pi: Math.PI } };
+    prog.c.params.forEach(function (pd) {
+        C.p.push(pd.value(C));
+    });
+    return C.p;
+}
+
+function refreshDerived(prog, X) {
+    var ps = prog.c.params;
+    for (var i = 0; i < ps.length; i++) {
+        if (ps[i].derived) {
+            var v = ps[i].value(X);
+            X.p[i] = isFinite(v) ? v : 0;
+        }
+    }
+}
+
+function paramBounds(prog, values) {
+    var C = { p: values.slice(), v: { pi: Math.PI } };
+    return prog.c.params.map(function (pd, i) {
+        var lo = pd.lo ? pd.lo(C) : null, hi = pd.hi ? pd.hi(C) : null;
+        var v = values[i];
+        if (lo === null || hi === null) {
+            if (v > 0 && v <= 1) { lo = 0; hi = 1; }
+            else if (v === 0) { lo = 0; hi = 1; }
+            else { lo = Math.min(0, v * 2); hi = Math.max(0, v * 2); }
+        }
+        return { name: pd.name, lo: lo, hi: hi, derived: pd.derived };
+    });
+}
+
+/* ============================================================
+   6. The simulator
+   Everything here is done in the time domain first, which is why
+   a line outside the sweep aliases instead of disappearing.
+   ============================================================ */
+
+var MAX_POINTS = 32768, MAX_FFT = 131072, MAX_LINES = 512;
+
+function binomial(n) {
+    var row = [1];
+    for (var i = 1; i <= n; i++) {
+        var next = [1];
+        for (var j = 1; j < i; j++) next.push(row[j - 1] + row[j]);
+        next.push(1);
+        row = next;
+    }
+    return row;
+}
+
+function simulate(prog, paramValues) {
+    var c = prog.c, warn = [];
+    var X = { p: paramValues, v: { pi: Math.PI }, prog: prog, sim: null };
+    refreshDerived(prog, X);          /* pass one: parameters of parameters */
+
+    var nuc = NUCLEI[prog.nucleus];
+    var b0 = c.field ? tesla(c.field, X) : 3;
+    if (!(b0 > 0)) throw new Error('the field has to be positive, not ' + fmtNum(b0));
+    var f0 = Math.abs(nuc.gamma) * b0;      /* MHz, and also Hz per ppm */
+    X.v.b0 = b0; X.v.f0 = f0; X.v.hzppm = f0;
+
+    /* A default centre and sweep, if the program did not say: the
+       midpoint and span of the declared shifts. */
+    var rawShifts = c.pools.map(function (p) { return p.shift ? (p.shift.u === 'hz' ? 0 : p.shift.f(X)) : 0; });
+    var loS = Math.min.apply(null, rawShifts), hiS = Math.max.apply(null, rawShifts);
+
+    var center = c.center ? ppmOf(c.center, X, f0) : (loS + hiS) / 2;
+    X.v.center = center;
+
+    var sw;
+    if (c.sweep) sw = hzOf(c.sweep, X, f0);
+    else sw = Math.max(200, (hiS - loS) * f0 * 1.6 + 400);
+    if (!(sw > 0)) throw new Error('the sweep width has to be positive');
+
+    var N = Math.round(c.points ? c.points.f(X) : 2048);
+    N = nextPow2(Math.max(16, Math.min(MAX_POINTS, N)));
+    var dt = 1 / sw, tacq = N * dt;
+    X.v.sw = sw; X.v.np = N; X.v.dt = dt; X.v.tacq = tacq;
+
+    var delay = c.delay ? secOf(c.delay, X) : 0;
+    var te = c.te ? secOf(c.te, X) : 0;
+    var tr = c.tr ? secOf(c.tr, X) : 0;
+    var flip = c.flip ? radOf(c.flip, X) : Math.PI / 2;
+    X.v.te = te; X.v.tr = tr; X.v.flip = flip;
+
+    var sigma = c.noise ? Math.max(0, c.noise.f(X)) : 0;
+    var seed = Math.round(c.seed ? c.seed.f(X) : 20260919) + noiseBump * 7919;
+
+    /* ---- processing constants ---- */
+    var P = c.proc;
+    var lb = P.lb ? hzOf(P.lb, X, f0) : 0;
+    var gb = P.gb ? hzOf(P.gb, X, f0) : 0;
+    var zf = Math.round(P.zerofill ? P.zerofill.f(X) : 1);
+    zf = nextPow2(Math.max(1, Math.min(16, zf)));
+    var ph0 = P.phase0 ? radOf(P.phase0, X) : 0;
+    var ph1 = P.phase1 ? radOf(P.phase1, X) : 0;
+    var fp = P.firstpoint ? P.firstpoint.f(X) : 0.5;
+    var ntr = N;
+    if (P.truncate) {
+        var tv = P.truncate.f(X);
+        if (P.truncate.u === 'ms') ntr = Math.round(tv / 1000 / dt);
+        else if (P.truncate.u === 's') ntr = Math.round(tv / dt);
+        else if (P.truncate.u === 'us') ntr = Math.round(tv / 1e6 / dt);
+        else ntr = Math.round(tv);
+        if (ntr <= 0) ntr = N;
+        ntr = Math.max(1, Math.min(N, ntr));
+    }
+
+    var M = nextPow2(N * zf);
+    if (M > MAX_FFT) { M = MAX_FFT; warn.push('transform length capped at ' + M + ' points'); }
+    var df = sw / M, dppm = df / f0;
+    X.v.df = df; X.v.nfft = M;
+    refreshDerived(prog, X);          /* pass two, now that the axis exists */
+
+    /* ---- decoupling ---- */
+    var dec = null;
+    if (c.decouple) {
+        var on = c.decouple.cond ? (c.decouple.cond(X) !== 0) : true;
+        if (on) dec = { nucleus: c.decouple.nucleus, noe: c.decouple.noe ? c.decouple.noe(X) : null };
+    }
+
+    /* ---- expand every pool into lines, then synthesise ---- */
+    var comps = [], totRe = new Float64Array(M), totIm = new Float64Array(M);
+    var nLines = 0;
+
+    for (var pi = 0; pi < c.pools.length; pi++) {
+        var pl = c.pools[pi];
+        var shiftPpm = pl.shift ? ppmOf(pl.shift, X, f0, center) : 0;
+        var amp = pl.amp ? pl.amp.f(X) : 1;
+        var t2 = pl.t2 ? secOf(pl.t2, X) : 0;
+        var t1 = pl.t1 ? secOf(pl.t1, X) : 0;
+        var width = pl.width ? hzOf(pl.width, X, f0) : (t2 > 0 ? 1 / (Math.PI * t2) : 5);
+        var gauss = pl.gauss ? hzOf(pl.gauss, X, f0) : 0;
+        var phase = pl.phase ? radOf(pl.phase, X) : 0;
+        width = Math.max(0, width); gauss = Math.max(0, gauss);
+
+        /* explicit lines, else one singlet; d and jd are hertz offsets
+           from the pool centre, jd counting only the coupling part */
+        var lines;
+        if (pl.lines.length) {
+            lines = pl.lines.map(function (ln) {
+                var off = (ln.u === 'hz') ? ln.off(X) : ln.off(X) * f0;
+                return { d: off, jd: 0, a: ln.amp(X) };
+            });
+            var s = 0;
+            lines.forEach(function (l) { s += l.a; });
+            if (s !== 0) lines.forEach(function (l) { l.a /= s; });
+        } else {
+            lines = [{ d: 0, jd: 0, a: 1 }];
+        }
+
+        var observed = prog.nucleus;
+        for (var ci = 0; ci < pl.couples.length; ci++) {
+            var cp = pl.couples[ci];
+            var partner = cp.to || observed;
+            if (dec && dec.nucleus === partner) continue;          /* collapsed */
+            var nn = Math.max(0, Math.round(cp.n(X)));
+            if (nn === 0) continue;
+            var J = (cp.u === 'ppm') ? cp.j(X) * f0 : cp.j(X);
+            var w = binomial(nn), tot = Math.pow(2, nn), out = [];
+            for (var li = 0; li < lines.length; li++) {
+                for (var k = 0; k <= nn; k++) {
+                    var dd = (k - nn / 2) * J;
+                    out.push({ d: lines[li].d + dd, jd: lines[li].jd + dd, a: lines[li].a * w[k] / tot });
+                }
+            }
+            lines = out;
+            if (lines.length > MAX_LINES) throw new Error('pool "' + pl.name + '" expands to more than ' + MAX_LINES + ' lines');
+        }
+        nLines += lines.length;
+
+        /* amplitude weighting that is not part of the lineshape */
+        var scale = amp;
+        if (dec) {
+            var noeF = null;
+            if (pl.noe) noeF = pl.noe.f(X);
+            else if (dec.noe !== null) {
+                var touches = pl.couples.some(function (cp2) { return (cp2.to || observed) === dec.nucleus; });
+                if (touches) noeF = dec.noe;
+            }
+            if (noeF !== null) scale *= noeF;
+        }
+        if (tr > 0 && t1 > 0) {
+            var E1 = Math.exp(-tr / t1);
+            var den = 1 - Math.cos(flip) * E1;
+            scale *= (den === 0) ? 0 : Math.sin(flip) * (1 - E1) / den;
+        }
+        if (te > 0 && t2 > 0) scale *= Math.exp(-te / t2);
+
+        var re = new Float64Array(M), im = new Float64Array(M);
+        var fCenter = (shiftPpm - center) * f0;
+        var lam = Math.PI * width;
+        var gk = (Math.PI * gauss) * (Math.PI * gauss) / (4 * LN2);
+        for (var q = 0; q < lines.length; q++) {
+            var L = lines[q];
+            var A = scale * L.a;
+            if (A === 0) continue;
+            var f = fCenter + L.d;
+            var ph = phase + (c.jmod && te > 0 ? 2 * Math.PI * L.jd * te : 0);
+            var wf = 2 * Math.PI * f;
+            for (var k2 = 0; k2 < N; k2++) {
+                var t = delay + k2 * dt;
+                var env = Math.exp(-lam * t - gk * t * t);
+                if (env < 1e-10) break;
+                var arg = wf * t + ph;
+                re[k2] += A * env * Math.cos(arg);
+                im[k2] += A * env * Math.sin(arg);
+            }
+        }
+        for (var k3 = 0; k3 < N; k3++) { totRe[k3] += re[k3]; totIm[k3] += im[k3]; }
+
+        comps.push({
+            name: pl.name, label: pl.label, color: pl.color,
+            shiftPpm: shiftPpm, amp: amp, width: width, gauss: gauss,
+            nLines: lines.length, re: re, im: im, val: null, scale: scale
+        });
+    }
+
+    /* ---- noise, added to the sum alone ---- */
+    if (sigma > 0) {
+        var rng = mulberry32(seed || 1);
+        for (var kn = 0; kn < N; kn++) {
+            totRe[kn] += sigma * gaussian(rng);
+            totIm[kn] += sigma * gaussian(rng);
+        }
+    }
+
+    /* ---- apodisation, truncation, first point ---- */
+    var w2 = 0, wv = new Float64Array(N);
+    var gcoef = (Math.PI * gb) * (Math.PI * gb) / (4 * LN2);
+    for (var kw = 0; kw < N; kw++) {
+        var tw = kw * dt;
+        var ww = Math.exp(-Math.PI * lb * tw - gcoef * tw * tw);
+        if (P.window === 'sine') ww *= Math.sin(Math.PI * (kw + 0.5) / N);
+        else if (P.window === 'hamming') ww *= 0.54 - 0.46 * Math.cos(2 * Math.PI * kw / (N - 1));
+        if (kw >= ntr) ww = 0;
+        if (kw === 0) ww *= fp;
+        wv[kw] = ww; w2 += ww * ww;
+    }
+    var sigmaSpec = 2 * dt * sigma * Math.sqrt(w2);
+
+    function apodise(re, im) {
+        for (var k = 0; k < N; k++) { re[k] *= wv[k]; im[k] *= wv[k]; }
+        for (var k2 = N; k2 < M; k2++) { re[k2] = 0; im[k2] = 0; }
+    }
+    apodise(totRe, totIm);
+    comps.forEach(function (cm) { apodise(cm.re, cm.im); });
+    var fidRe = totRe.slice(0, N), fidIm = totIm.slice(0, N);
+
+    /* ---- transform, shift, phase, take the displayed part ---- */
+    var mode = P.mode;
+    function transform(re, im) {
+        fft(re, im);
+        var out = new Float64Array(M), half = M >> 1, k2 = 2 * dt;
+        for (var m = 0; m < M; m++) {
+            var src = (m + half) % M;
+            var f = (m - half) * df;
+            var phi = ph0 + ph1 * (f / sw);
+            var cp = Math.cos(phi), sp = Math.sin(phi);
+            var a = re[src] * k2, b = im[src] * k2;
+            var rr = a * cp + b * sp, ii = b * cp - a * sp;
+            out[m] = (mode === 'magnitude') ? Math.sqrt(rr * rr + ii * ii) : (mode === 'imaginary' ? ii : rr);
+        }
+        return out;
+    }
+    var totalVal = transform(totRe, totIm);
+    comps.forEach(function (cm) { cm.val = transform(cm.re, cm.im); cm.re = null; cm.im = null; });
+
+    /* ---- display window ---- */
+    var axisHi, axisLo;
+    if (c.axis) {
+        var a1 = c.axis.lo(X), a2 = c.axis.hi(X);
+        if (c.axis.u === 'hz') { a1 = center + a1 / f0; a2 = center + a2 / f0; }
+        axisHi = Math.max(a1, a2); axisLo = Math.min(a1, a2);
+    } else {
+        axisHi = center + (sw / 2) / f0; axisLo = center - (sw / 2) / f0;
+    }
+
+    var sim = {
+        nuc: nuc, b0: b0, f0: f0, center: center, sw: sw, N: N, M: M, dt: dt, df: df, dppm: dppm,
+        tacq: tacq, delay: delay, te: te, tr: tr, flip: flip, sigma: sigma, sigmaSpec: sigmaSpec,
+        lb: lb, gb: gb, zf: zf, ntr: ntr, mode: mode, nLines: nLines,
+        total: totalVal, comps: comps, wv: wv, fidRe: fidRe, fidIm: fidIm,
+        axisLo: axisLo, axisHi: axisHi, ymax: c.ymax ? c.ymax.f(X) : null,
+        warnings: warn, X: X
+    };
+    X.sim = sim;
+
+    sim.report = c.report.map(function (r) {
+        var v;
+        try { v = r.f(X); } catch (err) { v = NaN; }
+        return { label: r.label, unit: r.unit, value: v };
+    });
+
+    return sim;
+}
+
+/* ---- unit readers ---- */
+
+function hzOf(v, X, f0) {
+    var x = v.f(X);
+    if (v.u === 'ppm') return x * f0;
+    if (v.u === 'khz') return x * 1000;
+    return x;
+}
+function ppmOf(v, X, f0, center) {
+    var x = v.f(X);
+    if (v.u === 'hz') return (center === undefined ? 0 : center) + x / f0;
+    if (v.u === 'khz') return (center === undefined ? 0 : center) + x * 1000 / f0;
+    return x;
+}
+function secOf(v, X) {
+    var x = v.f(X);
+    if (v.u === 'ms') return x / 1000;
+    if (v.u === 'us') return x / 1e6;
+    if (v.u === 'min') return x * 60;
+    return x;
+}
+function radOf(v, X) {
+    var x = v.f(X);
+    return v.u === 'rad' ? x : x * Math.PI / 180;
+}
+function tesla(v, X) {
+    var x = v.f(X);
+    return v.u === 'mt' ? x / 1000 : x;
+}
+
+/* ---- measurement, used by the report block ---- */
+
+function ppmToIndex(sim, ppm) {
+    return (sim.M >> 1) + (ppm - sim.center) * sim.f0 / sim.df;
+}
+function indexToPpm(sim, i) {
+    return sim.center + (i - (sim.M >> 1)) * sim.df / sim.f0;
+}
+
+function measurePool(sim, i, what) {
+    var cm = sim.comps[i];
+    if (!cm) return NaN;
+    var v = cm.val, M = sim.M, m, best = 0, bi = 0, sum = 0;
+    if (what === 'shift') return cm.shiftPpm;
+    if (what === 'area') {
+        for (m = 0; m < M; m++) sum += v[m];
+        return sum * sim.df;
+    }
+    for (m = 0; m < M; m++) { if (v[m] > best) { best = v[m]; bi = m; } }
+    if (what === 'height') return best;
+    if (what === 'snr') return sim.sigmaSpec > 0 ? best / sim.sigmaSpec : Infinity;
+    if (what === 'fwhm') {
+        if (best <= 0) return NaN;
+        var half = best / 2, l = bi, r = bi;
+        while (l > 0 && v[l] > half) l--;
+        while (r < M - 1 && v[r] > half) r++;
+        var lf = (v[l + 1] - v[l]) !== 0 ? l + (half - v[l]) / (v[l + 1] - v[l]) : l;
+        var rf = (v[r - 1] - v[r]) !== 0 ? r - (half - v[r]) / (v[r - 1] - v[r]) : r;
+        return (rf - lf) * sim.df;
+    }
+    return NaN;
+}
+
+function measureRange(sim, a, b, what) {
+    var lo = Math.min(a, b), hi = Math.max(a, b);
+    var i0 = Math.max(0, Math.ceil(ppmToIndex(sim, lo)));
+    var i1 = Math.min(sim.M - 1, Math.floor(ppmToIndex(sim, hi)));
+    if (i1 < i0) return NaN;
+    var v = sim.total, m, sum = 0, sq = 0, best = -Infinity, bi = i0, n = 0;
+    for (m = i0; m <= i1; m++) {
+        sum += v[m]; sq += v[m] * v[m]; n++;
+        if (v[m] > best) { best = v[m]; bi = m; }
+    }
+    if (what === 'integral') return sum * sim.df;
+    if (what === 'peak') return best;
+    if (what === 'rms') return Math.sqrt(sq / n);
+    if (what === 'shiftmax') {
+        if (bi > 0 && bi < sim.M - 1) {
+            var y0 = v[bi - 1], y1 = v[bi], y2 = v[bi + 1];
+            var den = y0 - 2 * y1 + y2;
+            var d = den !== 0 ? 0.5 * (y0 - y2) / den : 0;
+            if (d > -1 && d < 1) return indexToPpm(sim, bi + d);
+        }
+        return indexToPpm(sim, bi);
+    }
+    return NaN;
+}
+
+/* ============================================================
+   7. Drawing
+   ============================================================ */
+
+function fitCanvas(c) {
+    var r = c.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    var w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; return true; }
+    return false;
+}
+
+function pen(c) {
+    var g = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, c.width / dpr, c.height / dpr);
+    return g;
+}
+
+function niceStep(span, target) {
+    var raw = span / Math.max(1, target);
+    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    var n = raw / mag;
+    var mult = n < 1.5 ? 1 : (n < 3.5 ? 2 : (n < 7.5 ? 5 : 10));
+    return mult * mag;
+}
+
+function fmtNum(v) {
+    if (!isFinite(v)) return (v > 0 ? '∞' : (v < 0 ? '-∞' : 'n/a'));
+    var a = Math.abs(v);
+    if (a === 0) return '0';
+    if (a >= 1e5 || a < 1e-4) return v.toExponential(2);
+    if (a >= 100) return v.toFixed(1);
+    if (a >= 10) return v.toFixed(2);
+    if (a >= 1) return v.toFixed(3);
+    return v.toPrecision(3);
+}
+
+function fmtShort(v) {
+    if (!isFinite(v)) return '?';
+    return String(Math.round(v * 1000) / 1000);
+}
+
+function fmtTime(s) {
+    if (s >= 1) return s.toFixed(3) + ' s';
+    if (s >= 1e-3) return (s * 1e3).toFixed(s * 1e3 >= 100 ? 0 : 1) + ' ms';
+    return (s * 1e6).toFixed(1) + ' µs';
+}
+
+var SPEC_PAD = { l: 28, r: 28, t: 30, b: 34 };
+
+function spectrumGeometry(sim, canvas, view) {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.width / dpr, h = canvas.height / dpr;
+    var lo = view.lo !== null ? view.lo : sim.axisLo;
+    var hi = view.hi !== null ? view.hi : sim.axisHi;
+    if (hi <= lo) { hi = lo + 1; }
+    var padL = SPEC_PAD.l, padR = SPEC_PAD.r, padT = SPEC_PAD.t, padB = SPEC_PAD.b;
+    var plotW = Math.max(10, w - padL - padR), plotH = Math.max(10, h - padT - padB);
+    return {
+        w: w, h: h, lo: lo, hi: hi, padL: padL, padT: padT, plotW: plotW, plotH: plotH,
+        x: function (ppm) { return padL + (hi - ppm) / (hi - lo) * plotW; },
+        ppmAt: function (px) { return hi - (px - padL) / plotW * (hi - lo); }
+    };
+}
+
+function traceExtent(sim, vals, geom) {
+    var M = sim.M;
+    var i0 = Math.max(0, Math.floor(ppmToIndex(sim, geom.lo)));
+    var i1 = Math.min(M - 1, Math.ceil(ppmToIndex(sim, geom.hi)));
+    var mn = Infinity, mx = -Infinity;
+    for (var i = i0; i <= i1; i++) { var v = vals[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    return { i0: i0, i1: i1, min: mn, max: mx };
+}
+
+function strokeTrace(g, sim, vals, geom, yOf) {
+    var M = sim.M;
+    var i0 = Math.max(0, Math.floor(ppmToIndex(sim, geom.lo)));
+    var i1 = Math.min(M - 1, Math.ceil(ppmToIndex(sim, geom.hi)));
+    if (i1 <= i0) return;
+    g.beginPath();
+    if (i1 - i0 <= geom.plotW * 2) {
+        for (var i = i0; i <= i1; i++) {
+            var x = geom.x(indexToPpm(sim, i)), y = yOf(vals[i]);
+            if (i === i0) g.moveTo(x, y); else g.lineTo(x, y);
+        }
+    } else {
+        var started = false;
+        for (var px = 0; px <= geom.plotW; px++) {
+            var pa = geom.ppmAt(geom.padL + px + 1), pb = geom.ppmAt(geom.padL + px);
+            var a = Math.max(i0, Math.ceil(ppmToIndex(sim, pa)));
+            var b = Math.min(i1, Math.floor(ppmToIndex(sim, pb)));
+            if (b < a) continue;
+            var mn = Infinity, mx = -Infinity;
+            for (var j = a; j <= b; j++) { var v = vals[j]; if (v < mn) mn = v; if (v > mx) mx = v; }
+            var X = geom.padL + px;
+            if (!started) { g.moveTo(X, yOf(mx)); started = true; }
+            g.lineTo(X, yOf(mn));
+            g.lineTo(X, yOf(mx));
+        }
+    }
+    g.stroke();
+}
+
+function drawSpectrum(canvas, sim, view, opts) {
+    var g = pen(canvas);
+    var geom = spectrumGeometry(sim, canvas, view);
+    var showComp = opts.components, showLabels = opts.labels;
+
+    /* vertical scale */
+    var ext = traceExtent(sim, sim.total, geom);
+    var mx = ext.max, mn = Math.min(0, ext.min);
+    if (showComp) {
+        for (var i = 0; i < sim.comps.length; i++) {
+            var e = traceExtent(sim, sim.comps[i].val, geom);
+            if (e.max > mx) mx = e.max;
+            if (e.min < mn) mn = e.min;
+        }
+    }
+    if (sim.ymax !== null && isFinite(sim.ymax) && sim.ymax > 0) mx = sim.ymax;
+    if (!isFinite(mx) || mx <= 0) mx = 1;
+    if (!isFinite(mn)) mn = 0;
+    mn = Math.min(mn, -0.04 * mx);
+    var span = (mx - mn) * 1.1;
+    var top = mx + 0.09 * (mx - mn);
+    function yOf(v) { return geom.padT + (top - v) / span * geom.plotH; }
+    var y0 = yOf(0);
+
+    /* ppm axis */
+    var step = niceStep(geom.hi - geom.lo, Math.max(3, Math.round(geom.plotW / 90)));
+    var first = Math.ceil(geom.lo / step) * step;
+    g.font = '11px ' + MONO;
+    g.textBaseline = 'top';
+    g.textAlign = 'center';
+    var decimals = Math.max(0, Math.min(3, -Math.floor(Math.log(step) / Math.LN10 + 1e-9)));
+    for (var t = first; t <= geom.hi + 1e-9; t += step) {
+        var x = geom.x(t);
+        g.strokeStyle = '#eceadf'; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x + 0.5, geom.padT); g.lineTo(x + 0.5, geom.padT + geom.plotH); g.stroke();
+        g.strokeStyle = '#b9b5a8';
+        g.beginPath(); g.moveTo(x + 0.5, geom.padT + geom.plotH); g.lineTo(x + 0.5, geom.padT + geom.plotH + 4); g.stroke();
+        g.fillStyle = '#5a5a52';
+        g.fillText(t.toFixed(decimals), x, geom.padT + geom.plotH + 6);
+        /* the same tick, in hertz from the transmitter */
+        g.fillStyle = '#9b978a';
+        g.textBaseline = 'bottom';
+        g.fillText(Math.round((t - sim.center) * sim.f0) + '', x, geom.padT - 4);
+        g.textBaseline = 'top';
+    }
+    g.textAlign = 'left';
+    g.fillStyle = '#9b978a';
+    g.fillText('Hz from centre', geom.padL + 2, 2);
+    g.textAlign = 'right';
+    g.fillStyle = '#5a5a52';
+    g.fillText('ppm', geom.padL + geom.plotW, geom.padT + geom.plotH + 18);
+
+    /* selection band */
+    if (view.selA !== null && view.selB !== null) {
+        var xa = geom.x(view.selA), xb = geom.x(view.selB);
+        g.fillStyle = 'rgba(168,64,44,0.08)';
+        g.fillRect(Math.min(xa, xb), geom.padT, Math.abs(xb - xa), geom.plotH);
+        g.strokeStyle = 'rgba(168,64,44,0.5)'; g.lineWidth = 1;
+        g.setLineDash([3, 3]);
+        g.beginPath();
+        g.moveTo(xa + 0.5, geom.padT); g.lineTo(xa + 0.5, geom.padT + geom.plotH);
+        g.moveTo(xb + 0.5, geom.padT); g.lineTo(xb + 0.5, geom.padT + geom.plotH);
+        g.stroke();
+        g.setLineDash([]);
+    }
+
+    /* zero line */
+    g.strokeStyle = '#d7d3c6'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(geom.padL, y0 + 0.5); g.lineTo(geom.padL + geom.plotW, y0 + 0.5); g.stroke();
+
+    /* components, then the sum */
+    g.save();
+    g.beginPath();
+    g.rect(geom.padL, geom.padT - 6, geom.plotW, geom.plotH + 6);
+    g.clip();
+    if (showComp) {
+        for (var ci = 0; ci < sim.comps.length; ci++) {
+            var cm = sim.comps[ci];
+            g.strokeStyle = cm.color; g.lineWidth = 1; g.globalAlpha = 0.75;
+            strokeTrace(g, sim, cm.val, geom, yOf);
+            g.globalAlpha = 1;
+        }
+    }
+    g.strokeStyle = '#1c1c1c'; g.lineWidth = 1.3;
+    strokeTrace(g, sim, sim.total, geom, yOf);
+
+    /* peak labels */
+    if (showLabels) {
+        var placed = [];
+        var heights = sim.comps.map(function (cm, i) { return traceExtent(sim, cm.val, geom).max; });
+        var order = sim.comps.map(function (cm, i) { return i; }).sort(function (a, b) {
+            return heights[b] - heights[a];
+        });
+        g.font = '10.5px ' + MONO;
+        g.textAlign = 'center';
+        g.textBaseline = 'bottom';
+        for (var oi = 0; oi < order.length; oi++) {
+            var cmi = order[oi], c2 = sim.comps[cmi];
+            if (c2.shiftPpm > geom.hi || c2.shiftPpm < geom.lo) continue;
+            var e2 = traceExtent(sim, c2.val, geom);
+            if (!(e2.max > 0)) continue;
+            var wlab = g.measureText(c2.label).width;
+            var lx = Math.max(geom.padL + wlab / 2, Math.min(geom.padL + geom.plotW - wlab / 2, geom.x(c2.shiftPpm)));
+            var ly = Math.max(geom.padT + 10, yOf(Math.min(e2.max, top)) - 5);
+            var clash = false;
+            for (var pj = 0; pj < placed.length; pj++) {
+                if (Math.abs(placed[pj].x - lx) < (placed[pj].w + wlab) / 2 + 4 && Math.abs(placed[pj].y - ly) < 12) { clash = true; break; }
+            }
+            var tries = 0;
+            while (clash && tries < 6) {
+                ly -= 13; tries++;
+                clash = false;
+                for (var pk = 0; pk < placed.length; pk++) {
+                    if (Math.abs(placed[pk].x - lx) < (placed[pk].w + wlab) / 2 + 4 && Math.abs(placed[pk].y - ly) < 12) { clash = true; break; }
+                }
+            }
+            if (ly < geom.padT + 8) continue;
+            g.fillStyle = c2.color;
+            g.fillText(c2.label, lx, ly);
+            placed.push({ x: lx, y: ly, w: wlab });
+        }
+    }
+    g.restore();
+
+    /* cursor */
+    if (view.hoverPpm !== null && view.hoverPpm <= geom.hi && view.hoverPpm >= geom.lo) {
+        var hx = geom.x(view.hoverPpm);
+        g.strokeStyle = 'rgba(28,28,28,0.28)'; g.lineWidth = 1;
+        g.setLineDash([2, 3]);
+        g.beginPath(); g.moveTo(hx + 0.5, geom.padT); g.lineTo(hx + 0.5, geom.padT + geom.plotH); g.stroke();
+        g.setLineDash([]);
+        var idx = Math.round(ppmToIndex(sim, view.hoverPpm));
+        var val = (idx >= 0 && idx < sim.M) ? sim.total[idx] : 0;
+        var txt = view.hoverPpm.toFixed(3) + ' ppm   ' + Math.round((view.hoverPpm - sim.center) * sim.f0) + ' Hz   ' + fmtNum(val);
+        if (view.selA !== null && view.selB !== null) {
+            txt += '    ∫ ' + fmtNum(measureRange(sim, view.selA, view.selB, 'integral')) +
+                ' over ' + Math.abs(view.selB - view.selA).toFixed(3) + ' ppm';
+        }
+        g.font = '11px ' + MONO;
+        g.textAlign = 'right'; g.textBaseline = 'top';
+        g.fillStyle = 'rgba(255,255,248,0.85)';
+        var tw = g.measureText(txt).width;
+        g.fillRect(geom.padL + geom.plotW - tw - 4, geom.padT + 2, tw + 4, 15);
+        g.fillStyle = '#5a5a52';
+        g.fillText(txt, geom.padL + geom.plotW - 1, geom.padT + 4);
+    }
+}
+
+function drawFid(canvas, sim) {
+    var g = pen(canvas);
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.width / dpr, h = canvas.height / dpr;
+    var padL = 8, padR = 16, padT = 10, padB = 20;
+    var plotW = Math.max(10, w - padL - padR), plotH = Math.max(10, h - padT - padB);
+    var N = sim.N, re = sim.fidRe, im = sim.fidIm;
+    var mx = 1e-12;
+    for (var i = 0; i < N; i++) {
+        if (Math.abs(re[i]) > mx) mx = Math.abs(re[i]);
+        if (Math.abs(im[i]) > mx) mx = Math.abs(im[i]);
+    }
+    var mid = padT + plotH / 2;
+    function yOf(v) { return mid - v / mx * (plotH / 2 - 3); }
+    function xOf(k) { return padL + k / Math.max(1, N - 1) * plotW; }
+
+    /* time axis */
+    var tms = sim.tacq * 1000;
+    var step = niceStep(tms, Math.max(3, Math.round(plotW / 110)));
+    g.font = '10.5px ' + MONO;
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    var tdec = Math.max(0, Math.min(3, -Math.floor(Math.log(step) / Math.LN10 + 1e-9)));
+    for (var t = 0; t <= tms + 1e-9; t += step) {
+        var x = padL + (t / tms) * plotW;
+        g.strokeStyle = '#eceadf'; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x + 0.5, padT); g.lineTo(x + 0.5, padT + plotH); g.stroke();
+        g.fillStyle = '#9b978a';
+        g.fillText(t.toFixed(tdec), x, padT + plotH + 3);
+    }
+    g.textAlign = 'right';
+    g.fillStyle = '#9b978a';
+    g.fillText('ms', padL + plotW, padT + plotH + 3);
+
+    g.strokeStyle = '#d7d3c6'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, mid + 0.5); g.lineTo(padL + plotW, mid + 0.5); g.stroke();
+
+    function poly(arr, color, width, alpha) {
+        g.strokeStyle = color; g.lineWidth = width; g.globalAlpha = alpha;
+        g.beginPath();
+        if (N <= plotW * 2) {
+            for (var k = 0; k < N; k++) { var x = xOf(k), y = yOf(arr[k]); if (k === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+        } else {
+            var per = N / plotW, started = false;
+            for (var px = 0; px < plotW; px++) {
+                var a = Math.floor(px * per), b = Math.min(N - 1, Math.floor((px + 1) * per));
+                var lo = Infinity, hi = -Infinity;
+                for (var j = a; j <= b; j++) { if (arr[j] < lo) lo = arr[j]; if (arr[j] > hi) hi = arr[j]; }
+                if (!isFinite(lo)) continue;
+                var X = padL + px;
+                if (!started) { g.moveTo(X, yOf(hi)); started = true; }
+                g.lineTo(X, yOf(lo)); g.lineTo(X, yOf(hi));
+            }
+        }
+        g.stroke();
+        g.globalAlpha = 1;
+    }
+    poly(im, '#3c5a78', 1, 0.45);
+    poly(re, '#1c1c1c', 1, 0.95);
+
+    /* apodisation envelope */
+    g.strokeStyle = '#a8402c'; g.lineWidth = 1; g.globalAlpha = 0.7;
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    var wmax = 0;
+    for (var kw = 0; kw < N; kw++) if (sim.wv[kw] > wmax) wmax = sim.wv[kw];
+    for (var k2 = 0; k2 < N; k2 += Math.max(1, Math.floor(N / plotW))) {
+        var x2 = xOf(k2), y2 = mid - (sim.wv[k2] / (wmax || 1)) * (plotH / 2 - 3);
+        if (k2 === 0) g.moveTo(x2, y2); else g.lineTo(x2, y2);
+    }
+    g.stroke();
+    g.setLineDash([]);
+    g.globalAlpha = 1;
+}
+
+/* ============================================================
+   8. Example programs
+   Shifts and couplings are literature central values, most of
+   them from the periodic chart for MR elsewhere on this site.
+   ============================================================ */
+
+var EXAMPLES = [
+{
+name: 'Phosphorus-31 in brain',
+desc: 'The whole bioenergetic ladder on one axis, with a pH slider that moves the inorganic phosphate line and a field slider that decides whether the phosphomonoesters are two peaks or one hump.',
+src: [
+'# 31P in human brain. Shifts are referenced to PCr at 0 ppm,',
+'# which is the in vivo convention; on the 85% H3PO4 scale every',
+'# value here is about 2.5 ppm lower.',
+'',
+'nucleus 31P',
+'field B0 T',
+'center -5 ppm',
+'sweep 40 ppm',
+'points 2048',
+'noise 0.08',
+'seed 3',
+'',
+'param B0  = 3    [1.5, 9.4]',
+'param pH  = 7.03 [6.4, 7.6]',
+'',
+'# Linewidth has a field-independent part (T2) and a part that',
+'# scales with B0 (susceptibility and shim). In ppm the second',
+'# term is constant, which is why resolution improves with field',
+'# but not as fast as the naive argument suggests.',
+'param lw  = 5 + 1.8 * B0',
+'',
+'# Moon and Richards: Pi titrates between the H2PO4- limit at',
+'# 3.29 ppm and the HPO4-2 limit at 5.68 ppm, with pKa 6.75.',
+'param pKa = 6.75 [6.5, 7.0]',
+'param Pi_ppm = 3.29 + (5.68 - 3.29) / (1 + pow(10, pKa - pH))',
+'',
+'pool PE   { label "PE"      shift 6.77   amp 0.30  width lw }',
+'pool PC   { label "PC"      shift 6.20   amp 0.18  width lw }',
+'pool Pi   { label "Pi"      shift Pi_ppm amp 0.33  width lw }',
+'pool GPE  { label "GPE"     shift 3.50   amp 0.20  width lw }',
+'pool GPC  { label "GPC"     shift 2.76   amp 0.24  width lw }',
+'pool PCr  { label "PCr"     shift 0.00   amp 1.00  width lw }',
+'pool gATP { label "g-ATP"   shift -2.48  amp 0.85  width lw  couple 1 16.5 Hz }',
+'pool aATP { label "a-ATP"   shift -7.52  amp 0.90  width lw  couple 1 16.5 Hz }',
+'pool NAD  { label "NAD"     shift -8.31  amp 0.18  width lw }',
+'pool UDPG { label "UDPG"    shift -9.80  amp 0.08  width lw  couple 1 20 Hz }',
+'pool bATP { label "b-ATP"   shift -16.26 amp 0.85  width lw  couple 2 16.5 Hz }',
+'',
+'process { lb 2 Hz  zerofill 4 }',
+'',
+'report {',
+'  "Pi position"  = shiftmax(3.9, 6.0) "ppm"',
+'  "pH read back" = pKa + log10((shiftmax(3.9,6.0) - 3.29) / (5.68 - shiftmax(3.9,6.0)))',
+'  "PCr / b-ATP"  = area(PCr) / area(bATP)',
+'  "PCr linewidth"= fwhm(PCr) "Hz"',
+'  "PCr SNR"      = snr(PCr)',
+'  "1 ppm is"     = hzppm "Hz"',
+'}'
+].join('\n')
+},
+{
+name: 'Hyperpolarised [1-13C]pyruvate',
+desc: 'One spectrum from the minute after the bolus. Every line is a singlet, the axis is 160 ppm wide, and the whole experiment is a ratio of two integrals.',
+src: [
+'# Hyperpolarised [1-13C]pyruvate, about 30 s after injection.',
+'# The C1 carbons carry no attached proton, so these are',
+'# singlets and no decoupling is needed. What makes the',
+'# experiment possible is not resolution but polarisation:',
+'# five orders of magnitude above thermal equilibrium.',
+'',
+'nucleus 13C',
+'field 3 T',
+'center 172 ppm',
+'sweep 160 ppm',
+'points 2048',
+'noise 0.015',
+'seed 9',
+'axis 192 115 ppm',
+'',
+'param kPL = 0.35 [0, 1.0]     # label transferred to lactate',
+'param kPA = 0.12 [0, 0.6]     # and to alanine',
+'param kPB = 0.05 [0, 0.3]     # and through PDH to bicarbonate',
+'',
+'pool Lac { label "[1-13C]lactate"    shift 183.2 amp kPL      width 14 Hz }',
+'pool Hyd { label "pyruvate hydrate"  shift 179.4 amp 0.10     width 16 Hz }',
+'pool Ala { label "[1-13C]alanine"    shift 176.5 amp kPA      width 14 Hz }',
+'pool Pyr { label "[1-13C]pyruvate"   shift 171.0 amp 1.00     width 16 Hz }',
+'pool Bic { label "H13CO3-"           shift 161.0 amp kPB      width 16 Hz }',
+'pool CO2 { label "13CO2"             shift 125.0 amp kPB*0.2  width 18 Hz }',
+'',
+'process { lb 6 Hz  zerofill 2 }',
+'',
+'report {',
+'  "Lac / Pyr, true"     = area(Lac) / area(Pyr)',
+'  "Lac / Pyr, measured" = integral(181, 186) / integral(168, 174)',
+'  "Lac to Pyr gap"      = (shift(Lac) - shift(Pyr)) * hzppm "Hz"',
+'  "bicarbonate SNR"     = snr(Bic)',
+'  "acquisition"         = tacq * 1000 "ms"',
+'}'
+].join('\n')
+},
+{
+name: 'Carbon-13 and the decoupler',
+desc: 'Natural abundance 13C in liver. Drag dec to zero and every carbon with a proton on it splits into a 125 Hz multiplet, taking the nuclear Overhauser enhancement with it.',
+src: [
+'# Natural abundance 13C, liver, surface coil. Only 1.1% of the',
+'# carbon is 13C, so this is a long average - and every one of',
+'# those carbons is coupled to the protons bolted to it.',
+'#',
+'# Drag dec from 1 to 0 to switch the decoupler off.',
+'',
+'nucleus 13C',
+'field 3 T',
+'center 95 ppm',
+'sweep 200 ppm',
+'points 4096',
+'noise 0.13',
+'seed 17',
+'',
+'param dec = 1 [0, 1]',
+'decouple 1H noe 1.8 if dec',
+'',
+'# One-bond 13C-1H couplings are 125 Hz for an aliphatic carbon,',
+'# 157 Hz for an olefinic one and 170 Hz at an anomeric carbon.',
+'# None of them shrink when the field goes up.',
+'',
+'pool LipCH2 { label "lipid (CH2)n" shift 30.2  amp 1.00 width 22 Hz  couple 2 125 Hz to 1H }',
+'pool LipCH3 { label "lipid CH3"    shift 14.1  amp 0.30 width 20 Hz  couple 3 125 Hz to 1H }',
+'pool LipCC  { label "lipid C=C"    shift 130.2 amp 0.26 width 26 Hz  couple 1 157 Hz to 1H }',
+'pool LipCO  { label "lipid C=O"    shift 172.5 amp 0.18 width 26 Hz  noe 1.15 }',
+'pool Glyc   { label "glycogen C1"  shift 100.5 amp 0.40 width 30 Hz  couple 1 170 Hz to 1H }',
+'pool bGlc   { label "b-glucose C1" shift 96.8  amp 0.12 width 26 Hz  couple 1 160 Hz to 1H }',
+'',
+'process { lb 8 Hz  zerofill 2 }',
+'',
+'report {',
+'  "CH2 / CH3"        = area(LipCH2) / area(LipCH3)',
+'  "glycogen height"  = height(Glyc)',
+'  "glycogen SNR"     = snr(Glyc)',
+'  "1JCH at this B0"  = 125 / hzppm "ppm"',
+'  "glycogen window"  = integral(97, 104)',
+'}'
+].join('\n')
+},
+{
+name: 'Xenon-129 gas exchange in the lung',
+desc: 'Gas, membrane and red blood cells in one broadband spectrum, with the gas peak two orders of magnitude above the two you care about. The red cell line moves with blood oxygenation.',
+src: [
+'# Hyperpolarised 129Xe in the lung. The gas peak is the',
+'# frequency reference and is roughly a hundred times the',
+'# dissolved signal, which is why dissolved-phase imaging uses a',
+'# selective pulse 200 ppm off resonance. Here it is left in and',
+'# the vertical scale is clipped instead.',
+'',
+'nucleus 129Xe',
+'field 3 T',
+'center 110 ppm',
+'sweep 280 ppm',
+'points 512',
+'noise 0.02',
+'seed 4',
+'ymax 0.0026',
+'axis 240 -25 ppm',
+'',
+'param RBC_M = 0.49 [0, 1.2]   # healthy reference is about 0.49',
+'param sO2   = 0.97 [0.85, 1.0]',
+'',
+'# The RBC shift tracks oxygenation at roughly 1 ppm per 10% sO2',
+'# near normal saturation. It is not linear over the full range.',
+'param RBC_ppm = 218.2 + (sO2 - 0.97) * 10',
+'',
+'# T2* is about 2 ms for both dissolved resonances at 3 T,',
+'# which is a 160 Hz line, which is 4.5 ppm. The gas line is',
+'# mostly inhomogeneously broadened, so it is given a Gaussian',
+'# width: change it to a pure Lorentzian and its wings alone',
+'# swamp the two peaks 200 ppm away.',
+'pool Gas { label "gas"       shift 0.0      amp 100   width 8 Hz  gauss 30 Hz }',
+'pool Mem { label "membrane"  shift 197.6    amp 1.00  width 170 Hz }',
+'pool RBC { label "RBC"       shift RBC_ppm  amp RBC_M width 160 Hz }',
+'',
+'process { lb 20 Hz  zerofill 8 }',
+'',
+'report {',
+'  "RBC:membrane, true"     = area(RBC) / area(Mem)',
+'  "RBC:membrane, measured" = peak(210, 228) / peak(190, 205)',
+'  "RBC position"           = shiftmax(208, 230) "ppm"',
+'  "RBC to membrane"        = (shift(RBC) - shift(Mem)) * hzppm "Hz"',
+'  "gas / membrane height"  = height(Gas) / height(Mem)',
+'  "dwell time"             = dt * 1e6 "us"',
+'}'
+].join('\n')
+},
+{
+name: 'Xenon-129 in the head',
+desc: 'Five dissolved compartments inside 30 ppm. Gray and white matter are 4 ppm apart, which at 1.5 T is 70 Hz and barely more than one linewidth, so what arrives is a humped envelope rather than four peaks. Raise the field and watch it come apart.',
+src: [
+'# 129Xe dissolved in the head, localised by chemical shift',
+'# imaging. Nothing here is resolved in the sense that a',
+'# phosphorus spectrum is resolved; these peaks are recovered by',
+'# fitting the FID to five known frequencies.',
+'',
+'nucleus 129Xe',
+'field B0 T',
+'center 200 ppm',
+'sweep 70 ppm',
+'points 1024',
+'noise 0.012',
+'seed 21',
+'axis 232 172 ppm',
+'',
+'param B0 = 1.5 [1.5, 7]',
+'',
+'# T2* about 8.8 ms for gray matter at 1.5 T; the line broadens',
+'# with field in hertz and narrows slightly in ppm.',
+'param lwd = 20 + 11 * B0',
+'',
+'pool CSF { label "plasma / CSF / fat"  shift 200.0 amp 0.22 width lwd }',
+'pool GM  { label "gray matter"         shift 196.0 amp 0.30 width lwd }',
+'pool WM  { label "white matter"        shift 192.0 amp 0.20 width lwd*1.1 }',
+'pool Mus { label "extracranial muscle" shift 188.0 amp 0.15 width lwd*1.2 }',
+'pool RBC { label "RBC"                 shift 217.0 amp 0.12 width lwd*1.6 }',
+'',
+'process { lb 20 Hz  zerofill 4 }',
+'',
+'report {',
+'  "GM to WM gap"   = 4 * hzppm "Hz"',
+'  "GM linewidth"   = fwhm(GM) "Hz"',
+'  "gap / linewidth"= 4 * hzppm / fwhm(GM)',
+'  "GM SNR"         = snr(GM)',
+'  "GM window"      = integral(194, 198)',
+'}'
+].join('\n')
+},
+{
+name: 'Proton PRESS and the lactate doublet',
+desc: 'A 3 T brain spectrum with an echo time slider. Lactate nulls near 72 ms, inverts at 144 and returns upright at 288, while everything else simply decays.',
+src: [
+'# 1H at 3 T, short-TE brain. The multiplets of glutamate and',
+'# myo-inositol are drawn as explicit line lists chosen to look',
+'# right; they are strongly coupled and a first-order model',
+'# cannot derive them. The lactate doublet is weakly coupled and',
+'# is the real thing.',
+'',
+'nucleus 1H',
+'field 3 T',
+'center 2.4 ppm',
+'sweep 8 ppm',
+'points 1024',
+'te TE ms',
+'noise 0.065',
+'seed 12',
+'axis 5.0 0.3 ppm',
+'',
+'param TE = 30 [10, 300]',
+'param lw = 6',
+'',
+'pool NAA  { label "NAA"     shift 2.008 amp 1.00 width lw   t2 250 ms }',
+'pool NAAg { label "NAAG"    shift 2.04  amp 0.14 width lw+2 t2 250 ms }',
+'pool Cr   { label "tCr CH3" shift 3.027 amp 0.62 width lw   t2 150 ms }',
+'pool Cr2  { label "tCr CH2" shift 3.913 amp 0.55 width lw+2 t2 130 ms }',
+'pool Cho  { label "tCho"    shift 3.200 amp 0.20 width lw   t2 220 ms }',
+'pool mI   { label "mI"      shift 3.560 amp 0.42 width lw+1 t2 180 ms',
+'            line -0.04 1  line 0.05 1 }',
+'pool Glu  { label "Glu"     shift 2.350 amp 0.50 width lw+1 t2 180 ms',
+'            line -0.03 1  line 0.00 1.3  line 0.03 1 }',
+'pool Gln  { label "Gln"     shift 2.450 amp 0.26 width lw+1 t2 170 ms',
+'            line -0.02 1  line 0.02 1 }',
+'# A lactate-bearing voxel, not normal brain: 0.25 here against',
+'# the 0.03 or so you would fit in healthy tissue.',
+'pool Lac  { label "Lac"     shift 1.313 amp 0.25 width lw   t2 240 ms',
+'            couple 1 6.93 Hz }',
+'pool MM   { label "MM + lipid" shift 1.05 amp 0.55 width 45 Hz t2 40 ms',
+'            line -0.15 1  line 0.25 1.1 }',
+'pool H2O  { label "residual water" shift 4.70 amp 0.30 width 14 Hz t2 90 ms }',
+'',
+'process { lb 2 Hz  zerofill 4 }',
+'',
+'report {',
+'  "NAA / tCr"       = area(NAA) / area(Cr)',
+'  "lactate area"    = area(Lac)',
+'  "lactate window"  = integral(1.22, 1.42)',
+'  "NAA linewidth"   = fwhm(NAA) "Hz"',
+'  "NAA SNR"         = snr(NAA)',
+'  "1 / J for lactate" = 1000 / 6.93 "ms"',
+'}'
+].join('\n')
+},
+{
+name: 'Deuterium metabolic imaging',
+desc: 'Four peaks inside 3.5 ppm, which at 3 T is 69 Hz in total. Deuterium has the smallest useful gyromagnetic ratio in the clinic, and DMI is a shimming problem before it is anything else.',
+src: [
+'# 2H after a [6,6-2H2]glucose load. The natural abundance water',
+'# line is always there and always the tallest; the tracer peaks',
+'# appear beside it and are never more than 20 Hz away.',
+'#',
+'# Drag t through the study and watch glucose rise and fall while',
+'# the label works its way into Glx and lactate.',
+'',
+'nucleus 2H',
+'field B0 T',
+'center 3.0 ppm',
+'sweep 14 ppm',
+'points 512',
+'noise 0.01',
+'seed 6',
+'axis 6.5 -0.5 ppm',
+'',
+'param B0 = 3 [1.5, 9.4]',
+'param t  = 50 [0, 150]        # minutes after the drink',
+'param lw = 4 + 1.5 * B0',
+'',
+'pool HDO { label "HDO"      shift 4.80 amp 1.0 + 0.002*t              width lw }',
+'pool Glc { label "glucose"  shift 3.80 amp 0.40*(1-exp(-t/12))*exp(-t/110) width lw }',
+'pool Glx { label "Glu + Gln" shift 2.35 amp 0.24*(1-exp(-t/45))       width lw }',
+'pool Lac { label "lactate"  shift 1.30 amp 0.05*(1-exp(-t/50))        width lw }',
+'',
+'process { lb 2 Hz  zerofill 8 }',
+'',
+'report {',
+'  "water to glucose" = (shift(HDO) - shift(Glc)) * hzppm "Hz"',
+'  "linewidth"        = fwhm(Glx) "Hz"',
+'  "gap / linewidth"  = (shift(HDO)-shift(Glc)) * hzppm / fwhm(Glx)',
+'  "Glx / water"      = area(Glx) / area(HDO)',
+'  "glucose SNR"      = snr(Glc)',
+'}'
+].join('\n')
+},
+{
+name: 'The apodisation bargain',
+desc: 'Two singlets and a processing chain. Every knob that improves the signal to noise ratio costs resolution, and the two numbers are printed side by side so the trade is explicit.',
+src: [
+'# Two equal singlets, sep ppm apart, and nothing else. Work the',
+'# four processing sliders against each other and read the last',
+'# two lines of the report.',
+'#',
+'# Try: LB to 0 and TRUNC to 64, for the sinc wiggles that a',
+'# rectangular window puts at the foot of every peak. Then raise',
+'# LB until they go, and see what it cost.',
+'',
+'nucleus 1H',
+'field 3 T',
+'center 3 ppm',
+'sweep 4 ppm',
+'points 1024',
+'noise 0.03',
+'seed 5',
+'axis 3.35 2.65 ppm',
+'',
+'param sep   = 0.10 [0.02, 0.4]   # separation in ppm',
+'param LB    = 1    [-4, 12]      # negative is resolution enhancement',
+'param GB    = 0    [0, 12]',
+'param ZF    = 2    [1, 8]',
+'param TRUNC = 1024 [16, 1024]',
+'',
+'pool A { shift 3 + sep/2  amp 1  width 2 Hz }',
+'pool B { shift 3 - sep/2  amp 1  width 2 Hz }',
+'',
+'process {',
+'  lb LB Hz',
+'  gb GB Hz',
+'  zerofill ZF',
+'  truncate TRUNC',
+'  firstpoint 0.5',
+'}',
+'',
+'report {',
+'  "separation"     = sep * hzppm "Hz"',
+'  "linewidth"      = fwhm(A) "Hz"',
+'  "valley / peak"  = peak(2.995, 3.005) / height(A)',
+'  "SNR"            = snr(A)',
+'  "area of A"      = area(A)',
+'  "digital res"    = df "Hz/pt"',
+'}'
+].join('\n')
+}
+];
+
+/* ============================================================
+   9. Syntax highlighting for the editor
+   ============================================================ */
+
+var SECTION_WORDS = ['acquire', 'process', 'report', 'pool', 'param', 'nucleus', 'field',
+    'center', 'centre', 'sweep', 'delay', 'decouple', 'jmod', 'axis', 'ymax', 'seed',
+    'noise', 'flip'];
+var KEY_WORDS = ['shift', 'amplitude', 'amp', 'width', 'gauss', 't1', 't2', 'phase0', 'phase1',
+    'phase', 'noe', 'couple', 'label', 'colour', 'color', 'line', 'to', 'if', 'on', 'off',
+    'lb', 'gb', 'zerofill', 'zf', 'ph0', 'ph1', 'firstpoint', 'truncate', 'window', 'mode',
+    'real', 'magnitude', 'imaginary', 'none', 'sine', 'hamming', 'and', 'or', 'not',
+    'area', 'height', 'fwhm', 'snr', 'integral', 'peak', 'shiftmax', 'rms', 'log10', 'exp',
+    'sqrt', 'pow', 'clamp', 'min', 'max', 'abs', 'round', 'floor', 'ceil', 'mod', 'sgn',
+    'hzppm', 'tacq', 'b0', 'f0', 'sw', 'np', 'dt', 'df', 'te', 'tr', 'points', 'nfft'];
+var UNIT_WORDS = ['ppm', 'kHz', 'Hz', 'ms', 'us', 'min', 'mT', 'deg', 'rad', 'pts', 'T', 's'];
+
+var HL_RE = new RegExp(
+    '(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\\b)' +
+    '|(#[^\\n]*)' +
+    '|("[^"\\n]*"|\'[^\'\\n]*\')' +
+    '|\\b(1H|2H|3He|7Li|13C|17O|19F|23Na|31P|129Xe)\\b' +
+    '|\\b(' + SECTION_WORDS.join('|') + ')\\b' +
+    '|\\b(' + UNIT_WORDS.join('|') + ')\\b' +
+    '|\\b(' + KEY_WORDS.join('|') + ')\\b' +
+    '|(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)', 'g');
+
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlight(src) {
+    var out = '', last = 0, m;
+    HL_RE.lastIndex = 0;
+    while ((m = HL_RE.exec(src)) !== null) {
+        out += escapeHtml(src.slice(last, m.index));
+        if (m[1]) out += '<span class="tk-col" style="color:' + m[1] + '">' + escapeHtml(m[1]) + '</span>';
+        else if (m[2]) out += '<span class="tk-com">' + escapeHtml(m[2]) + '</span>';
+        else if (m[3]) out += '<span class="tk-str">' + escapeHtml(m[3]) + '</span>';
+        else if (m[4]) out += '<span class="tk-nuc">' + escapeHtml(m[4]) + '</span>';
+        else if (m[5]) out += '<span class="tk-sec">' + escapeHtml(m[5]) + '</span>';
+        else if (m[6]) out += '<span class="tk-unit">' + escapeHtml(m[6]) + '</span>';
+        else if (m[7]) out += '<span class="tk-key">' + escapeHtml(m[7]) + '</span>';
+        else if (m[8]) out += '<span class="tk-num">' + escapeHtml(m[8]) + '</span>';
+        last = m.index + m[0].length;
+    }
+    out += escapeHtml(src.slice(last));
+    return out + '\n';
+}
+
+/* ============================================================
+   10. Wiring
+   ============================================================ */
+
+var el = {};
+var STORE_KEY = 'mrs-spectra-program';
+var prog = null, paramValues = [], sim = null, dirty = true;
+var view = { lo: null, hi: null, selA: null, selB: null, hoverPpm: null, dragging: false };
+var opts = { components: true, labels: true };
+
+function $(id) { return document.getElementById(id); }
+
+function showError(e, src) {
+    if (!e) { el.errbox.className = 'errbox'; el.errbox.innerHTML = ''; return; }
+    var html;
+    if (e.dsl) {
+        html = '<strong>line ' + e.line + '</strong> &middot; ' + escapeHtml(e.message);
+        var lines = (src || '').split('\n');
+        var text = lines[e.line - 1];
+        if (text !== undefined) {
+            var caret = new Array(Math.max(0, (e.col || 1) - 1) + 1).join(' ') + '^';
+            html += '<pre>' + escapeHtml(text.replace(/\t/g, '  ')) + '\n' + caret + '</pre>';
+        }
+    } else {
+        html = escapeHtml(e.message || String(e));
+    }
+    el.errbox.innerHTML = html;
+    el.errbox.className = 'errbox on';
+}
+
+function syncHighlight() {
+    el.highlight.innerHTML = highlight(el.editor.value);
+    el.highlight.scrollTop = el.editor.scrollTop;
+    el.highlight.scrollLeft = el.editor.scrollLeft;
+}
+
+function buildParamUI() {
+    el.params.innerHTML = '';
+    var bounds = paramBounds(prog, paramValues);
+    bounds.forEach(function (b, idx) {
+        if (b.derived) return;
+        var v = paramValues[idx];
+        var lo = b.lo, hi = b.hi;
+        if (!(hi > lo)) { hi = lo + 1; }
+        var integral = Number.isInteger(v) && (hi - lo) >= 8;
+        var step = integral ? 1 : (hi - lo) / 400;
+        var row = document.createElement('div');
+        row.className = 'param-row';
+        var name = document.createElement('span');
+        name.className = 'pname'; name.textContent = b.name;
+        var input = document.createElement('input');
+        input.type = 'range';
+        input.min = lo; input.max = hi; input.step = step; input.value = v;
+        var read = document.createElement('span');
+        read.className = 'pval';
+        function fmt(x) { return integral ? String(Math.round(x)) : fmtNum(x); }
+        read.textContent = fmt(v);
+        input.addEventListener('input', function () {
+            var nv = parseFloat(input.value);
+            paramValues[idx] = integral ? Math.round(nv) : nv;
+            read.textContent = fmt(paramValues[idx]);
+            run();
+        });
+        row.appendChild(name); row.appendChild(input); row.appendChild(read);
+        el.params.appendChild(row);
+    });
+}
+
+function buildLegend() {
+    el.legend.innerHTML = '';
+    el.legendVals = [];
+    sim.comps.forEach(function (cm) {
+        var span = document.createElement('span');
+        var sw = document.createElement('span');
+        sw.className = 'swatch';
+        sw.style.background = cm.color;
+        var val = document.createElement('span');
+        val.className = 'count';
+        span.appendChild(sw);
+        span.appendChild(document.createTextNode(cm.label + ' '));
+        span.appendChild(val);
+        el.legend.appendChild(span);
+        el.legendVals.push(val);
+    });
+}
+
+function buildReportUI() {
+    el.report.innerHTML = '';
+    el.reportVals = [];
+    sim.report.forEach(function (r) {
+        var row = document.createElement('div');
+        row.className = 'rrow';
+        var n = document.createElement('span');
+        n.className = 'rname'; n.textContent = r.label;
+        var v = document.createElement('span');
+        v.className = 'rval';
+        var u = document.createElement('span');
+        u.className = 'runit'; u.textContent = r.unit || '';
+        row.appendChild(n); row.appendChild(v); row.appendChild(u);
+        el.report.appendChild(row);
+        el.reportVals.push(v);
+    });
+}
+
+function refreshReadouts() {
+    if (!sim) return;
+    if (el.legendVals) {
+        sim.comps.forEach(function (cm, i) {
+            if (!el.legendVals[i]) return;
+            el.legendVals[i].textContent = cm.shiftPpm.toFixed(2) + ' ppm' + (cm.nLines > 1 ? ' \u00d7' + cm.nLines : '');
+        });
+    }
+    if (el.reportVals) {
+        sim.report.forEach(function (r, i) {
+            if (el.reportVals[i]) el.reportVals[i].textContent = fmtNum(r.value);
+        });
+    }
+    var s = sim;
+    var bits = [
+        '<b>' + s.nuc.label + '</b> at <b>' + fmtShort(s.b0) + ' T</b>',
+        'f\u2080 <b>' + s.f0.toFixed(2) + ' MHz</b>',
+        '1 ppm = <b>' + s.f0.toFixed(1) + ' Hz</b>',
+        'sweep <b>' + Math.round(s.sw) + ' Hz</b> (' + (s.sw / s.f0).toFixed(1) + ' ppm)',
+        s.N + ' \u00d7 ' + fmtTime(s.dt) + ' = ' + fmtTime(s.tacq),
+        'FFT ' + s.M + ' (' + s.df.toFixed(3) + ' Hz/pt)',
+        s.nLines + ' lines',
+        'noise \u03c3 ' + (s.sigmaSpec > 0 ? s.sigmaSpec.toExponential(2) : '0')
+    ];
+    if (s.ntr < s.N) bits.push('truncated to ' + s.ntr);
+    if (s.mode !== 'real') bits.push(s.mode);
+    if (s.delay > 0) bits.push('delay ' + fmtTime(s.delay));
+    if (s.te > 0) bits.push('TE ' + fmtTime(s.te));
+    el.statline.innerHTML = bits.map(function (b) { return '<span>' + b + '</span>'; }).join('');
+}
+
+function run() {
+    if (!prog) return;
+    try {
+        sim = simulate(prog, paramValues);
+        showError(null);
+        dirty = true;
+        refreshReadouts();
+    } catch (e) {
+        if (!e.dsl && window.console) console.error(e);
+        showError(e, el.editor.value);
+    }
+}
+
+function build(fromExample) {
+    var src = el.editor.value;
+    try {
+        var p = parse(src);
+        compileProgram(p);
+        prog = p;
+        paramValues = initialParams(prog);
+        sim = simulate(prog, paramValues);
+        showError(null);
+        buildParamUI();
+        buildLegend();
+        buildReportUI();
+        if (fromExample) { view.lo = null; view.hi = null; view.selA = null; view.selB = null; }
+        refreshReadouts();
+        dirty = true;
+        try { localStorage.setItem(STORE_KEY, src); } catch (err) { /* private browsing */ }
+        return true;
+    } catch (e) {
+        if (!e.dsl && window.console) console.error(e);
+        showError(e, src);
+        return false;
+    }
+}
+
+function frame() {
+    if (dirty && sim) {
+        fitCanvas(el.spectrum); fitCanvas(el.fid);
+        drawSpectrum(el.spectrum, sim, view, opts);
+        drawFid(el.fid, sim);
+        dirty = false;
+    }
+    requestAnimationFrame(frame);
+}
+
+/* ---- permalinks ---- */
+
+function encodeProgram(src) {
+    try { return btoa(unescape(encodeURIComponent(src))).replace(/\+/g, '-').replace(/\//g, '_'); }
+    catch (e) { return ''; }
+}
+function decodeProgram(code) {
+    try { return decodeURIComponent(escape(atob(code.replace(/-/g, '+').replace(/_/g, '/')))); }
+    catch (e) { return null; }
+}
+
+/* ---- boot ---- */
+
+function boot() {
+    el.editor = $('editor');
+    el.highlight = $('highlight');
+    el.errbox = $('errbox');
+    el.params = $('params');
+    el.legend = $('legend');
+    el.report = $('report');
+    el.statline = $('statline');
+    el.spectrum = $('spectrumStage');
+    el.fid = $('fidStage');
+
+    var sel = $('examples'), list = $('exampleList');
+    EXAMPLES.forEach(function (ex, i) {
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = ex.name;
+        sel.appendChild(opt);
+        if (list) {
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = '#'; a.className = 'ex-name'; a.textContent = ex.name;
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                loadExample(i);
+                el.spectrum.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            var d = document.createElement('span');
+            d.className = 'ex-desc'; d.textContent = ex.desc;
+            li.appendChild(a); li.appendChild(d);
+            list.appendChild(li);
+        }
+    });
+
+    function loadExample(i) {
+        sel.value = String(i);
+        el.editor.value = EXAMPLES[i].src;
+        syncHighlight();
+        build(true);
+    }
+    sel.addEventListener('change', function () { loadExample(parseInt(sel.value, 10)); });
+
+    el.editor.addEventListener('input', syncHighlight);
+    el.editor.addEventListener('scroll', function () {
+        el.highlight.scrollTop = el.editor.scrollTop;
+        el.highlight.scrollLeft = el.editor.scrollLeft;
+    });
+    el.editor.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var s = el.editor.selectionStart, t = el.editor.selectionEnd, v = el.editor.value;
+            el.editor.value = v.slice(0, s) + '  ' + v.slice(t);
+            el.editor.selectionStart = el.editor.selectionEnd = s + 2;
+            syncHighlight();
+        }
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); build(false); }
+    });
+
+    $('btnBuild').addEventListener('click', function () { build(false); });
+    $('btnNoise').addEventListener('click', function () {
+        noiseBump++;
+        run();
+    });
+    $('btnZoom').addEventListener('click', function () {
+        if (view.selA === null || view.selB === null) return;
+        view.lo = Math.min(view.selA, view.selB);
+        view.hi = Math.max(view.selA, view.selB);
+        view.selA = null; view.selB = null;
+        dirty = true;
+    });
+    $('btnFull').addEventListener('click', function () {
+        view.lo = null; view.hi = null; view.selA = null; view.selB = null;
+        dirty = true;
+    });
+    $('optComp').addEventListener('change', function () { opts.components = this.checked; dirty = true; });
+    $('optLabels').addEventListener('change', function () { opts.labels = this.checked; dirty = true; });
+
+    var link = $('btnLink');
+    link.addEventListener('click', function () {
+        var code = encodeProgram(el.editor.value);
+        var url = location.origin + location.pathname + '#p=' + code;
+        history.replaceState(null, '', '#p=' + code);
+        var done = function () {
+            link.textContent = 'Copied';
+            setTimeout(function () { link.textContent = 'Copy link'; }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, function () { link.textContent = 'In the address bar'; });
+        } else { link.textContent = 'In the address bar'; }
+    });
+
+    /* ---- pointer on the spectrum ---- */
+    function ppmAtEvent(e) {
+        if (!sim) return null;
+        var rect = el.spectrum.getBoundingClientRect();
+        var geom = spectrumGeometry(sim, el.spectrum, view);
+        var x = e.clientX - rect.left;
+        return geom.ppmAt(Math.max(geom.padL, Math.min(geom.padL + geom.plotW, x)));
+    }
+    el.spectrum.addEventListener('mousedown', function (e) {
+        var ppm = ppmAtEvent(e);
+        if (ppm === null) return;
+        view.dragging = true; view.selA = ppm; view.selB = ppm; dirty = true;
+        e.preventDefault();
+    });
+    el.spectrum.addEventListener('mousemove', function (e) {
+        var ppm = ppmAtEvent(e);
+        view.hoverPpm = ppm;
+        if (view.dragging) view.selB = ppm;
+        dirty = true;
+    });
+    window.addEventListener('mouseup', function () {
+        if (!view.dragging) return;
+        view.dragging = false;
+        if (view.selA !== null && view.selB !== null && Math.abs(view.selA - view.selB) < 1e-6) {
+            view.selA = null; view.selB = null;
+        }
+        dirty = true;
+    });
+    el.spectrum.addEventListener('mouseleave', function () { view.hoverPpm = null; dirty = true; });
+    el.spectrum.addEventListener('dblclick', function () {
+        view.lo = null; view.hi = null; dirty = true;
+    });
+
+    window.addEventListener('resize', function () { dirty = true; });
+
+    /* initial program: a permalink, then the last edit, then the first example */
+    var initial = null;
+    var m = /[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash || '');
+    if (m) initial = decodeProgram(m[1]);
+    if (!initial) { try { initial = localStorage.getItem(STORE_KEY); } catch (err) { initial = null; } }
+    if (!initial) initial = EXAMPLES[0].src;
+    el.editor.value = initial;
+    syncHighlight();
+
+    fitCanvas(el.spectrum); fitCanvas(el.fid);
+    build(true);
+    requestAnimationFrame(frame);
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+</body>
+</html>
