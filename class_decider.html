@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Class Activity Randomizer</title>
+    <meta name="description" content="A Swiss-style randomizer that picks the next classroom activity, with category filters and a no-repeat shuffle.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -17,6 +18,23 @@
             /* International Orange / Swiss Red style */
             --card-bg: #f5f5f5;
             --card-hover: #e0e0e0;
+            --rule: #e5e5e5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0e0e0e;
+                --text-color: #f2f2f2;
+                --secondary-text: #9a9a9a;
+                --accent-color: #ff5522;
+                --card-bg: #1c1c1c;
+                --card-hover: #2a2a2a;
+                --rule: #2a2a2a;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -25,36 +43,80 @@
             color: var(--text-color);
             margin: 0;
             padding: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            flex-direction: column;
             -webkit-font-smoothing: antialiased;
+        }
+
+        .back-link {
+            display: inline-block;
+            padding: 1.5rem 16px;
+            color: var(--secondary-text);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            align-self: flex-start;
+        }
+
+        .back-link:hover {
+            color: var(--text-color);
+            text-decoration: underline;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px 3rem;
         }
 
         .container {
             text-align: center;
-            padding: 2rem;
-            max-width: 90%;
-            width: 500px;
+            width: 100%;
+            max-width: 620px;
         }
 
         h1 {
-            font-size: 2.5rem;
+            font-size: clamp(2rem, 8vw, 2.5rem);
             font-weight: 800;
-            margin-bottom: 2rem;
+            margin: 0 0 2rem;
             letter-spacing: -2px;
             text-transform: uppercase;
-            line-height: 1.2;
+            line-height: 1.1;
+        }
+
+        .result-block {
+            margin: 2.5rem 0;
+            min-height: 6.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.75rem;
+            transition: opacity 0.25s ease;
+        }
+
+        .result-block.is-fading {
+            opacity: 0;
+        }
+
+        #category {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+            min-height: 1em;
         }
 
         #result {
-            font-size: 1.5rem;
-            margin: 3rem 0;
+            font-size: clamp(1.25rem, 5vw, 1.75rem);
             font-weight: 600;
-            min-height: 1.5em;
-            color: var(--text-color);
-            transition: opacity 0.3s ease;
+            letter-spacing: -0.5px;
+            line-height: 1.3;
+            margin: 0;
         }
 
         button {
@@ -62,12 +124,10 @@
             border: none;
             color: var(--bg-color);
             padding: 20px 48px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
+            font-family: inherit;
             font-size: 18px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease, transform 0.2s ease;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -77,6 +137,7 @@
 
         button:hover {
             background-color: var(--accent-color);
+            color: #ffffff;
             transform: translateY(-2px);
         }
 
@@ -84,18 +145,99 @@
             transform: translateY(0);
         }
 
-        .back-link {
-            position: absolute;
-            top: 2rem;
-            left: 2rem;
-            color: var(--secondary-text);
-            text-decoration: none;
-            font-weight: 500;
+        :focus-visible {
+            outline: 3px solid var(--accent-color);
+            outline-offset: 3px;
         }
 
-        .back-link:hover {
+        .hint {
+            font-size: 12px;
+            color: var(--secondary-text);
+            margin-top: 1rem;
+        }
+
+        kbd {
+            font-family: inherit;
+            font-weight: 600;
+            border: 1px solid var(--rule);
+            padding: 1px 5px;
+        }
+
+        .controls {
+            margin-top: 3rem;
+            border-top: 1px solid var(--rule);
+            padding-top: 1.5rem;
+        }
+
+        .controls-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary-text);
+            margin-bottom: 0.75rem;
+        }
+
+        .controls-label-spaced {
+            margin-top: 1.5rem;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .chip {
+            background-color: var(--card-bg);
+            color: var(--secondary-text);
+            border: 1px solid transparent;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .chip:hover {
+            background-color: var(--card-hover);
             color: var(--text-color);
-            text-decoration: underline;
+            transform: none;
+        }
+
+        .chip[aria-pressed="true"] {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+        }
+
+        .chip[aria-pressed="true"]:hover {
+            background-color: var(--accent-color);
+            color: #ffffff;
+        }
+
+        .recent {
+            margin-top: 1.5rem;
+            font-size: 12px;
+            color: var(--secondary-text);
+            line-height: 1.6;
+            min-height: 1.6em;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+            }
+
+            button:hover {
+                transform: none;
+            }
         }
     </style>
 </head>
@@ -103,115 +245,294 @@
 <body>
     <a href="index.html" class="back-link">&larr; Back to Home</a>
 
-    <div class="container">
-        <h1>Class Activity<br>Randomizer</h1>
-        <div id="result">Click 'Teach' to get started</div>
-        <button onclick="randomize()">Teach</button>
-    </div>
+    <main>
+        <div class="container">
+            <h1>Class Activity<br>Randomizer</h1>
+
+            <div class="result-block" id="resultBlock">
+                <div id="category"></div>
+                <p id="result" role="status" aria-live="polite">Press Teach to get started</p>
+            </div>
+
+            <button id="teachBtn" type="button">Teach</button>
+            <p class="hint">Press <kbd>R</kbd> or <kbd>Space</kbd> to draw again</p>
+
+            <div class="recent" id="recent"></div>
+
+            <div class="controls">
+                <div class="controls-label">Include</div>
+                <div class="chips" id="chips"></div>
+
+                <div class="controls-label controls-label-spaced">Audio</div>
+                <div class="chips">
+                    <button class="chip" id="soundBtn" type="button" aria-pressed="true">Sound</button>
+                </div>
+            </div>
+        </div>
+    </main>
 
     <script>
         // Configuration
         const CONFIG = {
             clickFrequency: 800,
             resultFrequencyStart: 300,
-            resultFrequencyEnd: 500
+            resultFrequencyEnd: 500,
+            fadeDuration: 250,
+            recentCount: 3,
+            storageKey: 'class-decider-prefs'
         };
 
         const ACTIVITIES = [
-            // Standard Teaching
-            "Start a lecture",
-            "Start the lecture",
-            "Continue the lecture",
-            "Review the last concept",
-            "Present a case study",
-            "Walk through an example problem",
+            { category: 'Lecture', text: 'Start the lecture' },
+            { category: 'Lecture', text: 'Continue the lecture' },
+            { category: 'Lecture', text: 'Review the last concept' },
+            { category: 'Lecture', text: 'Present a case study' },
+            { category: 'Lecture', text: 'Walk through an example problem' },
+            { category: 'Lecture', text: 'Sketch the big picture on the board' },
+            { category: 'Lecture', text: "Connect this to last week's material" },
 
-            // Interactive/Student-Focused
-            "Have a group discussion",
-            "Think-Pair-Share activity",
-            "Ask a provocotive question",
-            "Have students teach a concept to a neighbor",
-            "Run a quick poll",
-            "Do a live demo",
-            "Brainstorming session on the whiteboard",
+            { category: 'Discussion', text: 'Have a group discussion' },
+            { category: 'Discussion', text: 'Run a think-pair-share' },
+            { category: 'Discussion', text: 'Ask a provocative question' },
+            { category: 'Discussion', text: 'Have students teach a concept to a neighbor' },
+            { category: 'Discussion', text: 'Run a quick poll' },
+            { category: 'Discussion', text: 'Brainstorm on the whiteboard' },
+            { category: 'Discussion', text: 'Ask a volunteer to explain their reasoning' },
+            { category: 'Discussion', text: 'Debate two competing explanations' },
 
-            // Assessments
-            "Give a pop quiz",
-            "Do a quick formative assessment",
-            "Review homework answers",
+            { category: 'Practice', text: 'Do a live demo' },
+            { category: 'Practice', text: 'Work a problem in small groups' },
+            { category: 'Practice', text: 'Have students predict the result before you run it' },
+            { category: 'Practice', text: 'Sketch a diagram from memory' },
+            { category: 'Practice', text: 'Estimate an order of magnitude together' },
 
-            // Breaks & Fun
-            "Take a short break",
-            "Tell a relevant story",
-            "Tell a rambling pointless story",
-            "Show an educational video",
-            "Do a stretched break",
+            { category: 'Assessment', text: 'Give a pop quiz' },
+            { category: 'Assessment', text: 'Do a quick formative assessment' },
+            { category: 'Assessment', text: 'Review homework answers' },
+            { category: 'Assessment', text: 'One-minute paper: what was muddiest?' },
+            { category: 'Assessment', text: 'Collect an exit ticket' },
 
-            // Meta
-            "Check for understanding",
-            "Solicit questions",
-            "Summarize the key takeaways so far"
+            { category: 'Break', text: 'Take a short break' },
+            { category: 'Break', text: 'Take a stretch break' },
+            { category: 'Break', text: 'Tell a relevant story' },
+            { category: 'Break', text: 'Tell a rambling pointless story' },
+            { category: 'Break', text: 'Show an educational video' },
+
+            { category: 'Meta', text: 'Check for understanding' },
+            { category: 'Meta', text: 'Solicit questions' },
+            { category: 'Meta', text: 'Summarize the key takeaways so far' },
+            { category: 'Meta', text: 'Ask what should be on the exam' },
+            { category: 'Meta', text: 'Preview where this is going next class' }
         ];
 
-        // Audio Context Setup
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
+        const CATEGORIES = [...new Set(ACTIVITIES.map(a => a.category))];
 
-        // Audio Functions
-        function createOscillator(freq, duration) {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
+        // State
+        const state = {
+            enabled: new Set(CATEGORIES),
+            sound: true,
+            bag: [],
+            recent: []
+        };
+
+        // Preferences (best effort - storage can be blocked or empty)
+        function loadPrefs() {
+            try {
+                const raw = localStorage.getItem(CONFIG.storageKey);
+                if (!raw) return;
+                const prefs = JSON.parse(raw);
+                if (Array.isArray(prefs.enabled)) {
+                    const valid = prefs.enabled.filter(c => CATEGORIES.includes(c));
+                    if (valid.length) state.enabled = new Set(valid);
+                }
+                if (typeof prefs.sound === 'boolean') state.sound = prefs.sound;
+            } catch (e) {
+                /* ignore */
+            }
+        }
+
+        function savePrefs() {
+            try {
+                localStorage.setItem(CONFIG.storageKey, JSON.stringify({
+                    enabled: [...state.enabled],
+                    sound: state.sound
+                }));
+            } catch (e) {
+                /* ignore */
+            }
+        }
+
+        // Audio - the context is created on first interaction so browsers
+        // do not start it in a suspended state on page load.
+        let audioCtx = null;
+
+        function getAudioContext() {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            if (!audioCtx) audioCtx = new Ctx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function createOscillator(ctx, freq) {
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
 
             oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            gainNode.connect(ctx.destination);
 
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            oscillator.frequency.setValueAtTime(freq, ctx.currentTime);
 
             return { oscillator, gainNode };
         }
 
         function playClickSound() {
-            const { oscillator, gainNode } = createOscillator(CONFIG.clickFrequency);
+            if (!state.sound) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
 
-            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            const { oscillator, gainNode } = createOscillator(ctx, CONFIG.clickFrequency);
+
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
 
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.1);
+            oscillator.stop(ctx.currentTime + 0.1);
         }
 
         function playResultSound() {
-            const { oscillator, gainNode } = createOscillator(CONFIG.resultFrequencyStart);
+            if (!state.sound) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
 
-            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            const { oscillator, gainNode } = createOscillator(ctx, CONFIG.resultFrequencyStart);
+
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
 
             oscillator.start();
-            oscillator.frequency.linearRampToValueAtTime(CONFIG.resultFrequencyEnd, audioCtx.currentTime + 0.2);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            oscillator.stop(audioCtx.currentTime + 0.3);
+            oscillator.frequency.linearRampToValueAtTime(CONFIG.resultFrequencyEnd, ctx.currentTime + 0.2);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            oscillator.stop(ctx.currentTime + 0.3);
         }
 
-        // Logic
-        function randomize() {
-            // Resume audio context if suspended (browser autoplay policy)
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+        // Shuffle bag: every activity in the active pool comes up once
+        // before any of them repeats.
+        function refillBag() {
+            const pool = ACTIVITIES.filter(a => state.enabled.has(a.category));
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
             }
+            // The bag is drawn from the end, so keep the first draw of a new
+            // bag from repeating the last draw of the old one.
+            const next = pool.length - 1;
+            if (pool.length > 1 && pool[next].text === state.recent[0]) {
+                [pool[next], pool[0]] = [pool[0], pool[next]];
+            }
+            state.bag = pool;
+        }
 
+        function drawActivity() {
+            if (!state.bag.length) refillBag();
+            return state.bag.pop() || null;
+        }
+
+        // Rendering
+        const resultBlock = document.getElementById('resultBlock');
+        const resultEl = document.getElementById('result');
+        const categoryEl = document.getElementById('category');
+        const recentEl = document.getElementById('recent');
+        const chipsEl = document.getElementById('chips');
+        const soundBtn = document.getElementById('soundBtn');
+        const teachBtn = document.getElementById('teachBtn');
+
+        function renderRecent() {
+            recentEl.textContent = state.recent.length > 1
+                ? 'Earlier: ' + state.recent.slice(1).join(' · ')
+                : '';
+        }
+
+        function renderChips() {
+            chipsEl.innerHTML = '';
+            CATEGORIES.forEach(category => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'chip';
+                chip.textContent = category;
+                chip.setAttribute('aria-pressed', String(state.enabled.has(category)));
+                chip.addEventListener('click', () => toggleCategory(category));
+                chipsEl.appendChild(chip);
+            });
+        }
+
+        function toggleCategory(category) {
+            if (state.enabled.has(category)) {
+                // Never let the last category be switched off.
+                if (state.enabled.size === 1) return;
+                state.enabled.delete(category);
+            } else {
+                state.enabled.add(category);
+            }
+            refillBag();
+            renderChips();
+            savePrefs();
+        }
+
+        function toggleSound() {
+            state.sound = !state.sound;
+            soundBtn.setAttribute('aria-pressed', String(state.sound));
+            savePrefs();
+            if (state.sound) playClickSound();
+        }
+
+        let drawing = false;
+
+        function randomize() {
+            if (drawing) return;
+
+            const activity = drawActivity();
+            if (!activity) return;
+
+            drawing = true;
             playClickSound();
-
-            const result = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
-            const resultElement = document.getElementById("result");
-
-            resultElement.style.opacity = 0;
+            resultBlock.classList.add('is-fading');
 
             setTimeout(() => {
-                resultElement.textContent = result;
-                resultElement.style.opacity = 1;
+                categoryEl.textContent = activity.category;
+                resultEl.textContent = activity.text;
+                resultBlock.classList.remove('is-fading');
+
+                state.recent.unshift(activity.text);
+                state.recent = state.recent.slice(0, CONFIG.recentCount + 1);
+                renderRecent();
+
                 playResultSound();
-            }, 300);
+                drawing = false;
+            }, CONFIG.fadeDuration);
         }
+
+        // Wiring
+        teachBtn.addEventListener('click', randomize);
+        soundBtn.addEventListener('click', toggleSound);
+
+        document.addEventListener('keydown', event => {
+            if (event.metaKey || event.ctrlKey || event.altKey) return;
+            const tag = event.target.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            // Space and Enter already activate whichever button has focus.
+            if (event.key === ' ' && tag === 'BUTTON') return;
+            if (event.key === 'r' || event.key === 'R' || event.key === ' ') {
+                event.preventDefault();
+                randomize();
+            }
+        });
+
+        loadPrefs();
+        refillBag();
+        renderChips();
+        renderRecent();
+        soundBtn.setAttribute('aria-pressed', String(state.sound));
     </script>
 </body>
 
