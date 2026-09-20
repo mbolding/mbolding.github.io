@@ -1,181 +1,334 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Like You're at Philmont</title>
+    <meta name="description" content="A Philmont habits checklist that remembers where you left off.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
     <style>
         :root {
-            --philmont-green: #2c5f2d;
-            --philmont-tan: #d9b382;
-            --philmont-brown: #5c4033;
-            --philmont-red: #ce1126;
-            --light-tan: #f0e6d2;
+            --theme: #2c5f2d;
+            --theme-deep: #5c4033;
+            --accent: #ce1126;
+            --accent-hover: #a60d1b;
+            --page-bg: #f0e6d2;
+            --panel: rgba(255, 255, 255, 0.92);
+            --fg: #4a3c30;
+            --muted: #6b6257;
+            --track: #d9b382;
+            --shadow: rgba(0, 0, 0, 0.12);
+            --noise: 0.55;
         }
-        body, html {
-            height: 100%;
-            margin: 0;
-            font-family: 'Cabin', Arial, sans-serif;
-            color: var(--philmont-brown);
-        }
-        .background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--light-tan);
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            background-repeat: repeat;
-            background-size: 200px 200px;
-            filter: blur(1px);
-            z-index: -1;
-        }
-        .content {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            position: relative;
-            z-index: 1;
-        }
-        h1 {
-            color: var(--philmont-green);
-            text-align: center;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-            font-size: 2.5em;
-        }
-        .checklist {
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 5px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .item {
-            margin-bottom: 10px;
-        }
-        input[type="checkbox"] {
-            margin-right: 10px;
-        }
-        input[type="checkbox"]:checked + label {
-            color: var(--philmont-green);
-            font-weight: bold;
-        }
-        #progress-container {
-            margin-top: 20px;
-            background-color: var(--philmont-tan);
-            border-radius: 5px;
-            height: 30px;
-            position: relative;
-            border: 2px solid var(--philmont-brown);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        #progress-bar {
-            background-color: var(--philmont-green);
-            height: 100%;
-            border-radius: 3px;
-            width: 0;
-            transition: width 0.5s ease-in-out;
-        }
-        #progress-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: var(--philmont-brown);
-            font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
-        }
-        #message {
-            text-align: center;
-            margin-top: 20px;
-            font-weight: bold;
-            min-height: 1.5em;
-            color: var(--philmont-green);
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
-            font-size: 1.2em;
-        }
-        #reset-button {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            background-color: var(--philmont-red);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            font-family: 'Cabin', Arial, sans-serif;
-        }
-        #reset-button:hover {
-            background-color: #a60d1b;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
-        }
-    </style>
-</head>
-<body>
-    <div class="background"></div>
-    <div class="content">
-        <h1>Live Like You're at Philmont</h1>
-        <div class="checklist">
-            <div class="item"><input type="checkbox" id="item1" onchange="updateProgress()"><label for="item1">Embrace outdoor activities</label></div>
-            <div class="item"><input type="checkbox" id="item2" onchange="updateProgress()"><label for="item2">Practice Leave No Trace principles</label></div>
-            <div class="item"><input type="checkbox" id="item3" onchange="updateProgress()"><label for="item3">Set challenging goals</label></div>
-            <div class="item"><input type="checkbox" id="item4" onchange="updateProgress()"><label for="item4">Develop outdoor skills</label></div>
-            <div class="item"><input type="checkbox" id="item5" onchange="updateProgress()"><label for="item5">Foster teamwork</label></div>
-            <div class="item"><input type="checkbox" id="item6" onchange="updateProgress()"><label for="item6">Simplify your lifestyle</label></div>
-            <div class="item"><input type="checkbox" id="item7" onchange="updateProgress()"><label for="item7">Practice conservation</label></div>
-            <div class="item"><input type="checkbox" id="item8" onchange="updateProgress()"><label for="item8">Embrace a service mindset</label></div>
-            <div class="item"><input type="checkbox" id="item9" onchange="updateProgress()"><label for="item9">Stay physically active</label></div>
-            <div class="item"><input type="checkbox" id="item10" onchange="updateProgress()"><label for="item10">Learn about local history and nature</label></div>
-            <div class="item"><input type="checkbox" id="item11" onchange="updateProgress()"><label for="item11">Practice mindfulness</label></div>
-            <div class="item"><input type="checkbox" id="item12" onchange="updateProgress()"><label for="item12">Cultivate self-reliance</label></div>
-        </div>
-        <div id="progress-container">
-            <div id="progress-bar"></div>
-            <div id="progress-text">0%</div>
-        </div>
-        <div id="message"></div>
-        <button id="reset-button" onclick="resetCheckboxes()">Reset Progress</button>
-    </div>
 
-    <script>
-        function updateProgress() {
-            const total = 12;
-            const checked = document.querySelectorAll('input[type="checkbox"]:checked').length;
-            const percentage = (checked / total) * 100;
-            const progressBar = document.getElementById('progress-bar');
-            const progressText = document.getElementById('progress-text');
-            const messageElement = document.getElementById('message');
-
-            progressBar.style.width = `${percentage}%`;
-            progressText.textContent = `${percentage.toFixed(1)}%`;
-
-            if (percentage === 100) {
-                messageElement.textContent = "Great job, you're a true Philmont enthusiast!";
-            } else if (percentage >= 75) {
-                messageElement.textContent = "You're well on your way to the Philmont lifestyle!";
-            } else if (percentage >= 50) {
-                messageElement.textContent = "Keep it up, you're making good progress!";
-            } else if (percentage > 0) {
-                messageElement.textContent = "It's a great start. Keep embracing the Philmont spirit!";
-            } else {
-                messageElement.textContent = "Start small and work your way up. You've got this!";
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --theme: #7fb069;
+                --theme-deep: #8a7a68;
+                --accent: #e04a5a;
+                --accent-hover: #c33947;
+                --page-bg: #14120e;
+                --panel: rgba(30, 27, 22, 0.92);
+                --fg: #ece5d8;
+                --muted: #a8a094;
+                --track: #3a3229;
+                --shadow: rgba(0, 0, 0, 0.5);
+                --noise: 0.16;
             }
         }
 
-        function resetCheckboxes() {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            updateProgress();
+        * {
+            box-sizing: border-box;
         }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Cabin', Arial, sans-serif;
+            color: var(--fg);
+            background-color: var(--page-bg);
+        }
+
+        .background {
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            opacity: var(--noise);
+            filter: blur(1px);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            color: var(--theme);
+            font-size: clamp(1.9rem, 6vw, 2.5rem);
+            text-align: center;
+        }
+
+        .lede {
+            margin: 0 0 28px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .checklist {
+            padding: 8px 20px 20px;
+            border: 0;
+            border-radius: 6px;
+            background-color: var(--panel);
+            box-shadow: 0 4px 10px var(--shadow);
+        }
+
+        .checklist legend {
+            padding: 0 8px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 8px;
+            border-radius: 4px;
+        }
+
+        .item + .item {
+            border-top: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+        }
+
+        .item:hover {
+            background-color: color-mix(in srgb, var(--theme) 8%, transparent);
+        }
+
+        .item input[type="checkbox"] {
+            flex: none;
+            width: 20px;
+            height: 20px;
+            accent-color: var(--theme);
+            cursor: pointer;
+        }
+
+        .item label {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .item input:checked + label {
+            color: var(--theme);
+            font-weight: 700;
+        }
+
+        #progress-container {
+            position: relative;
+            height: 32px;
+            margin-top: 24px;
+            border: 2px solid var(--theme-deep);
+            border-radius: 5px;
+            background-color: var(--track);
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 0;
+            height: 100%;
+            background-color: var(--theme);
+            transition: width 0.4s ease-in-out;
+        }
+
+        #progress-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--fg);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #message {
+            min-height: 1.6em;
+            margin-top: 18px;
+            color: var(--theme);
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        #reset-button {
+            display: block;
+            margin: 24px auto 0;
+            padding: 12px 24px;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 1rem;
+            background-color: var(--accent);
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px var(--shadow);
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+
+        #reset-button:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .saved-note {
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Philmont</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
+    <div class="background"></div>
+    <main class="content">
+        <h1>Live Like You're at Philmont</h1>
+        <p class="lede">Twelve habits from the New Mexico trek, for the other fifty weeks of the year.</p>
+
+        <fieldset class="checklist" id="checklist">
+            <legend>Twelve habits</legend>
+            <div class="item"><input type="checkbox" id="item1"><label for="item1">Embrace outdoor activities</label></div>
+            <div class="item"><input type="checkbox" id="item2"><label for="item2">Practice Leave No Trace principles</label></div>
+            <div class="item"><input type="checkbox" id="item3"><label for="item3">Set challenging goals</label></div>
+            <div class="item"><input type="checkbox" id="item4"><label for="item4">Develop outdoor skills</label></div>
+            <div class="item"><input type="checkbox" id="item5"><label for="item5">Foster teamwork</label></div>
+            <div class="item"><input type="checkbox" id="item6"><label for="item6">Simplify your lifestyle</label></div>
+            <div class="item"><input type="checkbox" id="item7"><label for="item7">Practice conservation</label></div>
+            <div class="item"><input type="checkbox" id="item8"><label for="item8">Embrace a service mindset</label></div>
+            <div class="item"><input type="checkbox" id="item9"><label for="item9">Stay physically active</label></div>
+            <div class="item"><input type="checkbox" id="item10"><label for="item10">Learn about local history and nature</label></div>
+            <div class="item"><input type="checkbox" id="item11"><label for="item11">Practice mindfulness</label></div>
+            <div class="item"><input type="checkbox" id="item12"><label for="item12">Cultivate self-reliance</label></div>
+        </fieldset>
+
+        <div id="progress-container" role="img" aria-labelledby="progress-text">
+            <div id="progress-bar"></div>
+            <div id="progress-text">0 of 12 &middot; 0%</div>
+        </div>
+
+        <p id="message" role="status" aria-live="polite"></p>
+
+        <button type="button" id="reset-button">Reset progress</button>
+        <p class="saved-note" id="saved-note">Your ticks are saved in this browser.</p>
+    </main>
+
+    <script>
+        (function () {
+            var STORAGE_KEY = 'philmont-checklist';
+            var list = document.getElementById('checklist');
+            var boxes = Array.prototype.slice.call(
+                list.querySelectorAll('input[type="checkbox"]'));
+            var bar = document.getElementById('progress-bar');
+            var text = document.getElementById('progress-text');
+            var message = document.getElementById('message');
+            var note = document.getElementById('saved-note');
+            var total = boxes.length;
+
+            // Storage is unavailable in private windows and when site data is
+            // blocked, so every read and write is guarded and the page works
+            // the same either way — it just forgets between visits.
+            var storageOk = true;
+
+            function save() {
+                if (!storageOk) return;
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(
+                        boxes.filter(function (b) { return b.checked; })
+                            .map(function (b) { return b.id; })));
+                } catch (e) {
+                    storageOk = false;
+                    note.textContent = 'This browser is not saving your ticks.';
+                }
+            }
+
+            function load() {
+                var raw = null;
+                try {
+                    raw = localStorage.getItem(STORAGE_KEY);
+                } catch (e) {
+                    storageOk = false;
+                    note.textContent = 'This browser is not saving your ticks.';
+                    return;
+                }
+                if (!raw) return;
+                try {
+                    var ids = JSON.parse(raw);
+                    if (!Array.isArray(ids)) return;
+                    boxes.forEach(function (b) {
+                        b.checked = ids.indexOf(b.id) !== -1;
+                    });
+                } catch (e) { /* corrupt entry, start fresh */ }
+            }
+
+            function update() {
+                // Counted from the checklist only, so adding a checkbox
+                // elsewhere on the page cannot skew the total.
+                var done = boxes.filter(function (b) { return b.checked; }).length;
+                var pct = Math.round((done / total) * 100);
+
+                bar.style.width = pct + '%';
+                text.textContent = done + ' of ' + total + ' \u00b7 ' + pct + '%';
+
+                if (pct === 100) {
+                    message.textContent = "You&rsquo;re living the Philmont life.";
+                } else if (pct >= 75) {
+                    message.textContent = "You&rsquo;re well on your way to the Philmont lifestyle.";
+                } else if (pct >= 50) {
+                    message.textContent = 'Keep it up, you\u2019re making good progress.';
+                } else if (done > 0) {
+                    message.textContent = "A good start. Keep at it.";
+                } else {
+                    message.textContent = 'Start small and work your way up.';
+                }
+            }
+
+            list.addEventListener('change', function (e) {
+                if (e.target.type !== 'checkbox') return;
+                save();
+                update();
+            });
+
+            document.getElementById('reset-button').addEventListener('click', function () {
+                boxes.forEach(function (b) { b.checked = false; });
+                try {
+                    localStorage.removeItem(STORAGE_KEY);
+                } catch (e) { /* nothing to clear */ }
+                update();
+            });
+
+            load();
+            update();
+        }());
     </script>
 </body>
+
 </html>
-
-

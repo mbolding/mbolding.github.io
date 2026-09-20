@@ -1,206 +1,513 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Board Game</title>
+    <title>Breakthrough Five</title>
+    <meta name="description" content="A five-by-five race game: get any piece to the far rank.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
     <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #111111;
+            --muted: #666666;
+            --board-line: #111111;
+            --cell: #ffffff;
+            --cell-dark: #f0f0f0;
+            --cell-hover: #e8e8e8;
+            --selected: #ffe066;
+            --target: #b7e4c7;
+            --target-capture: #ffc9c9;
+            --panel: #f5f5f5;
+            --accent: #ff3300;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0e0e11;
+                --fg: #ededed;
+                --muted: #9a9aa2;
+                --board-line: #55555f;
+                --cell: #1a1a20;
+                --cell-dark: #15151a;
+                --cell-hover: #26262e;
+                --selected: #7a6320;
+                --target: #22503a;
+                --target-capture: #5c2a2a;
+                --panel: #17171b;
+                --accent: #ff5c33;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            background-color: #f0f0f0;
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            color: var(--fg);
+            background-color: var(--bg);
+            -webkit-font-smoothing: antialiased;
         }
-        #game-container {
-            text-align: center;
+
+        main {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 28px 16px 64px;
         }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: clamp(1.6rem, 7vw, 2.2rem);
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+        }
+
+        .lede {
+            margin: 0 0 24px;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
         #board {
             display: grid;
-            grid-template-columns: repeat(5, 60px);
-            grid-gap: 2px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2px;
+            width: min(100%, 360px);
+            margin: 0 auto;
+            padding: 2px;
+            background-color: var(--board-line);
         }
+
         .cell {
-            width: 60px;
-            height: 60px;
-            background-color: #fff;
-            border: 1px solid #000;
             display: flex;
-            justify-content: center;
             align-items: center;
-            font-size: 40px;
+            justify-content: center;
+            aspect-ratio: 1;
+            padding: 0;
+            font-size: clamp(1.4rem, 9vw, 2.1rem);
+            line-height: 1;
+            background-color: var(--cell);
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.12s ease;
+        }
+
+        .cell.dark {
+            background-color: var(--cell-dark);
+        }
+
+        .cell:hover:not(:disabled) {
+            background-color: var(--cell-hover);
+        }
+
+        .cell.selected {
+            background-color: var(--selected);
+        }
+
+        .cell.target::after {
+            content: '';
+            width: 28%;
+            height: 28%;
+            border-radius: 50%;
+            background-color: currentColor;
+            opacity: 0.45;
+        }
+
+        .cell.target {
+            background-color: var(--target);
+        }
+
+        .cell.target.capture {
+            background-color: var(--target-capture);
+        }
+
+        .cell:disabled {
+            cursor: default;
+        }
+
+        .status {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 20px auto 0;
+            padding: 14px 16px;
+            width: min(100%, 360px);
+            background-color: var(--panel);
+        }
+
+        #message {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        #message.win {
+            color: var(--accent);
+        }
+
+        button.action {
+            padding: 10px 18px;
+            color: var(--bg);
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            background-color: var(--fg);
+            border: none;
             cursor: pointer;
         }
-        #message {
-            margin-bottom: 10px;
+
+        button.action:hover {
+            background-color: var(--accent);
         }
-        button {
-            font-size: 16px;
-            padding: 5px 10px;
+
+        .rules {
+            width: min(100%, 360px);
+            margin: 28px auto 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+
+        .rules h2 {
+            margin: 0 0 8px;
+            color: var(--fg);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .rules li {
+            margin-bottom: 6px;
         }
     </style>
 </head>
-<body>
-    <div id="game-container">
-        <div id="board"></div>
-        <div id="message">Player 1's turn</div>
-        <button id="reset-btn">Reset Game</button>
-    </div>
+
+<body class="ar-touch ar-motion ar-nozoom">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Breakthrough Five</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
+    <main data-ar-focus>
+        <h1>Breakthrough Five</h1>
+        <p class="lede">Two players, one board, five squares a side. Get any piece to the opposite
+            back rank and you win.</p>
+
+        <div id="board" role="grid" aria-label="Five by five game board"></div>
+
+        <div class="status">
+            <p id="message" role="status" aria-live="polite">Blue to move.</p>
+            <button type="button" id="reset-btn" class="action">Reset</button>
+        </div>
+
+        <div class="rules">
+            <h2>How it moves</h2>
+            <ul>
+                <li><b>Pawn</b> (&#x1F535;&#x1F534;) &mdash; one square in any direction.</li>
+                <li><b>Rook</b> (&#x1F3F0;&#x1F3EF;) &mdash; any distance along a rank or file, not through pieces.</li>
+                <li><b>Bishop</b> (&#x1F537;&#x1F536;) &mdash; any distance diagonally, not through pieces.</li>
+                <li>Landing on an opposing piece captures it.</li>
+                <li>Tap or click a piece to select it, then tap a highlighted square. Arrow keys and
+                    Enter work too.</li>
+            </ul>
+        </div>
+    </main>
 
     <script>
-        const board = document.getElementById('board');
-        const message = document.getElementById('message');
-        const resetBtn = document.getElementById('reset-btn');
-        let selectedCell = null;
-        let currentPlayer = 1;
-        let gameBoard = [];
+        (function () {
+            var boardEl = document.getElementById('board');
+            var messageEl = document.getElementById('message');
+            var SIZE = 5;
 
-        const EMPTY = 0;
-        const P1_PAWN = 1;
-        const P1_ROOK = 2;
-        const P1_BISHOP = 3;
-        const P2_PAWN = 4;
-        const P2_ROOK = 5;
-        const P2_BISHOP = 6;
+            var EMPTY = 0;
+            var P1_PAWN = 1, P1_ROOK = 2, P1_BISHOP = 3;
+            var P2_PAWN = 4, P2_ROOK = 5, P2_BISHOP = 6;
 
-        function initializeBoard() {
-            gameBoard = Array(5).fill().map(() => Array(5).fill(EMPTY));
-            // Player 1 pieces
-            gameBoard[0] = [P1_ROOK, P1_PAWN, P1_PAWN, P1_PAWN, P1_BISHOP];
-            // Player 2 pieces
-            gameBoard[4] = [P2_BISHOP, P2_PAWN, P2_PAWN, P2_PAWN, P2_ROOK];
-            renderBoard();
-        }
+            var SYMBOL = {};
+            SYMBOL[P1_PAWN] = '🔵';
+            SYMBOL[P1_ROOK] = '🏰';
+            SYMBOL[P1_BISHOP] = '🔷';
+            SYMBOL[P2_PAWN] = '🔴';
+            SYMBOL[P2_ROOK] = '🏯';
+            SYMBOL[P2_BISHOP] = '🔶';
 
-        function renderBoard() {
-            board.innerHTML = '';
-            for (let row = 0; row < 5; row++) {
-                for (let col = 0; col < 5; col++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.dataset.row = row;
-                    cell.dataset.col = col;
-                    cell.textContent = getPieceSymbol(gameBoard[row][col]);
-                    cell.addEventListener('click', handleCellClick);
-                    board.appendChild(cell);
+            var NAME = {};
+            NAME[P1_PAWN] = NAME[P2_PAWN] = 'pawn';
+            NAME[P1_ROOK] = NAME[P2_ROOK] = 'rook';
+            NAME[P1_BISHOP] = NAME[P2_BISHOP] = 'bishop';
+
+            var PLAYER_NAME = { 1: 'Blue', 2: 'Red' };
+
+            // Player 1 starts on row 0 and is racing to row 4; player 2 the
+            // other way about.
+            var GOAL_ROW = { 1: SIZE - 1, 2: 0 };
+
+            var board = [];
+            var cells = [];
+            var current = 1;
+            var selected = null;
+            var over = false;
+
+            function owner(piece) {
+                if (piece >= P1_PAWN && piece <= P1_BISHOP) return 1;
+                if (piece >= P2_PAWN && piece <= P2_BISHOP) return 2;
+                return 0;
+            }
+
+            function clearBetween(from, to) {
+                var dr = Math.sign(to.row - from.row);
+                var dc = Math.sign(to.col - from.col);
+                var r = from.row + dr;
+                var c = from.col + dc;
+                while (r !== to.row || c !== to.col) {
+                    if (board[r][c] !== EMPTY) return false;
+                    r += dr;
+                    c += dc;
+                }
+                return true;
+            }
+
+            function isLegal(from, to) {
+                if (from.row === to.row && from.col === to.col) return false;
+                var piece = board[from.row][from.col];
+                if (owner(board[to.row][to.col]) === owner(piece)) return false;
+
+                var dr = to.row - from.row;
+                var dc = to.col - from.col;
+
+                switch (piece) {
+                    case P1_PAWN:
+                    case P2_PAWN:
+                        return Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
+                    case P1_ROOK:
+                    case P2_ROOK:
+                        return (dr === 0 || dc === 0) && clearBetween(from, to);
+                    case P1_BISHOP:
+                    case P2_BISHOP:
+                        return Math.abs(dr) === Math.abs(dc) && clearBetween(from, to);
+                    default:
+                        return false;
                 }
             }
-        }
 
-        function getPieceSymbol(piece) {
-            switch(piece) {
-                case P1_PAWN: return '🔵';
-                case P1_ROOK: return '🏰';
-                case P1_BISHOP: return '🔷';
-                case P2_PAWN: return '🔴';
-                case P2_ROOK: return '🏯';
-                case P2_BISHOP: return '🔶';
-                default: return '';
-            }
-        }
-
-        function handleCellClick(event) {
-            const row = parseInt(event.target.dataset.row);
-            const col = parseInt(event.target.dataset.col);
-
-            if (!selectedCell) {
-                if (isPlayerPiece(gameBoard[row][col], currentPlayer)) {
-                    selectedCell = { row, col };
-                    event.target.style.backgroundColor = '#ffff00';
+            function legalMovesFrom(from) {
+                var out = [];
+                for (var r = 0; r < SIZE; r++) {
+                    for (var c = 0; c < SIZE; c++) {
+                        if (isLegal(from, { row: r, col: c })) out.push({ row: r, col: c });
+                    }
                 }
-            } else {
-                if (isValidMove(selectedCell, { row, col })) {
-                    movePiece(selectedCell, { row, col });
-                    selectedCell = null;
-                    switchPlayer();
-                    renderBoard();
-                    checkWinCondition();
-                } else {
-                    // Deselect if the move is invalid
-                    selectedCell = null;
-                    renderBoard();
-                }
+                return out;
             }
-        }
 
-        function isPlayerPiece(piece, player) {
-            return player === 1 ? (piece >= P1_PAWN && piece <= P1_BISHOP) : (piece >= P2_PAWN && piece <= P2_BISHOP);
-        }
-
-        function isValidMove(from, to) {
-            const piece = gameBoard[from.row][from.col];
-            const rowDiff = to.row - from.row;
-            const colDiff = to.col - from.col;
-
-            // Check if the destination is occupied by the same player's piece
-            if (isPlayerPiece(gameBoard[to.row][to.col], currentPlayer)) {
+            function hasAnyMove(player) {
+                for (var r = 0; r < SIZE; r++) {
+                    for (var c = 0; c < SIZE; c++) {
+                        if (owner(board[r][c]) !== player) continue;
+                        if (legalMovesFrom({ row: r, col: c }).length) return true;
+                    }
+                }
                 return false;
             }
 
-            switch(piece) {
-                case P1_PAWN:
-                case P2_PAWN:
-                    return Math.abs(rowDiff) <= 1 && Math.abs(colDiff) <= 1;
-                case P1_ROOK:
-                case P2_ROOK:
-                    return (rowDiff === 0 || colDiff === 0) && !hasObstaclesBetween(from, to);
-                case P1_BISHOP:
-                case P2_BISHOP:
-                    return Math.abs(rowDiff) === Math.abs(colDiff) && !hasObstaclesBetween(from, to);
-                default:
-                    return false;
+            function setMessage(text, isWin) {
+                messageEl.textContent = text;
+                messageEl.classList.toggle('win', !!isWin);
             }
-        }
 
-        function hasObstaclesBetween(from, to) {
-            const rowStep = Math.sign(to.row - from.row);
-            const colStep = Math.sign(to.col - from.col);
-            let row = from.row + rowStep;
-            let col = from.col + colStep;
+            function reset() {
+                board = [];
+                for (var r = 0; r < SIZE; r++) board.push(new Array(SIZE).fill(EMPTY));
+                board[0] = [P1_ROOK, P1_PAWN, P1_PAWN, P1_PAWN, P1_BISHOP];
+                board[SIZE - 1] = [P2_BISHOP, P2_PAWN, P2_PAWN, P2_PAWN, P2_ROOK];
+                current = 1;
+                selected = null;
+                over = false;
+                setMessage(PLAYER_NAME[current] + ' to move.');
+                render();
+            }
 
-            while (row !== to.row || col !== to.col) {
-                if (gameBoard[row][col] !== EMPTY) {
-                    return true;
+            function build() {
+                boardEl.innerHTML = '';
+                cells = [];
+                for (var r = 0; r < SIZE; r++) {
+                    cells[r] = [];
+                    for (var c = 0; c < SIZE; c++) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'cell' + ((r + c) % 2 ? ' dark' : '');
+                        btn.dataset.row = r;
+                        btn.dataset.col = c;
+                        btn.addEventListener('click', onCell);
+                        btn.addEventListener('keydown', onKey);
+                        boardEl.appendChild(btn);
+                        cells[r][c] = btn;
+                    }
                 }
-                row += rowStep;
-                col += colStep;
             }
 
-            return false;
-        }
+            function render() {
+                var targets = selected ? legalMovesFrom(selected) : [];
+                for (var r = 0; r < SIZE; r++) {
+                    for (var c = 0; c < SIZE; c++) {
+                        var piece = board[r][c];
+                        var btn = cells[r][c];
+                        btn.textContent = SYMBOL[piece] || '';
+                        btn.classList.remove('selected', 'target', 'capture');
 
-        function movePiece(from, to) {
-            gameBoard[to.row][to.col] = gameBoard[from.row][from.col];
-            gameBoard[from.row][from.col] = EMPTY;
-        }
+                        var isSelected = selected && selected.row === r && selected.col === c;
+                        if (isSelected) btn.classList.add('selected');
 
-        function switchPlayer() {
-            currentPlayer = currentPlayer === 1 ? 2 : 1;
-            message.textContent = `Player ${currentPlayer}'s turn`;
-        }
+                        var isTarget = targets.some(function (t) {
+                            return t.row === r && t.col === c;
+                        });
+                        if (isTarget) {
+                            btn.classList.add('target');
+                            if (piece !== EMPTY) btn.classList.add('capture');
+                        }
 
-        function checkWinCondition() {
-            const targetRow = currentPlayer === 1 ? 4 : 0;
-            const win = gameBoard[targetRow].some(cell => isPlayerPiece(cell, currentPlayer));
-            if (win) {
-                message.textContent = `Player ${currentPlayer} wins!`;
-                board.removeEventListener('click', handleCellClick);
+                        // Only squares that can actually be acted on stay
+                        // reachable, so tabbing through the board does not
+                        // walk twenty-five dead buttons.
+                        var usable = !over &&
+                            (isTarget || owner(piece) === current);
+                        btn.disabled = !usable;
+
+                        var where = 'row ' + (r + 1) + ' column ' + (c + 1);
+                        var what = piece === EMPTY
+                            ? 'empty'
+                            : PLAYER_NAME[owner(piece)] + ' ' + NAME[piece];
+                        btn.setAttribute('aria-label', where + ', ' + what +
+                            (isTarget ? ', can move here' : '') +
+                            (isSelected ? ', selected' : ''));
+                        btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+                    }
+                }
             }
-        }
 
-        resetBtn.addEventListener('click', () => {
-            currentPlayer = 1;
-            selectedCell = null;
-            message.textContent = "Player 1's turn";
-            initializeBoard();
-        });
+            function move(from, to) {
+                board[to.row][to.col] = board[from.row][from.col];
+                board[from.row][from.col] = EMPTY;
 
-        initializeBoard();
+                var mover = current;
+
+                // Checked here, for the player who just moved, and before the
+                // turn changes hands. Doing it after the swap tested the wrong
+                // player against the wrong rank, so a win was only ever
+                // noticed a turn late, credited to the loser.
+                if (to.row === GOAL_ROW[mover]) {
+                    over = true;
+                    selected = null;
+                    setMessage(PLAYER_NAME[mover] + ' reaches the far rank and wins.', true);
+                    render();
+                    return;
+                }
+
+                var opponent = mover === 1 ? 2 : 1;
+
+                // Capturing the last enemy piece also ends it.
+                var opponentHasPieces = board.some(function (row) {
+                    return row.some(function (p) { return owner(p) === opponent; });
+                });
+                if (!opponentHasPieces) {
+                    over = true;
+                    selected = null;
+                    setMessage(PLAYER_NAME[mover] + ' captures the last piece and wins.', true);
+                    render();
+                    return;
+                }
+
+                current = opponent;
+                selected = null;
+
+                if (!hasAnyMove(current)) {
+                    over = true;
+                    setMessage(PLAYER_NAME[current] + ' has no legal move. ' +
+                        PLAYER_NAME[mover] + ' wins.', true);
+                } else {
+                    setMessage(PLAYER_NAME[current] + ' to move.');
+                }
+                render();
+            }
+
+            function onCell(e) {
+                if (over) return;
+                var r = Number(e.currentTarget.dataset.row);
+                var c = Number(e.currentTarget.dataset.col);
+                var piece = board[r][c];
+
+                if (selected && isLegal(selected, { row: r, col: c })) {
+                    move(selected, { row: r, col: c });
+                    return;
+                }
+
+                if (owner(piece) === current) {
+                    // Tapping the selected piece again puts it back down.
+                    var same = selected && selected.row === r && selected.col === c;
+                    selected = same ? null : { row: r, col: c };
+                    render();
+                    if (selected) {
+                        var n = legalMovesFrom(selected).length;
+                        setMessage(PLAYER_NAME[current] + ' ' + NAME[piece] + ' selected, ' +
+                            n + (n === 1 ? ' move.' : ' moves.'));
+                    } else {
+                        setMessage(PLAYER_NAME[current] + ' to move.');
+                    }
+                    return;
+                }
+
+                setMessage('Not a legal move. ' + PLAYER_NAME[current] + ' to move.');
+            }
+
+            function onKey(e) {
+                var deltas = {
+                    ArrowUp: [-1, 0], ArrowDown: [1, 0],
+                    ArrowLeft: [0, -1], ArrowRight: [0, 1]
+                };
+                var d = deltas[e.key];
+                if (!d) return;
+                e.preventDefault();
+
+                // Arrows walk the whole grid, including squares that are
+                // disabled for clicking, so the keyboard can still survey the
+                // board rather than only hopping between legal targets.
+                var r = Number(e.currentTarget.dataset.row) + d[0];
+                var c = Number(e.currentTarget.dataset.col) + d[1];
+                if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
+                var next = cells[r][c];
+                var wasDisabled = next.disabled;
+                next.disabled = false;
+                next.focus();
+                if (wasDisabled) {
+                    next.addEventListener('blur', function restore() {
+                        next.removeEventListener('blur', restore);
+                        render();
+                    });
+                }
+            }
+
+            document.getElementById('reset-btn').addEventListener('click', reset);
+
+            build();
+            reset();
+        }());
     </script>
 </body>
+
 </html>
-
-
