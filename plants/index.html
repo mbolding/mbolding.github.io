@@ -5,303 +5,488 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cat-Safe Plant Picker</title>
+    <meta name="description" content="Six easy houseplants that are not toxic to cats, with care notes and where to buy them in Birmingham.">
+    <link rel="stylesheet" href="../archive.css">
     <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #111111;
+            --muted: #666666;
+            --rule: #eeeeee;
+            --rule-strong: #dddddd;
+            --row-hover: #f5f5f5;
+            --row-active: #eef6ee;
+            --accent: #2d7d2d;
+            --panel: #f5f5f5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0e0e11;
+                --fg: #ededed;
+                --muted: #9a9aa2;
+                --rule: #23232a;
+                --rule-strong: #2f2f38;
+                --row-hover: #1a1a20;
+                --row-active: #16251a;
+                --accent: #6bbf6b;
+                --panel: #17171b;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background-color: #ffffff;
-            color: #000000;
             margin: 0;
-            padding: 2rem;
+            padding: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 16px;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-bottom: 1rem;
-            text-decoration: none;
-            color: #666;
-            font-weight: 500;
-        }
-
-        .back-link:hover {
-            color: #000;
-            text-decoration: underline;
+            color: var(--fg);
+            background-color: var(--bg);
         }
 
         .container {
             width: 100%;
             max-width: 960px;
             margin: 0 auto;
+            padding: 32px 20px 72px;
         }
 
         h1 {
-            font-size: 2.5rem;
+            margin: 0 0 8px;
+            font-size: clamp(1.7rem, 6vw, 2.5rem);
             font-weight: 700;
-            margin-bottom: 0.5rem;
-            text-align: left;
+        }
+
+        .lede {
+            max-width: 62ch;
+            margin: 0 0 24px;
+            color: var(--muted);
+            line-height: 1.6;
         }
 
         h2 {
-            font-size: 1.5rem;
+            margin: 40px 0 8px;
+            font-size: 1.4rem;
             font-weight: 700;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
         }
 
         p {
             line-height: 1.6;
-            text-align: left;
         }
 
-        .plant-table-container,
-        .details-container,
-        .local-stores {
-            background-color: #fff;
-            padding: 0;
-            /* Remove padding from containers */
-            border: none;
-            /* Remove borders */
-            margin-top: 2rem;
+        .callout {
+            margin: 24px 0;
+            padding: 16px 20px;
+            background-color: var(--panel);
+            border-left: 4px solid var(--accent);
         }
 
+        .callout a {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .callout p {
+            margin: 0;
+        }
+
+        .callout p + p {
+            margin-top: 8px;
+        }
+
+        /* --- table ---------------------------------------------------------
+           The cells used to hold the full care paragraphs, which made a table
+           you could not scan: three sentences per cell, two hundred words a
+           row. They carry a short summary now, and the full text lives in the
+           detail panel where there is room for it. */
         .plant-table {
             width: 100%;
+            margin-top: 12px;
             border-collapse: collapse;
-            margin-top: 1rem;
+        }
+
+        .plant-table caption {
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 0.85rem;
+            text-align: left;
         }
 
         .plant-table th,
         .plant-table td {
-            border: none;
-            border-bottom: 1px solid #eee;
-            padding: 1rem 0.5rem;
+            padding: 12px 10px;
             text-align: left;
+            border: none;
+            border-bottom: 1px solid var(--rule);
         }
 
         .plant-table th {
+            color: var(--muted);
+            font-size: 0.72rem;
             font-weight: 700;
-            color: #000;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--rule-strong);
+        }
+
+        .plant-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
         }
 
         .plant-table tbody tr:hover {
-            background-color: #f5f5f5;
+            background-color: var(--row-hover);
+        }
+
+        .plant-table tbody tr[aria-selected="true"] {
+            background-color: var(--row-active);
+        }
+
+        .plant-table td:first-child {
+            font-weight: 600;
+        }
+
+        /* The whole row reacts, but the focusable thing is a real button, so
+           the table is reachable by keyboard rather than mouse-only. */
+        .row-btn {
+            width: 100%;
+            padding: 0;
+            color: inherit;
+            font: inherit;
+            font-weight: 600;
+            text-align: left;
+            background: none;
+            border: none;
             cursor: pointer;
         }
 
+        .row-note {
+            display: block;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 400;
+        }
+
+        /* --- details -------------------------------------------------------- */
         .details-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 2rem;
-            margin-top: 3rem;
+            gap: 28px;
+            margin-top: 40px;
+            scroll-margin-top: 60px;
+        }
+
+        .details-container:not(.active) {
+            display: none;
         }
 
         .details-text {
-            flex: 2;
-            min-width: 300px;
-            padding-right: 2rem;
+            flex: 2 1 320px;
+            min-width: 0;
+        }
+
+        .details-text h3 {
+            margin: 0 0 8px;
+            font-size: 1.5rem;
         }
 
         .care-info {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-top: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
         }
 
         .care-info h4 {
-            font-size: 1rem;
+            margin: 0 0 4px;
+            color: var(--accent);
+            font-size: 0.72rem;
             font-weight: 700;
-            margin: 0 0 0.5rem 0;
-            color: #000;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .care-info p {
+            margin: 0;
+            font-size: 0.95rem;
         }
 
         .plant-image {
-            flex: 1;
-            min-width: 250px;
+            flex: 1 1 260px;
             width: 100%;
+            max-width: 340px;
             height: auto;
             max-height: 400px;
             object-fit: cover;
+            background-color: var(--panel);
         }
 
+        /* --- stores --------------------------------------------------------- */
         .local-stores ul {
-            list-style-type: none;
             padding: 0;
+            list-style-type: none;
         }
 
         .local-stores li {
-            margin-bottom: 0.5rem;
+            margin-bottom: 10px;
+            line-height: 1.6;
         }
 
-        /* Initial state for details container */
-        #details-container:not(.active) {
-            display: none;
+        .local-stores a {
+            color: var(--accent);
         }
     </style>
 </head>
 
-<body>
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Plants</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
 
-    <div class="container">
-        <a href="../index.html" class="back-link">&larr; Back to Main Index</a>
-        <h1>Cat-Safe & Easy-Care Plant Picker</h1>
+    <div class="container" data-ar-focus>
+        <h1>Cat-Safe &amp; Easy-Care Plant Picker</h1>
+        <p class="lede">Six houseplants that are hard to kill and not toxic to cats. Pick a row
+            to see the full care notes.</p>
 
-        <p style="margin: 2rem 0; padding: 1.5rem; background-color: #f5f5f5; border-left: 4px solid #2d7d2d;">
-            <strong>New!</strong> Check out the <a href="moss-key.html" style="color: #2d7d2d; font-weight: 600;">Birmingham Moss Identification Key</a>
-            - an interactive dichotomous key for identifying common mosses in the Birmingham, Alabama area.
-        </p>
+        <div class="callout">
+            <p>Also here: the <a href="moss-key.html">Birmingham Moss Identification Key</a>, an
+                interactive dichotomous key for the common mosses around Birmingham, Alabama.</p>
+        </div>
 
         <div class="plant-table-container">
-            <h2>All Plants</h2>
-            <p>Click a plant in the table to see more details.</p>
+            <h2>All plants</h2>
             <table class="plant-table" id="plant-overview-table">
+                <caption>Select a plant for its full care notes.</caption>
                 <thead>
                     <tr>
-                        <th>Plant Name</th>
-                        <th>Light</th>
-                        <th>Water</th>
+                        <th scope="col">Plant</th>
+                        <th scope="col">Light</th>
+                        <th scope="col">Water</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Table rows will be injected by JavaScript -->
+                    <!-- rows injected below -->
                 </tbody>
             </table>
         </div>
 
-        <div class="details-container" id="details-container">
-            <!-- Plant details will be injected by JavaScript -->
+        <div class="details-container" id="details-container" tabindex="-1">
+            <!-- details injected below -->
         </div>
 
         <div class="local-stores" id="local-stores">
-            <h2>Where to Buy in Birmingham, AL</h2>
+            <h2>Where to buy in Birmingham, AL</h2>
             <ul>
                 <li><strong>Collier's Nursery:</strong> <a
-                        href="https://www.google.com/maps/search/?api=1&query=2904+Old+Rocky+Ridge+Road,+Birmingham,+AL"
-                        target="_blank">2904 Old Rocky Ridge Road, Birmingham, AL</a></li>
+                        href="https://www.google.com/maps/search/?api=1&amp;query=2904+Old+Rocky+Ridge+Road,+Birmingham,+AL"
+                        target="_blank" rel="noopener">2904 Old Rocky Ridge Road, Birmingham</a></li>
                 <li><strong>House Plant Collective:</strong> <a
-                        href="https://www.google.com/maps/search/?api=1&query=3621+5th+Avenue+South,+Birmingham,+AL"
-                        target="_blank">3621 5th Avenue South, Birmingham, AL</a></li>
-                <li><strong>Leaf & Petal:</strong> <a
-                        href="https://www.google.com/maps/search/?api=1&query=2817+Cahaba+Road,+Mountain+Brook,+AL"
-                        target="_blank">2817 Cahaba Road, Mountain Brook, AL</a>, <a
-                        href="https://www.google.com/maps/search/?api=1&query=4113+Crosshaven+Drive,+Vestavia+Hills,+AL"
-                        target="_blank">4113 Crosshaven Drive, Vestavia Hills, AL</a> & <a
-                        href="https://www.google.com/maps/search/?api=1&query=2612+Lane+Park+Rd,+Birmingham,+AL+35223"
-                        target="_blank">2612 Lane Park Rd, Birmingham, AL</a></li>
-                <li><strong>Murphree's Market & Garden Center:</strong> <a
-                        href="https://www.google.com/maps/search/?api=1&query=4212+Dolly+Ridge+Road,+Vestavia+Hills,+AL"
-                        target="_blank">4212 Dolly Ridge Road, Vestavia Hills, AL</a></li>
+                        href="https://www.google.com/maps/search/?api=1&amp;query=3621+5th+Avenue+South,+Birmingham,+AL"
+                        target="_blank" rel="noopener">3621 5th Avenue South, Birmingham</a></li>
+                <li><strong>Leaf &amp; Petal:</strong> <a
+                        href="https://www.google.com/maps/search/?api=1&amp;query=2817+Cahaba+Road,+Mountain+Brook,+AL"
+                        target="_blank" rel="noopener">2817 Cahaba Road, Mountain Brook</a>, <a
+                        href="https://www.google.com/maps/search/?api=1&amp;query=4113+Crosshaven+Drive,+Vestavia+Hills,+AL"
+                        target="_blank" rel="noopener">4113 Crosshaven Drive, Vestavia Hills</a> and <a
+                        href="https://www.google.com/maps/search/?api=1&amp;query=2612+Lane+Park+Rd,+Birmingham,+AL+35223"
+                        target="_blank" rel="noopener">2612 Lane Park Rd, Birmingham</a></li>
+                <li><strong>Murphree's Market &amp; Garden Center:</strong> <a
+                        href="https://www.google.com/maps/search/?api=1&amp;query=4212+Dolly+Ridge+Road,+Vestavia+Hills,+AL"
+                        target="_blank" rel="noopener">4212 Dolly Ridge Road, Vestavia Hills</a></li>
                 <li><strong>Oak Street Garden Shop:</strong> <a
-                        href="https://www.google.com/maps/search/?api=1&query=Crestline+Village,+Mountain+Brook,+AL"
-                        target="_blank">Crestline Village, Mountain Brook, AL</a></li>
+                        href="https://www.google.com/maps/search/?api=1&amp;query=Crestline+Village,+Mountain+Brook,+AL"
+                        target="_blank" rel="noopener">Crestline Village, Mountain Brook</a></li>
                 <li><strong>Gardner Nurseries:</strong> <a
-                        href="https://www.google.com/maps/search/?api=1&query=3965+Lorna+Road,+Birmingham,+AL"
-                        target="_blank">3965 Lorna Road, Birmingham, AL</a></li>
+                        href="https://www.google.com/maps/search/?api=1&amp;query=3965+Lorna+Road,+Birmingham,+AL"
+                        target="_blank" rel="noopener">3965 Lorna Road, Birmingham</a></li>
             </ul>
+        </div>
+
+        <div class="callout">
+            <p>The page makes a safety claim, so it should say where it comes from: all six are
+                listed as non-toxic to cats in the
+                <a href="https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants"
+                    target="_blank" rel="noopener">ASPCA's toxic and non-toxic plant database</a>.</p>
+            <p>Non-toxic is not the same as harmless. A cat that eats enough of anything will be
+                sick, and nurseries do sometimes mislabel. Check the botanical name.</p>
         </div>
     </div>
 
     <script>
-        const plants = [
-            {
-                name: "Spider Plant",
-                image: "images/Caring-for-spider-plants-Main.webp",
-                description: "Known for its resilience and air-purifying qualities, the Spider Plant has long, arching leaves and is great for beginners.",
-                care: {
-                    light: "Thrives in bright to moderate indirect sunlight. Avoid direct sun, which can scorch the leaves.",
-                    water: "Water when the top 1-2 inches of soil are dry. Use distilled water or rainwater if possible."
+        (function () {
+            var plants = [
+                {
+                    name: 'Spider Plant',
+                    botanical: 'Chlorophytum comosum',
+                    image: 'images/Caring-for-spider-plants-Main.webp',
+                    description: 'Long arching leaves, throws off plantlets on runners you can pot up. About as forgiving as a houseplant gets, and it scrubs the air while it is at it.',
+                    lightShort: 'Bright to moderate, indirect',
+                    waterShort: 'When the top 1–2 in. are dry',
+                    care: {
+                        light: 'Thrives in bright to moderate indirect light. Keep it out of direct sun, which scorches the leaf tips.',
+                        water: 'Water when the top one to two inches of soil are dry. Distilled water or rainwater if you have it — it is sensitive to the fluoride in tap water, which browns the tips.'
+                    }
+                },
+                {
+                    name: 'Parlor Palm',
+                    botanical: 'Chamaedorea elegans',
+                    image: 'images/parlor_palm.webp',
+                    description: 'A slow, elegant palm that has been a parlour plant since the Victorians, largely because it puts up with indoor light better than anything else of its shape.',
+                    lightShort: 'Bright indirect, tolerates low',
+                    waterShort: 'When the top inch is dry',
+                    care: {
+                        light: 'Prefers bright indirect light but adapts well to a low-light corner. Keep it out of direct sun.',
+                        water: 'Water when the top inch of soil feels dry. Err towards under-watering; it resents wet feet far more than a dry week.'
+                    }
+                },
+                {
+                    name: 'Calathea',
+                    botanical: 'Goeppertia spp.',
+                    image: 'images/calathea.jpg',
+                    description: 'Grown for the leaf patterning, which is genuinely striking. The leaves fold up at night, which is where the name prayer plant comes from. The fussiest plant on this list.',
+                    lightShort: 'Bright, indirect only',
+                    waterShort: 'Evenly moist, filtered water',
+                    care: {
+                        light: 'Bright indirect light. Direct sun bleaches the patterning out of the leaves, and it does not come back.',
+                        water: 'Keep the soil consistently moist but never waterlogged. Use filtered, distilled or rainwater — it is the one on this list most likely to brown at the edges from tap water.'
+                    }
+                },
+                {
+                    name: 'African Violet',
+                    botanical: 'Streptocarpus sect. Saintpaulia',
+                    image: 'images/african_violet.jpg',
+                    description: 'Compact, and flowers in clusters of purple, pink or white more or less continuously if it is happy. Happy means a steady east window and no water on the leaves.',
+                    lightShort: 'Bright, indirect — east window',
+                    waterShort: 'From below, keep moist',
+                    care: {
+                        light: 'Bright indirect light. An east-facing window is close to ideal.',
+                        water: 'Water from below, standing the pot in water for twenty minutes or so. Water sitting on the leaves leaves permanent pale rings.'
+                    }
+                },
+                {
+                    name: 'Boston Fern',
+                    botanical: 'Nephrolepis exaltata',
+                    image: 'images/boston_fern.jpeg',
+                    description: 'Arching fronds and a lot of them. Wants more humidity than a house usually has, so it does best in a bathroom or anywhere you will remember to mist it.',
+                    lightShort: 'Indirect, wants humidity',
+                    waterShort: 'Keep damp, mist often',
+                    care: {
+                        light: 'Indirect light and a cool spot. High humidity matters more to it than light does.',
+                        water: 'Keep the soil damp — not wet, not dry. Regular misting, or a pebble tray, goes a long way towards the humidity it actually wants.'
+                    }
+                },
+                {
+                    name: 'Haworthia',
+                    botanical: 'Haworthia spp.',
+                    image: 'images/Haworthia_cymbiformis_1.jpg',
+                    description: 'A small rosette succulent that looks like a miniature aloe. The one on this list you are most likely to kill by attention rather than neglect.',
+                    lightShort: 'Bright indirect, tolerates low',
+                    waterShort: 'Dry out fully between',
+                    care: {
+                        light: 'Bright indirect light is ideal, and it will sit in lower light without complaint.',
+                        water: 'Water thoroughly, then let the soil dry out completely before the next one. Through winter that can mean once a month.'
+                    }
                 }
-            },
-            {
-                name: "Parlor Palm",
-                image: "images/parlor_palm.webp",
-                description: "A popular and elegant palm that thrives in indoor conditions and can tolerate lower light levels.",
-                care: {
-                    light: "Prefers bright, indirect light but adapts well to low-light areas. Keep out of direct sunlight.",
-                    water: "Water when the top inch of soil feels dry. It's better to underwater slightly than to overwater."
-                }
-            },
-            {
-                name: "Calathea",
-                image: "images/calathea.jpg",
-                description: "Famous for its stunning, decorative leaves with intricate patterns. They are also known as 'prayer plants'.",
-                care: {
-                    light: "Prefers bright, indirect light. Direct sunlight can cause the vibrant leaf patterns to fade.",
-                    water: "Keep the soil consistently moist but not waterlogged. Use filtered, distilled, or rainwater."
-                }
-            },
-            {
-                name: "African Violet",
-                image: "images/african_violet.jpg",
-                description: "A charming, compact plant that produces beautiful clusters of purple, pink, or white flowers.",
-                care: {
-                    light: "Bright, indirect light is best. An east-facing window is often perfect.",
-                    water: "Water from the bottom to avoid getting the leaves wet. Keep soil moist but not soggy."
-                }
-            },
-            {
-                name: "Boston Fern",
-                image: "images/boston_fern.jpeg",
-                description: "A lush, classic fern with gracefully arching fronds that adds a touch of elegance to any room.",
-                care: {
-                    light: "Loves a cool place with high humidity and indirect light.",
-                    water: "Keep the soil damp. Regular misting can help replicate the humid conditions it loves."
-                }
-            },
-            {
-                name: "Haworthia",
-                image: "images/Haworthia_cymbiformis_1.jpg",
-                description: "A small, rosette-forming succulent that looks like a miniature aloe vera. Very low-maintenance.",
-                care: {
-                    light: "Bright, indirect light is ideal. Can tolerate lower light conditions.",
-                    water: "Water thoroughly, but allow the soil to dry out completely between waterings."
-                }
+            ];
+
+            var tbody = document.querySelector('#plant-overview-table tbody');
+            var details = document.getElementById('details-container');
+            var rows = [];
+
+            function show(plant, index) {
+                details.classList.add('active');
+                details.innerHTML = '';
+
+                var text = document.createElement('div');
+                text.className = 'details-text';
+
+                var h3 = document.createElement('h3');
+                h3.textContent = plant.name;
+
+                var bot = document.createElement('p');
+                bot.innerHTML = '<em></em>';
+                bot.querySelector('em').textContent = plant.botanical;
+
+                var desc = document.createElement('p');
+                desc.textContent = plant.description;
+
+                var care = document.createElement('div');
+                care.className = 'care-info';
+                [['Light', plant.care.light], ['Water', plant.care.water]].forEach(function (pair) {
+                    var box = document.createElement('div');
+                    var h4 = document.createElement('h4');
+                    h4.textContent = pair[0];
+                    var p = document.createElement('p');
+                    p.textContent = pair[1];
+                    box.appendChild(h4);
+                    box.appendChild(p);
+                    care.appendChild(box);
+                });
+
+                text.appendChild(h3);
+                text.appendChild(bot);
+                text.appendChild(desc);
+                text.appendChild(care);
+
+                var img = document.createElement('img');
+                img.className = 'plant-image';
+                img.src = plant.image;
+                img.alt = plant.name;
+                // Told up front, so the panel does not jump as each photo
+                // arrives, and the images below the fold are not fetched
+                // until they are wanted.
+                img.width = 340;
+                img.height = 400;
+                img.loading = 'lazy';
+                img.decoding = 'async';
+
+                details.appendChild(text);
+                details.appendChild(img);
+
+                rows.forEach(function (row, i) {
+                    row.setAttribute('aria-selected', i === index ? 'true' : 'false');
+                });
+
+                // The panel used to appear below the fold with no indication
+                // anything had happened.
+                details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
-        ];
 
-        const detailsContainer = document.getElementById('details-container');
-        const plantOverviewTableBody = document.querySelector('#plant-overview-table tbody');
+            plants.forEach(function (plant, index) {
+                var row = tbody.insertRow();
+                row.setAttribute('aria-selected', 'false');
 
-        function displayPlantDetails(plant) {
-            detailsContainer.classList.add('active');
-            detailsContainer.innerHTML = `
-                <div class="details-text">
-                    <h2>${plant.name}</h2>
-                    <p>${plant.description}</p>
-                    <div class="care-info">
-                        <div>
-                            <h4>Light</h4>
-                            <p>${plant.care.light}</p>
-                        </div>
-                        <div>
-                            <h4>Water</h4>
-                            <p>${plant.care.water}</p>
-                        </div>
-                    </div>
-                </div>
-                <img src="${plant.image}" alt="${plant.name}" class="plant-image">
-            `;
-        }
+                var nameCell = row.insertCell();
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'row-btn';
+                btn.textContent = plant.name;
+                var note = document.createElement('span');
+                note.className = 'row-note';
+                note.textContent = plant.botanical;
+                btn.appendChild(note);
+                btn.addEventListener('click', function () { show(plant, index); });
+                nameCell.appendChild(btn);
 
-        function populatePlantTable() {
-            plantOverviewTableBody.innerHTML = '';
-            plants.forEach(plant => {
-                const row = plantOverviewTableBody.insertRow();
-                row.addEventListener('click', () => displayPlantDetails(plant));
+                row.insertCell().textContent = plant.lightShort;
+                row.insertCell().textContent = plant.waterShort;
 
-                const nameCell = row.insertCell();
-                const lightCell = row.insertCell();
-                const waterCell = row.insertCell();
+                // Clicking anywhere on the row still works; the button is
+                // what carries the keyboard path.
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('.row-btn')) return;
+                    show(plant, index);
+                });
 
-                nameCell.textContent = plant.name;
-                lightCell.textContent = plant.care.light;
-                waterCell.textContent = plant.care.water;
+                rows.push(row);
             });
-        }
-
-        // Initial population
-        populatePlantTable();
-
+        }());
     </script>
 </body>
 
