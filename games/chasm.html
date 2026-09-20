@@ -890,25 +890,30 @@
             // per-frame chance: spawning per frame meant easing off the
             // throttle packed the chasm with them, and at sixty frames a
             // second it put seven mines in a hundred-pixel corridor.
+            // Each variation has to change something you can see within a few
+            // seconds of starting. Measured over autopiloted runs, the old set
+            // differed by 2x in mine density and nothing at all in the shape of
+            // the chasm, which is why they all played alike. `narrow` scales the
+            // corridor, which is the most visible axis there is.
             var VARIATIONS = [
-                { name: 'Descent', players: 1, mineGap: 150, mineCap: 3, speed: 1.0, guns: true },
-                { name: 'Descent Fast', players: 1, mineGap: 150, mineCap: 3, speed: 1.45, guns: true },
-                { name: 'Minefield', players: 1, mineGap: 72, mineCap: 5, speed: 1.0, guns: true },
-                { name: 'Minefield Fast', players: 1, mineGap: 72, mineCap: 5, speed: 1.45, guns: true },
-                { name: 'Gauntlet', players: 1, mineGap: 115, mineCap: 3, speed: 1.0, guns: false },
-                { name: 'Gauntlet Fast', players: 1, mineGap: 115, mineCap: 3, speed: 1.45, guns: false },
-                { name: 'Descent 2P', players: 2, mineGap: 150, mineCap: 3, speed: 1.0, guns: true },
-                { name: 'Minefield 2P', players: 2, mineGap: 72, mineCap: 5, speed: 1.0, guns: true }
+                { name: 'Descent', players: 1, mineGap: 170, mineCap: 3, speed: 1.0, narrow: 1.00, guns: true },
+                { name: 'Descent Fast', players: 1, mineGap: 170, mineCap: 3, speed: 1.9, narrow: 1.00, guns: true },
+                { name: 'Minefield', players: 1, mineGap: 42, mineCap: 6, speed: 1.0, narrow: 1.18, guns: true },
+                { name: 'Minefield Fast', players: 1, mineGap: 42, mineCap: 6, speed: 1.7, narrow: 1.18, guns: true },
+                { name: 'Gauntlet', players: 1, mineGap: 150, mineCap: 3, speed: 1.0, narrow: 0.62, guns: false },
+                { name: 'Gauntlet Fast', players: 1, mineGap: 150, mineCap: 3, speed: 1.7, narrow: 0.62, guns: false },
+                { name: 'Descent 2P', players: 2, mineGap: 170, mineCap: 3, speed: 1.0, narrow: 1.00, guns: true },
+                { name: 'Minefield 2P', players: 2, mineGap: 42, mineCap: 6, speed: 1.0, narrow: 1.18, guns: true }
             ];
             var VARIATION_NOTES = [
                 'The standard game.',
-                'Everything moves half again as fast.',
-                'Twice the mines, and they drift harder.',
-                'Twice the mines, at speed.',
-                'No cannon. Dodge, or do not.',
-                'No cannon, at speed.',
+                'Nearly twice the pace, in the same chasm.',
+                'Nearly four times the mines, in a chasm widened to give you room.',
+                'Four times the mines, at speed.',
+                'No cannon, and a chasm a little over half as wide. Flying, not shooting.',
+                'No cannon, narrow, and fast. The hardest of the eight.',
                 'Two players, alternating after each ship lost.',
-                'Two players, and twice the mines.'
+                'Two players, four times the mines.'
             ];
 
             var SHIP_Y = 150;
@@ -945,6 +950,7 @@
                 cooldown: 0,
                 nextMine: 150,
                 nextPod: 200,
+                introTimer: 0,
                 boom: null,
                 flickerOn: true,
                 reducedMotion: false
@@ -972,8 +978,11 @@
                 state.genCentre += Math.sin(state.genPhase) * 0.06 + state.genDrift;
 
                 var hard = difficultyOf(state.current) === 'A';
-                var floor = hard ? 3.6 : 4.8;
-                var target = Math.max(floor, 13 - state.scrolled / 900);
+                var narrow = variation().narrow || 1;
+                // An absolute floor under the narrow variations, or the chasm
+                // eventually closes to less than the ship is wide.
+                var floor = Math.max(3.2, (hard ? 3.6 : 4.8) * narrow);
+                var target = Math.max(floor, 13 * narrow - state.scrolled / 900);
                 state.genHalf += (target - state.genHalf) * 0.02;
 
                 var half = state.genHalf;
@@ -1030,6 +1039,7 @@
                 resetPlayer(0);
                 resetPlayer(1);
                 fillTerrain();
+                state.introTimer = 110;
                 Sound.start();
             }
 
@@ -1044,6 +1054,7 @@
                 state.subScroll = 0;
                 resetPlayer(0);
                 fillTerrain();
+                state.introTimer = 0;
             }
 
             function loseShip() {
@@ -1121,6 +1132,7 @@
             // ----------------------------------------------------------------
             function update(input) {
                 state.frame++;
+                if (state.introTimer > 0) state.introTimer--;
 
                 if (state.mode === 'title') {
                     state.idle++;
@@ -1219,7 +1231,11 @@
                 if (state.shipX < 0) { state.shipX = 0; state.shipV = 0; }
                 if (state.shipX > W - 8) { state.shipX = W - 8; state.shipV = 0; }
 
-                state.throttle = input.up ? 1.7 : input.down ? 0.55 : 1;
+                // Was 0.55 to 1.7, a 3.1x span, which is wider than any
+                // variation's speed difference: holding up in Descent outran
+                // Descent Fast at rest, so the Fast games had nothing of their
+                // own. Still useful for threading a gap, no longer decisive.
+                state.throttle = input.up ? 1.25 : input.down ? 0.8 : 1;
 
                 // --- scroll ---------------------------------------------------
                 var base = 0.70 + Math.min(1.5, state.scrolled / 2600);
@@ -1350,6 +1366,7 @@
                 drawObjects();
                 drawStatus();
 
+                if (state.introTimer > 0) drawIntro();
                 if (state.mode === 'over') drawGameOver();
                 if (state.attract) {
                     if (Math.floor(state.frame / 30) % 2 === 0) {
@@ -1447,9 +1464,31 @@
                     rect(W - 6 - s * 8, GROUND + 5, 4, 5, C.AQUA);
                 }
 
-                if (state.players === 2) {
-                    drawText('P' + (p + 1), 96, GROUND + 4, C.WHITE, 1);
-                }
+                // Which of the eight you are playing. The name only ever
+                // appeared on the title screen, so once a run started there
+                // was nothing to tell one variation from another.
+                var tag = 'G' + (state.variation + 1);
+                if (state.players === 2) tag += ' P' + (p + 1);
+                drawText(tag, 94, GROUND + 4, C.WHITE, 1);
+            }
+
+            // Two seconds of the variation's name over the top of play, the
+            // way a cartridge announced which game you had selected.
+            function drawIntro() {
+                var name = variation().name.toUpperCase();
+                var scale = fitScale(name, 2, W - 16);
+                var w = textWidth(name, scale);
+                var x = Math.round((W - w) / 2);
+                var y = 60;
+
+                // Fades out over the last half second rather than snapping.
+                if (state.introTimer < 30 && Math.floor(state.introTimer / 4) % 2 === 0) return;
+
+                rect(x - 6, y - 6, w + 12, 5 * scale + 12, C.BLACK);
+                hline(x - 6, x + w + 6, y - 6, C.GOLD);
+                hline(x - 6, x + w + 6, y + 5 * scale + 5, C.GOLD);
+                drawText(name, x, y, C.GOLD, scale);
+                drawTextCentred('GAME ' + (state.variation + 1), y + 5 * scale + 12, C.LTGREY, 1);
             }
 
             function drawGameOver() {
@@ -1712,7 +1751,10 @@
             window.__chasm = {
                 state: state, PALETTE: PALETTE, VARIATIONS: VARIATIONS,
                 assignFlickerGroups: assignFlickerGroups,
-                startGame: startGame, pressSelect: pressSelect, pressReset: pressReset
+                startGame: startGame, pressSelect: pressSelect, pressReset: pressReset,
+                // Stepping the world directly lets a test compare variations
+                // frame for frame instead of against the wall clock.
+                step: update
             };
         }());
     </script>
