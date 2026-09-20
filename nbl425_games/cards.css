@@ -1,55 +1,254 @@
+/* cards.css — shared styling for the four NBL425 imaging card games.
+   The old sheet centred everything, fixed the cards at 120x160 and had no
+   dark mode; on a phone the hand ran off the side. */
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-align: center;
-            background-color: #e9ecef;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #007bff;
-        }
-        .card {
-            border: 2px solid #007bff;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 5px;
-            display: inline-block;
-            width: 120px;
-            height: 160px;
-            background-color: #fff;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            position: relative;
-        }
-        .deck, .hand, .discard {
-            margin: 20px;
-        }
-        button {
-            padding: 10px 20px;
-            border-radius: 5px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .rules {
-            text-align: left;
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        .card button {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
+:root {
+    --bg: #f2f4f6;
+    --panel: #ffffff;
+    --panel-2: #f7f9fb;
+    --fg: #1d2127;
+    --muted: #6b7280;
+    --rule: #dde2e8;
+    --accent: #0066cc;
+    --accent-soft: #e3f0ff;
+    --win: #0a7a43;
+    --warn: #b45309;
+    --shadow: rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #0e0f13;
+        --panel: #171920;
+        --panel-2: #1f222b;
+        --fg: #e9ecf2;
+        --muted: #9aa2b1;
+        --rule: #2b2f3a;
+        --accent: #5aa9ff;
+        --accent-soft: #14273c;
+        --win: #34d399;
+        --warn: #fbbf24;
+        --shadow: rgba(0, 0, 0, 0.5);
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--fg);
+    background-color: var(--bg);
+    -webkit-font-smoothing: antialiased;
+}
+
+main {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 28px 16px 64px;
+}
+
+h1 {
+    margin: 0 0 4px;
+    color: var(--accent);
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.blurb {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.goal {
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    background-color: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+}
+
+/* --- tallies ------------------------------------------------------------ */
+.tally {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    margin-bottom: 14px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.tally b {
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+}
+
+.message {
+    min-height: 1.6em;
+    margin: 0 0 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.message.win {
+    color: var(--win);
+}
+
+.message.warn {
+    color: var(--warn);
+}
+
+/* --- zones -------------------------------------------------------------- */
+.zone {
+    margin-bottom: 24px;
+}
+
+.zone h2 {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.zone h2 .hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 60px;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    /* Grows to fit its text rather than clipping at a fixed 120x160. */
+    flex: 1 1 150px;
+    max-width: 200px;
+    min-height: 150px;
+    padding: 12px;
+    background-color: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: 0 2px 6px var(--shadow);
+}
+
+.card-cat {
+    color: var(--accent);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.card-name {
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.card.small {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-width: none;
+    padding: 7px 11px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    background-color: var(--panel-2);
+    box-shadow: none;
+}
+
+.discard-cards {
+    min-height: 0;
+}
+
+.empty {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* --- buttons ------------------------------------------------------------ */
+.buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 26px;
+}
+
+button {
+    padding: 12px 22px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    background-color: var(--accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+button.secondary {
+    color: var(--accent);
+    background-color: transparent;
+    border: 1px solid var(--accent);
+}
+
+.discard-btn {
+    padding: 7px 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* --- category reference ------------------------------------------------- */
+.categories {
+    margin: 0;
+    padding: 16px 18px 16px 34px;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    background-color: var(--panel-2);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+}
+
+.categories b {
+    color: var(--accent);
+}
+
+@media (max-width: 420px) {
+    .card {
+        flex-basis: 100%;
+        max-width: none;
+        min-height: 0;
+    }
+}

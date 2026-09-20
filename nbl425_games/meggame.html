@@ -1,138 +1,234 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MEG Card Game</title>
-    <link rel="stylesheet" href="cards.css" />
+    <meta name="description" content="Collect one card from each MEG category to make a complete set.">
+    <link rel="stylesheet" href="cards.css">
+    <link rel="stylesheet" href="../archive.css">
 </head>
-<body>
 
-    <h1>MEG Card Game</h1>
-    <div class="deck">
-        <h2>Deck</h2>
-		<p>Make a hand with one card from each category. The 4 catagories are: Sensors, Brain Waves, Processes, and Applications. </p>
-        <button onclick="drawCard()">Draw Card</button>
-    </div>
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="index.html">&larr; NBL425 Games</a>
+        <span class="ar-here">MEG Card Game</span>
+        <span class="ar-spacer"></span>
+        <a href="../archive.html">Archive</a>
+    </nav>
 
-    <div class="discard">
-        <h2>Discard Pile</h2>
-        <div id="discardPile"></div>
-    </div>
+    <main data-ar-focus>
+        <h1>MEG Card Game</h1>
+        <p class="blurb">Magnetoencephalography: the fields those currents throw off.</p>
+        <p class="goal">Make a hand with one card from each category. The four categories are
+            Sensors, Brain Waves, Processes and Applications.</p>
 
-    <div class="hand">
-        <h2>Your Hand</h2>
-        <div id="hand"></div>
-    </div>
+        <div class="tally">
+            <span>Deck <b id="deck-count">0</b></span>
+            <span>Discard <b id="discard-count">0</b></span>
+            <span>Draws <b id="draw-count">0</b></span>
+        </div>
 
-    <button onclick="checkSet()">Check for Complete Set</button>
-    <button onclick="restartGame()">Restart Game</button>
-    <div id="message"></div>
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+
+        <section class="zone">
+            <h2>Your hand <span class="hint">(up to four cards)</span></h2>
+            <div id="hand" class="cards"></div>
+        </section>
+
+        <div class="buttons">
+            <button type="button" id="draw">Draw a card</button>
+            <button type="button" id="restart" class="secondary">Restart</button>
+        </div>
+
+        <section class="zone">
+            <h2>Discard pile</h2>
+            <div id="discardPile" class="cards discard-cards"></div>
+        </section>
+
+        <section class="zone">
+            <h2>Categories</h2>
+            <ul class="categories">
+                <li><b>Sensors:</b> SQUID sensor, Optically Pumped sensor, Planar Gradiometer sensor</li>
+                <li><b>Brain Waves:</b> Alpha, Beta, Theta, Gamma</li>
+                <li><b>Processes:</b> Magnetic Field Detection, Signal Processing, Source Localization</li>
+                <li><b>Applications:</b> Epilepsy, Language Mapping, Sensory Processing, Cognitive Research</li>
+            </ul>
+        </section>
+    </main>
 
     <script>
-        const categories = {
-            'Sensors': ['SQUID sensor', 'Optically Pumped sensor', 'Planar Gradiometer sensor'],
-            'Brain Waves': ['Alpha', 'Beta', 'Theta', 'Gamma'],
-            'Processes': ['Magnetic Field Detection', 'Signal Processing', 'Source Localization'],
-            'Applications': ['Epilepsy', 'Language Mapping', 'Sensory Processing', 'Cognitive Research']
-        };
-
-        let deck = [];
-        let hand = [];
-        let discardPile = [];
-
-        function initializeGame() {
-            deck = Object.values(categories).flat();
-            hand = [];
-            discardPile = [];
-            shuffle(deck);
-            updateDisplay();
-            document.getElementById('message').textContent = '';
-        }
-
-        function shuffle(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-        }
-
-        function drawCard() {
-            if (deck.length === 0) {
-                alert("The deck is empty!");
-                return;
-            }
-            if (hand.length >= 4) {
-                alert("You can only have 4 cards in your hand!");
-                return;
-            }
-            const card = deck.pop();
-            hand.push(card);
-            updateDisplay();
-        }
-
-        function discardCard(index) {
-            const card = hand.splice(index, 1)[0];
-            discardPile.push(card);
-            updateDisplay();
-        }
-
-        function checkSet() {
-            if (hand.length !== 4) {
-                document.getElementById('message').textContent = "Your hand must have exactly 4 cards.";
-                return;
-            }
-
-            const handCategories = {
-                'Sensors': 0,
-                'Brain Waves': 0,
-                'Processes': 0,
-                'Applications': 0
+        (function () {
+            var CATEGORIES = {
+                "Sensors": ["SQUID sensor", "Optically Pumped sensor", "Planar Gradiometer sensor"],
+                "Brain Waves": ["Alpha", "Beta", "Theta", "Gamma"],
+                "Processes": ["Magnetic Field Detection", "Signal Processing", "Source Localization"],
+                "Applications": ["Epilepsy", "Language Mapping", "Sensory Processing", "Cognitive Research"]
             };
+            var NAMES = Object.keys(CATEGORIES);
 
-            hand.forEach(card => {
-                for (const category in categories) {
-                    if (categories[category].includes(card)) {
-                        handCategories[category]++;
-                    }
+            // Which category a card belongs to, resolved once. The original
+            // walked every category for every card on every check.
+            var CATEGORY_OF = {};
+            NAMES.forEach(function (name) {
+                CATEGORIES[name].forEach(function (card) { CATEGORY_OF[card] = name; });
+            });
+
+            var HAND_LIMIT = 4;
+
+            var deck = [], hand = [], discard = [], draws = 0, won = false;
+            var notice = '';
+
+            var handEl = document.getElementById('hand');
+            var discardEl = document.getElementById('discardPile');
+            var messageEl = document.getElementById('message');
+            var drawBtn = document.getElementById('draw');
+
+            function shuffle(a) {
+                for (var i = a.length - 1; i > 0; i--) {
+                    var j = Math.floor(Math.random() * (i + 1));
+                    var t = a[i]; a[i] = a[j]; a[j] = t;
                 }
-            });
+                return a;
+            }
 
-            const isCompleteSet = Object.values(handCategories).every(count => count === 1);
+            function say(text, kind) {
+                messageEl.textContent = text;
+                messageEl.className = 'message' + (kind ? ' ' + kind : '');
+            }
 
-            document.getElementById('message').textContent = isCompleteSet
-                ? "You have a complete set!"
-                : "Your hand is not a complete set.";
-        }
+            function isCompleteSet() {
+                if (hand.length !== NAMES.length) return false;
+                var seen = {};
+                for (var i = 0; i < hand.length; i++) {
+                    var cat = CATEGORY_OF[hand[i]];
+                    if (!cat || seen[cat]) return false;
+                    seen[cat] = true;
+                }
+                return true;
+            }
 
-        function updateDisplay() {
-            const handDiv = document.getElementById('hand');
-            const discardPileDiv = document.getElementById('discardPile');
+            function draw() {
+                if (won) return;
 
-            handDiv.innerHTML = '';
-            discardPileDiv.innerHTML = '';
+                if (hand.length >= HAND_LIMIT) {
+                    say('Your hand is full. Discard something first.', 'warn');
+                    return;
+                }
 
-            hand.forEach((card, index) => {
-                const cardElement = document.createElement('div');
-                cardElement.className = 'card';
-                cardElement.innerHTML = card + `<br><button onclick="discardCard(${index})">Discard</button>`;
-                handDiv.appendChild(cardElement);
-            });
+                if (deck.length === 0) {
+                    // The rules have always said the discard pile is
+                    // reshuffled when the deck runs out. No game implemented
+                    // it: they alerted "The deck is empty!" and stopped,
+                    // which could strand you one card short of a set.
+                    if (discard.length === 0) {
+                        say('No cards left anywhere. Restart to play again.', 'warn');
+                        return;
+                    }
+                    deck = shuffle(discard.slice());
+                    discard = [];
+                    // Held for the next render rather than written straight
+                    // out, which render() would immediately overwrite with
+                    // the running status line.
+                    notice = 'The deck ran out, so the discard pile was shuffled back in. ';
+                }
 
-            discardPile.forEach(card => {
-                const cardElement = document.createElement('div');
-                cardElement.className = 'card';
-                cardElement.innerHTML = card;
-                discardPileDiv.appendChild(cardElement);
-            });
-        }
+                hand.push(deck.pop());
+                draws += 1;
+                render();
+            }
 
-        function restartGame() {
-            initializeGame();
-        }
+            function discardCard(index) {
+                if (won) return;
+                discard.push(hand.splice(index, 1)[0]);
+                render();
+            }
 
-        initializeGame();
+            function render() {
+                handEl.innerHTML = '';
+                hand.forEach(function (card, index) {
+                    var el = document.createElement('div');
+                    el.className = 'card';
+
+                    var cat = document.createElement('span');
+                    cat.className = 'card-cat';
+                    cat.textContent = CATEGORY_OF[card] || '';
+
+                    var name = document.createElement('span');
+                    name.className = 'card-name';
+                    name.textContent = card;
+
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'discard-btn';
+                    btn.textContent = 'Discard';
+                    btn.setAttribute('aria-label', 'Discard ' + card);
+                    btn.addEventListener('click', function () { discardCard(index); });
+
+                    el.appendChild(cat);
+                    el.appendChild(name);
+                    el.appendChild(btn);
+                    handEl.appendChild(el);
+                });
+
+                discardEl.innerHTML = '';
+                discard.slice(-8).forEach(function (card) {
+                    var el = document.createElement('div');
+                    el.className = 'card small';
+                    el.textContent = card;
+                    discardEl.appendChild(el);
+                });
+                if (!discard.length) {
+                    var empty = document.createElement('p');
+                    empty.className = 'empty';
+                    empty.textContent = 'Nothing discarded yet.';
+                    discardEl.appendChild(empty);
+                }
+
+                document.getElementById('deck-count').textContent = deck.length;
+                document.getElementById('discard-count').textContent = discard.length;
+                document.getElementById('draw-count').textContent = draws;
+
+                // Checked after every change rather than only when a button
+                // is pressed, so the game actually announces the win.
+                if (!won && isCompleteSet()) {
+                    won = true;
+                    drawBtn.disabled = true;
+                    say('Complete set \u2014 one card from each of the ' + NAMES.length +
+                        ' categories, in ' + draws + ' draws.', 'win');
+                } else if (!won) {
+                    var missing = NAMES.filter(function (n) {
+                        return !hand.some(function (c) { return CATEGORY_OF[c] === n; });
+                    });
+                    if (hand.length === 0) {
+                        say(notice + 'Draw a card to begin.');
+                    } else if (missing.length) {
+                        say(notice + 'Still looking for: ' + missing.join(', ') + '.');
+                    } else {
+                        say(notice + 'You hold a duplicate category. Discard one to make room.');
+                    }
+                    notice = '';
+                }
+            }
+
+            function restart() {
+                deck = shuffle(Object.keys(CATEGORY_OF));
+                hand = [];
+                discard = [];
+                draws = 0;
+                won = false;
+                notice = '';
+                drawBtn.disabled = false;
+                render();
+            }
+
+            drawBtn.addEventListener('click', draw);
+            document.getElementById('restart').addEventListener('click', restart);
+
+            restart();
+        }());
     </script>
-
 </body>
+
 </html>
