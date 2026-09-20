@@ -1,444 +1,2066 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PET Imaging Principles</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/et-book/1.0.0/et-book.min.css">
-    <style>
-        /* Tufte-inspired CSS */
-        body {
-            background-color: #fffff8;
-            color: #111;
-            font-family: "et-book", Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem 4rem;
-            line-height: 1.6;
-            font-size: 1.1rem;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PET Scanner Simulator</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --scope-bg: #070b14;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-true: #38bdf8;
+    --c-scatter: #fb923c;
+    --c-random: #f43f5e;
+    --c-positron: #f87171;
+    --c-flash: #fde047;
+    --c-photon: #a5b4fc;
+  }
 
-        h1 {
-            font-weight: 400;
-            margin-top: 2rem;
-            margin-bottom: 1.5rem;
-            font-size: 2.2rem;
-            font-style: italic;
-        }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --scope-bg: #040711;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
 
-        h2 {
-            font-style: italic;
-            font-weight: 400;
-            margin-top: 2.5rem;
-            font-size: 1.4rem;
-        }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  h2 { font-size: 1.05rem; margin: 26px 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  a { color: var(--accent); }
 
-        .layout-container {
-            display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 4rem;
-            align-items: start;
-        }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
 
-        .canvas-container {
-            position: relative;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-        }
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid var(--accent);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
 
-        canvas {
-            background-color: #fffff8;
-            /* Match body */
-            /* Border is often clutter in Tufte design, but we need to delimit the simulation area. 
-               We'll use a very subtle border or just rely on the graphics. Let's try subtle. */
-            border: 1px solid #ddd;
-        }
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 
-        .controls {
-            font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
-            /* Sans for UI elements */
-            font-size: 0.9rem;
-        }
+  .sim-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 18px;
+  }
+  .stack { display: grid; grid-template-rows: auto auto; gap: 18px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) {
+    .sim-grid { grid-template-columns: 1fr; }
+  }
 
-        .control-group {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #eee;
-        }
+  .canvas-box { display: flex; flex-direction: column; }
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--scope-bg);
+    border: 1px solid var(--border);
+  }
+  .canvas-caption {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+    line-height: 1.35;
+  }
 
-        .control-group:last-child {
-            border-bottom: none;
-        }
+  .color-legend {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-        button {
-            background: #fff;
-            border: 1px solid #aaa;
-            color: #333;
-            padding: 0.5rem 1rem;
-            font-family: inherit;
-            font-size: 0.9rem;
-            cursor: pointer;
-            border-radius: 3px;
-            transition: all 0.2s ease;
-        }
+  .readout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .readout-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .readout-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .readout-val { font-size: 1.02rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
 
-        button:hover {
-            border-color: #333;
-            background: #fdfdfd;
-        }
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .val-badge { font-weight: 600; color: var(--accent); font-family: ui-monospace, SFMono-Regular, monospace; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  select {
+    width: 100%;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+  .check-row {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .check-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--fg);
+    margin: 0;
+    cursor: pointer;
+  }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 
-        button.active {
-            background: #eee;
-            border-color: #333;
-            font-weight: bold;
-        }
-
-        .caption {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 0.5rem;
-            margin-bottom: 2rem;
-            max-width: 300px;
-            /* Sidenote width */
-        }
-
-        .stats {
-            font-family: "et-book", monospace;
-            font-variant-numeric: tabular-nums;
-            margin-top: 1rem;
-        }
-
-        @media (max-width: 900px) {
-            .layout-container {
-                grid-template-columns: 1fr;
-            }
-
-            .caption {
-                max-width: 100%;
-            }
-        }
-    </style>
+  .note { font-size: 0.88rem; color: var(--muted); line-height: 1.55; }
+  .note strong { color: var(--fg); }
+  .note code {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.82rem;
+    background: rgba(148, 163, 184, 0.14);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .note ul { padding-left: 1.1rem; }
+  .note li { margin-bottom: 7px; }
+  .table-wrap { overflow-x: auto; }
+  table.tracer-table {
+    width: 100%;
+    min-width: 470px;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+    margin-top: 10px;
+  }
+  table.tracer-table th, table.tracer-table td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.tracer-table th { color: var(--muted); font-weight: 600; font-size: 0.74rem; text-transform: uppercase; }
+  table.tracer-table td { font-variant-numeric: tabular-nums; }
+  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 30px; }
+</style>
 </head>
-
 <body>
-    <h1>Positron Emission Tomography (PET)</h1>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to home</a></p>
+  <h1>PET Scanner Simulator</h1>
+  <p class="sub">
+    A Monte Carlo positron emission tomograph. Positrons are emitted from a phantom, drift one positron range, annihilate
+    into two nearly antiparallel 511 keV photons, attenuate and Compton scatter on the way out, and land in discrete
+    crystals that are paired inside a coincidence timing window. Prompt coincidences fill a sinogram, which is reconstructed
+    either by filtered backprojection or by the iterative method a clinical scanner would use.
+  </p>
 
-    <div class="layout-container">
-        <div class="main-content">
-            <p>
-                PET imaging relies on the annihilation of positrons and electrons. When a positron is emitted from a
-                radiotracer, it travels a short distance (positron range) before encountering an electron. The resulting
-                annihilation produces two 511 keV photons traveling in approximately opposite directions.
-            </p>
-            <div class="canvas-container">
-                <canvas id="simCanvas" width="600" height="600"></canvas>
-            </div>
-
-        </div>
-
-        <div class="controls">
-            <div class="control-group">
-                <p><strong>Simulation Control</strong></p>
-                <button id="btn-emit">Single Event</button>
-                <button id="btn-auto">Continuous Scan</button>
-                <button id="btn-clear">Clear</button>
-            </div>
-
-            <div class="control-group">
-                <p><strong>Legend</strong></p>
-                <svg width="200" height="100" style="background: transparent;">
-                    <circle cx="15" cy="15" r="4" fill="#a00" /> <text x="30" y="20" font-size="12">Positron</text>
-                    <circle cx="15" cy="45" r="4" fill="#FFC800" /> <text x="30" y="50"
-                        font-size="12">Annihilation</text>
-                    <line x1="5" y1="75" x2="25" y2="75" stroke="#333" stroke-width="1" stroke-dasharray="4" /> <text
-                        x="30" y="80" font-size="12">Line of Response (LOR)</text>
-                </svg>
-            </div>
-
-            <div class="caption">
-                <p>
-                    <span id="status-text">Ready.</span>
-                </p>
-                <div class="stats">
-                    Events: <span id="event-count">0</span>
-                </div>
-            </div>
-
-            <p style="font-size: 0.85rem; color: #555;">
-                In a real scanner, coincidence detection defines the Line of Response (LOR). Millions of LORs are
-                reconstructed to form an image.
-            </p>
-        </div>
+  <div class="panel">
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Radiotracer:</span>
+      <button class="tracer-btn active" data-tracer="f18">&#185;&#8312;F-FDG</button>
+      <button class="tracer-btn secondary" data-tracer="c11">&#185;&#185;C-PiB</button>
+      <button class="tracer-btn secondary" data-tracer="o15">&#185;&#8309;O-water</button>
+      <button class="tracer-btn secondary" data-tracer="ga68">&#8310;&#8312;Ga-DOTATATE</button>
+      <button class="tracer-btn secondary" data-tracer="rb82">&#8312;&#178;Rb</button>
+      <div style="margin-left:auto; display:flex; gap:6px;">
+        <button id="btnRun">Start scan</button>
+        <button id="btnSingle" class="secondary">Fire one event</button>
+        <button id="btnReset" class="secondary">Reset</button>
+      </div>
     </div>
 
-    <script>
-        class PETSimulation {
-            // TODO: Add lables for the different components of the simulation (e.g. detector ring, object, etc.)
-            constructor(canvasId) {
-                this.canvas = document.getElementById(canvasId);
-                this.ctx = this.canvas.getContext('2d');
-                this.width = this.canvas.width;
-                this.height = this.canvas.height;
+    <div class="banner" id="banner">
+      <span id="bannerText"></span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;"></span>
+    </div>
 
-                // Scale for retina displays
-                const dpr = window.devicePixelRatio || 1;
-                this.canvas.width = this.width * dpr;
-                this.canvas.height = this.height * dpr;
-                this.ctx.scale(dpr, dpr);
-                this.canvas.style.width = `${this.width}px`;
-                this.canvas.style.height = `${this.height}px`;
+    <div class="sim-grid">
+      <div class="canvas-box">
+        <canvas id="cScanner" width="560" height="560"></canvas>
+        <div class="canvas-caption" id="scannerCaption">Detector ring, phantom, and live annihilation events. Faint lines are the accumulated lines of response.</div>
+        <div class="color-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-positron);"></div> Positron</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-flash);"></div> Annihilation</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-true);"></div> True LOR</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-scatter);"></div> Scattered</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--c-random);"></div> Random</div>
+        </div>
+      </div>
 
-                this.centerX = this.width / 2;
-                this.centerY = this.height / 2;
-                this.ringRadius = 250;
-                this.objectRadius = 80;
+      <div class="stack">
+        <div class="pair">
+          <div class="canvas-box">
+            <canvas id="cSino" width="288" height="288"></canvas>
+            <div class="canvas-caption">Sinogram <i>p</i>(<i>s</i>, &phi;): radial offset across, projection angle down</div>
+          </div>
+          <div class="canvas-box">
+            <canvas id="cRecon" width="288" height="288"></canvas>
+            <div class="canvas-caption" id="reconCaption">Filtered backprojection</div>
+          </div>
+        </div>
+        <div class="canvas-box">
+          <canvas id="cRates" width="560" height="260"></canvas>
+          <div class="canvas-caption">Count rate curves versus injected activity. The marker is the current activity, which decays as the scan runs.</div>
+        </div>
+      </div>
+    </div>
 
-                this.events = []; // Store past LORs
-                this.animatingEvents = []; // Currently animating
-                this.isContinuous = false;
-                this.frameCount = 0;
-                this.totalEvents = 0;
+    <div class="readout-grid">
+      <div class="readout-card">
+        <div class="readout-label">Activity now</div>
+        <div class="readout-val" id="dispAct">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Trues</div>
+        <div class="readout-val" id="dispTrue" style="color:var(--c-true);">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Scatters</div>
+        <div class="readout-val" id="dispScat" style="color:var(--c-scatter);">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Randoms</div>
+        <div class="readout-val" id="dispRand" style="color:var(--c-random);">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Scatter fraction</div>
+        <div class="readout-val" id="dispSF">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Randoms fraction</div>
+        <div class="readout-val" id="dispRF">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">NECR</div>
+        <div class="readout-val" id="dispNECR">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Singles / live fraction</div>
+        <div class="readout-val" id="dispSingles">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Scan time</div>
+        <div class="readout-val" id="dispClock">0:00</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Coincidences in image</div>
+        <div class="readout-val" id="dispCounts">0</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">Resolution FWHM</div>
+        <div class="readout-val" id="dispRes">&mdash;</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">TOF localization</div>
+        <div class="readout-val" id="dispTOF">&mdash;</div>
+      </div>
+    </div>
 
-                this.dom = {
-                    status: document.getElementById('status-text'),
-                    count: document.getElementById('event-count'),
-                    btnEmit: document.getElementById('btn-emit'),
-                    btnAuto: document.getElementById('btn-auto'),
-                    btnClear: document.getElementById('btn-clear')
-                };
+    <div class="controls-grid">
+      <div>
+        <label>Phantom</label>
+        <select id="selPhantom">
+          <option value="brain">Brain, FDG-like uptake</option>
+          <option value="spheres">Hot and cold spheres (NEMA-like)</option>
+          <option value="derenzo">Derenzo resolution rods</option>
+          <option value="uniform">Uniform cylinder</option>
+        </select>
+      </div>
+      <div>
+        <label>Injected activity: <span class="val-badge" id="valA">250 MBq</span></label>
+        <input type="range" id="sA" min="20" max="2000" step="10" value="250">
+      </div>
+      <div>
+        <label>Coincidence window &tau;: <span class="val-badge" id="valTau">4.5 ns</span></label>
+        <input type="range" id="sTau" min="1" max="12" step="0.5" value="4.5">
+      </div>
+      <div>
+        <label>Lower energy threshold: <span class="val-badge" id="valE">435 keV</span></label>
+        <input type="range" id="sE" min="250" max="500" step="5" value="435">
+      </div>
+      <div>
+        <label>Crystals in ring</label>
+        <select id="selN">
+          <option value="160">160 (15.7 mm pitch)</option>
+          <option value="320">320 (7.9 mm pitch)</option>
+          <option value="480" selected>480 (5.2 mm pitch)</option>
+          <option value="640">640 (3.9 mm pitch)</option>
+        </select>
+      </div>
+      <div>
+        <label>Timing resolution (TOF)</label>
+        <select id="selTOF">
+          <option value="0" selected>No TOF</option>
+          <option value="500">500 ps (75 mm)</option>
+          <option value="400">400 ps (60 mm)</option>
+          <option value="300">300 ps (45 mm)</option>
+          <option value="200">200 ps (30 mm)</option>
+          <option value="100">100 ps (15 mm)</option>
+        </select>
+      </div>
+      <div>
+        <label>Reconstruction</label>
+        <select id="selRecon">
+          <option value="fbp" selected>Filtered backprojection</option>
+          <option value="mlem">Iterative MLEM</option>
+        </select>
+      </div>
+      <div>
+        <label>Scan speed: <span class="val-badge" id="valSpeed">10&times;</span></label>
+        <input type="range" id="sSpeed" min="1" max="60" step="1" value="10">
+      </div>
+    </div>
 
-                this.bindEvents();
-                this.loop();
-            }
+    <div class="check-row">
+      <label><input type="checkbox" id="ckAC" checked> Attenuation correction</label>
+      <label><input type="checkbox" id="ckRand" checked> Randoms subtraction (delayed window)</label>
+      <label><input type="checkbox" id="ckClass" checked> Color LORs by coincidence type</label>
+      <label><input type="checkbox" id="ckLabels" checked> Annotate the ring</label>
+      <label><input type="checkbox" id="ckTruth"> Show the true activity map instead of the reconstruction</label>
+    </div>
+  </div>
 
-            bindEvents() {
-                this.dom.btnEmit.addEventListener('click', () => {
-                    this.stopContinuous();
-                    this.spawnEvent();
-                    this.dom.status.textContent = "Single event emitted.";
-                });
+  <div class="panel note">
+    <h2 style="margin-top:0;">What the simulation actually computes</h2>
+    <ul>
+      <li><strong>Decay and positron range.</strong> Activity follows <code>A(t) = A&#8320; &middot; 2^(-t/T&#189;)</code> times the
+        positron branching ratio. Each positron travels a distance drawn from an exponential with the tracer's mean range in
+        water before annihilating, so a high endpoint energy isotope such as &#8312;&#178;Rb blurs the image before the
+        detectors ever see a photon.</li>
+      <li><strong>Non-collinearity.</strong> The two 511 keV photons are emitted back to back plus a Gaussian angular
+        deviation of 0.5&deg; FWHM, because the positron and electron are not quite at rest. At a ring diameter <i>D</i> this
+        contributes roughly <code>0.0022 &middot; D</code> of blur, about 1.8 mm here.</li>
+      <li><strong>Attenuation and scatter.</strong> Photons are transported through a water equivalent body
+        (<code>&mu; = 0.096 cm&#8315;&#185;</code> at 511 keV, with a bone shell on the brain phantom). Interaction depth is
+        sampled from the optical depth, the Compton scattering angle is sampled from the Klein-Nishina cross section, and the
+        scattered photon keeps energy <code>E' = 511 / (2 - cos&theta;)</code> keV. The crystal measures that energy with a 12%
+        FWHM resolution at 511 keV, and photons outside the window are discarded. Lowering the threshold to 250 keV lets in
+        most of the scatter, while raising it to 500 keV cuts the scatter fraction to a few percent and throws away a large
+        share of the true coincidences along with it.</li>
+      <li><strong>Coincidence sorting.</strong> Detected photons are paired within the timing window &tau;. A pair from one
+        annihilation with no scatter is a <em>true</em>, a pair where a photon scattered is a <em>scatter</em> whose LOR
+        misses the emission point, and a pair of unrelated singles is a <em>random</em>. The randoms rate follows
+        <code>R = 2&tau;S&#178;</code>, so it grows as the square of the activity while trues grow linearly.</li>
+      <li><strong>Dead time and NECR.</strong> Singles are thinned by a paralyzable dead time model, and the noise equivalent
+        count rate <code>NECR = T&#178; / (T + S + 2R)</code> peaks and then falls. That peak, not the raw prompt rate, is why
+        injecting more tracer eventually makes images worse.</li>
+      <li><strong>Reconstruction.</strong> Each accepted coincidence is binned by radial offset <i>s</i> and projection angle
+        &phi;, and by time-of-flight offset when TOF is on. Filtered backprojection convolves every row with a Hann windowed
+        ramp filter and backprojects it; the plain ramp cannot exploit timing, so summing the TOF bins gives it exactly the
+        ordinary sinogram. The iterative option runs maximum likelihood expectation maximization, warm started so the estimate
+        keeps improving as counts arrive, and its system model does include the TOF kernel.</li>
+      <li><strong>What time of flight buys.</strong> Timing resolution &Delta;t localizes the annihilation along the LOR to
+        <code>&Delta;x = c&middot;&Delta;t / 2</code>, about 30 mm at 200 ps. An event then updates only the part of the line it
+        plausibly came from, so MLEM converges in far fewer iterations: with 200 ps timing the hot spheres reach full contrast
+        in about two iterations, where the same data without timing needs eight and arrives with roughly twice the background
+        noise. TOF also pushes mispositioned randoms toward the edge of the field of view.</li>
+      <li><strong>Corrections.</strong> Attenuation correction multiplies each LOR by <code>exp(&int;&mu; dl)</code> along its
+        chord through the body, the measured correction a CT scan supplies in a PET/CT. Turn it off and watch the center of
+        the phantom go cold. Randoms subtraction estimates the randoms with an independent delayed window and subtracts it,
+        removing the bias but adding its own noise.</li>
+    </ul>
 
-                this.dom.btnAuto.addEventListener('click', () => {
-                    this.toggleContinuous();
-                });
+    <h2>Tracer properties used here</h2>
+    <div class="table-wrap">
+    <table class="tracer-table">
+      <thead><tr><th>Isotope</th><th>Half-life</th><th>Endpoint energy</th><th>Mean range in water</th><th>Range FWHM</th><th>&beta;&#8314; branch</th></tr></thead>
+      <tbody id="tracerTable"></tbody>
+    </table>
+    </div>
 
-                this.dom.btnClear.addEventListener('click', () => {
-                    this.events = [];
-                    this.animatingEvents = [];
-                    this.totalEvents = 0;
-                    this.dom.count.textContent = 0;
-                    this.ctx.clearRect(0, 0, this.width, this.height);
-                    this.dom.status.textContent = "Cleared.";
-                });
-            }
+    <h2>Things worth trying</h2>
+    <ul>
+      <li>Run the Derenzo phantom with &#185;&#8312;F, then switch to &#8312;&#178;Rb without touching anything else. The smallest rod
+        groups disappear into the positron range.</li>
+      <li>Push the activity to 2000 MBq and watch the randoms fraction, the NECR curve, and the haze that randoms lay across
+        the reconstruction. More tracer is not more signal.</li>
+      <li>Drop the lower energy threshold to 250 keV. The scatter fraction roughly doubles and the cold sphere fills in. Then
+        push it to 500 keV and watch the true rate collapse as the energy resolution eats into the photopeak.</li>
+      <li>Turn attenuation correction off on the brain phantom. The cortex looks hot and the white matter looks cold, the
+        classic uncorrected PET artifact.</li>
+      <li>Set the crystals to 160 and compare the sinogram: coarse detectors quantize the radial samples and the rods smear
+        tangentially.</li>
+      <li>Switch the reconstruction to MLEM, then turn on 200 ps TOF. Watch the iteration counter: the spheres separate from
+        the background far earlier, and at matched contrast the background is about half as noisy.</li>
+      <li>Compare filtered backprojection with MLEM on the same data. The ramp filter has to amplify high frequencies to undo
+        the backprojection blur, and it amplifies the noise with them.</li>
+    </ul>
+  </div>
 
-            toggleContinuous() {
-                this.isContinuous = !this.isContinuous;
-                this.dom.btnAuto.classList.toggle('active', this.isContinuous);
-                this.dom.status.textContent = this.isContinuous ? "Acquiring data..." : "Paused.";
-            }
+  <footer>Monte Carlo PET simulation. Geometry, energies, and count rate constants are typical of a clinical ring scanner but are not tied to any specific system.</footer>
+</div>
 
-            stopContinuous() {
-                this.isContinuous = false;
-                this.dom.btnAuto.classList.remove('active');
-            }
+<script>
+"use strict";
 
-            spawnEvent() {
-                // Random point in object
-                const r = Math.sqrt(Math.random()) * this.objectRadius; // Correct uniform distribution
-                const theta = Math.random() * 2 * Math.PI;
-                const startX = this.centerX + r * Math.cos(theta);
-                const startY = this.centerY + r * Math.sin(theta);
+/* ------------------------------------------------------------------
+   Physical constants and scanner geometry.  All lengths are in mm,
+   times in ns unless noted, energies in keV.
+   ------------------------------------------------------------------ */
+const C_LIGHT   = 299.792;     // mm per ns
+const MEC2      = 511.0;       // keV, electron rest mass
+const MU_WATER  = 0.0096;      // 1/mm, linear attenuation of water at 511 keV
+const MU_BONE   = 0.0172;      // 1/mm, cortical bone at 511 keV
+const RING_R    = 400;         // mm, detector ring radius (80 cm bore)
+const FOV_R     = 150;         // mm, reconstructed field of view radius
+const NONCOL_FWHM_DEG = 0.5;   // photon pair angular spread
+const E_HIGH    = 650;         // keV, upper level discriminator
+const E_RES     = 0.12;        // detector energy resolution, FWHM fraction at 511 keV
 
-                // Positron range (random walk approximation - short single step)
-                const range = 5 + Math.random() * 10;
-                const rangeAngle = Math.random() * 2 * Math.PI;
-                const annihilateX = startX + range * Math.cos(rangeAngle);
-                const annihilateY = startY + range * Math.sin(rangeAngle);
+// Count rate model constants.  These stand in for axial acceptance and
+// intrinsic crystal efficiency, which a single ring slice cannot supply.
+const SENS_SINGLE = 0.035;     // recorded singles per emitted photon that leaves the body
+const SENS_COINC  = 0.008;     // recorded coincidences per emitted pair that leaves the body
+const KAPPA       = 0.12;      // fraction of uncorrelated singles pairs inside the ring acceptance
+const N_BLOCK     = 120;       // independent detector blocks sharing the singles load
+const DEAD_T      = 800e-9;    // s, paralyzable dead time per block
+const BLOCK_FWHM  = 2.2;       // mm, block decoding error contribution to resolution
 
-                // Emission angle
-                const emitAngle = Math.random() * 2 * Math.PI; // 0 to 2PI
+const TRACERS = {
+  f18:  { name: "¹⁸F-FDG",        half: 109.8 * 60, emax: 0.633, meanRange: 0.6, rangeFWHM: 0.54, branch: 0.967,
+          note: "Workhorse glucose analogue. The lowest positron energy in routine use, so the physics barely degrades the image." },
+  c11:  { name: "¹¹C-PiB",        half: 20.4 * 60,  emax: 0.960, meanRange: 1.1, rangeFWHM: 0.92, branch: 0.998,
+          note: "Amyloid ligand. A 20 minute half-life means an on-site cyclotron and a visibly decaying count rate." },
+  o15:  { name: "¹⁵O-water",      half: 122.2,      emax: 1.720, meanRange: 2.5, rangeFWHM: 2.0,  branch: 0.999,
+          note: "Freely diffusible perfusion tracer. Two minute half-life, so the scan is over before the ring fills." },
+  ga68: { name: "⁶⁸Ga-DOTATATE",  half: 67.7 * 60,  emax: 1.899, meanRange: 2.9, rangeFWHM: 2.4,  branch: 0.891,
+          note: "Generator produced somatostatin ligand. The long positron range costs real spatial resolution." },
+  rb82: { name: "⁸²Rb",           half: 75,         emax: 3.378, meanRange: 5.9, rangeFWHM: 4.4,  branch: 0.955,
+          note: "Myocardial perfusion tracer from a generator. The positron range dominates every other blur term." }
+};
 
-                // Calculate intersections with ring
-                // Line: P + t * D
-                // Circle: |X - C|^2 = R^2
-                // Simplified: We know the origin is (centerX, centerY)
-                // Let's work in local coordinates relative to center
-                const lx = annihilateX - this.centerX;
-                const ly = annihilateY - this.centerY;
-                const dx = Math.cos(emitAngle);
-                const dy = Math.sin(emitAngle);
+/* ------------------------------------------------------------------
+   Small math helpers
+   ------------------------------------------------------------------ */
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+const FWHM_TO_SIGMA = 1 / 2.35482;
 
-                // Quadratic t^2(dx^2 + dy^2) + 2t(lx*dx + ly*dy) + (lx^2 + ly^2 - R^2) = 0
-                // dx^2 + dy^2 = 1
-                const B = 2 * (lx * dx + ly * dy);
-                const C = (lx * lx + ly * ly) - (this.ringRadius * this.ringRadius);
+// Distance from a point inside a circle of radius R to the circle, along (dx, dy).
+function exitDistance(px, py, dx, dy, R) {
+  const b = px * dx + py * dy;
+  const c = px * px + py * py - R * R;
+  const det = b * b - c;
+  if (det <= 0) return 0;
+  return -b + Math.sqrt(det);
+}
 
-                const det = B * B - 4 * C;
-                if (det < 0) return; // Should not happen if inside ring
+// Klein-Nishina sampling of the Compton scattering angle by rejection.
+// dsigma/dcos(theta) is proportional to P^2 (P + 1/P - sin^2 theta), P <= 1,
+// and the ratio peaks at 2 for forward scatter, which bounds the rejection.
+function sampleComptonCos(energy) {
+  const alpha = energy / MEC2;
+  for (let i = 0; i < 200; i++) {
+    const cos = 2 * Math.random() - 1;
+    const P = 1 / (1 + alpha * (1 - cos));
+    const f = P * P * (P + 1 / P - (1 - cos * cos));
+    if (Math.random() * 2 <= f) return cos;
+  }
+  return 1;
+}
 
-                const t1 = (-B + Math.sqrt(det)) / 2;
-                const t2 = (-B - Math.sqrt(det)) / 2;
+/* ------------------------------------------------------------------
+   Phantoms.  Each one is a water equivalent body of radius bodyR with an
+   activity map sampled onto a raster, plus an optional bone shell.
+   ------------------------------------------------------------------ */
+const RAST_N = 301;                 // raster samples across the field of view
+const RAST_D = (2 * FOV_R) / RAST_N;
 
-                const p1 = { x: this.centerX + lx + t1 * dx, y: this.centerY + ly + t1 * dy };
-                const p2 = { x: this.centerX + lx + t2 * dx, y: this.centerY + ly + t2 * dy };
+const PHANTOMS = {
+  brain: {
+    label: "Brain, FDG-like uptake",
+    bodyR: 90,
+    skull: { inner: 83, outer: 90 },
+    activity(x, y) {
+      const r = Math.hypot(x, y);
+      if (r > 82) return 0;                                  // skull and scalp, negligible uptake
+      // Ventricles: two cold ellipses either side of the midline.
+      for (const sx of [-1, 1]) {
+        const dx = (x - sx * 13) / 9, dy = y / 24;
+        if (dx * dx + dy * dy < 1) return 0.05;
+      }
+      // Basal ganglia: small hot structures.
+      for (const sx of [-1, 1]) {
+        if (Math.hypot(x - sx * 28, y - 6) < 9) return 1.25;
+      }
+      if (r > 66) return 1.0;                                // cortical ribbon
+      return 0.28;                                           // white matter
+    }
+  },
+  spheres: {
+    label: "Hot and cold spheres",
+    bodyR: 110,
+    skull: null,
+    activity(x, y) {
+      const r = Math.hypot(x, y);
+      if (r > 110) return 0;
+      const radii = [5, 6.5, 8.5, 11, 14, 18];
+      for (let i = 0; i < radii.length; i++) {
+        const a = (i / (radii.length + 1)) * 2 * Math.PI - Math.PI / 2;
+        if (Math.hypot(x - 58 * Math.cos(a), y - 58 * Math.sin(a)) < radii[i]) return 4.0;
+      }
+      const a = (6 / 7) * 2 * Math.PI - Math.PI / 2;         // cold sphere
+      if (Math.hypot(x - 58 * Math.cos(a), y - 58 * Math.sin(a)) < 18) return 0.0;
+      return 1.0;
+    }
+  },
+  derenzo: {
+    label: "Derenzo resolution rods",
+    bodyR: 90,
+    skull: null,
+    activity(x, y) {
+      const r = Math.hypot(x, y);
+      if (r > 90) return 0;
+      const diameters = [2.5, 3, 4, 5, 6.5, 8];
+      for (let s = 0; s < 6; s++) {
+        const ang = s * Math.PI / 3 + Math.PI / 6;
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        // Rotate into sector coordinates: u along the sector axis, v across it.
+        const u = x * ca + y * sa, v = -x * sa + y * ca;
+        if (u < 16 || u > 84 || Math.abs(v) > (u - 10) * 0.5) continue;
+        const d = diameters[s], pitch = 2 * d;
+        const row = Math.round((u - 20) / (pitch * 0.866));
+        if (row < 0) continue;
+        const uc = 20 + row * pitch * 0.866;
+        const offset = (row % 2) * pitch / 2;
+        const col = Math.round((v - offset) / pitch);
+        const vc = offset + col * pitch;
+        if (Math.hypot(u - uc, v - vc) < d / 2) return 5.0;
+      }
+      return 0.0;
+    }
+  },
+  uniform: {
+    label: "Uniform cylinder",
+    bodyR: 100,
+    skull: null,
+    activity(x, y) { return Math.hypot(x, y) <= 100 ? 1.0 : 0.0; }
+  }
+};
 
-                this.animatingEvents.push({
-                    state: 'positron', // positron -> annihilation -> photons
-                    startX, startY,
-                    annihilateX, annihilateY,
-                    p1, p2,
-                    t: 0,
-                    progress: 0
-                });
-            }
+// Rasterized activity map with a cumulative distribution for exact sampling.
+function buildPhantom(key) {
+  const def = PHANTOMS[key];
+  const map = new Float32Array(RAST_N * RAST_N);
+  const cdf = new Float32Array(RAST_N * RAST_N);
+  let total = 0, max = 0;
+  for (let j = 0; j < RAST_N; j++) {
+    const y = -FOV_R + (j + 0.5) * RAST_D;
+    for (let i = 0; i < RAST_N; i++) {
+      const x = -FOV_R + (i + 0.5) * RAST_D;
+      const a = Math.max(0, def.activity(x, y));
+      map[j * RAST_N + i] = a;
+      total += a;
+      if (a > max) max = a;
+      cdf[j * RAST_N + i] = total;
+    }
+  }
+  return { def, key, map, cdf, total, max, bodyR: def.bodyR, skull: def.skull };
+}
 
-            update() {
-                if (this.isContinuous) {
-                    // Emit speed
-                    if (this.frameCount % 5 === 0) this.spawnEvent();
-                }
+// Draw an emission point from the activity distribution.
+function sampleEmission(ph) {
+  const target = Math.random() * ph.total;
+  let lo = 0, hi = ph.cdf.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ph.cdf[mid] < target) lo = mid + 1; else hi = mid;
+  }
+  const i = lo % RAST_N, j = (lo / RAST_N) | 0;
+  return {
+    x: -FOV_R + (i + Math.random()) * RAST_D,
+    y: -FOV_R + (j + Math.random()) * RAST_D
+  };
+}
 
-                // Update animations
-                for (let i = this.animatingEvents.length - 1; i >= 0; i--) {
-                    const e = this.animatingEvents[i];
+// Linear attenuation coefficient at a point.
+function muAt(ph, x, y) {
+  const r = Math.hypot(x, y);
+  if (r > ph.bodyR) return 0;
+  if (ph.skull && r >= ph.skull.inner) return MU_BONE;
+  return MU_WATER;
+}
 
-                    if (e.state === 'positron') {
-                        e.progress += 0.1;
-                        if (e.progress >= 1) {
-                            e.progress = 0;
-                            e.state = 'annihilation';
-                        }
-                    } else if (e.state === 'annihilation') {
-                        e.progress += 0.2; // Flash speed
-                        if (e.progress >= 1) {
-                            e.progress = 0;
-                            e.state = 'photons';
-                        }
-                    } else if (e.state === 'photons') {
-                        e.progress += 0.05; // Photon speed
-                        if (e.progress >= 1) {
-                            // Finished
-                            this.events.push(e);
-                            this.totalEvents++;
-                            this.dom.count.textContent = this.totalEvents;
-                            this.animatingEvents.splice(i, 1);
-                        }
-                    }
-                }
+// Optical depth along a ray that starts inside the body.
+function opticalDepth(ph, x, y, dx, dy) {
+  const step = 1.5;
+  const n = Math.ceil(exitDistance(x, y, dx, dy, ph.bodyR) / step) + 1;
+  let tau = 0;
+  for (let k = 0; k < n; k++) {
+    const d = (k + 0.5) * step;
+    tau += muAt(ph, x + dx * d, y + dy * d) * step;
+  }
+  return tau;
+}
 
-                // Limit stored events for performance/visual clarity
-                if (this.events.length > 500) {
-                    this.events.shift();
-                }
+// Distance at which the sampled optical depth is reached, or -1 for no interaction.
+function sampleInteraction(ph, x, y, dx, dy, mu511scale) {
+  const target = -Math.log(Math.random());
+  const step = 1.5;
+  const maxD = exitDistance(x, y, dx, dy, ph.bodyR);
+  let tau = 0;
+  for (let d = 0; d < maxD; d += step) {
+    tau += muAt(ph, x + dx * (d + step / 2), y + dy * (d + step / 2)) * step * mu511scale;
+    if (tau >= target) return d + step / 2;
+  }
+  return -1;
+}
 
-                this.frameCount++;
-            }
+// Attenuation grows as the photon loses energy; a crude scaling of mu with
+// energy over the range that survives the energy window.
+function muScale(energy) {
+  return Math.pow(MEC2 / Math.max(energy, 150), 0.5);
+}
 
-            draw() {
-                this.ctx.clearRect(0, 0, this.width, this.height);
+/* ------------------------------------------------------------------
+   Photon transport and coincidence sorting
+   ------------------------------------------------------------------ */
 
-                // Draw Detector Ring
-                this.ctx.beginPath();
-                this.ctx.arc(this.centerX, this.centerY, this.ringRadius, 0, 2 * Math.PI);
-                this.ctx.strokeStyle = '#333';
-                this.ctx.lineWidth = 1; // Fine line
-                this.ctx.stroke();
+// Transport one 511 keV photon out of the body and into a crystal.
+// Returns null if the photon is absorbed or falls out of the energy window.
+function transport(ph, x, y, dx, dy, eLow, nCrystals, track) {
+  let E = MEC2, scattered = false, path = 0, rejected = false;
+  for (let n = 0; n <= 2; n++) {
+    const d = sampleInteraction(ph, x, y, dx, dy, muScale(E));
+    if (d < 0) break;                                  // escapes the body without interacting
+    x += dx * d; y += dy * d; path += d;
+    // Photoelectric absorption is negligible at 511 keV in tissue but grows
+    // quickly once a photon has scattered down in energy.
+    if (Math.random() < Math.min(0.4, 0.02 * Math.pow(200 / E, 3))) {
+      if (track) track.push({ x, y, absorbed: true });
+      return null;
+    }
+    const cos = sampleComptonCos(E);
+    E = E / (1 + (E / MEC2) * (1 - cos));
+    const th = (Math.random() < 0.5 ? -1 : 1) * Math.acos(Math.max(-1, Math.min(1, cos)));
+    const cth = Math.cos(th), sth = Math.sin(th);
+    const ndx = dx * cth - dy * sth;
+    const ndy = dx * sth + dy * cth;
+    dx = ndx; dy = ndy;
+    scattered = true;
+    if (track) track.push({ x, y, scatter: true });
+    if (E < 120) { rejected = true; break; }           // far below any useful window
+  }
 
-                // Draw Detector Blocks (subtle ticks)
-                const numDetectors = 72;
-                for (let i = 0; i < numDetectors; i++) {
-                    const ang = (i / numDetectors) * 2 * Math.PI;
-                    const x1 = this.centerX + (this.ringRadius - 5) * Math.cos(ang);
-                    const y1 = this.centerY + (this.ringRadius - 5) * Math.sin(ang);
-                    const x2 = this.centerX + (this.ringRadius + 5) * Math.cos(ang);
-                    const y2 = this.centerY + (this.ringRadius + 5) * Math.sin(ang);
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(x1, y1);
-                    this.ctx.lineTo(x2, y2);
-                    this.ctx.stroke();
-                }
+  const d = exitDistance(x, y, dx, dy, RING_R);
+  const hx = x + dx * d, hy = y + dy * d;
+  path += d;
+  // The crystal measures energy with finite resolution, which broadens as the
+  // photon energy falls.  This is why the lower threshold cannot simply be set
+  // just under 511 keV: it would throw away half the true coincidences.
+  const eSigma = E * E_RES * Math.sqrt(MEC2 / Math.max(E, 50)) * FWHM_TO_SIGMA;
+  const eMeas = E + gauss() * eSigma;
+  if (rejected || eMeas < eLow || eMeas > E_HIGH) {
+    if (track) track.push({ x: hx, y: hy, rejected: true });
+    return null;
+  }
+  if (track) track.push({ x: hx, y: hy });
 
-                // Draw Object (Brain/phantom)
-                this.ctx.beginPath();
-                this.ctx.arc(this.centerX, this.centerY, this.objectRadius, 0, 2 * Math.PI);
-                this.ctx.fillStyle = 'rgba(200, 200, 200, 0.1)';
-                this.ctx.fill();
-                this.ctx.strokeStyle = '#ccc';
-                this.ctx.setLineDash([5, 5]);
-                this.ctx.stroke();
-                this.ctx.setLineDash([]);
+  // Discrete crystal: the recorded position is the center of the element that fired.
+  const w = 2 * Math.PI / nCrystals;
+  const a = Math.atan2(hy, hx);
+  const idx = Math.floor((((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / w);
+  const ca = (idx + 0.5) * w;
+  return { x: RING_R * Math.cos(ca), y: RING_R * Math.sin(ca), idx, path, energy: eMeas, scattered };
+}
 
-                // Draw Completed Lines of Response (LORs) - Fading history
-                this.ctx.lineWidth = 0.5;
-                this.events.forEach((e, idx) => {
-                    const alpha = Math.max(0.05, idx / this.events.length * 0.3); // Fade out older ones
-                    this.ctx.strokeStyle = `rgba(50, 50, 50, ${alpha})`;
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(e.p1.x, e.p1.y);
-                    this.ctx.lineTo(e.p2.x, e.p2.y);
-                    this.ctx.stroke();
-                });
+// One radioactive decay: positron range, annihilation, two photons.
+function simulateDecay(ph, cfg) {
+  const em = sampleEmission(ph);
+  const range = -Math.log(Math.random()) * cfg.meanRange;
+  const ra = Math.random() * 2 * Math.PI;
+  const ax = em.x + range * Math.cos(ra);
+  const ay = em.y + range * Math.sin(ra);
 
-                // Draw Active Animations
-                this.animatingEvents.forEach(e => {
-                    if (e.state === 'positron') {
-                        // Moving positron
-                        const curX = e.startX + (e.annihilateX - e.startX) * e.progress;
-                        const curY = e.startY + (e.annihilateY - e.startY) * e.progress;
+  const th = Math.random() * 2 * Math.PI;
+  const dev = gauss() * (NONCOL_FWHM_DEG * Math.PI / 180) * FWHM_TO_SIGMA;
+  const a = transport(ph, ax, ay, Math.cos(th), Math.sin(th), cfg.eLow, cfg.nCrystals);
+  const th2 = th + Math.PI + dev;
+  const b = transport(ph, ax, ay, Math.cos(th2), Math.sin(th2), cfg.eLow, cfg.nCrystals);
+  return { emX: em.x, emY: em.y, ax, ay, a, b };
+}
 
-                        this.ctx.fillStyle = '#a00';
-                        this.ctx.beginPath();
-                        this.ctx.arc(curX, curY, 2, 0, 2 * Math.PI);
-                        this.ctx.fill();
-                    }
-                    else if (e.state === 'annihilation') {
-                        // Flash
-                        this.ctx.fillStyle = `rgba(255, 200, 0, ${1 - e.progress})`;
-                        this.ctx.beginPath();
-                        this.ctx.arc(e.annihilateX, e.annihilateY, 6 * Math.sin(e.progress * Math.PI), 0, 2 * Math.PI);
-                        this.ctx.fill();
-                    }
-                    else if (e.state === 'photons') {
-                        // Two photons moving outwards
-                        const x1 = e.annihilateX + (e.p1.x - e.annihilateX) * e.progress;
-                        const y1 = e.annihilateY + (e.p1.y - e.annihilateY) * e.progress;
-                        const x2 = e.annihilateX + (e.p2.x - e.annihilateX) * e.progress;
-                        const y2 = e.annihilateY + (e.p2.y - e.annihilateY) * e.progress;
+// Calibrate the acceptance probabilities that drive the count rate model.
+function calibrate(ph, cfg, n) {
+  let trues = 0, scatters = 0, singles = 0;
+  for (let i = 0; i < n; i++) {
+    const d = simulateDecay(ph, cfg);
+    if (d.a) singles++;
+    if (d.b) singles++;
+    if (d.a && d.b) {
+      if (d.a.scattered || d.b.scattered) scatters++; else trues++;
+    }
+  }
+  return {
+    pTrue: trues / n,
+    pScat: scatters / n,
+    pPhoton: singles / (2 * n)
+  };
+}
 
-                        // Photons
-                        this.ctx.fillStyle = '#00a';
-                        this.ctx.beginPath();
-                        this.ctx.arc(x1, y1, 2, 0, 2 * Math.PI);
-                        this.ctx.arc(x2, y2, 2, 0, 2 * Math.PI);
-                        this.ctx.fill();
+// Count rates at a given activity, in counts per second.
+function rates(activityBq, cal, cfg) {
+  const A = activityBq * cfg.branch;
+  const singlesIdeal = A * 2 * cal.pPhoton * SENS_SINGLE;
+  const live = Math.exp(-(singlesIdeal / N_BLOCK) * DEAD_T);
+  const S = singlesIdeal * live;
+  const T = A * cal.pTrue * SENS_COINC * live * live;
+  const Sc = A * cal.pScat * SENS_COINC * live * live;
+  const R = 2 * (cfg.tau * 1e-9) * S * S * KAPPA;
+  const NECR = (T + Sc + R) > 0 ? (T * T) / (T + Sc + 2 * R) : 0;
+  return { S, T, Sc, R, NECR, live, prompts: T + Sc + R };
+}
 
-                        // Trailing line segments
-                        this.ctx.strokeStyle = 'rgba(0, 0, 150, 0.5)';
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(e.annihilateX, e.annihilateY);
-                        this.ctx.lineTo(x1, y1);
-                        this.ctx.moveTo(e.annihilateX, e.annihilateY);
-                        this.ctx.lineTo(x2, y2);
-                        this.ctx.stroke();
-                    }
-                });
-            }
+/* ------------------------------------------------------------------
+   Sinogram, corrections and reconstruction
+   ------------------------------------------------------------------ */
+const N_ANG = 120;
+const N_RAD = 97;                       // odd, so there is a center bin at s = 0
+const RAD_BIN = (2 * FOV_R) / N_RAD;
+const TOF_SUB = 16;                     // sub-bin resolution of the TOF weight table
 
-            loop() {
-                this.update();
-                this.draw();
-                requestAnimationFrame(() => this.loop());
-            }
+class Sinogram {
+  constructor(nTof, tofSigma) {
+    this.nTof = nTof;
+    this.tofSigma = tofSigma || 0;
+    this.tofBin = (2 * FOV_R) / nTof;
+    this.prompt = new Float32Array(N_ANG * N_RAD * nTof);
+    this.delayed = new Float32Array(N_ANG * N_RAD * nTof);
+    this.counts = 0;
+    this.buildTofTable();
+  }
+  // Gaussian TOF kernel sampled on a sub-bin grid, so projection loops never
+  // have to evaluate an exponential.
+  buildTofTable() {
+    if (this.nTof === 1 || this.tofSigma <= 0) { this.reach = 0; this.tofW = null; return; }
+    this.reach = Math.max(1, Math.ceil(2.2 * this.tofSigma / this.tofBin));
+    const taps = 2 * this.reach + 1;
+    const w = new Float32Array(TOF_SUB * taps);
+    for (let k = 0; k < TOF_SUB; k++) {
+      const frac = (k + 0.5) / TOF_SUB;
+      let sum = 0;
+      for (let j = 0; j < taps; j++) {
+        const du = (j - this.reach - frac) * this.tofBin;
+        const v = Math.exp(-(du * du) / (2 * this.tofSigma * this.tofSigma));
+        w[k * taps + j] = v; sum += v;
+      }
+      for (let j = 0; j < taps; j++) w[k * taps + j] /= sum;
+    }
+    this.tofW = w;
+  }
+  // Bin one coincidence.  est is the estimated emission point along the LOR.
+  add(arr, p1, p2, estX, estY, weight) {
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) return false;
+    let nx = -dy / len, ny = dx / len;
+    let phi = Math.atan2(ny, nx);
+    let s = p1.x * nx + p1.y * ny;
+    if (phi < 0) { phi += Math.PI; s = -s; }
+    if (phi >= Math.PI) { phi -= Math.PI; s = -s; }
+    if (Math.abs(s) >= FOV_R) return false;
+
+    let it = 0;
+    if (this.nTof > 1) {
+      const u = -estX * Math.sin(phi) + estY * Math.cos(phi);
+      it = Math.round(u / this.tofBin + (this.nTof - 1) / 2);
+      it = Math.max(0, Math.min(this.nTof - 1, it));
+    }
+
+    // Crystals sample s and phi on their own discrete grid, which does not line
+    // up with the sinogram bins.  Spreading each event bilinearly over the four
+    // neighbouring bins keeps that mismatch from printing ring and moire
+    // artifacts into the reconstruction.
+    const fa = phi / Math.PI * N_ANG - 0.5;
+    const fr = s / RAD_BIN + (N_RAD - 1) / 2;
+    const a0 = Math.floor(fa), r0 = Math.floor(fr);
+    const wa = fa - a0, wr = fr - r0;
+    let placed = false;
+    for (let da = 0; da <= 1; da++) {
+      for (let dr = 0; dr <= 1; dr++) {
+        const ir = r0 + dr;
+        if (ir < 0 || ir >= N_RAD) continue;
+        let ia = a0 + da, sgn = 1;
+        // Angle wraps at pi, where the radial coordinate changes sign.
+        let irr = ir;
+        if (ia < 0 || ia >= N_ANG) {
+          ia = (ia + N_ANG) % N_ANG;
+          irr = N_RAD - 1 - ir;
+          if (irr < 0 || irr >= N_RAD) continue;
         }
+        const w = weight * (da ? wa : 1 - wa) * (dr ? wr : 1 - wr);
+        if (w <= 0) continue;
+        arr[(ia * N_RAD + irr) * this.nTof + it] += w;
+        placed = true;
+      }
+    }
+    return placed;
+  }
+  addPrompt(p1, p2, estX, estY, weight) {
+    if (this.add(this.prompt, p1, p2, estX, estY, weight)) { this.counts++; return true; }
+    return false;
+  }
+  addDelayed(p1, p2, estX, estY, weight) {
+    this.add(this.delayed, p1, p2, estX, estY, weight);
+  }
+}
 
-        // Initialize
-        window.onload = () => {
-            new PETSimulation('simCanvas');
-        };
-    </script>
+// Attenuation correction factor for a LOR, cached per (angle, radial) bin.
+function acFactor(ph, cache, p1, p2) {
+  // The factor depends only on the crystal pair, so it is cached per LOR.
+  const key = Math.min(p1.idx, p2.idx) * 100000 + Math.max(p1.idx, p2.idx);
+  if (cache) {
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit;
+  }
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len;
+  // Entry and exit of the body along this chord.
+  const b = p1.x * ux + p1.y * uy;
+  const c = p1.x * p1.x + p1.y * p1.y - ph.bodyR * ph.bodyR;
+  const det = b * b - c;
+  if (det <= 0) return 1;
+  const t0 = -b - Math.sqrt(det), t1 = -b + Math.sqrt(det);
+  const step = 2.0;
+  let tau = 0;
+  for (let t = t0; t < t1; t += step) {
+    tau += muAt(ph, p1.x + ux * (t + step / 2), p1.y + uy * (t + step / 2)) * step;
+  }
+  const f = Math.exp(tau);
+  if (cache) cache.set(key, f);
+  return f;
+}
+
+// Ramp filter with a Hann apodization, built by numerically inverting
+// H(f) = |f| (1 + cos(pi f / f_nyq)) / 2.  The plain Ram-Lak ramp amplifies
+// high frequency noise so hard that a Monte Carlo image is unreadable, which is
+// why clinical filtered backprojection always windows the ramp.
+const RAMP_TAPS = 33;
+const RAMP = (function () {
+  const k = new Float32Array(2 * RAMP_TAPS + 1);
+  const fNyq = 1 / (2 * RAD_BIN);
+  const M = 512, df = fNyq / M;
+  for (let n = -RAMP_TAPS; n <= RAMP_TAPS; n++) {
+    let acc = 0;
+    for (let m = 0; m <= M; m++) {
+      const f = m * df;
+      const H = f * 0.5 * (1 + Math.cos(Math.PI * f / fNyq));
+      acc += 2 * H * Math.cos(2 * Math.PI * f * n * RAD_BIN) * df;
+    }
+    k[n + RAMP_TAPS] = acc;
+  }
+  return k;
+})();
+
+// Data actually reconstructed: prompts, minus the delayed window estimate of
+// the randoms when that correction is on.
+function correctedData(sino, useRandoms, clampPositive) {
+  const y = new Float32Array(sino.prompt.length);
+  for (let i = 0; i < y.length; i++) {
+    let v = sino.prompt[i];
+    if (useRandoms) v -= sino.delayed[i];
+    y[i] = clampPositive ? Math.max(0, v) : v;
+  }
+  return y;
+}
+
+const IMG_N = 128;
+const IMG_D = (2 * FOV_R) / IMG_N;
+
+// Filtered backprojection with a plain ramp filter has no way to use the
+// time-of-flight bins: summing them recovers exactly the ordinary sinogram,
+// which is what this reconstruction works from.  Extracting the TOF advantage
+// needs a reconstruction whose model knows about timing, which is the MLEM
+// path below.
+function fbp(sino, useRandoms) {
+  const nTof = 1;
+  const full = correctedData(sino, useRandoms, false);
+  let y = full;
+  if (sino.nTof > 1) {
+    y = new Float32Array(N_ANG * N_RAD);
+    for (let i = 0; i < y.length; i++) {
+      let v = 0;
+      for (let it = 0; it < sino.nTof; it++) v += full[i * sino.nTof + it];
+      y[i] = v;
+    }
+  }
+  const filtered = new Float32Array(y.length);
+
+  for (let ia = 0; ia < N_ANG; ia++) {
+    for (let it = 0; it < nTof; it++) {
+      for (let ir = 0; ir < N_RAD; ir++) {
+        let acc = 0;
+        const lo = Math.max(0, ir - RAMP_TAPS), hi = Math.min(N_RAD - 1, ir + RAMP_TAPS);
+        for (let j = lo; j <= hi; j++) {
+          acc += y[(ia * N_RAD + j) * nTof + it] * RAMP[j - ir + RAMP_TAPS];
+        }
+        filtered[(ia * N_RAD + ir) * nTof + it] = acc;
+      }
+    }
+  }
+
+  const img = new Float32Array(IMG_N * IMG_N);
+  const dPhi = Math.PI / N_ANG;
+  for (let ia = 0; ia < N_ANG; ia++) {
+    const phi = (ia + 0.5) * dPhi;
+    const cp = Math.cos(phi), sp = Math.sin(phi);
+    for (let jy = 0; jy < IMG_N; jy++) {
+      const yy = -FOV_R + (jy + 0.5) * IMG_D;
+      for (let jx = 0; jx < IMG_N; jx++) {
+        const xx = -FOV_R + (jx + 0.5) * IMG_D;
+        if (xx * xx + yy * yy > FOV_R * FOV_R) continue;
+        const fr = (xx * cp + yy * sp) / RAD_BIN + (N_RAD - 1) / 2;
+        const r0 = Math.floor(fr), wr = fr - r0;
+        if (r0 < 0 || r0 + 1 >= N_RAD) continue;
+        const b0 = ia * N_RAD + r0;
+        const val = filtered[b0] * (1 - wr) + filtered[b0 + 1] * wr;
+        img[jy * IMG_N + jx] += val * dPhi;
+      }
+    }
+  }
+  return img;
+}
+
+/* ------------------------------------------------------------------
+   Iterative reconstruction (MLEM).  Clinical PET is reconstructed this way,
+   and unlike filtered backprojection it uses the time-of-flight information
+   for what it is worth: an event that is localized along its LOR only adds
+   noise where it might actually have come from.
+   ------------------------------------------------------------------ */
+const MLEM_N = 96;
+const MLEM_D = (2 * FOV_R) / MLEM_N;
+
+// Walk every (angle, pixel) pair once, either spreading the image into the
+// sinogram (forward) or gathering the sinogram into the image (back).
+function project(sino, img, sinoArr, forward) {
+  const nTof = sino.nTof;
+  const taps = 2 * sino.reach + 1;
+  const dPhi = Math.PI / N_ANG;
+  for (let ia = 0; ia < N_ANG; ia++) {
+    const phi = (ia + 0.5) * dPhi;
+    const cp = Math.cos(phi), sp = Math.sin(phi);
+    for (let jy = 0; jy < MLEM_N; jy++) {
+      const yy = -FOV_R + (jy + 0.5) * MLEM_D;
+      for (let jx = 0; jx < MLEM_N; jx++) {
+        const xx = -FOV_R + (jx + 0.5) * MLEM_D;
+        if (xx * xx + yy * yy > FOV_R * FOV_R) continue;
+        const pix = jy * MLEM_N + jx;
+        const v = img[pix];
+        if (forward && v <= 0) continue;
+        const fr = (xx * cp + yy * sp) / RAD_BIN + (N_RAD - 1) / 2;
+        const r0 = Math.floor(fr), wr = fr - r0;
+        if (r0 < 0 || r0 + 1 >= N_RAD) continue;
+        const b0 = (ia * N_RAD + r0) * nTof, b1 = b0 + nTof;
+
+        if (nTof === 1 || !sino.tofW) {
+          if (forward) {
+            sinoArr[b0] += v * (1 - wr);
+            sinoArr[b1] += v * wr;
+          } else {
+            img[pix] += sinoArr[b0] * (1 - wr) + sinoArr[b1] * wr;
+          }
+          continue;
+        }
+        const c = (-xx * sp + yy * cp) / sino.tofBin + (nTof - 1) / 2;
+        const base = Math.floor(c);
+        const k = Math.min(TOF_SUB - 1, Math.max(0, ((c - base) * TOF_SUB) | 0));
+        let acc = 0;
+        for (let j = 0; j < taps; j++) {
+          const it = base - sino.reach + j;
+          if (it < 0 || it >= nTof) continue;
+          const w = sino.tofW[k * taps + j];
+          if (forward) {
+            sinoArr[b0 + it] += v * w * (1 - wr);
+            sinoArr[b1 + it] += v * w * wr;
+          } else {
+            acc += w * (sinoArr[b0 + it] * (1 - wr) + sinoArr[b1 + it] * wr);
+          }
+        }
+        if (!forward) img[pix] += acc;
+      }
+    }
+  }
+}
+
+function sensitivityImage(sino) {
+  const ones = new Float32Array(sino.prompt.length).fill(1);
+  const sens = new Float32Array(MLEM_N * MLEM_N);
+  project(sino, sens, ones, false);
+  return sens;
+}
+
+// One or more MLEM updates, warm started from the previous estimate so the
+// image keeps improving as counts accumulate.
+function mlemUpdate(sino, state, useRandoms, iterations) {
+  if (!state.sens) state.sens = sensitivityImage(sino);
+  const y = correctedData(sino, useRandoms, true);
+  const fwd = new Float32Array(sino.prompt.length);
+  const ratio = new Float32Array(sino.prompt.length);
+  for (let n = 0; n < iterations; n++) {
+    fwd.fill(0);
+    project(sino, state.x, fwd, true);
+    let total = 0;
+    for (let i = 0; i < y.length; i++) total += y[i];
+    const eps = Math.max(1e-6, total / (y.length * 1000));
+    for (let i = 0; i < y.length; i++) ratio[i] = y[i] / (fwd[i] + eps);
+    const corr = new Float32Array(MLEM_N * MLEM_N);
+    project(sino, corr, ratio, false);
+    for (let i = 0; i < state.x.length; i++) {
+      if (state.sens[i] > 1e-6) state.x[i] = state.x[i] * corr[i] / state.sens[i];
+      else state.x[i] = 0;
+    }
+    state.iters++;
+  }
+  return state.x;
+}
+
+// Clinical MLEM images are post-filtered, otherwise the high frequency noise
+// that the iterations sharpen up dominates the picture.
+function postFilter(img, n, fwhmMm, pixMm) {
+  const sigma = (fwhmMm * FWHM_TO_SIGMA) / pixMm;
+  if (sigma < 0.05) return img;
+  const rad = Math.max(1, Math.ceil(2.5 * sigma));
+  const k = new Float32Array(2 * rad + 1);
+  let sum = 0;
+  for (let i = -rad; i <= rad; i++) { k[i + rad] = Math.exp(-(i * i) / (2 * sigma * sigma)); sum += k[i + rad]; }
+  for (let i = 0; i < k.length; i++) k[i] /= sum;
+  const tmp = new Float32Array(n * n), out = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      let acc = 0, w = 0;
+      for (let d = -rad; d <= rad; d++) {
+        const ii = i + d;
+        if (ii < 0 || ii >= n) continue;
+        acc += img[j * n + ii] * k[d + rad]; w += k[d + rad];
+      }
+      tmp[j * n + i] = w > 0 ? acc / w : 0;
+    }
+  }
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      let acc = 0, w = 0;
+      for (let d = -rad; d <= rad; d++) {
+        const jj = j + d;
+        if (jj < 0 || jj >= n) continue;
+        acc += tmp[jj * n + i] * k[d + rad]; w += k[d + rad];
+      }
+      out[j * n + i] = w > 0 ? acc / w : 0;
+    }
+  }
+  return out;
+}
+
+function newMlemState() {
+  const x = new Float32Array(MLEM_N * MLEM_N);
+  for (let jy = 0; jy < MLEM_N; jy++) {
+    const yy = -FOV_R + (jy + 0.5) * MLEM_D;
+    for (let jx = 0; jx < MLEM_N; jx++) {
+      const xx = -FOV_R + (jx + 0.5) * MLEM_D;
+      x[jy * MLEM_N + jx] = (xx * xx + yy * yy <= FOV_R * FOV_R) ? 1 : 0;
+    }
+  }
+  return { x, sens: null, iters: 0 };
+}
+
+/* ------------------------------------------------------------------
+   Application state
+   ------------------------------------------------------------------ */
+const MC_FRAC = 1 / 400;        // baseline fraction of real coincidences simulated
+const MAX_EV  = 400;            // simulated coincidences per animation frame
+const HIST_MAX = 420;           // lines of response kept on screen
+
+const el = id => document.getElementById(id);
+
+const app = {
+  tracerKey: "f18",
+  phantom: buildPhantom("brain"),
+  cfg: { meanRange: 0.6, eLow: 435, nCrystals: 480, tau: 4.5, branch: 0.967 },
+  cal: null,
+  A0: 250e6,
+  scanT: 0,
+  running: false,
+  speed: 10,
+  tofPs: 0,
+  sino: null,
+  img: null,
+  mlem: null,
+  reconMode: "fbp",
+  sampled: 0,
+  history: [],
+  animating: [],
+  single: null,
+  singles: [],
+  decayId: 0,
+  acCache: null,
+  frame: 0,
+  lastRecon: -999,
+  lastTime: performance.now(),
+  opts: { ac: true, randoms: true, classify: true, labels: true, truth: false },
+  rate: { S: 0, T: 0, Sc: 0, R: 0, NECR: 0, live: 1, prompts: 0 },
+  hitFlash: new Map()
+};
+
+function tracer() { return TRACERS[app.tracerKey]; }
+
+function resetAcquisition() {
+  const nTof = app.tofPs > 0 ? 11 : 1;
+  const sigma = app.tofPs > 0 ? (C_LIGHT * (app.tofPs / 1000) / 2) * FWHM_TO_SIGMA : 0;
+  app.sino = new Sinogram(nTof, sigma);
+  app.mlem = newMlemState();
+  app.img = null;
+  app.scanT = 0;
+  app.history = [];
+  app.animating = [];
+  app.single = null;
+  app.singles = [];
+  app.acCache = null;
+  app.lastRecon = -999;
+  app.hitFlash.clear();
+}
+
+function recalibrate() {
+  app.cal = calibrate(app.phantom, app.cfg, 2500);
+}
+
+function currentActivity() {
+  return app.A0 * Math.pow(2, -app.scanT / tracer().half);
+}
+
+/* ------------------------------------------------------------------
+   Event generation for one animation frame
+   ------------------------------------------------------------------ */
+function buildCoincidence(decay, kind) {
+  const p1 = decay.a, p2 = decay.b;
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len;
+  const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+  let u = (p1.path - p2.path) / 2;
+  if (app.sino.tofSigma > 0) u += gauss() * app.sino.tofSigma;
+  u = Math.max(-len / 2, Math.min(len / 2, u));
+  return {
+    type: kind, p1, p2,
+    ax: decay.ax, ay: decay.ay,
+    emX: decay.emX, emY: decay.emY,
+    estX: mx + ux * u, estY: my + uy * u
+  };
+}
+
+function buildRandom(s1, s2) {
+  const dx = s2.x - s1.x, dy = s2.y - s1.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return null;
+  const ux = dx / len, uy = dy / len;
+  const mx = (s1.x + s2.x) / 2, my = (s1.y + s2.y) / 2;
+  // Two unrelated singles: the time difference is uniform inside the window,
+  // so the apparent emission point is spread along (and often beyond) the chord.
+  const dt = (Math.random() * 2 - 1) * app.cfg.tau;
+  let u = C_LIGHT * dt / 2;
+  u = Math.max(-len / 2, Math.min(len / 2, u));
+  return { type: "random", p1: s1, p2: s2, ax: null, ay: null, estX: mx + ux * u, estY: my + uy * u };
+}
+
+function pushSingle(det, id) {
+  app.singles.push({ x: det.x, y: det.y, idx: det.idx, path: det.path, id });
+  if (app.singles.length > 800) app.singles.shift();
+}
+
+function pickRandomPair() {
+  if (app.singles.length < 40) return null;
+  const a = app.singles[(Math.random() * app.singles.length) | 0];
+  const b = app.singles[(Math.random() * app.singles.length) | 0];
+  if (a.id === b.id || a.idx === b.idx) return null;
+  return buildRandom(a, b);
+}
+
+function recordEvent(ev) {
+  if (!app.acCache) app.acCache = new Map();
+  let w = 1;
+  if (app.opts.ac) w = acFactor(app.phantom, app.acCache, ev.p1, ev.p2);
+  const ok = app.sino.addPrompt(ev.p1, ev.p2, ev.estX, ev.estY, w);
+  if (ok) {
+    app.history.push(ev);
+    if (app.history.length > HIST_MAX) app.history.shift();
+    app.hitFlash.set(ev.p1.idx, 1);
+    app.hitFlash.set(ev.p2.idx, 1);
+  }
+}
+
+function acquireFrame(dtSim) {
+  const r = app.rate;
+  let nCoinc = (r.T + r.Sc) * dtSim * MC_FRAC;
+  let nRand = r.R * dtSim * MC_FRAC;
+  let frac = MC_FRAC;
+  const total = nCoinc + nRand;
+  if (total > MAX_EV) {
+    const k = MAX_EV / total;
+    nCoinc *= k; nRand *= k; frac *= k;
+  }
+  app.sampled = frac;
+
+  // Fractional accumulators keep slow rates from rounding away to nothing.
+  acquireFrame.accC = (acquireFrame.accC || 0) + nCoinc;
+  acquireFrame.accR = (acquireFrame.accR || 0) + nRand;
+  let wantC = Math.floor(acquireFrame.accC); acquireFrame.accC -= wantC;
+  let wantR = Math.floor(acquireFrame.accR); acquireFrame.accR -= wantR;
+
+  let tries = 0, made = 0;
+  const maxTries = wantC * 40 + 400;
+  while (made < wantC && tries < maxTries) {
+    tries++;
+    const d = simulateDecay(app.phantom, app.cfg);
+    app.decayId++;
+    if (d.a) pushSingle(d.a, app.decayId);
+    if (d.b) pushSingle(d.b, app.decayId);
+    if (d.a && d.b) {
+      const kind = (d.a.scattered || d.b.scattered) ? "scatter" : "true";
+      recordEvent(buildCoincidence(d, kind));
+      made++;
+    }
+  }
+
+  for (let i = 0; i < wantR; i++) {
+    const ev = pickRandomPair();
+    if (ev) recordEvent(ev);
+  }
+  // Delayed coincidence window: an independent estimate of the randoms, with
+  // its own Poisson noise, which is what a scanner actually subtracts.
+  for (let i = 0; i < wantR; i++) {
+    const ev = pickRandomPair();
+    if (ev) {
+      const w = app.opts.ac ? acFactor(app.phantom, app.acCache, ev.p1, ev.p2) : 1;
+      app.sino.addDelayed(ev.p1, ev.p2, ev.estX, ev.estY, w);
+    }
+  }
+
+  // Feed a few events into the on-screen animation.
+  if (app.history.length && app.animating.length < 9 && !app.single) {
+    const ev = app.history[app.history.length - 1 - ((Math.random() * 5) | 0)] || app.history[app.history.length - 1];
+    if (ev && ev.ax !== null) app.animating.push({ ev, phase: 0, t: 0, speed: 1 });
+  }
+}
+
+/* ------------------------------------------------------------------
+   Single event walkthrough
+   ------------------------------------------------------------------ */
+function fireSingleEvent() {
+  app.running = false;
+  el("btnRun").textContent = "Start scan";
+  for (let i = 0; i < 400; i++) {
+    const tracks = { a: [], b: [] };
+    const d = simulateDecayTracked(app.phantom, app.cfg, tracks);
+    if (d.a && d.b) {
+      const kind = (d.a.scattered || d.b.scattered) ? "scatter" : "true";
+      const ev = buildCoincidence(d, kind);
+      recordEvent(ev);
+      app.single = { ev, tracks, phase: 0, t: 0 };
+      return;
+    }
+    // Keep the first lost event so the walkthrough can show an absorbed photon.
+    if (i > 250 && (d.a || d.b)) {
+      app.single = { ev: { type: "lost", ax: d.ax, ay: d.ay, emX: d.emX, emY: d.emY, p1: d.a, p2: d.b }, tracks, phase: 0, t: 0 };
+      return;
+    }
+  }
+}
+
+function simulateDecayTracked(ph, cfg, tracks) {
+  const em = sampleEmission(ph);
+  const range = -Math.log(Math.random()) * cfg.meanRange;
+  const ra = Math.random() * 2 * Math.PI;
+  const ax = em.x + range * Math.cos(ra);
+  const ay = em.y + range * Math.sin(ra);
+  const th = Math.random() * 2 * Math.PI;
+  const dev = gauss() * (NONCOL_FWHM_DEG * Math.PI / 180) * FWHM_TO_SIGMA;
+  const a = transport(ph, ax, ay, Math.cos(th), Math.sin(th), cfg.eLow, cfg.nCrystals, tracks.a);
+  const th2 = th + Math.PI + dev;
+  const b = transport(ph, ax, ay, Math.cos(th2), Math.sin(th2), cfg.eLow, cfg.nCrystals, tracks.b);
+  return { emX: em.x, emY: em.y, ax, ay, a, b };
+}
+
+/* ------------------------------------------------------------------
+   Rendering
+   ------------------------------------------------------------------ */
+const COL = {
+  ring: "#475569", tick: "#64748b", tickHot: "#fbbf24", fov: "#334155", txt: "#94a3b8",
+  true: "#38bdf8", scatter: "#fb923c", random: "#f43f5e",
+  positron: "#f87171", flash: "#fde047", photon: "#c7d2fe", grid: "#1e293b"
+};
+
+function setupCanvas(id) {
+  const c = el(id);
+  const w = c.width, h = c.height;
+  const dpr = window.devicePixelRatio || 1;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.aspectRatio = `${w} / ${h}`;
+  const ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  return { c, ctx, w, h };
+}
+
+const scanner = setupCanvas("cScanner");
+const sinoView = setupCanvas("cSino");
+const reconView = setupCanvas("cRecon");
+const ratesView = setupCanvas("cRates");
+
+const VIEW_R = 470;                                   // mm visible across the scanner canvas
+const SCALE = (scanner.w / 2 - 6) / VIEW_R;
+const px = mm => scanner.w / 2 + mm * SCALE;
+const py = mm => scanner.h / 2 + mm * SCALE;
+
+let phantomLayer = null;
+function buildPhantomLayer() {
+  const c = document.createElement("canvas");
+  c.width = RAST_N; c.height = RAST_N;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(RAST_N, RAST_N);
+  const ph = app.phantom;
+  for (let i = 0; i < RAST_N * RAST_N; i++) {
+    const v = ph.max > 0 ? ph.map[i] / ph.max : 0;
+    img.data[i * 4] = 90 * v + 20;
+    img.data[i * 4 + 1] = 120 * v + 26;
+    img.data[i * 4 + 2] = 150 * v + 40;
+    img.data[i * 4 + 3] = v > 0 ? 235 : 60;
+  }
+  ctx.putImageData(img, 0, 0);
+  phantomLayer = c;
+}
+
+function pointAlong(points, frac) {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  let want = total * frac;
+  for (let i = 1; i < points.length; i++) {
+    const seg = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    if (want <= seg || i === points.length - 1) {
+      const t = seg > 0 ? want / seg : 0;
+      return { x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
+               y: points[i - 1].y + (points[i].y - points[i - 1].y) * t, seg: i };
+    }
+    want -= seg;
+  }
+  return points[points.length - 1];
+}
+
+function label(ctx, text, x, y, ax, ay, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.7;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ax, ay); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  ctx.font = "11px -apple-system, Segoe UI, Helvetica, sans-serif";
+  ctx.textAlign = ax > x ? "left" : "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, ax + (ax > x ? 4 : -4), ay);
+}
+
+function drawScanner() {
+  const ctx = scanner.ctx;
+  ctx.clearRect(0, 0, scanner.w, scanner.h);
+  ctx.fillStyle = "#070b14";
+  ctx.fillRect(0, 0, scanner.w, scanner.h);
+
+  // Phantom activity map
+  if (phantomLayer) {
+    const size = 2 * FOV_R * SCALE;
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(phantomLayer, px(-FOV_R), py(-FOV_R), size, size);
+    ctx.globalAlpha = 1;
+  }
+
+  // Body outline
+  const ph = app.phantom;
+  ctx.strokeStyle = "#3b4a63"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(px(0), py(0), ph.bodyR * SCALE, 0, 2 * Math.PI); ctx.stroke();
+  if (ph.skull) {
+    ctx.strokeStyle = "#5b6a86";
+    ctx.beginPath(); ctx.arc(px(0), py(0), ph.skull.inner * SCALE, 0, 2 * Math.PI); ctx.stroke();
+  }
+
+  // Field of view
+  ctx.strokeStyle = COL.fov; ctx.setLineDash([4, 5]);
+  ctx.beginPath(); ctx.arc(px(0), py(0), FOV_R * SCALE, 0, 2 * Math.PI); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Accumulated lines of response
+  ctx.lineWidth = 0.5;
+  const n = app.history.length;
+  for (let i = 0; i < n; i++) {
+    const ev = app.history[i];
+    const age = (i + 1) / n;
+    let col = COL.true, alpha = (0.05 + age * 0.2) * (app.single ? 0.3 : 1);
+    if (app.opts.classify) {
+      if (ev.type === "scatter") { col = COL.scatter; alpha = (0.08 + age * 0.3) * (app.single ? 0.3 : 1); }
+      else if (ev.type === "random") { col = COL.random; alpha = (0.08 + age * 0.3) * (app.single ? 0.3 : 1); }
+    } else { col = "#8fa3bf"; }
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.moveTo(px(ev.p1.x), py(ev.p1.y));
+    ctx.lineTo(px(ev.p2.x), py(ev.p2.y));
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Detector ring and crystal elements
+  const N = app.cfg.nCrystals;
+  const shown = Math.min(N, 240);                      // draw at most 240 ticks for clarity
+  const stride = Math.max(1, Math.round(N / shown));
+  ctx.lineWidth = 1;
+  for (let i = 0; i < N; i += stride) {
+    const a = (i + 0.5) * 2 * Math.PI / N;
+    const hot = app.hitFlash.get(i) || 0;
+    ctx.strokeStyle = hot > 0 ? COL.tickHot : COL.tick;
+    ctx.globalAlpha = hot > 0 ? 0.35 + 0.65 * hot : 0.55;
+    const r0 = (RING_R - 7) * SCALE, r1 = (RING_R + 9) * SCALE;
+    ctx.beginPath();
+    ctx.moveTo(px(0) + r0 * Math.cos(a), py(0) + r0 * Math.sin(a));
+    ctx.lineTo(px(0) + r1 * Math.cos(a), py(0) + r1 * Math.sin(a));
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = COL.ring; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(px(0), py(0), (RING_R + 9) * SCALE, 0, 2 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(px(0), py(0), (RING_R - 7) * SCALE, 0, 2 * Math.PI); ctx.stroke();
+
+  if (app.opts.labels) {
+    const ring = RING_R * SCALE;
+    label(ctx, "detector ring, " + N + " crystals", px(0) + ring * Math.cos(-2.3), py(0) + ring * Math.sin(-2.3),
+          px(0) - 150, py(0) - 235, COL.txt);
+    label(ctx, "reconstruction FOV", px(0) + FOV_R * SCALE * Math.cos(-0.9), py(0) + FOV_R * SCALE * Math.sin(-0.9),
+          px(0) + 150, py(0) + 120, COL.txt);
+    label(ctx, "phantom", px(0) + ph.bodyR * SCALE * Math.cos(2.4), py(0) + ph.bodyR * SCALE * Math.sin(2.4),
+          px(0) - 150, py(0) + 150, COL.txt);
+  }
+
+  if (app.single) drawSingle(ctx);
+  else app.animating.forEach(a => drawAnimated(ctx, a));
+
+  // Scan clock in the corner
+  ctx.fillStyle = COL.txt;
+  ctx.font = "12px ui-monospace, SFMono-Regular, monospace";
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  let head = fmtClock(app.scanT) + "  |  " + (currentActivity() / 1e6).toFixed(0) + " MBq";
+  if (app.sampled > 0) head += "  |  simulating 1 in " + Math.round(1 / app.sampled) + " coincidences";
+  ctx.fillText(head, 10, 10);
+}
+
+function drawAnimated(ctx, a) {
+  const ev = a.ev;
+  if (a.phase === 0) {
+    const x = ev.emX + (ev.ax - ev.emX) * a.t;
+    const y = ev.emY + (ev.ay - ev.emY) * a.t;
+    ctx.fillStyle = COL.positron;
+    ctx.beginPath(); ctx.arc(px(x), py(y), 2.5, 0, 2 * Math.PI); ctx.fill();
+  } else if (a.phase === 1) {
+    ctx.fillStyle = COL.flash;
+    ctx.globalAlpha = 1 - a.t;
+    ctx.beginPath(); ctx.arc(px(ev.ax), py(ev.ay), 3 + 9 * Math.sin(a.t * Math.PI), 0, 2 * Math.PI); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else {
+    for (const p of [ev.p1, ev.p2]) {
+      const x = ev.ax + (p.x - ev.ax) * a.t;
+      const y = ev.ay + (p.y - ev.ay) * a.t;
+      ctx.strokeStyle = COL.photon; ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px(ev.ax), py(ev.ay)); ctx.lineTo(px(x), py(y)); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = COL.photon;
+      ctx.beginPath(); ctx.arc(px(x), py(y), 2.5, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+}
+
+function drawSingle(ctx) {
+  const s = app.single, ev = s.ev;
+  const pathA = [{ x: ev.ax, y: ev.ay }].concat(s.tracks.a);
+  const pathB = [{ x: ev.ax, y: ev.ay }].concat(s.tracks.b);
+
+  // Positron track
+  if (s.phase >= 0) {
+    const t = s.phase === 0 ? s.t : 1;
+    ctx.strokeStyle = COL.positron; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(px(ev.emX), py(ev.emY));
+    ctx.lineTo(px(ev.emX + (ev.ax - ev.emX) * t), py(ev.emY + (ev.ay - ev.emY) * t));
+    ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.fillStyle = COL.positron;
+    ctx.beginPath();
+    ctx.arc(px(ev.emX + (ev.ax - ev.emX) * t), py(ev.emY + (ev.ay - ev.emY) * t), 3, 0, 2 * Math.PI);
+    ctx.fill();
+    if (s.phase === 0) {
+      const d = Math.hypot(ev.ax - ev.emX, ev.ay - ev.emY);
+      label(ctx, "positron range " + d.toFixed(1) + " mm", px(ev.emX), py(ev.emY), px(ev.emX) + 90, py(ev.emY) - 60, COL.positron);
+    }
+  }
+  if (s.phase === 1) {
+    ctx.fillStyle = COL.flash; ctx.globalAlpha = 1 - s.t * 0.5;
+    ctx.beginPath(); ctx.arc(px(ev.ax), py(ev.ay), 4 + 14 * Math.sin(s.t * Math.PI), 0, 2 * Math.PI); ctx.fill();
+    ctx.globalAlpha = 1;
+    label(ctx, "annihilation: two 511 keV photons", px(ev.ax), py(ev.ay), px(ev.ax) + 100, py(ev.ay) - 80, COL.flash);
+  }
+  if (s.phase >= 2) {
+    const t = s.phase === 2 ? s.t : 1;
+    for (const [path, det] of [[pathA, ev.p1], [pathB, ev.p2]]) {
+      if (path.length < 2) continue;
+      const cur = pointAlong(path, t);
+      ctx.strokeStyle = COL.photon; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.75;
+      ctx.beginPath(); ctx.moveTo(px(path[0].x), py(path[0].y));
+      for (let i = 1; i < (cur.seg || 1); i++) ctx.lineTo(px(path[i].x), py(path[i].y));
+      ctx.lineTo(px(cur.x), py(cur.y));
+      ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = det ? COL.photon : COL.random;
+      ctx.beginPath(); ctx.arc(px(cur.x), py(cur.y), 3, 0, 2 * Math.PI); ctx.fill();
+      // Mark a scatter vertex once the photon has passed it.
+      for (let i = 1; i < path.length - 1; i++) {
+        if (i < (cur.seg || 1)) {
+          ctx.strokeStyle = COL.scatter; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(px(path[i].x), py(path[i].y), 5, 0, 2 * Math.PI); ctx.stroke();
+        }
+      }
+    }
+  }
+  if (s.phase === 3 && ev.p1 && ev.p2) {
+    ctx.strokeStyle = ev.type === "scatter" ? COL.scatter : COL.true;
+    ctx.lineWidth = 1.4; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(px(ev.p1.x), py(ev.p1.y)); ctx.lineTo(px(ev.p2.x), py(ev.p2.y)); ctx.stroke();
+    ctx.setLineDash([]);
+    const mx = (ev.p1.x + ev.p2.x) / 2, my = (ev.p1.y + ev.p2.y) / 2;
+    label(ctx, ev.type === "scatter" ? "LOR misplaced by scatter" : "line of response",
+          px(mx), py(my), px(mx) + 110, py(my) + 90, ev.type === "scatter" ? COL.scatter : COL.true);
+    if (app.sino.tofSigma > 0) {
+      ctx.fillStyle = COL.flash;
+      ctx.beginPath(); ctx.arc(px(ev.estX), py(ev.estY), 4, 0, 2 * Math.PI); ctx.fill();
+      label(ctx, "TOF estimate of the emission point", px(ev.estX), py(ev.estY), px(ev.estX) - 110, py(ev.estY) + 60, COL.flash);
+    }
+  }
+}
+
+function drawSinogram() {
+  const ctx = sinoView.ctx;
+  ctx.clearRect(0, 0, sinoView.w, sinoView.h);
+  const sino = app.sino;
+  const off = document.createElement("canvas");
+  off.width = N_RAD; off.height = N_ANG;
+  const img = off.getContext("2d").createImageData(N_RAD, N_ANG);
+  const flat = new Float32Array(N_ANG * N_RAD);
+  const nz = [];
+  for (let ia = 0; ia < N_ANG; ia++) {
+    for (let ir = 0; ir < N_RAD; ir++) {
+      let v = 0;
+      for (let it = 0; it < sino.nTof; it++) v += sino.prompt[(ia * N_RAD + ir) * sino.nTof + it];
+      flat[ia * N_RAD + ir] = v;
+      if (v > 0) nz.push(v);
+    }
+  }
+  nz.sort((a, b) => a - b);
+  const max = nz.length ? Math.max(1e-9, nz[Math.floor(nz.length * 0.99)]) : 1e-9;
+  for (let i = 0; i < flat.length; i++) {
+    const v = Math.min(1, flat[i] / max);
+    const g = Math.pow(v, 0.85);
+    img.data[i * 4] = 14 + 225 * g;
+    img.data[i * 4 + 1] = 20 + 228 * g;
+    img.data[i * 4 + 2] = 34 + 218 * g;
+    img.data[i * 4 + 3] = 255;
+  }
+  off.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, 0, 0, sinoView.w, sinoView.h);
+  ctx.fillStyle = "rgba(226,232,240,0.75)";
+  ctx.font = "10px ui-monospace, SFMono-Regular, monospace";
+  ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText("s = 0", sinoView.w / 2, sinoView.h - 4);
+  ctx.save();
+  ctx.translate(9, sinoView.h / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = "top";
+  ctx.fillText("φ : 0 → π", 0, 0);
+  ctx.restore();
+}
+
+function hotColor(v) {
+  return [Math.min(1, v * 3) * 255,
+          Math.min(1, Math.max(0, v * 3 - 1)) * 255,
+          Math.min(1, Math.max(0, v * 3 - 2)) * 255];
+}
+
+function drawRecon() {
+  const ctx = reconView.ctx;
+  ctx.clearRect(0, 0, reconView.w, reconView.h);
+  ctx.fillStyle = "#070b14";
+  ctx.fillRect(0, 0, reconView.w, reconView.h);
+
+  let src, n;
+  if (app.opts.truth) { src = app.phantom.map; n = RAST_N; }
+  else if (app.img) { src = app.img; n = app.imgN || IMG_N; }
+  else {
+    ctx.fillStyle = COL.txt; ctx.font = "12px -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("Start the scan to fill the sinogram", reconView.w / 2, reconView.h / 2);
+    return;
+  }
+
+  // Scale to a high percentile so a few hot pixels do not flatten the image.
+  const sorted = [];
+  for (let i = 0; i < src.length; i++) if (src[i] > 0) sorted.push(src[i]);
+  sorted.sort((a, b) => a - b);
+  const hi = sorted.length ? sorted[Math.floor(sorted.length * 0.995)] : 1;
+
+  const off = document.createElement("canvas");
+  off.width = n; off.height = n;
+  const img = off.getContext("2d").createImageData(n, n);
+  for (let i = 0; i < n * n; i++) {
+    const v = Math.max(0, Math.min(1, src[i] / (hi || 1)));
+    const [r, g, b] = hotColor(v);
+    img.data[i * 4] = r; img.data[i * 4 + 1] = g; img.data[i * 4 + 2] = b; img.data[i * 4 + 3] = 255;
+  }
+  off.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, 0, 0, reconView.w, reconView.h);
+}
+
+function drawRates() {
+  const ctx = ratesView.ctx;
+  const W = ratesView.w, H = ratesView.h;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#070b14"; ctx.fillRect(0, 0, W, H);
+  const L = 52, R = W - 14, T = 16, B = H - 30;
+  const maxA = 2000e6;
+
+  const curves = { T: [], Sc: [], R: [], NECR: [] };
+  let maxY = 1;
+  for (let i = 0; i <= 60; i++) {
+    const A = maxA * i / 60;
+    const r = rates(A, app.cal, app.cfg);
+    curves.T.push(r.T); curves.Sc.push(r.Sc); curves.R.push(r.R); curves.NECR.push(r.NECR);
+    maxY = Math.max(maxY, r.T * 1.35);
+  }
+  const X = i => L + (R - L) * i / 60;
+  const Y = v => B - (B - T) * (v / maxY);
+
+  // Grid and axes
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (let k = 0; k <= 4; k++) {
+    const y = T + (B - T) * k / 4;
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+    ctx.fillStyle = COL.txt; ctx.font = "10px ui-monospace, SFMono-Regular, monospace";
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(((maxY * (4 - k) / 4) / 1000).toFixed(0), L - 6, y);
+  }
+  ctx.strokeStyle = COL.ring;
+  ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, B); ctx.lineTo(R, B); ctx.stroke();
+  ctx.fillStyle = COL.txt; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let k = 0; k <= 3; k++) {
+    const a = maxA * k / 3;
+    ctx.fillText((a / 1e6).toFixed(0), X(60 * k / 3), B + 5);
+  }
+  ctx.fillText("activity (MBq)", (L + R) / 2, B + 16);
+  ctx.save();
+  ctx.translate(12, (T + B) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("kcps", 0, 0);
+  ctx.restore();
+
+  // Randoms leave the top of the plot at high activity, which is the point.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T - 1, R - L, B - T + 1); ctx.clip();
+  const draw = (arr, col, dash) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    arr.forEach((v, i) => { const x = X(i), y = Y(v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  draw(curves.T, COL.true);
+  draw(curves.Sc, COL.scatter);
+  draw(curves.R, COL.random);
+  draw(curves.NECR, "#4ade80", [5, 4]);
+
+  // Current activity marker
+  ctx.restore();
+
+  const frac = Math.min(1, currentActivity() / maxA);
+  const xm = L + (R - L) * frac;
+  ctx.strokeStyle = "#e2e8f0"; ctx.globalAlpha = 0.6; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(xm, T); ctx.lineTo(xm, B); ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  const keys = [["trues", COL.true], ["scatters", COL.scatter], ["randoms", COL.random], ["NECR", "#4ade80"]];
+  ctx.font = "10px -apple-system, Segoe UI, sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  keys.forEach((k, i) => {
+    const x = L + 10 + i * 78, y = T + 8;
+    ctx.strokeStyle = k[1]; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 14, y); ctx.stroke();
+    ctx.fillStyle = COL.txt; ctx.fillText(k[0], x + 18, y);
+  });
+}
+
+/* ------------------------------------------------------------------
+   Readouts and controls
+   ------------------------------------------------------------------ */
+function fmtClock(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+function fmtRate(cps) {
+  if (cps >= 1e6) return (cps / 1e6).toFixed(2) + " Mcps";
+  return (cps / 1e3).toFixed(1) + " kcps";
+}
+function fmtHalfLife(sec) {
+  if (sec >= 3600) return (sec / 3600).toFixed(1) + " h";
+  if (sec >= 60) return (sec / 60).toFixed(1) + " min";
+  return sec.toFixed(0) + " s";
+}
+
+function crystalPitch() { return 2 * Math.PI * RING_R / app.cfg.nCrystals; }
+
+function resolutionFWHM() {
+  const d = crystalPitch() / 2;
+  const noncol = 0.0022 * 2 * RING_R;
+  const range = tracer().rangeFWHM;
+  return Math.sqrt(d * d + BLOCK_FWHM * BLOCK_FWHM + noncol * noncol + range * range);
+}
+
+function updateReadouts() {
+  const r = app.rate;
+  el("dispAct").textContent = (currentActivity() / 1e6).toFixed(0) + " MBq";
+  el("dispTrue").textContent = fmtRate(r.T);
+  el("dispScat").textContent = fmtRate(r.Sc);
+  el("dispRand").textContent = fmtRate(r.R);
+  const prompts = Math.max(1, r.prompts);
+  el("dispSF").textContent = (100 * r.Sc / prompts).toFixed(1) + " %";
+  el("dispRF").textContent = (100 * r.R / prompts).toFixed(1) + " %";
+  el("dispNECR").textContent = fmtRate(r.NECR);
+  el("dispSingles").textContent = fmtRate(r.S) + " / " + (100 * r.live).toFixed(1) + " %";
+  el("dispClock").textContent = fmtClock(app.scanT);
+  el("dispCounts").textContent = app.sino.counts.toLocaleString();
+  el("dispRes").textContent = resolutionFWHM().toFixed(1) + " mm";
+  el("dispTOF").textContent = app.tofPs > 0
+    ? (C_LIGHT * (app.tofPs / 1000) / 2).toFixed(0) + " mm FWHM"
+    : "off";
+}
+
+function updateBanner() {
+  const t = tracer();
+  el("bannerText").innerHTML = "<strong>" + t.name + ":</strong> " + t.note;
+  el("bannerSub").innerHTML =
+    "T&#189; " + fmtHalfLife(t.half) +
+    " &middot; E<sub>max</sub> " + t.emax.toFixed(2) + " MeV" +
+    " &middot; mean range " + t.meanRange.toFixed(1) + " mm" +
+    " &middot; expected resolution " + resolutionFWHM().toFixed(1) + " mm FWHM";
+  let method;
+  if (app.reconMode === "mlem") {
+    method = "Iterative MLEM, " + (app.mlem ? app.mlem.iters : 0) + " iterations, 6 mm post-filter";
+    if (app.tofPs > 0) method += ", " + app.tofPs + " ps TOF";
+  } else {
+    method = "Filtered backprojection (ramp \u00D7 Hann)";
+    if (app.tofPs > 0) method += ", TOF unused";
+  }
+  el("reconCaption").textContent = app.opts.truth
+    ? "True activity map (what the scanner is trying to recover)"
+    : method;
+}
+
+function fillTracerTable() {
+  const rows = Object.values(TRACERS).map(t =>
+    "<tr><td>" + t.name + "</td><td>" + fmtHalfLife(t.half) + "</td><td>" + t.emax.toFixed(3) + " MeV</td><td>" +
+    t.meanRange.toFixed(1) + " mm</td><td>" + t.rangeFWHM.toFixed(2) + " mm</td><td>" +
+    (100 * t.branch).toFixed(1) + " %</td></tr>").join("");
+  el("tracerTable").innerHTML = rows;
+}
+
+function runRecon(iterations) {
+  if (app.sino.counts < 20) return;
+  if (app.reconMode === "mlem") {
+    mlemUpdate(app.sino, app.mlem, app.opts.randoms, iterations || 1);
+    app.img = postFilter(app.mlem.x, MLEM_N, 6, MLEM_D);
+    app.imgN = MLEM_N;
+  } else {
+    app.img = fbp(app.sino, app.opts.randoms);
+    app.imgN = IMG_N;
+  }
+}
+
+function rerecon() {
+  runRecon(app.reconMode === "mlem" ? 3 : 1);
+  drawRecon();
+  drawSinogram();
+}
+
+function wire() {
+  document.querySelectorAll(".tracer-btn").forEach(b => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".tracer-btn").forEach(o => { o.classList.remove("active"); o.classList.add("secondary"); });
+      b.classList.add("active"); b.classList.remove("secondary");
+      app.tracerKey = b.dataset.tracer;
+      app.cfg.meanRange = tracer().meanRange;
+      app.cfg.branch = tracer().branch;
+      recalibrate(); resetAcquisition(); updateBanner(); rerecon(); drawRates();
+    });
+  });
+
+  el("selPhantom").addEventListener("change", e => {
+    app.phantom = buildPhantom(e.target.value);
+    buildPhantomLayer();
+    recalibrate(); resetAcquisition(); rerecon(); drawRates();
+  });
+
+  el("sA").addEventListener("input", e => {
+    app.A0 = parseFloat(e.target.value) * 1e6;
+    el("valA").textContent = e.target.value + " MBq";
+    app.rate = rates(currentActivity(), app.cal, app.cfg);
+    updateReadouts(); drawRates();
+  });
+
+  el("sTau").addEventListener("input", e => {
+    app.cfg.tau = parseFloat(e.target.value);
+    el("valTau").textContent = app.cfg.tau.toFixed(1) + " ns";
+    app.rate = rates(currentActivity(), app.cal, app.cfg);
+    updateReadouts(); drawRates();
+  });
+
+  el("sE").addEventListener("input", e => {
+    app.cfg.eLow = parseFloat(e.target.value);
+    el("valE").textContent = app.cfg.eLow + " keV";
+  });
+  el("sE").addEventListener("change", () => {
+    recalibrate(); resetAcquisition(); rerecon(); drawRates();
+  });
+
+  el("selN").addEventListener("change", e => {
+    app.cfg.nCrystals = parseInt(e.target.value, 10);
+    resetAcquisition(); updateBanner(); rerecon();
+  });
+
+  el("selTOF").addEventListener("change", e => {
+    app.tofPs = parseInt(e.target.value, 10);
+    resetAcquisition(); updateBanner(); rerecon();
+  });
+
+  el("selRecon").addEventListener("change", e => {
+    app.reconMode = e.target.value;
+    app.mlem = newMlemState();
+    updateBanner(); rerecon();
+  });
+
+  el("sSpeed").addEventListener("input", e => {
+    app.speed = parseInt(e.target.value, 10);
+    el("valSpeed").textContent = app.speed + "×";
+  });
+
+  el("ckAC").addEventListener("change", e => { app.opts.ac = e.target.checked; resetAcquisition(); rerecon(); });
+  el("ckRand").addEventListener("change", e => {
+    app.opts.randoms = e.target.checked;
+    app.mlem = newMlemState();
+    rerecon();
+  });
+  el("ckClass").addEventListener("change", e => { app.opts.classify = e.target.checked; });
+  el("ckLabels").addEventListener("change", e => { app.opts.labels = e.target.checked; });
+  el("ckTruth").addEventListener("change", e => { app.opts.truth = e.target.checked; updateBanner(); drawRecon(); });
+
+  el("btnRun").addEventListener("click", () => {
+    app.running = !app.running;
+    if (app.running) app.single = null;
+    el("btnRun").textContent = app.running ? "Pause scan" : "Start scan";
+  });
+  el("btnSingle").addEventListener("click", () => {
+    fireSingleEvent();
+    el("btnRun").textContent = "Start scan";
+  });
+  el("btnReset").addEventListener("click", () => {
+    resetAcquisition(); rerecon(); updateReadouts();
+  });
+}
+
+/* ------------------------------------------------------------------
+   Animation and main loop
+   ------------------------------------------------------------------ */
+const PHASE_DUR = [0.35, 0.25, 0.9];
+const SINGLE_DUR = [1.6, 1.0, 2.4, 4.5];
+
+function updateAnimations(dt) {
+  for (let i = app.animating.length - 1; i >= 0; i--) {
+    const a = app.animating[i];
+    a.t += dt / PHASE_DUR[a.phase];
+    if (a.t >= 1) {
+      a.t = 0; a.phase++;
+      if (a.phase > 2) app.animating.splice(i, 1);
+    }
+  }
+  if (app.single) {
+    const s = app.single;
+    s.t += dt / SINGLE_DUR[s.phase];
+    if (s.t >= 1) {
+      s.t = 0; s.phase++;
+      if (s.phase > 3) app.single = null;
+    }
+    const cap = el("scannerCaption");
+    if (app.single) {
+      const ev = app.single.ev;
+      const texts = [
+        "The positron leaves the emission site and drifts one positron range before it can annihilate.",
+        "Positron and electron annihilate into two 511 keV photons, back to back within 0.5 degrees.",
+        "The photons cross the body, where they may Compton scatter, and strike discrete crystals.",
+        ev.type === "scatter"
+          ? "A scattered photon was still inside the energy window, so the LOR is assigned to the wrong chord."
+          : (ev.type === "lost"
+            ? "One photon was absorbed or fell below the energy threshold, so no coincidence was formed."
+            : "Both crystals fired inside the coincidence window: one true event, one line of response.")
+      ];
+      cap.textContent = texts[Math.min(3, app.single.phase)];
+    }
+  } else {
+    el("scannerCaption").textContent =
+      "Detector ring, phantom, and live annihilation events. Faint lines are the accumulated lines of response.";
+  }
+  app.hitFlash.forEach((v, k) => {
+    const nv = v * 0.9;
+    if (nv < 0.05) app.hitFlash.delete(k); else app.hitFlash.set(k, nv);
+  });
+}
+
+function loop() {
+  const now = performance.now();
+  let dt = (now - app.lastTime) / 1000;
+  app.lastTime = now;
+  dt = Math.min(dt, 0.1);
+
+  if (app.running) {
+    app.scanT += dt * app.speed;
+    app.rate = rates(currentActivity(), app.cal, app.cfg);
+    acquireFrame(dt * app.speed);
+  }
+  updateAnimations(dt);
+  app.frame++;
+
+  drawScanner();
+  const cadence = app.reconMode === "mlem" ? 45 : 30;
+  if (app.running && app.frame - app.lastRecon >= cadence) {
+    app.lastRecon = app.frame;
+    runRecon(1);
+    drawSinogram();
+    drawRecon();
+    drawRates();
+    updateReadouts();
+    if (app.reconMode === "mlem") updateBanner();
+  }
+  requestAnimationFrame(loop);
+}
+
+function init() {
+  app.cfg.meanRange = tracer().meanRange;
+  app.cfg.branch = tracer().branch;
+  buildPhantomLayer();
+  recalibrate();
+  resetAcquisition();
+  app.rate = rates(currentActivity(), app.cal, app.cfg);
+  fillTracerTable();
+  updateBanner();
+  updateReadouts();
+  wire();
+  drawScanner();
+  drawSinogram();
+  drawRecon();
+  drawRates();
+  requestAnimationFrame(loop);
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();
+</script>
 </body>
-
 </html>
