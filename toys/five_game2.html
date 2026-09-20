@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Breakthrough Five</title>
-    <meta name="description" content="A five-by-five race game: get any piece to the far rank.">
+    <meta name="description" content="A five-by-five abstract: break through to the far rank and still be standing there next turn.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -24,6 +24,8 @@
             --target-capture: #ffc9c9;
             --panel: #f5f5f5;
             --accent: #ff3300;
+            --goal-line: #b9a6ff;
+            --threat: #ffb3b3;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -40,6 +42,8 @@
                 --target-capture: #5c2a2a;
                 --panel: #17171b;
                 --accent: #ff5c33;
+                --goal-line: #5b4a9e;
+                --threat: #742f2f;
             }
         }
 
@@ -134,6 +138,24 @@
             cursor: default;
         }
 
+        /* The rank the player to move is trying to hold. */
+        .cell.goal {
+            box-shadow: inset 0 3px 0 var(--goal-line), inset 0 -3px 0 var(--goal-line);
+        }
+
+        /* An enemy piece already standing on its goal rank: take it this turn
+           or lose. */
+        .cell.threat {
+            background-color: var(--threat);
+            animation: pulse 0.9s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            50% {
+                opacity: 0.55;
+            }
+        }
+
         .status {
             display: flex;
             flex-wrap: wrap;
@@ -206,8 +228,9 @@
 
     <main data-ar-focus>
         <h1>Breakthrough Five</h1>
-        <p class="lede">Two players, one board, five squares a side. Get any piece to the opposite
-            back rank and you win.</p>
+        <p class="lede">Two players, one board, five squares a side. Reaching the far rank is not
+            enough &mdash; you have to still be standing on it when your turn comes round again,
+            so your opponent gets one move to throw you off.</p>
 
         <div id="board" role="grid" aria-label="Five by five game board"></div>
 
@@ -217,15 +240,32 @@
         </div>
 
         <div class="rules">
+            <h2>Winning</h2>
+            <ul>
+                <li>You win if your turn <b>begins</b> with one of your pieces on the far rank
+                    &mdash; the shaded one. Getting there does not win on its own; surviving the
+                    reply does.</li>
+                <li>You also win by taking every enemy piece, or by leaving your opponent no
+                    legal move.</li>
+            </ul>
+
             <h2>How it moves</h2>
             <ul>
                 <li><b>Pawn</b> (&#x1F535;&#x1F534;) &mdash; one square in any direction.</li>
-                <li><b>Rook</b> (&#x1F3F0;&#x1F3EF;) &mdash; any distance along a rank or file, not through pieces.</li>
-                <li><b>Bishop</b> (&#x1F537;&#x1F536;) &mdash; any distance diagonally, not through pieces.</li>
+                <li><b>Rook</b> (&#x1F3F0;&#x1F3EF;) &mdash; one or two squares along a rank or
+                    file, not through pieces.</li>
+                <li><b>Bishop</b> (&#x1F537;&#x1F536;) &mdash; one or two squares diagonally, not
+                    through pieces.</li>
                 <li>Landing on an opposing piece captures it.</li>
                 <li>Tap or click a piece to select it, then tap a highlighted square. Arrow keys and
                     Enter work too.</li>
             </ul>
+
+            <h2>Why two squares</h2>
+            <p>With unlimited range the opening files and diagonals run clear from one back rank to
+                the other, and Blue's rook simply slides to the far rank on move one. Capping the
+                slide is what turns the board into a game: a search over these rules finds no forced
+                win for either side within eight plies.</p>
         </div>
     </main>
 
@@ -258,11 +298,11 @@
             // other way about.
             var GOAL_ROW = { 1: SIZE - 1, 2: 0 };
 
-            var board = [];
-            var cells = [];
-            var current = 1;
-            var selected = null;
-            var over = false;
+            // --- rules -------------------------------------------------------
+            // Pure functions over a board, so the same code the page plays by
+            // can be driven by a search. Nothing here reads UI state.
+
+            var MAX_SLIDE = 2;
 
             function owner(piece) {
                 if (piece >= P1_PAWN && piece <= P1_BISHOP) return 1;
@@ -270,76 +310,151 @@
                 return 0;
             }
 
-            function clearBetween(from, to) {
+            function startBoard() {
+                var b = [];
+                for (var r = 0; r < SIZE; r++) b.push(new Array(SIZE).fill(EMPTY));
+                b[0] = [P1_ROOK, P1_PAWN, P1_PAWN, P1_PAWN, P1_BISHOP];
+                b[SIZE - 1] = [P2_BISHOP, P2_PAWN, P2_PAWN, P2_PAWN, P2_ROOK];
+                return b;
+            }
+
+            function clearBetween(b, from, to) {
                 var dr = Math.sign(to.row - from.row);
                 var dc = Math.sign(to.col - from.col);
                 var r = from.row + dr;
                 var c = from.col + dc;
                 while (r !== to.row || c !== to.col) {
-                    if (board[r][c] !== EMPTY) return false;
+                    if (b[r][c] !== EMPTY) return false;
                     r += dr;
                     c += dc;
                 }
                 return true;
             }
 
-            function isLegal(from, to) {
+            function isLegal(b, from, to) {
                 if (from.row === to.row && from.col === to.col) return false;
-                var piece = board[from.row][from.col];
-                if (owner(board[to.row][to.col]) === owner(piece)) return false;
+                var piece = b[from.row][from.col];
+                if (piece === EMPTY) return false;
+                if (owner(b[to.row][to.col]) === owner(piece)) return false;
 
                 var dr = to.row - from.row;
                 var dc = to.col - from.col;
+                // Rook and bishop slide, but only so far. Unbounded, the
+                // opening files and diagonals run clear from one back rank to
+                // the other, and the game collapses into a three-move race no
+                // matter what the winning condition says.
+                var reach = Math.max(Math.abs(dr), Math.abs(dc));
 
                 switch (piece) {
                     case P1_PAWN:
                     case P2_PAWN:
-                        return Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
+                        return reach === 1;
                     case P1_ROOK:
                     case P2_ROOK:
-                        return (dr === 0 || dc === 0) && clearBetween(from, to);
+                        return (dr === 0 || dc === 0) && reach <= MAX_SLIDE &&
+                            clearBetween(b, from, to);
                     case P1_BISHOP:
                     case P2_BISHOP:
-                        return Math.abs(dr) === Math.abs(dc) && clearBetween(from, to);
+                        return Math.abs(dr) === Math.abs(dc) && reach <= MAX_SLIDE &&
+                            clearBetween(b, from, to);
                     default:
                         return false;
                 }
             }
 
-            function legalMovesFrom(from) {
+            function legalMovesFrom(b, from) {
                 var out = [];
                 for (var r = 0; r < SIZE; r++) {
                     for (var c = 0; c < SIZE; c++) {
-                        if (isLegal(from, { row: r, col: c })) out.push({ row: r, col: c });
+                        if (isLegal(b, from, { row: r, col: c })) out.push({ row: r, col: c });
                     }
                 }
                 return out;
             }
 
-            function hasAnyMove(player) {
+            function legalMoves(b, player) {
+                var out = [];
                 for (var r = 0; r < SIZE; r++) {
                     for (var c = 0; c < SIZE; c++) {
-                        if (owner(board[r][c]) !== player) continue;
-                        if (legalMovesFrom({ row: r, col: c }).length) return true;
+                        if (owner(b[r][c]) !== player) continue;
+                        var from = { row: r, col: c };
+                        var tos = legalMovesFrom(b, from);
+                        for (var i = 0; i < tos.length; i++) out.push({ from: from, to: tos[i] });
                     }
+                }
+                return out;
+            }
+
+            function applyMove(b, from, to) {
+                var next = b.map(function (row) { return row.slice(); });
+                next[to.row][to.col] = next[from.row][from.col];
+                next[from.row][from.col] = EMPTY;
+                return next;
+            }
+
+            function holdsGoal(b, player) {
+                var row = b[GOAL_ROW[player]];
+                for (var c = 0; c < SIZE; c++) {
+                    if (owner(row[c]) === player) return true;
                 }
                 return false;
             }
+
+            function hasPieces(b, player) {
+                for (var r = 0; r < SIZE; r++) {
+                    for (var c = 0; c < SIZE; c++) if (owner(b[r][c]) === player) return true;
+                }
+                return false;
+            }
+
+            // Everything is decided when a turn begins, which is what makes a
+            // breakthrough cost something: reaching the far rank does not win
+            // on its own, you have to still be standing there when your turn
+            // comes round again. The opponent gets exactly one move to answer.
+            function outcomeAtTurnStart(b, player) {
+                var foe = player === 1 ? 2 : 1;
+                if (holdsGoal(b, player)) {
+                    return { winner: player, reason: 'holds the far rank' };
+                }
+                if (!hasPieces(b, player)) {
+                    return { winner: foe, reason: 'has taken every piece' };
+                }
+                if (legalMoves(b, player).length === 0) {
+                    return { winner: foe, reason: 'has left ' + PLAYER_NAME[player] + ' no move' };
+                }
+                return null;
+            }
+
+            // --- game state ----------------------------------------------------
+            var board = [];
+            var cells = [];
+            var current = 1;
+            var selected = null;
+            var over = false;
 
             function setMessage(text, isWin) {
                 messageEl.textContent = text;
                 messageEl.classList.toggle('win', !!isWin);
             }
 
+            function announceTurn() {
+                var foe = current === 1 ? 2 : 1;
+                // Warn the player who has to answer, or they will not see it
+                // coming until they have already lost.
+                if (holdsGoal(board, foe)) {
+                    setMessage(PLAYER_NAME[foe] + ' is on the far rank \u2014 ' +
+                        PLAYER_NAME[current] + ' must take it this turn.');
+                } else {
+                    setMessage(PLAYER_NAME[current] + ' to move.');
+                }
+            }
+
             function reset() {
-                board = [];
-                for (var r = 0; r < SIZE; r++) board.push(new Array(SIZE).fill(EMPTY));
-                board[0] = [P1_ROOK, P1_PAWN, P1_PAWN, P1_PAWN, P1_BISHOP];
-                board[SIZE - 1] = [P2_BISHOP, P2_PAWN, P2_PAWN, P2_PAWN, P2_ROOK];
+                board = startBoard();
                 current = 1;
                 selected = null;
                 over = false;
-                setMessage(PLAYER_NAME[current] + ' to move.');
+                announceTurn();
                 render();
             }
 
@@ -363,16 +478,28 @@
             }
 
             function render() {
-                var targets = selected ? legalMovesFrom(selected) : [];
+                var targets = selected ? legalMovesFrom(board, selected) : [];
+                var goalRow = GOAL_ROW[current];
+                var foe = current === 1 ? 2 : 1;
+                var mustAnswer = !over && holdsGoal(board, foe);
+
                 for (var r = 0; r < SIZE; r++) {
                     for (var c = 0; c < SIZE; c++) {
                         var piece = board[r][c];
                         var btn = cells[r][c];
                         btn.textContent = SYMBOL[piece] || '';
-                        btn.classList.remove('selected', 'target', 'capture');
+                        btn.classList.remove('selected', 'target', 'capture', 'goal', 'threat');
 
                         var isSelected = selected && selected.row === r && selected.col === c;
                         if (isSelected) btn.classList.add('selected');
+
+                        // The rank you are trying to hold, marked so the
+                        // objective is visible rather than something you have
+                        // to remember.
+                        if (!over && r === goalRow) btn.classList.add('goal');
+                        if (mustAnswer && r === GOAL_ROW[foe] && owner(piece) === foe) {
+                            btn.classList.add('threat');
+                        }
 
                         var isTarget = targets.some(function (t) {
                             return t.row === r && t.col === c;
@@ -382,18 +509,15 @@
                             if (piece !== EMPTY) btn.classList.add('capture');
                         }
 
-                        // Only squares that can actually be acted on stay
-                        // reachable, so tabbing through the board does not
-                        // walk twenty-five dead buttons.
-                        var usable = !over &&
-                            (isTarget || owner(piece) === current);
+                        var usable = !over && (isTarget || owner(piece) === current);
                         btn.disabled = !usable;
 
-                        var where = 'row ' + (r + 1) + ' column ' + (c + 1);
+                        var where = 'row ' + (r + 1) + ', column ' + (c + 1);
                         var what = piece === EMPTY
                             ? 'empty'
                             : PLAYER_NAME[owner(piece)] + ' ' + NAME[piece];
                         btn.setAttribute('aria-label', where + ', ' + what +
+                            (r === goalRow ? ', goal rank' : '') +
                             (isTarget ? ', can move here' : '') +
                             (isSelected ? ', selected' : ''));
                         btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
@@ -402,46 +526,17 @@
             }
 
             function move(from, to) {
-                board[to.row][to.col] = board[from.row][from.col];
-                board[from.row][from.col] = EMPTY;
-
-                var mover = current;
-
-                // Checked here, for the player who just moved, and before the
-                // turn changes hands. Doing it after the swap tested the wrong
-                // player against the wrong rank, so a win was only ever
-                // noticed a turn late, credited to the loser.
-                if (to.row === GOAL_ROW[mover]) {
-                    over = true;
-                    selected = null;
-                    setMessage(PLAYER_NAME[mover] + ' reaches the far rank and wins.', true);
-                    render();
-                    return;
-                }
-
-                var opponent = mover === 1 ? 2 : 1;
-
-                // Capturing the last enemy piece also ends it.
-                var opponentHasPieces = board.some(function (row) {
-                    return row.some(function (p) { return owner(p) === opponent; });
-                });
-                if (!opponentHasPieces) {
-                    over = true;
-                    selected = null;
-                    setMessage(PLAYER_NAME[mover] + ' captures the last piece and wins.', true);
-                    render();
-                    return;
-                }
-
-                current = opponent;
+                board = applyMove(board, from, to);
                 selected = null;
+                current = current === 1 ? 2 : 1;
 
-                if (!hasAnyMove(current)) {
+                var result = outcomeAtTurnStart(board, current);
+                if (result) {
                     over = true;
-                    setMessage(PLAYER_NAME[current] + ' has no legal move. ' +
-                        PLAYER_NAME[mover] + ' wins.', true);
+                    setMessage(PLAYER_NAME[result.winner] + ' ' + result.reason + '. ' +
+                        PLAYER_NAME[result.winner] + ' wins.', true);
                 } else {
-                    setMessage(PLAYER_NAME[current] + ' to move.');
+                    announceTurn();
                 }
                 render();
             }
@@ -452,22 +547,21 @@
                 var c = Number(e.currentTarget.dataset.col);
                 var piece = board[r][c];
 
-                if (selected && isLegal(selected, { row: r, col: c })) {
+                if (selected && isLegal(board, selected, { row: r, col: c })) {
                     move(selected, { row: r, col: c });
                     return;
                 }
 
                 if (owner(piece) === current) {
-                    // Tapping the selected piece again puts it back down.
                     var same = selected && selected.row === r && selected.col === c;
                     selected = same ? null : { row: r, col: c };
                     render();
                     if (selected) {
-                        var n = legalMovesFrom(selected).length;
+                        var n = legalMovesFrom(board, selected).length;
                         setMessage(PLAYER_NAME[current] + ' ' + NAME[piece] + ' selected, ' +
                             n + (n === 1 ? ' move.' : ' moves.'));
                     } else {
-                        setMessage(PLAYER_NAME[current] + ' to move.');
+                        announceTurn();
                     }
                     return;
                 }
@@ -484,9 +578,6 @@
                 if (!d) return;
                 e.preventDefault();
 
-                // Arrows walk the whole grid, including squares that are
-                // disabled for clicking, so the keyboard can still survey the
-                // board rather than only hopping between legal targets.
                 var r = Number(e.currentTarget.dataset.row) + d[0];
                 var c = Number(e.currentTarget.dataset.col) + d[1];
                 if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
@@ -501,6 +592,15 @@
                     });
                 }
             }
+
+            // Exposed so the rules can be searched by a test harness rather
+            // than eyeballed. Harmless in a browser.
+            window.__five = {
+                SIZE: SIZE, MAX_SLIDE: MAX_SLIDE, GOAL_ROW: GOAL_ROW,
+                startBoard: startBoard, legalMoves: legalMoves, applyMove: applyMove,
+                outcomeAtTurnStart: outcomeAtTurnStart, holdsGoal: holdsGoal,
+                owner: owner, isLegal: isLegal
+            };
 
             document.getElementById('reset-btn').addEventListener('click', reset);
 
