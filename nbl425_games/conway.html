@@ -1,97 +1,448 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cellular Automata: Game of Life</title>
+    <title>Conway's Game of Life</title>
+    <meta name="description" content="Draw a starting pattern and step the Game of Life one generation at a time.">
+    <link rel="stylesheet" href="cards.css">
+    <link rel="stylesheet" href="../archive.css">
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
+        .board-wrap {
+            padding: 12px;
+            overflow-x: auto;
+            background-color: var(--panel);
+            border: 1px solid var(--rule);
+            border-radius: 10px;
         }
+
         canvas {
-            border: 1px solid #000;
+            display: block;
+            margin: 0 auto;
+            /* Otherwise dragging out a pattern pans the page instead. */
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 12px 16px;
+            margin-bottom: 16px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .field label {
+            color: var(--muted);
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .field select,
+        .field input[type="range"] {
+            padding: 8px 10px;
+            color: var(--fg);
+            font: inherit;
+            font-size: 0.9rem;
+            background-color: var(--panel);
+            border: 1px solid var(--rule);
+            border-radius: 6px;
+        }
+
+        .field input[type="range"] {
+            width: 150px;
+            padding: 0;
+            accent-color: var(--accent);
+            border: none;
+            background: none;
+        }
+
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 28px;
+            margin: 14px 0 0;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .stats b {
+            color: var(--fg);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .rules-note {
+            margin-top: 20px;
+            color: var(--muted);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .rules-note b {
+            color: var(--fg);
         }
     </style>
 </head>
-<body>
-    <canvas id="gameCanvas"></canvas>
+
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="index.html">&larr; NBL425 Games</a>
+        <span class="ar-here">Game of Life</span>
+        <span class="ar-spacer"></span>
+        <a href="../archive.html">Archive</a>
+    </nav>
+
+    <main data-ar-focus>
+        <h1>Conway's Game of Life</h1>
+        <p class="blurb">Four rules, no player, and more behaviour than they have any right to
+            produce.</p>
+
+        <div class="controls">
+            <button type="button" id="play">Play</button>
+            <button type="button" id="step" class="secondary">Step</button>
+            <button type="button" id="clear" class="secondary">Clear</button>
+            <button type="button" id="random" class="secondary">Random</button>
+            <div class="field">
+                <label for="pattern">Pattern</label>
+                <select id="pattern">
+                    <option value="">Place a pattern&hellip;</option>
+                    <option value="glider">Glider</option>
+                    <option value="lwss">Lightweight spaceship</option>
+                    <option value="blinker">Blinker</option>
+                    <option value="toad">Toad</option>
+                    <option value="beacon">Beacon</option>
+                    <option value="pulsar">Pulsar</option>
+                    <option value="gosper">Gosper glider gun</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="speed">Speed <span id="speed-label">10/s</span></label>
+                <input type="range" id="speed" min="0" max="6" step="1" value="3"
+                    aria-label="Generations per second">
+            </div>
+        </div>
+
+        <div class="board-wrap">
+            <canvas id="gameCanvas" aria-label="Game of Life grid" role="img"></canvas>
+        </div>
+
+        <p class="stats">
+            <span>Generation <b id="gen">0</b></span>
+            <span>Alive <b id="pop">0</b></span>
+            <span id="state-note"></span>
+        </p>
+
+        <p class="rules-note">
+            Drag across the grid to draw cells, or drag over live ones to erase.
+            <b>A live cell</b> with two or three live neighbours survives; with fewer it dies of
+            isolation, with more of overcrowding. <b>A dead cell</b> with exactly three live
+            neighbours comes alive. The grid wraps at the edges, so a glider that leaves the
+            right-hand side comes back in on the left.
+        </p>
+    </main>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const resolution = 10;
-        canvas.width = 600;
-        canvas.height = 400;
+        (function () {
+            var canvas = document.getElementById('gameCanvas');
+            var ctx = canvas.getContext('2d');
 
-        const COLS = canvas.width / resolution;
-        const ROWS = canvas.height / resolution;
+            var CELL = 10;
+            var COLS = 60;
+            var ROWS = 40;
 
-        function buildGrid() {
-            return new Array(COLS).fill(null)
-                .map(() => new Array(ROWS).fill(null)
-                .map(() => Math.floor(Math.random() * 2)));
-        }
+            var grid = make();
+            var generation = 0;
+            var playing = false;
+            var timer = null;
+            var paint = null;      // 1 while drawing, 0 while erasing
+            var last = null;       // previous drag cell, for filling the line
+            var history = [];      // recent population counts, to spot a still life
 
-        let grid = buildGrid();
+            var DELAYS = [1000, 500, 200, 100, 50, 25, 16];
 
-        function render(grid) {
-            for (let col = 0; col < grid.length; col++) {
-                for (let row = 0; row < grid[col].length; row++) {
-                    const cell = grid[col][row];
-
-                    ctx.beginPath();
-                    ctx.rect(col * resolution, row * resolution, resolution, resolution);
-                    ctx.fillStyle = cell ? 'black' : 'white';
-                    ctx.fill();
-                    ctx.stroke();
-                }
+            function make() {
+                var g = new Uint8Array(COLS * ROWS);
+                return g;
             }
-        }
 
-        function nextGen(grid) {
-            const nextGen = grid.map(arr => [...arr]);
+            function at(g, c, r) {
+                // Wrapped edges. The original clipped them, so anything that
+                // reached a wall quietly died against it.
+                c = (c + COLS) % COLS;
+                r = (r + ROWS) % ROWS;
+                return g[r * COLS + c];
+            }
 
-            for (let col = 0; col < grid.length; col++) {
-                for (let row = 0; row < grid[col].length; row++) {
-                    const cell = grid[col][row];
-                    let numNeighbors = 0;
-                    for (let i = -1; i < 2; i++) {
-                        for (let j = -1; j < 2; j++) {
-                            if (i === 0 && j === 0) continue;
-                            const x_cell = col + i;
-                            const y_cell = row + j;
+            function set(g, c, r, v) {
+                if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return;
+                g[r * COLS + c] = v;
+            }
 
-                            if (x_cell >= 0 && y_cell >= 0 && x_cell < COLS && y_cell < ROWS) {
-                                const currentNeighbor = grid[col + i][row + j];
-                                numNeighbors += currentNeighbor;
-                            }
+            function css(name) {
+                return getComputedStyle(document.documentElement)
+                    .getPropertyValue(name).trim();
+            }
+
+            function sizeCanvas() {
+                var dpr = window.devicePixelRatio || 1;
+                canvas.style.width = (COLS * CELL) + 'px';
+                canvas.style.height = (ROWS * CELL) + 'px';
+                canvas.width = Math.round(COLS * CELL * dpr);
+                canvas.height = Math.round(ROWS * CELL * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            function draw() {
+                var dead = css('--panel-2') || '#ffffff';
+                var alive = css('--accent') || '#0066cc';
+                var line = css('--rule') || '#dddddd';
+
+                ctx.fillStyle = dead;
+                ctx.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+
+                ctx.fillStyle = alive;
+                for (var r = 0; r < ROWS; r++) {
+                    for (var c = 0; c < COLS; c++) {
+                        if (grid[r * COLS + c]) {
+                            ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
                         }
                     }
+                }
 
-                    if (cell === 1 && numNeighbors < 2) {
-                        nextGen[col][row] = 0;
-                    } else if (cell === 1 && numNeighbors > 3) {
-                        nextGen[col][row] = 0;
-                    } else if (cell === 0 && numNeighbors === 3) {
-                        nextGen[col][row] = 1;
+                // Grid lines drawn once as a lattice rather than stroking
+                // every cell, which was 2400 stroke calls a frame.
+                ctx.strokeStyle = line;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (var x = 0; x <= COLS; x++) {
+                    ctx.moveTo(x * CELL + 0.5, 0);
+                    ctx.lineTo(x * CELL + 0.5, ROWS * CELL);
+                }
+                for (var y = 0; y <= ROWS; y++) {
+                    ctx.moveTo(0, y * CELL + 0.5);
+                    ctx.lineTo(COLS * CELL, y * CELL + 0.5);
+                }
+                ctx.stroke();
+
+                var pop = 0;
+                for (var i = 0; i < grid.length; i++) pop += grid[i];
+                document.getElementById('gen').textContent = generation;
+                document.getElementById('pop').textContent = pop;
+                return pop;
+            }
+
+            function stepOnce() {
+                var next = make();
+                for (var r = 0; r < ROWS; r++) {
+                    for (var c = 0; c < COLS; c++) {
+                        var n = at(grid, c - 1, r - 1) + at(grid, c, r - 1) + at(grid, c + 1, r - 1)
+                            + at(grid, c - 1, r) + at(grid, c + 1, r)
+                            + at(grid, c - 1, r + 1) + at(grid, c, r + 1) + at(grid, c + 1, r + 1);
+                        var live = grid[r * COLS + c];
+                        next[r * COLS + c] = (live && (n === 2 || n === 3)) || (!live && n === 3) ? 1 : 0;
                     }
                 }
+                grid = next;
+                generation += 1;
+
+                var pop = draw();
+                note(pop);
             }
-            return nextGen;
-        }
 
-        function update() {
-            grid = nextGen(grid);
-            render(grid);
-            requestAnimationFrame(update);
-        }
+            function note(pop) {
+                var el = document.getElementById('state-note');
+                history.push(pop);
+                if (history.length > 6) history.shift();
 
-        requestAnimationFrame(update);
+                if (pop === 0) {
+                    el.textContent = 'Extinct';
+                    stop();
+                } else if (history.length === 6 &&
+                    history.every(function (p) { return p === history[0]; })) {
+                    el.textContent = 'Settled';
+                } else {
+                    el.textContent = '';
+                }
+            }
+
+            function delay() { return DELAYS[Number(document.getElementById('speed').value)] || 100; }
+
+            function schedule() {
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    if (!playing) return;
+                    stepOnce();
+                    schedule();
+                }, delay());
+            }
+
+            function play() {
+                // The original ran straight off requestAnimationFrame, sixty
+                // generations a second with no controls at all: far too fast
+                // to watch a glider, and no way to slow it down or stop it.
+                playing = true;
+                document.getElementById('play').textContent = 'Pause';
+                document.getElementById('step').disabled = true;
+                schedule();
+            }
+
+            function stop() {
+                playing = false;
+                clearTimeout(timer);
+                timer = null;
+                document.getElementById('play').textContent = 'Play';
+                document.getElementById('step').disabled = false;
+            }
+
+            // --- patterns ----------------------------------------------------
+            var PATTERNS = {
+                glider: [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]],
+                lwss: [[0, 0], [3, 0], [4, 1], [0, 2], [4, 2], [1, 3], [2, 3], [3, 3], [4, 3]],
+                blinker: [[0, 0], [1, 0], [2, 0]],
+                toad: [[1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1]],
+                beacon: [[0, 0], [1, 0], [0, 1], [3, 2], [2, 3], [3, 3]],
+                pulsar: (function () {
+                    var out = [];
+                    var arms = [2, 3, 4];
+                    [0, 5, 7, 12].forEach(function (r) {
+                        arms.forEach(function (a) { out.push([a, r], [a + 6, r]); });
+                    });
+                    [2, 3, 4, 8, 9, 10].forEach(function (r) {
+                        [0, 5, 7, 12].forEach(function (c) { out.push([c, r]); });
+                    });
+                    return out;
+                }()),
+                gosper: [
+                    [0, 4], [0, 5], [1, 4], [1, 5],
+                    [10, 4], [10, 5], [10, 6], [11, 3], [11, 7], [12, 2], [12, 8],
+                    [13, 2], [13, 8], [14, 5], [15, 3], [15, 7],
+                    [16, 4], [16, 5], [16, 6], [17, 5],
+                    [20, 2], [20, 3], [20, 4], [21, 2], [21, 3], [21, 4],
+                    [22, 1], [22, 5], [24, 0], [24, 1], [24, 5], [24, 6],
+                    [34, 2], [34, 3], [35, 2], [35, 3]
+                ]
+            };
+
+            function place(name) {
+                var cells = PATTERNS[name];
+                if (!cells) return;
+                grid = make();
+                generation = 0;
+                history = [];
+                var w = Math.max.apply(null, cells.map(function (p) { return p[0]; })) + 1;
+                var h = Math.max.apply(null, cells.map(function (p) { return p[1]; })) + 1;
+                var ox = Math.floor((COLS - w) / 2);
+                var oy = Math.floor((ROWS - h) / 2);
+                cells.forEach(function (p) { set(grid, ox + p[0], oy + p[1], 1); });
+                document.getElementById('state-note').textContent = '';
+                draw();
+            }
+
+            // --- drawing on the grid -----------------------------------------
+            function cellAt(e) {
+                var rect = canvas.getBoundingClientRect();
+                return {
+                    c: Math.floor((e.clientX - rect.left) / CELL),
+                    r: Math.floor((e.clientY - rect.top) / CELL)
+                };
+            }
+
+            canvas.addEventListener('pointerdown', function (e) {
+                e.preventDefault();
+                var p = cellAt(e);
+                if (p.c < 0 || p.c >= COLS || p.r < 0 || p.r >= ROWS) return;
+                // Whether this drag paints or erases is decided by the first
+                // cell, so dragging over a live run rubs it out cleanly.
+                paint = grid[p.r * COLS + p.c] ? 0 : 1;
+                last = p;
+                set(grid, p.c, p.r, paint);
+                draw();
+                try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* uncaptured is fine */ }
+            });
+
+            canvas.addEventListener('pointermove', function (e) {
+                if (paint === null) return;
+                var p = cellAt(e);
+                // Pointer moves are sampled, so a quick drag reports a handful
+                // of far-apart positions. Filling the line between the last
+                // one and this one is what stops a fast stroke coming out as
+                // a dotted line.
+                var changed = false;
+                if (last) {
+                    var steps = Math.max(Math.abs(p.c - last.c), Math.abs(p.r - last.r));
+                    for (var i = 1; i <= steps; i++) {
+                        var c = Math.round(last.c + (p.c - last.c) * i / steps);
+                        var r = Math.round(last.r + (p.r - last.r) * i / steps);
+                        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) continue;
+                        if (grid[r * COLS + c] !== paint) {
+                            set(grid, c, r, paint);
+                            changed = true;
+                        }
+                    }
+                }
+                last = p;
+                if (changed) draw();
+            });
+
+            function endPaint() { paint = null; last = null; }
+            canvas.addEventListener('pointerup', endPaint);
+            canvas.addEventListener('pointercancel', endPaint);
+            canvas.addEventListener('pointerleave', endPaint);
+
+            // --- controls -----------------------------------------------------
+            document.getElementById('play').addEventListener('click', function () {
+                if (playing) stop(); else play();
+            });
+            document.getElementById('step').addEventListener('click', stepOnce);
+            document.getElementById('clear').addEventListener('click', function () {
+                stop();
+                grid = make();
+                generation = 0;
+                history = [];
+                document.getElementById('state-note').textContent = '';
+                draw();
+            });
+            document.getElementById('random').addEventListener('click', function () {
+                grid = make();
+                for (var i = 0; i < grid.length; i++) grid[i] = Math.random() < 0.28 ? 1 : 0;
+                generation = 0;
+                history = [];
+                document.getElementById('state-note').textContent = '';
+                draw();
+            });
+            document.getElementById('pattern').addEventListener('change', function (e) {
+                if (!e.target.value) return;
+                stop();
+                place(e.target.value);
+            });
+            document.getElementById('speed').addEventListener('input', function () {
+                document.getElementById('speed-label').textContent =
+                    Math.round(1000 / delay()) + '/s';
+                if (playing) schedule();
+            });
+
+            if (window.matchMedia) {
+                var mq = window.matchMedia('(prefers-color-scheme: dark)');
+                if (mq.addEventListener) mq.addEventListener('change', draw);
+            }
+
+            sizeCanvas();
+            document.getElementById('speed-label').textContent = Math.round(1000 / delay()) + '/s';
+            place('gosper');
+        }());
     </script>
 </body>
+
 </html>
