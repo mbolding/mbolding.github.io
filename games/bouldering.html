@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bouldering</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
     <style>
         :root {
             --wall-color: #f4efeb;
@@ -31,8 +32,12 @@
             font-family: 'Inter', sans-serif;
             background-color: var(--wall-color);
             color: var(--text-color);
+            /* Column, so the back bar stacks above the wall. As a row it
+               became a flex sibling of the board and squeezed it — badly
+               enough on a phone that the wall had no room left to place
+               holds in. */
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
             height: 100vh;
             overflow: hidden;
@@ -42,9 +47,10 @@
 
         #game-container {
             position: relative;
+            flex: 1 1 auto;
             width: 100%;
             max-width: 800px;
-            height: 100%;
+            min-height: 0;
             max-height: 1200px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             background-color: var(--wall-color);
@@ -57,6 +63,9 @@
             width: 100%;
             height: 100%;
             cursor: pointer;
+            /* Without this a drag on the wall pans the page instead of
+               moving a limb, and a double tap zooms. */
+            touch-action: none;
         }
 
         #ui-layer {
@@ -196,7 +205,14 @@
 
     </style>
 </head>
-<body>
+<body class="ar-touch ar-motion ar-nozoom">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Bouldering</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
 
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
@@ -217,7 +233,7 @@
                 <div class="subtitle">Reach the top hold. Manage your stamina.</div>
                 <button class="btn" id="start-btn">Start Climb</button>
                 <div class="instructions">
-                    Click on a limb to select it, then click on a hold to move.<br><br>
+                    Tap or click a limb to select it, then tap a hold to move it there.<br><br>
                     Long reaches and poor positioning drain stamina faster.
                 </div>
             </div>
@@ -245,10 +261,20 @@
         let gameState = 'start'; // start, playing, gameover, win
         let lastTime = 0;
         
-        // Resize canvas
+        // The game reasons in CSS pixels; the backing store is scaled by the
+        // device pixel ratio so the wall is sharp on a phone or a retina
+        // display rather than an upscale of an 800-wide bitmap.
+        const view = { w: 0, h: 0 };
+
         function resizeCanvas() {
-            canvas.width = canvas.parentElement.clientWidth;
-            canvas.height = canvas.parentElement.clientHeight;
+            const dpr = window.devicePixelRatio || 1;
+            view.w = canvas.parentElement.clientWidth;
+            view.h = canvas.parentElement.clientHeight;
+            canvas.style.width = view.w + 'px';
+            canvas.style.height = view.h + 'px';
+            canvas.width = Math.round(view.w * dpr);
+            canvas.height = Math.round(view.h * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
@@ -539,54 +565,66 @@
                 this.targetCameraY = 0;
                 this.climber = null; 
                 
-                if (canvas.width === 0) resizeCanvas();
+                if (view.w === 0) resizeCanvas();
                 this.generateWall();
                 
-                this.climber = new Climber(canvas.width / 2, canvas.height);
+                this.climber = new Climber(view.w / 2, view.h);
                 this.climber.attachInitial(this.holds);
-                this.targetCameraY = this.climber.body.y - canvas.height / 2;
+                this.targetCameraY = this.climber.body.y - view.h / 2;
                 this.cameraY = this.targetCameraY;
             }
             
             generateWall() {
-                const wallWidth = canvas.width;
-                const wallHeight = canvas.height * 2.5; 
-                const marginX = 100;
-                const marginY = 100;
+                const wallWidth = view.w;
+                const wallHeight = view.h * 2.5;
+                // Proportional, so a phone-width wall is not entirely margin.
+                const marginX = Math.min(100, wallWidth * 0.18);
+                const marginY = Math.min(100, wallHeight * 0.08);
+                const usableWidth = Math.max(40, wallWidth - marginX * 2);
                 
                 const startY = wallHeight - marginY;
-                this.holds.push(new Hold(canvas.width / 2 - 40, startY, 0, 20));
-                this.holds.push(new Hold(canvas.width / 2 + 40, startY, 0, 20));
-                this.holds.push(new Hold(canvas.width / 2, startY - 60, 0, 25)); 
+                this.holds.push(new Hold(view.w / 2 - 40, startY, 0, 20));
+                this.holds.push(new Hold(view.w / 2 + 40, startY, 0, 20));
+                this.holds.push(new Hold(view.w / 2, startY - 60, 0, 25)); 
 
                 const numHolds = 80;
                 let currentY = startY - 100;
-                
+
+                // A rejected position used to `i--` and retry with no limit,
+                // so a wall too narrow to fit another hold span the loop for
+                // ever and locked the tab. Retries are capped per hold now,
+                // and the loop moves up the wall rather than insisting.
+                const MAX_TRIES = 30;
+
                 for (let i = 0; i < numHolds; i++) {
-                    const x = marginX + Math.random() * (wallWidth - marginX * 2);
-                    const y = currentY;
-                    const size = 15 + Math.random() * 20;
-                    
-                    let tooClose = false;
-                    for (const h of this.holds) {
-                        if (dist(x, y, h.x, h.y) < (size + h.size + 10)) {
-                            tooClose = true;
-                            break;
+                    let tries = 0;
+                    let placed = false;
+
+                    while (tries < MAX_TRIES && !placed) {
+                        tries++;
+                        const x = marginX + Math.random() * usableWidth;
+                        const y = currentY;
+                        const size = 15 + Math.random() * 20;
+
+                        let tooClose = false;
+                        for (const h of this.holds) {
+                            if (dist(x, y, h.x, h.y) < (size + h.size + 10)) {
+                                tooClose = true;
+                                break;
+                            }
                         }
-                    }
-                    
-                    if (!tooClose) {
-                        this.holds.push(new Hold(x, y, 1, size));
-                    } else {
-                        i--; 
-                        continue;
+
+                        if (!tooClose) {
+                            this.holds.push(new Hold(x, y, 1, size));
+                            placed = true;
+                        }
                     }
                     
                     currentY -= 20 + Math.random() * 40;
                     if (currentY < marginY + 100) break; 
                 }
                 
-                this.holds.push(new Hold(canvas.width / 2, marginY, 2, 40));
+                this.holds.push(new Hold(view.w / 2, marginY, 2, 40));
             }
             
             update(dt) {
@@ -601,9 +639,9 @@
                     }
                 }
                 
-                this.targetCameraY = this.climber.body.y - canvas.height * 0.6;
-                if (this.holds.length > 0 && this.targetCameraY > this.holds[0].y - canvas.height + 200) {
-                    this.targetCameraY = this.holds[0].y - canvas.height + 200;
+                this.targetCameraY = this.climber.body.y - view.h * 0.6;
+                if (this.holds.length > 0 && this.targetCameraY > this.holds[0].y - view.h + 200) {
+                    this.targetCameraY = this.holds[0].y - view.h + 200;
                 }
                 
                 this.cameraY += (this.targetCameraY - this.cameraY) * 5 * dt;
@@ -647,7 +685,7 @@
                 }
                 
                 // Fall
-                if (numAttached < 2 || this.climber.body.y > this.cameraY + canvas.height + 50) {
+                if (numAttached < 2 || this.climber.body.y > this.cameraY + view.h + 50) {
                     triggerGameOver(false);
                 }
                 
@@ -658,7 +696,7 @@
             }
             
             draw(ctx) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.clearRect(0, 0, view.w, view.h);
                 
                 ctx.save();
                 ctx.translate(0, -this.cameraY);
@@ -682,8 +720,13 @@
         const game = new Game();
 
         // --- Input Handling ---
-        canvas.addEventListener('mousedown', (e) => {
+        // Pointer events rather than mousedown: touch browsers only
+        // synthesise a mouse event after a delay, and not at all once the
+        // gesture is treated as a scroll, which made the wall unreliable to
+        // climb with a finger.
+        canvas.addEventListener('pointerdown', (e) => {
             if (gameState !== 'playing') return;
+            e.preventDefault();
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top + game.cameraY;
