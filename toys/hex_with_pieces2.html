@@ -1,182 +1,526 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexagon Board Game with Multiple Piece Types</title>
+    <title>Hex Board Sandbox</title>
+    <meta name="description" content="A blank hex grid you can size, place pieces on and drag them around.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
     <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #111111;
+            --muted: #666666;
+            --panel: #f5f5f5;
+            --rule: #e0e0e0;
+            --accent: #ff3300;
+            --board-bg: #ffffff;
+            --hex-line: #999999;
+            --hex-fill: #fafafa;
+            --hex-hover: #ffeadf;
+            --piece-text: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0e0e11;
+                --fg: #ededed;
+                --muted: #9a9aa2;
+                --panel: #17171b;
+                --rule: #2b2b33;
+                --accent: #ff5c33;
+                --board-bg: #121216;
+                --hex-line: #4a4a55;
+                --hex-fill: #1a1a20;
+                --hex-hover: #3a2820;
+                --piece-text: #16120e;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            color: var(--fg);
+            background-color: var(--bg);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        main {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 28px 16px 64px;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: clamp(1.6rem, 6vw, 2.2rem);
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+        }
+
+        .lede {
+            margin: 0 0 24px;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .panel {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 14px 20px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background-color: var(--panel);
+        }
+
+        .field {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            gap: 5px;
         }
-        canvas {
-            border: 1px solid #000;
-            margin-top: 20px;
+
+        .field label {
+            color: var(--muted);
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        input, button, select {
-            margin: 5px;
-            padding: 5px;
+
+        .field input,
+        .field select {
+            padding: 8px 10px;
+            color: var(--fg);
+            font: inherit;
+            font-size: 0.9rem;
+            background-color: var(--bg);
+            border: 1px solid var(--rule);
         }
-        #gameContainer {
-            position: relative;
+
+        .field input[type="number"] {
+            width: 80px;
         }
-        .gamePiece {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            position: absolute;
-            cursor: move;
-            z-index: 10;
+
+        .swatches {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            color: white;
+            gap: 6px;
+        }
+
+        .swatch {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .swatch[aria-pressed="true"] {
+            border-color: var(--fg);
+        }
+
+        button.action {
+            padding: 9px 16px;
+            color: var(--fg);
+            font: inherit;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            background: none;
+            border: 1px solid var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        button.action:hover {
+            color: var(--bg);
+            background-color: var(--fg);
+            border-color: var(--fg);
+        }
+
+        .board-wrap {
+            padding: 12px;
+            overflow-x: auto;
+            background-color: var(--board-bg);
+            border: 1px solid var(--rule);
+        }
+
+        canvas {
+            display: block;
+            /* Without this a drag across the board scrolls the page instead. */
+            touch-action: none;
+            cursor: pointer;
+        }
+
+        .hint {
+            margin: 14px 0 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .hint b {
+            color: var(--fg);
+        }
+
+        .count {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-variant-numeric: tabular-nums;
         }
     </style>
 </head>
-<body>
-    <h1>Hexagon Board Game with Multiple Piece Types</h1>
-    <div>
-        <label for="rows">Rows:</label>
-        <input type="number" id="rows" min="1" max="20" value="6">
-        <label for="cols">Columns:</label>
-        <input type="number" id="cols" min="1" max="20" value="6">
-        <button onclick="generateBoard()">Generate Board</button>
-    </div>
-    <div>
-        <label for="pieceType">Piece Type:</label>
-        <select id="pieceType">
-            <option value="pawn">Pawn</option>
-            <option value="rook">Rook</option>
-            <option value="knight">Knight</option>
-            <option value="bishop">Bishop</option>
-            <option value="queen">Queen</option>
-            <option value="king">King</option>
-        </select>
-    </div>
-    <div id="gameContainer">
-        <canvas id="hexCanvas"></canvas>
-    </div>
+
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Hex Board Sandbox</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
+    <main data-ar-focus>
+        <h1>Hex Board Sandbox</h1>
+        <p class="lede">A blank hex grid for working a position out by hand. Size the board,
+            drop pieces on it, push them around.</p>
+
+        <div class="panel">
+            <div class="field">
+                <label for="rows">Rows</label>
+                <input type="number" id="rows" min="2" max="16" value="6">
+            </div>
+            <div class="field">
+                <label for="cols">Columns</label>
+                <input type="number" id="cols" min="2" max="16" value="6">
+            </div>
+            <div class="field">
+                <label for="pieceType">Piece</label>
+                <select id="pieceType">
+                    <option value="pawn">Pawn</option>
+                    <option value="rook">Rook</option>
+                    <option value="knight">Knight</option>
+                    <option value="bishop">Bishop</option>
+                    <option value="queen">Queen</option>
+                    <option value="king">King</option>
+                </select>
+            </div>
+            <div class="field">
+                <label id="side-label">Side</label>
+                <div class="swatches" role="group" aria-labelledby="side-label">
+                    <button type="button" class="swatch" data-side="light"
+                        style="background:#e8d9b8" aria-pressed="true" aria-label="Light side"></button>
+                    <button type="button" class="swatch" data-side="dark"
+                        style="background:#7b4a2d" aria-pressed="false" aria-label="Dark side"></button>
+                </div>
+            </div>
+            <button type="button" class="action" id="resize">Resize board</button>
+            <button type="button" class="action" id="clear">Clear pieces</button>
+        </div>
+
+        <div class="board-wrap">
+            <canvas id="hexCanvas" aria-label="Hex board" role="img"></canvas>
+        </div>
+
+        <p class="hint">
+            <b>Tap an empty hex</b> to drop the selected piece on it.
+            <b>Drag a piece</b> to move it &mdash; pieces snap to the nearest hex.
+            <b>Drag one off the board</b> to take it off.
+        </p>
+        <p class="count" id="count" role="status" aria-live="polite">No pieces on the board.</p>
+    </main>
 
     <script>
-        const canvas = document.getElementById('hexCanvas');
-        const ctx = canvas.getContext('2d');
-        const gameContainer = document.getElementById('gameContainer');
-        const pieceTypeSelect = document.getElementById('pieceType');
+        (function () {
+            var canvas = document.getElementById('hexCanvas');
+            var ctx = canvas.getContext('2d');
+            var countEl = document.getElementById('count');
 
-        let isDragging = false;
-        let draggedPiece = null;
-        let dragOffsetX, dragOffsetY;
+            var GLYPH = {
+                pawn: '♟', rook: '♜', knight: '♞',
+                bishop: '♝', queen: '♛', king: '♚'
+            };
+            var SIDE_FILL = { light: '#e8d9b8', dark: '#7b4a2d' };
+            var SIDE_TEXT = { light: '#3a2c14', dark: '#f5ecdc' };
 
-        const pieceTypes = {
-            pawn: { symbol: '♙', color: '#8B4513' },
-            rook: { symbol: '♖', color: '#A0522D' },
-            knight: { symbol: '♘', color: '#D2691E' },
-            bishop: { symbol: '♗', color: '#CD853F' },
-            queen: { symbol: '♕', color: '#DEB887' },
-            king: { symbol: '♔', color: '#F4A460' }
-        };
+            var HEX_SIZE = 26;          // centre to vertex
+            var hexes = [];             // {x, y} centres in CSS pixels
+            var pieces = [];            // {hex, type, side}
+            var side = 'light';
+            var drag = null;            // {index, x, y, moved}
+            var hoverHex = -1;
 
-        function drawHexagon(x, y, size) {
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const angle = (2 * Math.PI / 6 * i) + (Math.PI / 6);
-                const xPos = x + size * Math.cos(angle);
-                const yPos = y + size * Math.sin(angle);
-                if (i === 0) {
-                    ctx.moveTo(xPos, yPos);
+            function css(name) {
+                return getComputedStyle(document.documentElement)
+                    .getPropertyValue(name).trim();
+            }
+
+            function layout(rows, cols) {
+                var w = Math.sqrt(3) * HEX_SIZE;       // pointy-top hex width
+                var h = HEX_SIZE * 2;
+                hexes = [];
+                for (var r = 0; r < rows; r++) {
+                    for (var c = 0; c < cols; c++) {
+                        hexes.push({
+                            x: c * w + (r % 2) * (w / 2) + w / 2 + 2,
+                            y: r * (h * 0.75) + h / 2 + 2
+                        });
+                    }
+                }
+                return {
+                    width: Math.ceil((cols + 0.5) * w + 4),
+                    height: Math.ceil((rows - 1) * (h * 0.75) + h + 4)
+                };
+            }
+
+            function resizeCanvas(size) {
+                // Backing store is scaled by the device pixel ratio and the
+                // context scaled to match, so the board is crisp on a phone
+                // or a retina display instead of a blurry upscale.
+                var dpr = window.devicePixelRatio || 1;
+                canvas.style.width = size.width + 'px';
+                canvas.style.height = size.height + 'px';
+                canvas.width = Math.round(size.width * dpr);
+                canvas.height = Math.round(size.height * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            function hexPath(x, y, size) {
+                ctx.beginPath();
+                for (var i = 0; i < 6; i++) {
+                    var a = (Math.PI / 3) * i + Math.PI / 6;
+                    var px = x + size * Math.cos(a);
+                    var py = y + size * Math.sin(a);
+                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+            }
+
+            function draw() {
+                var w = canvas.width / (window.devicePixelRatio || 1);
+                var h = canvas.height / (window.devicePixelRatio || 1);
+                ctx.clearRect(0, 0, w, h);
+
+                var line = css('--hex-line');
+                var fill = css('--hex-fill');
+                var hover = css('--hex-hover');
+
+                ctx.lineWidth = 1.5;
+                hexes.forEach(function (hex, i) {
+                    hexPath(hex.x, hex.y, HEX_SIZE);
+                    ctx.fillStyle = (i === hoverHex) ? hover : fill;
+                    ctx.fill();
+                    ctx.strokeStyle = line;
+                    ctx.stroke();
+                });
+
+                pieces.forEach(function (p, i) {
+                    if (drag && drag.index === i) return;   // drawn last, under the finger
+                    drawPiece(hexes[p.hex].x, hexes[p.hex].y, p);
+                });
+
+                if (drag) {
+                    drawPiece(drag.x, drag.y, pieces[drag.index], true);
+                }
+            }
+
+            function drawPiece(x, y, p, lifted) {
+                var radius = HEX_SIZE * 0.66;
+                if (lifted) {
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowOffsetY = 3;
+                }
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = SIDE_FILL[p.side];
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+                ctx.stroke();
+                if (lifted) ctx.restore();
+
+                ctx.fillStyle = SIDE_TEXT[p.side];
+                ctx.font = Math.round(radius * 1.5) + 'px serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(GLYPH[p.type], x, y + 1);
+            }
+
+            function pointerPos(e) {
+                var rect = canvas.getBoundingClientRect();
+                return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            }
+
+            function nearestHex(pt) {
+                var best = -1;
+                var bestDist = HEX_SIZE * HEX_SIZE;
+                for (var i = 0; i < hexes.length; i++) {
+                    var dx = hexes[i].x - pt.x;
+                    var dy = hexes[i].y - pt.y;
+                    var d = dx * dx + dy * dy;
+                    if (d < bestDist) { bestDist = d; best = i; }
+                }
+                return best;
+            }
+
+            function pieceAtHex(hex) {
+                for (var i = 0; i < pieces.length; i++) {
+                    if (pieces[i].hex === hex) return i;
+                }
+                return -1;
+            }
+
+            function report() {
+                countEl.textContent = pieces.length === 0
+                    ? 'No pieces on the board.'
+                    : pieces.length + (pieces.length === 1 ? ' piece' : ' pieces') + ' on the board.';
+            }
+
+            // --- input ---------------------------------------------------------
+            // One pointer path for mouse, touch and pen. The board used to
+            // listen for mousedown and dblclick only, so on a phone there was
+            // no way either to add a piece or to move one.
+
+            canvas.addEventListener('pointerdown', function (e) {
+                var pt = pointerPos(e);
+                var hex = nearestHex(pt);
+                if (hex === -1) return;
+
+                var idx = pieceAtHex(hex);
+                if (idx !== -1) {
+                    drag = { index: idx, x: pt.x, y: pt.y, moved: false };
                 } else {
-                    ctx.lineTo(xPos, yPos);
+                    pieces.push({
+                        hex: hex,
+                        type: document.getElementById('pieceType').value,
+                        side: side
+                    });
+                    report();
                 }
-            }
-            ctx.closePath();
-            ctx.stroke();
-        }
+                draw();
 
-        function generateBoard() {
-            const rows = parseInt(document.getElementById('rows').value);
-            const cols = parseInt(document.getElementById('cols').value);
-            const hexSize = 20;
-            const hexHeight = hexSize * 2;
-            const hexWidth = Math.sqrt(3) * hexSize;
+                // Capture keeps the move and up events coming to the canvas
+                // once a finger has slid off it. It is claimed last and
+                // guarded: it throws for a pointer the browser no longer
+                // considers active, and a throw here would otherwise abandon
+                // the drag that was just set up.
+                try {
+                    canvas.setPointerCapture(e.pointerId);
+                } catch (err) { /* drag still works, just uncaptured */ }
+            });
 
-            canvas.width = (cols + 0.5) * hexWidth;
-            canvas.height = (rows + 0.5) * (hexHeight * 0.75);
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < cols; col++) {
-                    const x = col * hexWidth + ((row % 2) * (hexWidth / 2)) + (hexWidth / 2);
-                    const y = row * (hexHeight * 0.75) + (hexHeight / 2);
-                    drawHexagon(x, y, hexSize);
+            canvas.addEventListener('pointermove', function (e) {
+                var pt = pointerPos(e);
+                if (drag) {
+                    drag.x = pt.x;
+                    drag.y = pt.y;
+                    drag.moved = true;
+                    hoverHex = nearestHex(pt);
+                } else {
+                    var h = nearestHex(pt);
+                    if (h === hoverHex) return;
+                    hoverHex = h;
                 }
+                draw();
+            });
+
+            function endDrag(e) {
+                if (!drag) return;
+                var pt = pointerPos(e);
+                var target = nearestHex(pt);
+
+                if (target === -1) {
+                    // Dragged clear of the grid: that is how a piece comes off.
+                    pieces.splice(drag.index, 1);
+                } else {
+                    var occupant = pieceAtHex(target);
+                    if (occupant !== -1 && occupant !== drag.index) {
+                        pieces.splice(occupant, 1);
+                        if (occupant < drag.index) drag.index -= 1;
+                    }
+                    pieces[drag.index].hex = target;
+                }
+                drag = null;
+                hoverHex = -1;
+                report();
+                draw();
             }
 
-            gameContainer.style.width = canvas.width + 'px';
-            gameContainer.style.height = canvas.height + 'px';
-        }
+            canvas.addEventListener('pointerup', endDrag);
+            canvas.addEventListener('pointercancel', function () {
+                drag = null;
+                hoverHex = -1;
+                draw();
+            });
+            canvas.addEventListener('pointerleave', function () {
+                if (!drag) { hoverHex = -1; draw(); }
+            });
 
-        function createGamePiece(x, y, type) {
-            const piece = document.createElement('div');
-            piece.className = 'gamePiece';
-            piece.style.left = x + 'px';
-            piece.style.top = y + 'px';
-            piece.style.backgroundColor = pieceTypes[type].color;
-            piece.textContent = pieceTypes[type].symbol;
-            piece.dataset.type = type;
-            gameContainer.appendChild(piece);
+            // --- controls -------------------------------------------------------
+            function build() {
+                var rows = clamp(document.getElementById('rows').value, 2, 16);
+                var cols = clamp(document.getElementById('cols').value, 2, 16);
+                document.getElementById('rows').value = rows;
+                document.getElementById('cols').value = cols;
 
-            piece.addEventListener('mousedown', startDragging);
-        }
+                var size = layout(rows, cols);
+                resizeCanvas(size);
 
-        function startDragging(e) {
-            isDragging = true;
-            draggedPiece = e.target;
-            const rect = draggedPiece.getBoundingClientRect();
-            dragOffsetX = e.clientX - rect.left;
-            dragOffsetY = e.clientY - rect.top;
-        }
-
-        function drag(e) {
-            if (isDragging && draggedPiece) {
-                const containerRect = gameContainer.getBoundingClientRect();
-                let newX = e.clientX - containerRect.left - dragOffsetX;
-                let newY = e.clientY - containerRect.top - dragOffsetY;
-
-                // Constrain the game piece within the canvas
-                newX = Math.max(0, Math.min(newX, canvas.width - draggedPiece.offsetWidth));
-                newY = Math.max(0, Math.min(newY, canvas.height - draggedPiece.offsetHeight));
-
-                draggedPiece.style.left = newX + 'px';
-                draggedPiece.style.top = newY + 'px';
+                // Resizing used to leave the old pieces floating over the new
+                // board at their old pixel positions. Anything whose hex no
+                // longer exists comes off.
+                pieces = pieces.filter(function (p) { return p.hex < hexes.length; });
+                report();
+                draw();
             }
-        }
 
-        function stopDragging() {
-            isDragging = false;
-            draggedPiece = null;
-        }
+            function clamp(v, lo, hi) {
+                var n = parseInt(v, 10);
+                if (!isFinite(n)) return lo;
+                return Math.min(hi, Math.max(lo, n));
+            }
 
-        gameContainer.addEventListener('dblclick', function(e) {
-            const rect = gameContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left - 15; // 15 is half the width of the game piece
-            const y = e.clientY - rect.top - 15; // 15 is half the height of the game piece
-            const selectedType = pieceTypeSelect.value;
-            createGamePiece(x, y, selectedType);
-        });
+            document.getElementById('resize').addEventListener('click', build);
+            document.getElementById('clear').addEventListener('click', function () {
+                pieces = [];
+                report();
+                draw();
+            });
 
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', stopDragging);
+            Array.prototype.forEach.call(document.querySelectorAll('.swatch'), function (btn) {
+                btn.addEventListener('click', function () {
+                    side = btn.dataset.side;
+                    document.querySelectorAll('.swatch').forEach(function (b) {
+                        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+                    });
+                });
+            });
 
-        // Initial board generation
-        generateBoard();
+            // Repaint when the OS flips between light and dark, since the hex
+            // colours are read out of CSS at draw time.
+            if (window.matchMedia) {
+                var mq = window.matchMedia('(prefers-color-scheme: dark)');
+                if (mq.addEventListener) mq.addEventListener('change', draw);
+            }
+
+            build();
+        }());
     </script>
 </body>
+
 </html>
-
-
