@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRS Metabolite Basis Set &amp; LCModel Spectral Fitter</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --plot-bg: #0b0f19;
+    --plot-grid: #1e293b;
+    --plot-axis: #64748b;
+    --c-raw: #e2e8f0;
+    --c-fit: #ef4444;
+    --c-res: #38bdf8;
+    --c-base: #fbbf24;
+    --c-naa: #60a5fa;
+    --c-cr: #34d399;
+    --c-cho: #f472b6;
+    --c-mi: #a78bfa;
+    --c-glu: #fb923c;
+    --c-lac: #facc15;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --plot-bg: #060913;
+      --plot-grid: #1e293b;
+      --plot-axis: #64748b;
+      --c-raw: #f1f5f9;
+      --c-fit: #f87171;
+      --c-res: #38bdf8;
+      --c-base: #fcd34d;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .preset-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+  .preset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .preset-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  @media (max-width: 880px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .canvas-container {
+    background: var(--plot-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .legend-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.15);
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--fg);
+  }
+  .legend-color {
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .ctrl-group {
+    margin-bottom: 14px;
+  }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type=range] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .field-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .field-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 6px 0;
+    text-align: center;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  .field-btn:hover { border-color: var(--accent); }
+  .field-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .metab-toggles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+    margin-top: 6px;
+    font-size: 0.82rem;
+  }
+  .metab-toggles label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  /* Table styling */
+  .table-box {
+    overflow-x: auto;
+    margin-top: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    text-align: left;
+  }
+  th, td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .crlb-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .tag-good { background: #dcfce7; color: #15803d; }
+  .tag-warn { background: #fef3c7; color: #b45309; }
+  .tag-bad { background: #fee2e2; color: #b91c1c; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .tag-good { background: #064e3b; color: #6ee7b7; }
+    :root:not([data-theme="light"]) .tag-warn { background: #78350f; color: #fde68a; }
+    :root:not([data-theme="light"]) .tag-bad { background: #7f1d1d; color: #fca5a5; }
+  }
+
+  .ratios-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+    text-align: center;
+  }
+  .ratio-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 4px;
+  }
+  .ratio-card .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+  .ratio-card .val { font-size: 1.1rem; font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .ratio-card .ref { font-size: 0.68rem; color: var(--muted); }
+
+  .action-btn {
+    display: block;
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 14px;
+    transition: opacity 0.15s ease;
+  }
+  .action-btn:hover { opacity: 0.9; }
+
+  .theory-card {
+    font-size: 0.88rem;
+    color: var(--fg);
+    line-height: 1.55;
+  }
+  .theory-card h3 {
+    font-size: 1.05rem;
+    margin: 0 0 8px;
+    color: var(--accent);
+  }
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 10px;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week11/index.html">&larr; Back to Week 11</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>MRS Metabolite Basis Set &amp; LCModel Spectral Fitter</h1>
+  <p class="sub">
+    Magnetic Resonance Spectroscopy &middot; Chemical Shift Dispersion, Basis Sets, Baseline Deconvolution &amp; Cramer-Rao Lower Bounds (CRLB)
+  </p>
+
+  <div class="banner">
+    <strong>Key Principle:</strong> Rather than fitting isolated Gaussian peaks, modern in-vivo MRS quantitation constructs the acquired spectrum as a linear combination of prior-simulated metabolite basis vectors: 
+    <span class="code-math">S(&delta;) = &sum; c_k [B_k(&delta; - &Delta;&delta;) &otimes; L(&Delta;&nu;)] + Baseline(&delta;)</span>. 
+    Peak separation improves linearly with main magnetic field strength <span class="code-math">B_0</span>, while shimming controls the line broadening <span class="code-math">T_2^*</span> that governs spectral overlap and quantitation confidence.
+  </div>
+
+  <div class="panel">
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-right: 4px;">Clinical Presets:</span>
+      <button class="preset-btn active" data-preset="healthy">Healthy Brain Control</button>
+      <button class="preset-btn" data-preset="glioma">High-Grade Glioma (Tumor)</button>
+      <button class="preset-btn" data-preset="stroke">Acute Ischemic Stroke</button>
+      <button class="preset-btn" data-preset="ad">Alzheimer's Disease</button>
+      <button class="preset-btn" data-preset="he">Hepatic Encephalopathy</button>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left: Canvases -->
+      <div>
+        <div class="canvas-container">
+          <canvas id="specCanvas" height="420"></canvas>
+          <div class="legend-bar">
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--c-raw);"></div>
+              <span>Synthetic Data</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--c-fit);"></div>
+              <span>Total Fit</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--c-base);"></div>
+              <span>Baseline</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: var(--c-res);"></div>
+              <span>Residual (Offset)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantitative Table -->
+        <div class="table-box">
+          <table id="metabTable">
+            <thead>
+              <tr>
+                <th>Metabolite</th>
+                <th>Resonances (&delta; ppm)</th>
+                <th>True Rel. Conc</th>
+                <th>Fit Conc</th>
+                <th>CRLB (%SD)</th>
+                <th>Reliability</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Filled dynamically by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Clinical Ratios -->
+        <div class="ratios-grid">
+          <div class="ratio-card">
+            <div class="lbl">NAA / Cr Ratio</div>
+            <div class="val" id="ratioNaaCr">--</div>
+            <div class="ref">Norm: 1.5 – 2.1</div>
+          </div>
+          <div class="ratio-card">
+            <div class="lbl">Cho / Cr Ratio</div>
+            <div class="val" id="ratioChoCr">--</div>
+            <div class="ref">Norm: 0.7 – 0.9</div>
+          </div>
+          <div class="ratio-card">
+            <div class="lbl">mI / Cr Ratio</div>
+            <div class="val" id="ratioMiCr">--</div>
+            <div class="ref">Norm: 0.6 – 0.8</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div>
+        <!-- Field Strength -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Main Magnetic Field (B<sub>0</sub>)</span>
+            <span class="ctrl-val" id="fieldVal">3.0 T (127.7 MHz)</span>
+          </div>
+          <div class="field-toggle">
+            <button class="field-btn" data-field="1.5">1.5 T</button>
+            <button class="field-btn active" data-field="3.0">3.0 T</button>
+            <button class="field-btn" data-field="7.0">7.0 T</button>
+          </div>
+        </div>
+
+        <!-- Shim Line Broadening -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Shim Quality (Linewidth FWHM)</span>
+            <span class="ctrl-val" id="fwhmVal">5.0 Hz</span>
+          </div>
+          <input type="range" id="fwhmSlider" min="2" max="18" step="0.5" value="5.0">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>Excellent Shim (2 Hz)</span>
+            <span>Poor Shim (18 Hz)</span>
+          </div>
+        </div>
+
+        <!-- SNR / Noise Level -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Signal-to-Noise Ratio (SNR)</span>
+            <span class="ctrl-val" id="snrVal">25</span>
+          </div>
+          <input type="range" id="snrSlider" min="4" max="50" step="1" value="25">
+        </div>
+
+        <!-- Zero-Order Phase Error -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Phase Offset (&phi;<sub>0</sub>)</span>
+            <span class="ctrl-val" id="phaseVal">0&deg;</span>
+          </div>
+          <input type="range" id="phaseSlider" min="-90" max="90" step="2" value="0">
+        </div>
+
+        <!-- Macromolecule Baseline -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Macromolecule Baseline</span>
+            <span class="ctrl-val" id="baseVal">Medium</span>
+          </div>
+          <input type="range" id="baseSlider" min="0" max="1.5" step="0.1" value="0.7">
+        </div>
+
+        <!-- Metabolite Basis Display Toggles -->
+        <div class="ctrl-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:16px;">
+          <div class="ctrl-label">
+            <span>Overlay Basis Components:</span>
+          </div>
+          <div class="metab-toggles">
+            <label><input type="checkbox" id="chkNAA" checked> <span style="color:var(--c-naa);font-weight:600;">NAA</span> (2.02 ppm)</label>
+            <label><input type="checkbox" id="chkCr" checked> <span style="color:var(--c-cr);font-weight:600;">Cr / PCr</span> (3.03 ppm)</label>
+            <label><input type="checkbox" id="chkCho" checked> <span style="color:var(--c-cho);font-weight:600;">Cho</span> (3.22 ppm)</label>
+            <label><input type="checkbox" id="chkMI" checked> <span style="color:var(--c-mi);font-weight:600;">mI</span> (3.56 ppm)</label>
+            <label><input type="checkbox" id="chkGlu" checked> <span style="color:var(--c-glu);font-weight:600;">Glx</span> (2.1–2.4 ppm)</label>
+            <label><input type="checkbox" id="chkLac" checked> <span style="color:var(--c-lac);font-weight:600;">Lac</span> (1.33 ppm)</label>
+          </div>
+        </div>
+
+        <button class="action-btn" id="refitBtn">Recalculate Linear Least-Squares Fit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel theory-card">
+    <h3>Physical Principles &amp; Mathematical Formulation</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. Chemical Shift Dispersion &amp; Field Strength:</strong>
+        <p>Electrons orbiting distinct chemical moieties generate local diamagnetic shielding currents that oppose the main field: <span class="code-math">B_{\text{local}} = B_0(1 - \sigma)</span>. Chemical shifts are reported on a dimensionless parts-per-million scale (<span class="code-math">&delta; = (\nu - \nu_{\text{ref}})/\nu_{\text{ref}} \times 10^6</span>). While the chemical shift in ppm is field-independent, frequency dispersion in Hertz increases linearly with field strength (<span class="code-math">\Delta\nu_{\text{Hz}} = \gamma B_0 \Delta\delta</span>). At 7.0 T, J-coupled multiplets (Glutamate, GABA) and crowded singlets (Cho, Cr) separate cleanly, reducing spectral covariance and fitting errors.</p>
+      </div>
+      <div>
+        <strong>2. Basis Sets vs. Single-Peak Fitting:</strong>
+        <p>In-vivo <sup>1</sup>H spectra consist of overlapping scalar J-coupled multiplets and a broad macromolecular envelope. Rather than fitting unconstrained individual Gaussians, the Linear Combination Model constructs the total signal from quantum-mechanically simulated or phantom-recorded metabolite basis spectra:
+        <span class="code-math">S(\delta) = \sum_k c_k B_k(\delta) \otimes L(\Delta\nu) + \text{Baseline}(\delta)</span>. This fixes relative peak multiplet areas, chemical shifts, and J-splitting within each molecule, leaving only overall concentration <span class="code-math">c_k</span>, line broadening, and baseline to be estimated.</p>
+      </div>
+      <div>
+        <strong>3. Cramer-Rao Lower Bounds (CRLB):</strong>
+        <p>The Cramer-Rao inequality establishes the minimum possible variance achievable by any unbiased estimator: <span class="code-math">\text{Cov}(\hat{c}) \ge F^{-1} = \sigma^2 (X^T X)^{-1}</span>, where <span class="code-math">X</span> contains the metabolite basis columns and <span class="code-math">\sigma^2</span> is the noise variance. The relative uncertainty <span class="code-math">\text{CRLB} = (\text{SD}_k / \hat{c}_k) \times 100\%</span> reflects not only noise, but severe covariance between overlapping metabolites. By convention in clinical spectroscopy, metabolite fits with <span class="code-math">\text{CRLB} > 20\%</span> are classified as unreliable.</p>
+      </div>
+      <div>
+        <strong>4. Diagnostic Neurochemical Markers:</strong>
+        <ul>
+          <li><strong>NAA (2.02 ppm):</strong> Synthesized exclusively in neuronal mitochondria; marker of viable neuronal density. Drops during neurodegeneration, stroke, and neoplastic infiltration.</li>
+          <li><strong>Creatine (3.03 ppm):</strong> Phosphocreatine energy reservoir; often serves as an internal concentration reference denominator.</li>
+          <li><strong>Choline (3.22 ppm):</strong> Phosphocholine and glycerophosphocholine; elevated during cellular membrane synthesis and turnover (hallmark of active gliomas).</li>
+          <li><strong>Lactate (1.33 ppm):</strong> Anaerobic glycolysis end-product; appears as an inverted/upright doublet in acute ischemia, mitochondrial disorders, and necrotic cysts.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Constants & Simulation Configuration
+  const PPM_MIN = 0.5;
+  const PPM_MAX = 4.3;
+  const NUM_POINTS = 512;
+  const PPM_STEP = (PPM_MAX - PPM_MIN) / (NUM_POINTS - 1);
+  const ppmAxis = new Float64Array(NUM_POINTS);
+  for (let i = 0; i < NUM_POINTS; i++) {
+    ppmAxis[i] = PPM_MIN + i * PPM_STEP;
+  }
+
+  // Proton gyromagnetic ratio: 42.577 MHz/T
+  const GAMMA_MHZ = 42.577;
+
+  // Metabolite Basis Definitions (sub-resonances with relative shift in ppm, relative weight, and multiplet J in Hz)
+  const METABOLITES = [
+    {
+      id: 'NAA',
+      name: 'N-Acetylaspartate',
+      color: 'var(--c-naa)',
+      hexColor: '#60a5fa',
+      chkId: 'chkNAA',
+      resonances: [
+        { shift: 2.02, weight: 3.0, fwhmRel: 1.0 }, // Singlet (CH3)
+        { shift: 2.49, weight: 0.5, fwhmRel: 1.2 }, // Aspartate beta-CH2
+        { shift: 2.68, weight: 0.5, fwhmRel: 1.2 }, // Aspartate beta-CH2
+        { shift: 4.38, weight: 0.3, fwhmRel: 1.3 }  // Aspartate alpha-CH
+      ]
+    },
+    {
+      id: 'Cr',
+      name: 'Creatine + PCr',
+      color: 'var(--c-cr)',
+      hexColor: '#34d399',
+      chkId: 'chkCr',
+      resonances: [
+        { shift: 3.03, weight: 3.0, fwhmRel: 1.0 }, // Singlet (CH3)
+        { shift: 3.92, weight: 1.5, fwhmRel: 1.0 }  // Singlet (CH2)
+      ]
+    },
+    {
+      id: 'Cho',
+      name: 'Choline Compounds',
+      color: 'var(--c-cho)',
+      hexColor: '#f472b6',
+      chkId: 'chkCho',
+      resonances: [
+        { shift: 3.22, weight: 3.5, fwhmRel: 1.0 }, // Singlet (-N(CH3)3)
+        { shift: 3.51, weight: 0.3, fwhmRel: 1.3 },
+        { shift: 4.05, weight: 0.3, fwhmRel: 1.3 }
+      ]
+    },
+    {
+      id: 'mI',
+      name: 'Myo-Inositol',
+      color: 'var(--c-mi)',
+      hexColor: '#a78bfa',
+      chkId: 'chkMI',
+      resonances: [
+        { shift: 3.56, weight: 2.2, fwhmRel: 1.4 }, // Primary multiplet
+        { shift: 3.27, weight: 0.6, fwhmRel: 1.5 },
+        { shift: 3.61, weight: 0.8, fwhmRel: 1.4 },
+        { shift: 4.05, weight: 0.5, fwhmRel: 1.5 }
+      ]
+    },
+    {
+      id: 'Glu',
+      name: 'Glutamate + Gln',
+      color: 'var(--c-glu)',
+      hexColor: '#fb923c',
+      chkId: 'chkGlu',
+      resonances: [
+        { shift: 2.08, weight: 0.8, fwhmRel: 1.8 }, // C3-H
+        { shift: 2.14, weight: 0.7, fwhmRel: 1.8 }, // C3-H
+        { shift: 2.35, weight: 1.6, fwhmRel: 1.6 }, // C4-H multiplet
+        { shift: 2.45, weight: 0.8, fwhmRel: 1.6 }, // Gln C4-H
+        { shift: 3.75, weight: 0.7, fwhmRel: 1.8 }  // C2-H
+      ]
+    },
+    {
+      id: 'Lac',
+      name: 'Lactate',
+      color: 'var(--c-lac)',
+      hexColor: '#facc15',
+      chkId: 'chkLac',
+      resonances: [
+        // J-coupled doublet at 1.33 ppm (J ~ 7.3 Hz)
+        { shift: 1.315, weight: 1.5, fwhmRel: 1.1 },
+        { shift: 1.345, weight: 1.5, fwhmRel: 1.1 },
+        { shift: 4.10, weight: 0.4, fwhmRel: 1.5 } // Quartet
+      ]
+    }
+  ];
+
+  // Clinical preset relative concentrations [NAA, Cr, Cho, mI, Glu, Lac]
+  const PRESETS = {
+    healthy: { B0: 3.0, fwhm: 5.0, snr: 28, base: 0.6, conc: [2.0, 1.0, 0.8, 0.7, 1.4, 0.05] },
+    glioma:  { B0: 3.0, fwhm: 7.0, snr: 22, base: 1.1, conc: [0.4, 0.7, 2.3, 0.4, 0.6, 1.4] },
+    stroke:  { B0: 3.0, fwhm: 6.5, snr: 20, base: 0.8, conc: [0.6, 0.8, 0.7, 0.5, 0.5, 2.8] },
+    ad:      { B0: 3.0, fwhm: 5.5, snr: 24, base: 0.7, conc: [1.1, 1.0, 0.8, 1.6, 0.9, 0.05] },
+    he:      { B0: 3.0, fwhm: 6.0, snr: 25, base: 0.7, conc: [1.8, 1.0, 0.7, 0.2, 2.5, 0.1] }
+  };
+
+  // State
+  let currentB0 = 3.0; // Tesla
+  let currentFwhmHz = 5.0; // Hz
+  let currentSNR = 25;
+  let currentPhaseDeg = 0;
+  let currentBaseAmp = 0.7;
+  let currentTrueConc = [...PRESETS.healthy.conc];
+
+  // Cached calculated arrays
+  let rawSpectrum = new Float64Array(NUM_POINTS);
+  let fittedSpectrum = new Float64Array(NUM_POINTS);
+  let fittedBaseline = new Float64Array(NUM_POINTS);
+  let residualSpectrum = new Float64Array(NUM_POINTS);
+  let individualFits = METABOLITES.map(() => new Float64Array(NUM_POINTS));
+  let estimatedConc = new Float64Array(METABOLITES.length);
+  let crlbPercent = new Float64Array(METABOLITES.length);
+
+  // DOM references
+  const canvas = document.getElementById('specCanvas');
+  const ctx = canvas.getContext('2d');
+  const fieldVal = document.getElementById('fieldVal');
+  const fwhmSlider = document.getElementById('fwhmSlider');
+  const fwhmVal = document.getElementById('fwhmVal');
+  const snrSlider = document.getElementById('snrSlider');
+  const snrVal = document.getElementById('snrVal');
+  const phaseSlider = document.getElementById('phaseSlider');
+  const phaseVal = document.getElementById('phaseVal');
+  const baseSlider = document.getElementById('baseSlider');
+  const baseVal = document.getElementById('baseVal');
+  const metabTableBody = document.querySelector('#metabTable tbody');
+  const ratioNaaCr = document.getElementById('ratioNaaCr');
+  const ratioChoCr = document.getElementById('ratioChoCr');
+  const ratioMiCr = document.getElementById('ratioMiCr');
+
+  // Pseudo-random Gaussian noise generator (Box-Muller)
+  function randomGaussian(mean = 0, stdDev = 1) {
+    let u = 1 - Math.random();
+    let v = Math.random();
+    let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    return mean + z * stdDev;
+  }
+
+  // Generate basis spectrum for a metabolite given current B0 and FWHM
+  function generateBasis(metab, B0, fwhmHz) {
+    const f0MHz = B0 * GAMMA_MHZ; // Proton resonance freq in MHz
+    const out = new Float64Array(NUM_POINTS);
+
+    for (let r of metab.resonances) {
+      // Convert resonance linewidth from Hz to ppm at this B0
+      const gammaPpm = (fwhmHz * r.fwhmRel) / f0MHz;
+      const halfGamma = gammaPpm / 2;
+      const halfGammaSq = halfGamma * halfGamma;
+      const peakAmp = r.weight / (Math.PI * halfGamma);
+
+      for (let i = 0; i < NUM_POINTS; i++) {
+        const delta = ppmAxis[i] - r.shift;
+        // Lorentzian lineshape
+        out[i] += peakAmp * (halfGammaSq / (delta * delta + halfGammaSq));
+      }
+    }
+    return out;
+  }
+
+  // Generate synthetic smooth macromolecule baseline
+  function generateMacromoleculeBaseline(amp) {
+    const out = new Float64Array(NUM_POINTS);
+    if (amp <= 0.01) return out;
+
+    // Macromolecules/lipids: broad resonances at ~0.9 ppm, ~1.3 ppm, ~2.0 ppm, ~3.0 ppm
+    const mmPeaks = [
+      { shift: 0.92, w: 1.8 * amp, width: 0.35 },
+      { shift: 1.35, w: 2.2 * amp, width: 0.40 },
+      { shift: 2.05, w: 1.5 * amp, width: 0.45 },
+      { shift: 3.00, w: 1.2 * amp, width: 0.50 }
+    ];
+
+    for (let p of mmPeaks) {
+      for (let i = 0; i < NUM_POINTS; i++) {
+        const d = ppmAxis[i] - p.shift;
+        out[i] += p.w * Math.exp(-(d * d) / (2 * p.width * p.width));
+      }
+    }
+    // Add small baseline curvature
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const normPpm = (ppmAxis[i] - PPM_MIN) / (PPM_MAX - PPM_MIN);
+      out[i] += 0.25 * amp * Math.sin(normPpm * Math.PI);
+    }
+    return out;
+  }
+
+  // Build current ground truth synthetic data
+  function buildSyntheticData() {
+    const cleanSignal = new Float64Array(NUM_POINTS);
+    const mmBase = generateMacromoleculeBaseline(currentBaseAmp);
+
+    for (let mIdx = 0; mIdx < METABOLITES.length; mIdx++) {
+      const basis = generateBasis(METABOLITES[mIdx], currentB0, currentFwhmHz);
+      const c = currentTrueConc[mIdx];
+      for (let i = 0; i < NUM_POINTS; i++) {
+        cleanSignal[i] += c * basis[i];
+      }
+    }
+
+    for (let i = 0; i < NUM_POINTS; i++) {
+      cleanSignal[i] += mmBase[i];
+    }
+
+    // Determine peak height to calibrate noise from SNR
+    let maxSignal = 0;
+    for (let i = 0; i < NUM_POINTS; i++) {
+      if (cleanSignal[i] > maxSignal) maxSignal = cleanSignal[i];
+    }
+    const noiseStd = maxSignal / Math.max(1, currentSNR);
+
+    // Apply zero-order phase error
+    const phiRad = (currentPhaseDeg * Math.PI) / 180;
+    const cosP = Math.cos(phiRad);
+    const sinP = Math.sin(phiRad);
+
+    for (let i = 0; i < NUM_POINTS; i++) {
+      // In-phase absorption distorted by phase
+      const s = cleanSignal[i];
+      // Dispersive component approximation (Hilbert-like)
+      const d = (i > 1 && i < NUM_POINTS - 2) ? 0.3 * (cleanSignal[i+1] - cleanSignal[i-1]) : 0;
+      const phasedVal = s * cosP - d * sinP;
+      rawSpectrum[i] = phasedVal + randomGaussian(0, noiseStd);
+    }
+  }
+
+  // Linear Least-Squares Solver with Basis Set + Polynomial Baseline
+  function runSpectralFit() {
+    // Generate basis matrix columns
+    const K = METABOLITES.length;
+    const numPoly = 3; // Baseline polynomial terms: 1, x, x^2
+    const numCols = K + numPoly;
+    const X = [];
+
+    for (let k = 0; k < K; k++) {
+      X.push(generateBasis(METABOLITES[k], currentB0, currentFwhmHz));
+    }
+
+    // Baseline polynomial regressors (normalized x to avoid ill-conditioning)
+    const p0 = new Float64Array(NUM_POINTS);
+    const p1 = new Float64Array(NUM_POINTS);
+    const p2 = new Float64Array(NUM_POINTS);
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const x = (ppmAxis[i] - 2.4) / 1.9; // zero-centered
+      p0[i] = 1.0;
+      p1[i] = x;
+      p2[i] = x * x;
+    }
+    X.push(p0);
+    X.push(p1);
+    X.push(p2);
+
+    // Normal Equations: (X^T X) beta = X^T y
+    const XtX = Array.from({ length: numCols }, () => new Float64Array(numCols));
+    const Xty = new Float64Array(numCols);
+
+    for (let colA = 0; colA < numCols; colA++) {
+      const vecA = X[colA];
+      for (let colB = colA; colB < numCols; colB++) {
+        const vecB = X[colB];
+        let dot = 0;
+        for (let i = 0; i < NUM_POINTS; i++) {
+          dot += vecA[i] * vecB[i];
+        }
+        XtX[colA][colB] = dot;
+        XtX[colB][colA] = dot;
+      }
+      let dotY = 0;
+      for (let i = 0; i < NUM_POINTS; i++) {
+        dotY += vecA[i] * rawSpectrum[i];
+      }
+      Xty[colA] = dotY;
+    }
+
+    // Add mild Tikhonov regularizer to prevent inversion singularity if FWHM is huge
+    for (let c = 0; c < numCols; c++) {
+      XtX[c][c] += 1e-4;
+    }
+
+    // Solve via Gaussian Elimination with partial pivoting
+    const A = XtX.map(row => Float64Array.from(row));
+    const b = Float64Array.from(Xty);
+
+    for (let i = 0; i < numCols; i++) {
+      let maxEl = Math.abs(A[i][i]);
+      let maxRow = i;
+      for (let k = i + 1; k < numCols; k++) {
+        if (Math.abs(A[k][i]) > maxEl) {
+          maxEl = Math.abs(A[k][i]);
+          maxRow = k;
+        }
+      }
+      for (let k = i; k < numCols; k++) {
+        let tmp = A[maxRow][k];
+        A[maxRow][k] = A[i][k];
+        A[i][k] = tmp;
+      }
+      let tmpB = b[maxRow];
+      b[maxRow] = b[i];
+      b[i] = tmpB;
+
+      if (Math.abs(A[i][i]) < 1e-12) continue;
+
+      for (let k = i + 1; k < numCols; k++) {
+        let c = -A[k][i] / A[i][i];
+        for (let j = i; j < numCols; j++) {
+          if (i === j) A[k][j] = 0;
+          else A[k][j] += c * A[i][j];
+        }
+        b[k] += c * b[i];
+      }
+    }
+
+    const beta = new Float64Array(numCols);
+    for (let i = numCols - 1; i >= 0; i--) {
+      let sum = b[i];
+      for (let j = i + 1; j < numCols; j++) {
+        sum -= A[i][j] * beta[j];
+      }
+      beta[i] = sum / A[i][i];
+    }
+
+    // Non-negativity constraint heuristic for metabolite concentrations
+    for (let k = 0; k < K; k++) {
+      if (beta[k] < 0) beta[k] = 0;
+      estimatedConc[k] = beta[k];
+    }
+
+    // Construct fitted spectra
+    fittedSpectrum.fill(0);
+    fittedBaseline.fill(0);
+    for (let i = 0; i < NUM_POINTS; i++) {
+      fittedBaseline[i] = beta[K] * p0[i] + beta[K+1] * p1[i] + beta[K+2] * p2[i];
+      fittedSpectrum[i] = fittedBaseline[i];
+    }
+
+    for (let k = 0; k < K; k++) {
+      const basis = X[k];
+      const ind = individualFits[k];
+      for (let i = 0; i < NUM_POINTS; i++) {
+        ind[i] = beta[k] * basis[i];
+        fittedSpectrum[i] += ind[i];
+      }
+    }
+
+    // Compute residual and residual variance sigma^2
+    let ssqRes = 0;
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const diff = rawSpectrum[i] - fittedSpectrum[i];
+      residualSpectrum[i] = diff;
+      ssqRes += diff * diff;
+    }
+    const sigmaSq = ssqRes / Math.max(1, NUM_POINTS - numCols);
+
+    // Invert XtX to obtain parameter variance-covariance matrix (Fisher Information inverse)
+    const invA = Array.from({ length: numCols }, (_, r) => {
+      const row = new Float64Array(numCols);
+      row[r] = 1.0;
+      return row;
+    });
+    const origXtX = XtX.map(row => Float64Array.from(row));
+
+    for (let i = 0; i < numCols; i++) {
+      let pivot = origXtX[i][i];
+      if (Math.abs(pivot) < 1e-12) pivot = 1e-12;
+      for (let j = 0; j < numCols; j++) {
+        origXtX[i][j] /= pivot;
+        invA[i][j] /= pivot;
+      }
+      for (let k = 0; k < numCols; k++) {
+        if (k !== i) {
+          let factor = origXtX[k][i];
+          for (let j = 0; j < numCols; j++) {
+            origXtX[k][j] -= factor * origXtX[i][j];
+            invA[k][j] -= factor * invA[i][j];
+          }
+        }
+      }
+    }
+
+    // Calculate Cramer-Rao Lower Bounds (%SD)
+    for (let k = 0; k < K; k++) {
+      const varK = Math.max(1e-10, invA[k][k] * sigmaSq);
+      const sdK = Math.sqrt(varK);
+      const c = estimatedConc[k];
+      if (c > 0.05) {
+        crlbPercent[k] = Math.min(99.9, (sdK / c) * 100);
+      } else {
+        crlbPercent[k] = 99.9;
+      }
+    }
+
+    updateUI();
+  }
+
+  // Render spectrum canvas
+  function renderCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.parentElement.clientWidth;
+    const h = 420;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Padding
+    const padL = 50;
+    const padR = 24;
+    const padT = 30;
+    const padB = 45;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+
+    // Clear background
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#060913';
+    ctx.fillRect(0, 0, w, h);
+
+    // Find y-scale
+    let maxVal = 0;
+    for (let i = 0; i < NUM_POINTS; i++) {
+      if (rawSpectrum[i] > maxVal) maxVal = rawSpectrum[i];
+      if (fittedSpectrum[i] > maxVal) maxVal = fittedSpectrum[i];
+    }
+    maxVal = Math.max(2, maxVal * 1.25);
+
+    // Mapping functions
+    // Convention: PPM runs from HIGH on left (PPM_MAX) to LOW on right (PPM_MIN)
+    const xMap = (ppm) => padL + plotW * ((PPM_MAX - ppm) / (PPM_MAX - PPM_MIN));
+    const yMap = (val) => padT + plotH * (1 - (val / maxVal));
+
+    // Draw Grid & Axes
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--plot-grid') || '#1e293b';
+    ctx.lineWidth = 1;
+
+    // Vertical ppm grid lines at every 0.5 ppm
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--plot-axis') || '#64748b';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+
+    for (let ppm = 4.0; ppm >= 0.5; ppm -= 0.5) {
+      const x = xMap(ppm);
+      ctx.beginPath();
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, padT + plotH);
+      ctx.stroke();
+
+      ctx.fillText(ppm.toFixed(1), x, padT + plotH + 18);
+    }
+
+    ctx.fillText('Chemical Shift (\u03B4, ppm) \u2190', padL + plotW / 2, padT + plotH + 34);
+
+    // Zero baseline
+    const yZero = yMap(0);
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
+    ctx.beginPath();
+    ctx.moveTo(padL, yZero);
+    ctx.lineTo(padL + plotW, yZero);
+    ctx.stroke();
+
+    // Offset for Residual trace (placed above spectrum)
+    const resOffset = maxVal * 0.95;
+    const yResBase = yMap(resOffset);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(padL, yResBase);
+    ctx.lineTo(padL + plotW, yResBase);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'var(--c-res)';
+    ctx.fillText('Residuals', padL + 6, yResBase - 6);
+
+    // 1. Plot Residual trace
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const x = xMap(ppmAxis[i]);
+      const y = yMap(resOffset + residualSpectrum[i]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 2. Plot Individual Metabolite Basis components (if checked)
+    for (let k = 0; k < METABOLITES.length; k++) {
+      const chk = document.getElementById(METABOLITES[k].chkId);
+      if (chk && chk.checked) {
+        ctx.strokeStyle = METABOLITES[k].hexColor;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < NUM_POINTS; i++) {
+          // Add baseline so it appears in context, or plot on zero baseline
+          const x = xMap(ppmAxis[i]);
+          const y = yMap(individualFits[k][i] + fittedBaseline[i]);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // 3. Plot Fitted Baseline
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const x = xMap(ppmAxis[i]);
+      const y = yMap(fittedBaseline[i]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 4. Plot Raw Synthetic Spectrum
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const x = xMap(ppmAxis[i]);
+      const y = yMap(rawSpectrum[i]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 5. Plot Total LCModel Fit
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    for (let i = 0; i < NUM_POINTS; i++) {
+      const x = xMap(ppmAxis[i]);
+      const y = yMap(fittedSpectrum[i]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Annotations for key chemical peaks
+    const annotations = [
+      { label: 'NAA (2.02)', ppm: 2.02, col: '#60a5fa' },
+      { label: 'Cr (3.03)', ppm: 3.03, col: '#34d399' },
+      { label: 'Cho (3.22)', ppm: 3.22, col: '#f472b6' },
+      { label: 'mI (3.56)', ppm: 3.56, col: '#a78bfa' },
+      { label: 'Lac (1.33)', ppm: 1.33, col: '#facc15' }
+    ];
+
+    ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    for (let a of annotations) {
+      const x = xMap(a.ppm);
+      // find highest peak near this ppm
+      let peakY = maxVal * 0.1;
+      for (let i = 0; i < NUM_POINTS; i++) {
+        if (Math.abs(ppmAxis[i] - a.ppm) < 0.08 && fittedSpectrum[i] > peakY) {
+          peakY = fittedSpectrum[i];
+        }
+      }
+      const y = yMap(peakY);
+      if (y > padT + 25 && y < padT + plotH - 10) {
+        ctx.fillStyle = a.col;
+        ctx.fillText(a.label, x, y - 8);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // Update UI Elements, Table, and Ratios
+  function updateUI() {
+    // Populate table
+    let tableHtml = '';
+    const resonanceText = [
+      '2.02, 2.5, 2.7',
+      '3.03, 3.92',
+      '3.22, 3.5, 4.05',
+      '3.56, 3.27, 3.61',
+      '2.05 – 2.45',
+      '1.33 (doublet)'
+    ];
+
+    for (let k = 0; k < METABOLITES.length; k++) {
+      const m = METABOLITES[k];
+      const trueC = currentTrueConc[k].toFixed(2);
+      const fitC = estimatedConc[k].toFixed(2);
+      const crlb = crlbPercent[k].toFixed(1);
+
+      let tagClass = 'tag-good';
+      let tagText = 'Reliable (<15%)';
+      if (crlbPercent[k] >= 20.0) {
+        tagClass = 'tag-bad';
+        tagText = 'Unreliable (>20%)';
+      } else if (crlbPercent[k] >= 15.0) {
+        tagClass = 'tag-warn';
+        tagText = 'Borderline (15-20%)';
+      }
+
+      tableHtml += `
+        <tr>
+          <td><strong style="color:${m.hexColor};">${m.name} (${m.id})</strong></td>
+          <td style="color:var(--muted);">${resonanceText[k]}</td>
+          <td style="font-variant-numeric:tabular-nums;">${trueC}</td>
+          <td style="font-weight:600;font-variant-numeric:tabular-nums;">${fitC}</td>
+          <td><span class="crlb-tag ${tagClass}">${crlb}%</span></td>
+          <td style="font-size:0.75rem;">${tagText}</td>
+        </tr>
+      `;
+    }
+    metabTableBody.innerHTML = tableHtml;
+
+    // Ratios (Cr as index 1)
+    const crFit = estimatedConc[1];
+    if (crFit > 0.05) {
+      const naaRatio = (estimatedConc[0] / crFit).toFixed(2);
+      const choRatio = (estimatedConc[2] / crFit).toFixed(2);
+      const miRatio = (estimatedConc[3] / crFit).toFixed(2);
+
+      ratioNaaCr.innerText = naaRatio;
+      ratioChoCr.innerText = choRatio;
+      ratioMiCr.innerText = miRatio;
+
+      // Color coding for abnormal tumor/ischemia signatures
+      ratioChoCr.style.color = (choRatio > 1.2) ? '#ef4444' : 'var(--fg)';
+      ratioNaaCr.style.color = (naaRatio < 1.1) ? '#ef4444' : 'var(--fg)';
+    } else {
+      ratioNaaCr.innerText = '--';
+      ratioChoCr.innerText = '--';
+      ratioMiCr.innerText = '--';
+    }
+
+    renderCanvas();
+  }
+
+  // Full Refresh Cycle
+  function refresh() {
+    buildSyntheticData();
+    runSpectralFit();
+  }
+
+  // Event Listeners
+  // Field strength buttons
+  document.querySelectorAll('.field-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.field-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      currentB0 = parseFloat(e.target.dataset.field);
+      const freqMHz = (currentB0 * GAMMA_MHZ).toFixed(1);
+      fieldVal.innerText = `${currentB0.toFixed(1)} T (${freqMHz} MHz)`;
+      refresh();
+    });
+  });
+
+  // Presets
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const p = PRESETS[e.target.dataset.preset];
+      if (!p) return;
+
+      currentB0 = p.B0;
+      currentFwhmHz = p.fwhm;
+      currentSNR = p.snr;
+      currentBaseAmp = p.base;
+      currentTrueConc = [...p.conc];
+      currentPhaseDeg = 0;
+
+      // Update UI controls
+      document.querySelectorAll('.field-btn').forEach(b => {
+        b.classList.toggle('active', parseFloat(b.dataset.field) === currentB0);
+      });
+      const freqMHz = (currentB0 * GAMMA_MHZ).toFixed(1);
+      fieldVal.innerText = `${currentB0.toFixed(1)} T (${freqMHz} MHz)`;
+
+      fwhmSlider.value = currentFwhmHz;
+      fwhmVal.innerText = `${currentFwhmHz.toFixed(1)} Hz`;
+
+      snrSlider.value = currentSNR;
+      snrVal.innerText = currentSNR;
+
+      phaseSlider.value = 0;
+      phaseVal.innerText = '0\u00B0';
+
+      baseSlider.value = currentBaseAmp;
+      baseVal.innerText = (currentBaseAmp > 0.9) ? 'High' : (currentBaseAmp > 0.3) ? 'Medium' : 'Low';
+
+      refresh();
+    });
+  });
+
+  // Sliders
+  fwhmSlider.addEventListener('input', (e) => {
+    currentFwhmHz = parseFloat(e.target.value);
+    fwhmVal.innerText = `${currentFwhmHz.toFixed(1)} Hz`;
+    refresh();
+  });
+
+  snrSlider.addEventListener('input', (e) => {
+    currentSNR = parseInt(e.target.value, 10);
+    snrVal.innerText = currentSNR;
+    refresh();
+  });
+
+  phaseSlider.addEventListener('input', (e) => {
+    currentPhaseDeg = parseInt(e.target.value, 10);
+    phaseVal.innerText = `${currentPhaseDeg}\u00B0`;
+    refresh();
+  });
+
+  baseSlider.addEventListener('input', (e) => {
+    currentBaseAmp = parseFloat(e.target.value);
+    baseVal.innerText = (currentBaseAmp > 0.9) ? 'High' : (currentBaseAmp > 0.3) ? 'Medium' : 'Low';
+    refresh();
+  });
+
+  // Checkboxes
+  METABOLITES.forEach(m => {
+    const chk = document.getElementById(m.chkId);
+    if (chk) chk.addEventListener('change', renderCanvas);
+  });
+
+  // Refit button
+  document.getElementById('refitBtn').addEventListener('click', refresh);
+
+  // Resize handler
+  window.addEventListener('resize', renderCanvas);
+
+  // Initial Run
+  refresh();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Modal Fusion &amp; Representational Similarity Analysis (RSA)</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-v1: #3b82f6;
+    --c-loc: #10b981;
+    --c-ffa: #f43f5e;
+    --c-ppa: #f59e0b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  @media (max-width: 920px) {
+    .grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .rdm-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 14px;
+  }
+  @media (max-width: 680px) {
+    .rdm-row { grid-template-columns: 1fr; }
+  }
+
+  .rdm-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .rdm-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ctrl-group { margin-bottom: 14px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .playback-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .play-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .legend-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.18);
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week12/index.html">&larr; Back to Week 12</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>Multi-Modal Fusion &amp; Representational Similarity Analysis (RSA)</h1>
+  <p class="sub">
+    Multi-Modal Data Integration &middot; Bridging Millisecond EEG Dynamics &amp; Millimeter fMRI Spatial Patterns via Second-Order Isomorphism
+  </p>
+
+  <div class="banner">
+    <strong>The Integration Dilemma:</strong> fMRI provides millimeter spatial resolution but sluggish hemodynamics (~6 s). EEG provides millisecond temporal resolution but smeared scalp topography. Direct asymmetric fitting (e.g. using fMRI as a hard EEG source constraint) risks mislocalization due to neurovascular decoupling. <strong>Representational Similarity Analysis (RSA)</strong> solves multi-modal fusion without forcing disparate modalities into the same coordinate system. By comparing condition-by-condition Representational Dissimilarity Matrices (RDMs), we track when spatial representations in specific brain structures emerge in millisecond electrophysiology.
+  </div>
+
+  <div class="panel">
+    <div class="grid-layout">
+      <!-- Left: Spatiotemporal Fusion Curves -->
+      <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">EEG-fMRI Cross-Modal Fusion Trajectory &rho;(t)</div>
+        <div class="canvas-box">
+          <canvas id="fusionCanvas" height="240"></canvas>
+          <div class="legend-bar">
+            <div class="legend-item"><div style="width:12px;height:2.5px;background:var(--c-v1);"></div><span>V1 (Early Visual Cortex) &middot; Peak ~85 ms</span></div>
+            <div class="legend-item"><div style="width:12px;height:2.5px;background:var(--c-loc);"></div><span>LOC (Object Shape) &middot; Peak ~135 ms</span></div>
+            <div class="legend-item"><div style="width:12px;height:2.5px;background:var(--c-ffa);"></div><span>FFA (Face Category) &middot; Peak ~170 ms (N170)</span></div>
+          </div>
+        </div>
+
+        <!-- RDMs Comparison Row -->
+        <div class="rdm-row">
+          <div class="rdm-card">
+            <div class="rdm-title"><span>EEG RDM at <span id="lblTimeRdm">170 ms</span></span><span style="color:var(--muted);">Sensor Pattern</span></div>
+            <div class="canvas-box"><canvas id="rdmEegCanvas" height="150"></canvas></div>
+          </div>
+          <div class="rdm-card">
+            <div class="rdm-title"><span>fMRI V1 Spatial RDM</span><span style="color:var(--c-v1);">Voxel Pattern</span></div>
+            <div class="canvas-box"><canvas id="rdmV1Canvas" height="150"></canvas></div>
+          </div>
+          <div class="rdm-card">
+            <div class="rdm-title"><span>fMRI FFA Spatial RDM</span><span style="color:var(--c-ffa);">Voxel Pattern</span></div>
+            <div class="canvas-box"><canvas id="rdmFfaCanvas" height="150"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Controls & Anatomical Visualization -->
+      <div>
+        <!-- Time Scrubbing Slider -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Post-Stimulus Latency (t)</span>
+            <span class="ctrl-val" id="timeVal">170 ms</span>
+          </div>
+          <input type="range" id="timeSlider" min="-50" max="450" step="2" value="170">
+          <div class="playback-bar">
+            <button class="play-btn" id="btnPlay">Play Timeline</button>
+            <span style="font-size:0.75rem;color:var(--muted);">Scrub to inspect evolving RDM geometry</span>
+          </div>
+        </div>
+
+        <!-- Anatomical Schema Canvas -->
+        <div style="font-size:0.85rem;font-weight:600;margin:14px 0 6px;">Spatial Cortical Localization:</div>
+        <div class="canvas-box">
+          <canvas id="brainCanvas" height="180"></canvas>
+        </div>
+
+        <!-- Stimulus Category Key -->
+        <div style="margin-top:12px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.78rem;">
+          <strong>6 Experimental Categories:</strong>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;color:var(--muted);">
+            <div>1. Human Faces</div>
+            <div>2. Animal Faces</div>
+            <div>3. Human Bodies</div>
+            <div>4. Natural Scenes</div>
+            <div>5. Handheld Tools</div>
+            <div>6. Abstract Shapes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Second-Order Isomorphism &amp; Representational Geometries</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. Why Direct Fusion Fails:</strong>
+        <p>Combining fMRI and EEG directly into a single joint cost function faces fundamental biological barriers. Hemodynamics reflect metabolic demand (synaptic astrocyte uptake of glutamate), which can dissociate from instantaneous postsynaptic electrical field potentials. Forcing EEG sources into fMRI statistical hotspots ignores hemodynamic delays and introduces dangerous spatial bias for invisible or transient neural events.</p>
+      </div>
+      <div>
+        <strong>2. Second-Order Isomorphism:</strong>
+        <p>Representational Similarity Analysis establishes equivalence at the level of <em>information geometry</em>. For <span class="code-math">K</span> conditions, each modality defines a symmetric <span class="code-math">K \times K</span> Representational Dissimilarity Matrix (RDM):
+        <span class="code-math">D_{ij} = 1 - r(\vec{y}_i, \vec{y}_j)</span>.
+        Because distance matrices are coordinate-free, an fMRI RDM (computed across voxels) and an EEG RDM (computed across electrodes) exist in the exact same representational space, allowing direct Spearman rank correlation:
+        <span class="code-math">\rho(t) = \text{Spearman}\left(\text{vec}(RDM_{\text{EEG}}(t)), \text{vec}(RDM_{\text{fMRI}})\right)</span>.</p>
+      </div>
+      <div>
+        <strong>3. Spatiotemporal Cascades of Object Vision:</strong>
+        <p>Tracking <span class="code-math">\rho(t)</span> over time reveals the hierarchical flow of sensory information:
+        <ul>
+          <li><strong>Early Peak (~80 ms):</strong> EEG correlates with Early Visual Cortex (V1). The RDM geometry reflects low-level retinotopic features (edge energy, spatial contrast).</li>
+          <li><strong>Mid Peak (~135 ms):</strong> Correlation shifts to the Lateral Occipital Complex (LOC), reflecting structural shape boundaries.</li>
+          <li><strong>Categorical Peak (~170 ms):</strong> Strong correlation with the Fusiform Face Area (FFA), producing the classic face-selective N170 waveform and categorical separation of animate vs. inanimate objects.</li>
+        </ul></p>
+      </div>
+      <div>
+        <strong>4. Advantages in Clinical &amp; Cognitive Research:</strong>
+        <p>RSA multi-modal fusion does not require simultaneous EEG-fMRI acquisition; datasets recorded in separate sessions can be fused seamlessly. Furthermore, computational models (deep convolutional neural networks, semantics) can be tested against the same brain RDMs, bridging human neuroscience and artificial intelligence.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // 6 Stimulus Categories:
+  // 1. Human Faces, 2. Animal Faces, 3. Human Bodies, 4. Natural Scenes, 5. Handheld Tools, 6. Abstract Shapes
+  const K = 6;
+  const CAT_NAMES = ['H.Face', 'A.Face', 'Body', 'Scene', 'Tool', 'Shape'];
+
+  // Static fMRI RDMs (Dissimilarity = 1 - Pearson r, values 0.0 to 1.0)
+  // 1. Early Visual Cortex (V1): Driven by low-level spatial frequency/edge similarity
+  const RDM_V1 = [
+    [0.00, 0.45, 0.65, 0.85, 0.70, 0.60],
+    [0.45, 0.00, 0.60, 0.80, 0.75, 0.65],
+    [0.65, 0.60, 0.00, 0.75, 0.55, 0.70],
+    [0.85, 0.80, 0.75, 0.00, 0.80, 0.90],
+    [0.70, 0.75, 0.55, 0.80, 0.00, 0.50],
+    [0.60, 0.65, 0.70, 0.90, 0.50, 0.00]
+  ];
+
+  // 2. Lateral Occipital Complex (LOC): Driven by shape silhouette
+  const RDM_LOC = [
+    [0.00, 0.30, 0.55, 0.90, 0.65, 0.75],
+    [0.30, 0.00, 0.50, 0.85, 0.70, 0.80],
+    [0.55, 0.50, 0.00, 0.85, 0.45, 0.70],
+    [0.90, 0.85, 0.85, 0.00, 0.80, 0.85],
+    [0.65, 0.70, 0.45, 0.80, 0.00, 0.55],
+    [0.75, 0.80, 0.70, 0.85, 0.55, 0.00]
+  ];
+
+  // 3. Fusiform Face Area (FFA): Extreme categorical clustering (Faces vs Everything Else)
+  const RDM_FFA = [
+    [0.00, 0.18, 0.75, 0.95, 0.90, 0.95],
+    [0.18, 0.00, 0.70, 0.92, 0.88, 0.92],
+    [0.75, 0.70, 0.00, 0.85, 0.80, 0.85],
+    [0.95, 0.92, 0.85, 0.00, 0.75, 0.80],
+    [0.90, 0.88, 0.80, 0.75, 0.00, 0.60],
+    [0.95, 0.92, 0.85, 0.80, 0.60, 0.00]
+  ];
+
+  // Timeline: -50 ms to +450 ms
+  const T_MIN = -50;
+  const T_MAX = 450;
+  const NUM_TIMES = 251; // 2 ms steps
+
+  let currentLatency = 170; // ms
+  let isPlaying = false;
+  let playTimer = null;
+
+  // Precompute Spearman Rank Correlation Curves over time
+  const timeAxis = new Float64Array(NUM_TIMES);
+  const corrV1 = new Float64Array(NUM_TIMES);
+  const corrLOC = new Float64Array(NUM_TIMES);
+  const corrFFA = new Float64Array(NUM_TIMES);
+
+  function computeFusionCurves() {
+    for (let i = 0; i < NUM_TIMES; i++) {
+      const t = T_MIN + i * 2;
+      timeAxis[i] = t;
+
+      if (t < 40) {
+        // Pre-stimulus baseline noise
+        corrV1[i] = 0.04 + (Math.random() - 0.5) * 0.04;
+        corrLOC[i] = 0.03 + (Math.random() - 0.5) * 0.04;
+        corrFFA[i] = 0.02 + (Math.random() - 0.5) * 0.04;
+      } else {
+        // V1 peaks early at ~85 ms
+        const v1Peak = 0.68 * Math.exp(-Math.pow((t - 85) / 32, 2));
+        // LOC peaks mid at ~135 ms
+        const locPeak = 0.62 * Math.exp(-Math.pow((t - 135) / 40, 2));
+        // FFA peaks strongly at N170 (170 ms)
+        const ffaPeak = 0.78 * Math.exp(-Math.pow((t - 170) / 45, 2));
+
+        corrV1[i] = Math.max(0, v1Peak + (Math.random() - 0.5) * 0.02);
+        corrLOC[i] = Math.max(0, locPeak + (Math.random() - 0.5) * 0.02);
+        corrFFA[i] = Math.max(0, ffaPeak + (Math.random() - 0.5) * 0.02);
+      }
+    }
+  }
+  computeFusionCurves();
+
+  // Dynamic EEG RDM as a linear mixture of visual stages based on latency
+  function getDynamicEegRDM(t) {
+    const rdm = Array.from({ length: K }, () => new Float64Array(K));
+    if (t < 45) {
+      // Noise
+      for (let i = 0; i < K; i++) {
+        for (let j = i + 1; j < K; j++) {
+          const val = 0.5 + (Math.random() - 0.5) * 0.3;
+          rdm[i][j] = val;
+          rdm[j][i] = val;
+        }
+      }
+      return rdm;
+    }
+
+    const wV1 = Math.max(0, Math.exp(-Math.pow((t - 85) / 40, 2)));
+    const wLOC = Math.max(0, Math.exp(-Math.pow((t - 135) / 45, 2)));
+    const wFFA = Math.max(0, Math.exp(-Math.pow((t - 170) / 50, 2)));
+    const totalW = wV1 + wLOC + wFFA + 0.1;
+
+    for (let i = 0; i < K; i++) {
+      for (let j = i + 1; j < K; j++) {
+        const val = (wV1 * RDM_V1[i][j] + wLOC * RDM_LOC[i][j] + wFFA * RDM_FFA[i][j] + 0.1 * 0.5) / totalW;
+        rdm[i][j] = Math.min(1.0, Math.max(0, val));
+        rdm[j][i] = rdm[i][j];
+      }
+    }
+    return rdm;
+  }
+
+  // DOM Elements
+  const fusionCanvas = document.getElementById('fusionCanvas');
+  const fCtx = fusionCanvas.getContext('2d');
+  const rdmEegCanvas = document.getElementById('rdmEegCanvas');
+  const eCtx = rdmEegCanvas.getContext('2d');
+  const rdmV1Canvas = document.getElementById('rdmV1Canvas');
+  const vCtx = rdmV1Canvas.getContext('2d');
+  const rdmFfaCanvas = document.getElementById('rdmFfaCanvas');
+  const faCtx = rdmFfaCanvas.getContext('2d');
+  const brainCanvas = document.getElementById('brainCanvas');
+  const bCtx = brainCanvas.getContext('2d');
+
+  const timeSlider = document.getElementById('timeSlider');
+  const timeVal = document.getElementById('timeVal');
+  const lblTimeRdm = document.getElementById('lblTimeRdm');
+  const btnPlay = document.getElementById('btnPlay');
+
+  // Render Time Series Fusion Curves
+  function renderFusionPlot() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = fusionCanvas.parentElement.clientWidth;
+    const h = 240;
+    fusionCanvas.width = w * dpr;
+    fusionCanvas.height = h * dpr;
+    fusionCanvas.style.width = w + 'px';
+    fusionCanvas.style.height = h + 'px';
+
+    fCtx.save();
+    fCtx.scale(dpr, dpr);
+
+    fCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    fCtx.fillRect(0, 0, w, h);
+
+    const padL = 45;
+    const padR = 20;
+    const padT = 20;
+    const padB = 35;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+
+    const xMap = (t) => padL + ((t - T_MIN) / (T_MAX - T_MIN)) * plotW;
+    const yMap = (val) => padT + plotH * (1 - val / 0.9);
+
+    // Axes & Zero Lines
+    fCtx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+    fCtx.lineWidth = 1;
+
+    // Stimulus onset vertical dashed line at t=0
+    const x0 = xMap(0);
+    fCtx.beginPath();
+    fCtx.setLineDash([4, 4]);
+    fCtx.moveTo(x0, padT);
+    fCtx.lineTo(x0, padT + plotH);
+    fCtx.stroke();
+    fCtx.setLineDash([]);
+
+    // Grid lines & labels
+    fCtx.font = '10px -apple-system, sans-serif';
+    fCtx.fillStyle = '#64748b';
+    fCtx.textAlign = 'center';
+
+    for (let t = 0; t <= 400; t += 100) {
+      const x = xMap(t);
+      fCtx.fillText(`${t} ms`, x, padT + plotH + 16);
+    }
+    fCtx.fillText('Post-Stimulus Time (ms)', padL + plotW / 2, padT + plotH + 30);
+
+    // Y Axis labels
+    fCtx.textAlign = 'right';
+    [0.0, 0.4, 0.8].forEach(yVal => {
+      const y = yMap(yVal);
+      fCtx.fillText(yVal.toFixed(1), padL - 6, y + 3);
+      fCtx.beginPath();
+      fCtx.moveTo(padL, y);
+      fCtx.lineTo(padL + plotW, y);
+      fCtx.stroke();
+    });
+
+    // 1. Draw V1 Curve (Blue)
+    drawCurve(corrV1, '#3b82f6', 2.0, xMap, yMap);
+    // 2. Draw LOC Curve (Green)
+    drawCurve(corrLOC, '#10b981', 2.0, xMap, yMap);
+    // 3. Draw FFA Curve (Red)
+    drawCurve(corrFFA, '#f43f5e', 2.5, xMap, yMap);
+
+    // Draw vertical latency scrubber line
+    const xCur = xMap(currentLatency);
+    fCtx.strokeStyle = '#fbbf24';
+    fCtx.lineWidth = 2.0;
+    fCtx.beginPath();
+    fCtx.moveTo(xCur, padT);
+    fCtx.lineTo(xCur, padT + plotH);
+    fCtx.stroke();
+
+    fCtx.restore();
+  }
+
+  function drawCurve(arr, col, lineW, xMap, yMap) {
+    fCtx.strokeStyle = col;
+    fCtx.lineWidth = lineW;
+    fCtx.beginPath();
+    for (let i = 0; i < NUM_TIMES; i++) {
+      const x = xMap(timeAxis[i]);
+      const y = yMap(arr[i]);
+      if (i === 0) fCtx.moveTo(x, y);
+      else fCtx.lineTo(x, y);
+    }
+    fCtx.stroke();
+  }
+
+  // Draw 6x6 RDM Matrix
+  function renderRDM(matrix, canvasElem, ctxElem) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvasElem.parentElement.clientWidth;
+    const h = 150;
+    canvasElem.width = w * dpr;
+    canvasElem.height = h * dpr;
+    canvasElem.style.width = w + 'px';
+    canvasElem.style.height = h + 'px';
+
+    ctxElem.save();
+    ctxElem.scale(dpr, dpr);
+
+    ctxElem.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    ctxElem.fillRect(0, 0, w, h);
+
+    const pad = 16;
+    const size = Math.min(w - 2 * pad, h - 2 * pad);
+    const cellSize = size / K;
+    const startX = (w - size) / 2;
+    const startY = (h - size) / 2;
+
+    for (let i = 0; i < K; i++) {
+      for (let j = 0; j < K; j++) {
+        const val = matrix[i][j]; // 0.0 (identical) to 1.0 (maximally distinct)
+        const x = startX + j * cellSize;
+        const y = startY + i * cellSize;
+
+        if (i === j) {
+          ctxElem.fillStyle = '#0f172a';
+        } else {
+          // Heatmap: Blue (low distance) -> Yellow -> Red (high distance)
+          const norm = Math.min(1.0, Math.max(0, val));
+          const r = Math.floor(norm * 240);
+          const g = Math.floor(Math.sin(norm * Math.PI) * 180);
+          const b = Math.floor((1 - norm) * 220);
+          ctxElem.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        }
+
+        ctxElem.fillRect(x, y, cellSize - 1, cellSize - 1);
+      }
+    }
+
+    ctxElem.restore();
+  }
+
+  // Draw Anatomical Sagittal Brain Schematic with active ROIs
+  function renderBrain() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = brainCanvas.parentElement.clientWidth;
+    const h = 180;
+    brainCanvas.width = w * dpr;
+    brainCanvas.height = h * dpr;
+    brainCanvas.style.width = w + 'px';
+    brainCanvas.style.height = h + 'px';
+
+    bCtx.save();
+    bCtx.scale(dpr, dpr);
+
+    bCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    bCtx.fillRect(0, 0, w, h);
+
+    const cx = w * 0.5;
+    const cy = h * 0.55;
+
+    // Sagittal brain outline
+    bCtx.strokeStyle = 'rgba(100, 116, 139, 0.3)';
+    bCtx.lineWidth = 1.5;
+    bCtx.beginPath();
+    bCtx.ellipse(cx, cy, w * 0.38, h * 0.38, 0, 0, 2 * Math.PI);
+    bCtx.stroke();
+
+    // Active weight calculation at currentLatency
+    const t = currentLatency;
+    const wV1 = Math.max(0, Math.exp(-Math.pow((t - 85) / 32, 2)));
+    const wLOC = Math.max(0, Math.exp(-Math.pow((t - 135) / 40, 2)));
+    const wFFA = Math.max(0, Math.exp(-Math.pow((t - 170) / 45, 2)));
+
+    // ROIs:
+    // V1 (Occipital pole, posterior)
+    const v1X = cx + w * 0.30;
+    const v1Y = cy + 10;
+    drawRoi(v1X, v1Y, 'V1 (Early Visual)', '#3b82f6', wV1);
+
+    // LOC (Lateral Occipital)
+    const locX = cx + w * 0.22;
+    const locY = cy - 20;
+    drawRoi(locX, locY, 'LOC (Shape)', '#10b981', wLOC);
+
+    // FFA (Fusiform Gyrus, ventral temporal)
+    const ffaX = cx + 10;
+    const ffaY = cy + 28;
+    drawRoi(ffaX, ffaY, 'FFA (Face)', '#f43f5e', wFFA);
+
+    bCtx.restore();
+  }
+
+  function drawRoi(x, y, label, col, activeWeight) {
+    const r = 7 + activeWeight * 14;
+    bCtx.beginPath();
+    bCtx.arc(x, y, r, 0, 2 * Math.PI);
+    bCtx.fillStyle = col;
+    bCtx.globalAlpha = 0.3 + activeWeight * 0.7;
+    bCtx.fill();
+    bCtx.strokeStyle = '#fff';
+    bCtx.lineWidth = 1.5;
+    bCtx.stroke();
+    bCtx.globalAlpha = 1.0;
+
+    // Label
+    bCtx.font = (activeWeight > 0.4) ? 'bold 10px -apple-system, sans-serif' : '9px -apple-system, sans-serif';
+    bCtx.fillStyle = (activeWeight > 0.4) ? '#ffffff' : '#94a3b8';
+    bCtx.textAlign = 'center';
+    bCtx.fillText(label, x, y - r - 4);
+  }
+
+  function updateAll() {
+    timeVal.innerText = `${currentLatency} ms`;
+    lblTimeRdm.innerText = `${currentLatency} ms`;
+
+    renderFusionPlot();
+    renderRDM(getDynamicEegRDM(currentLatency), rdmEegCanvas, eCtx);
+    renderRDM(RDM_V1, rdmV1Canvas, vCtx);
+    renderRDM(RDM_FFA, rdmFfaCanvas, faCtx);
+    renderBrain();
+  }
+
+  // Time Slider
+  timeSlider.addEventListener('input', (e) => {
+    currentLatency = parseInt(e.target.value, 10);
+    updateAll();
+  });
+
+  // Play Button
+  btnPlay.addEventListener('click', () => {
+    if (isPlaying) {
+      clearInterval(playTimer);
+      isPlaying = false;
+      btnPlay.innerText = 'Play Timeline';
+    } else {
+      isPlaying = true;
+      btnPlay.innerText = 'Pause';
+      if (currentLatency >= 400) currentLatency = -40;
+
+      playTimer = setInterval(() => {
+        currentLatency += 4;
+        if (currentLatency > T_MAX) {
+          clearInterval(playTimer);
+          isPlaying = false;
+          btnPlay.innerText = 'Play Timeline';
+        }
+        timeSlider.value = currentLatency;
+        updateAll();
+      }, 40);
+    }
+  });
+
+  window.addEventListener('resize', updateAll);
+
+  // Initialize
+  updateAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PET Sinogram &amp; Tomographic Reconstruction Workbench</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .viewports-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 880px) {
+    .viewports-grid { grid-template-columns: 1fr; }
+  }
+
+  .view-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .controls-grid { grid-template-columns: 1fr; }
+  }
+
+  .ctrl-group { margin-bottom: 12px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .recon-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .recon-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+  .recon-btn:hover { border-color: var(--accent); }
+  .recon-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week07/index.html">&larr; Back to Week 07</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>PET Sinogram &amp; Tomographic Reconstruction Workbench</h1>
+  <p class="sub">
+    Positron Emission Tomography &middot; Radon Transform, Coincidence LORs, Filtered Backprojection (FBP) &amp; Iterative MLEM with Attenuation Correction
+  </p>
+
+  <div class="banner">
+    <strong>Tomographic Principles:</strong> An annihilation event sends antiparallel 511 keV photon pairs into opposing detectors, defining a Line of Response (LOR). Sorting millions of LORs by angle <span class="code-math">\theta</span> and radial offset <span class="code-math">s</span> produces the <strong>Sinogram</strong> via the Radon transform. Reconstructing the cross-sectional tracer distribution requires inverting the intrinsic <span class="code-math">1/r</span> backprojection blurring via the ramp filter, or applying iterative Maximum Likelihood Expectation Maximization (MLEM) to model Poisson noise and tissue photon attenuation.
+  </div>
+
+  <div class="panel">
+    <!-- Viewports: Phantom -> Sinogram -> Reconstructed Image -->
+    <div class="viewports-grid">
+      <!-- 1. Ground Truth Phantom -->
+      <div>
+        <div class="view-header">
+          <span>1. Emission Phantom</span>
+          <span style="font-size:0.75rem;color:var(--muted);">Click to add Hot Tumor</span>
+        </div>
+        <div class="canvas-box">
+          <canvas id="phantomCanvas" height="260"></canvas>
+        </div>
+      </div>
+
+      <!-- 2. Sinogram (Radon Space) -->
+      <div>
+        <div class="view-header">
+          <span>2. Measured Sinogram p(s, &theta;)</span>
+          <span style="font-size:0.75rem;color:var(--muted);">s &times; &theta; (Radon Transform)</span>
+        </div>
+        <div class="canvas-box">
+          <canvas id="sinogramCanvas" height="260"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. Tomographic Reconstruction -->
+      <div>
+        <div class="view-header">
+          <span>3. Reconstructed Activity</span>
+          <span id="reconLabel" style="font-size:0.75rem;color:var(--accent);font-weight:600;">Filtered Backprojection</span>
+        </div>
+        <div class="canvas-box">
+          <canvas id="reconCanvas" height="260"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-grid">
+      <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Reconstruction Algorithm:</div>
+        <div class="recon-tabs">
+          <button class="recon-btn" data-mode="unfiltered">Unfiltered BP</button>
+          <button class="recon-btn active" data-mode="ramlak">FBP (Ram-Lak)</button>
+          <button class="recon-btn" data-mode="hann">FBP (Hann Window)</button>
+          <button class="recon-btn" data-mode="mlem">Iterative MLEM</button>
+        </div>
+
+        <!-- MLEM Iterations Slider (conditional) -->
+        <div class="ctrl-group" id="mlemGroup" style="display:none;">
+          <div class="ctrl-label">
+            <span>MLEM Iteration Count</span>
+            <span class="ctrl-val" id="iterVal">8 iterations</span>
+          </div>
+          <input type="range" id="iterSlider" min="1" max="25" step="1" value="8">
+        </div>
+
+        <!-- Attenuation Correction Toggle -->
+        <div style="margin-top:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="chkAtten" checked>
+            <span>Apply 511 keV Attenuation Correction (&mu;-map)</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <!-- Poisson Count Statistics -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Tracer Dose &amp; Count Statistics</span>
+            <span class="ctrl-val" id="doseVal">High (Low Noise)</span>
+          </div>
+          <input type="range" id="doseSlider" min="1" max="5" step="1" value="4">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>Low Dose (High Poisson Noise)</span>
+            <span>High Dose (Clinical)</span>
+          </div>
+        </div>
+
+        <button class="action-btn" id="btnResetPhantom" style="margin-top:6px;width:100%;background:var(--bg);border:1px solid var(--border);padding:8px;border-radius:6px;cursor:pointer;font-weight:600;">
+          Reset Brain Phantom to Baseline
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Mathematical Foundations of PET Tomography</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. The Radon Transform &amp; Sinogram Geometry:</strong>
+        <p>In 2D PET, each line integral across tracer activity <span class="code-math">f(x, y)</span> is parameterized by normal angle <span class="code-math">\theta \in [0, \pi]</span> and signed radial displacement <span class="code-math">s</span> from the scanner isocenter:
+        <span class="code-math">p(s, \theta) = \int \int f(x, y) \delta(x \cos\theta + y \sin\theta - s) dx dy</span>.
+        A single isolated hot tumor at polar coordinate <span class="code-math">(r_0, \phi_0)</span> traces a pure sine wave across the Radon plane: <span class="code-math">s(\theta) = r_0 \sin(\theta - \phi_0)</span>. The sinogram is the collection of all such intersecting sinusoids.</p>
+      </div>
+      <div>
+        <strong>2. Unfiltered vs. Filtered Backprojection:</strong>
+        <p>Projecting sinogram values back along each LOR without filtering accumulates the image, but introduces an intrinsic <span class="code-math">1/r</span> point-spread blurring kernel (<span class="code-math">f_{\text{unfiltered}} = f \ast \frac{1}{r}</span>). In Fourier space, the Fourier Slice Theorem proves that 1D projections correspond to radial slices through 2D k-space. The <strong>Ram-Lak ramp filter</strong> (<span class="code-math">|k|</span>) compensates exactly for the high density of radial sampling near the origin. Apodizing with a <strong>Hann window</strong> (<span class="code-math">H(k) = 0.5 + 0.5\cos(\pi k / k_{\text{max}})</span>) prevents high-frequency Poisson noise blow-up.</p>
+      </div>
+      <div>
+        <strong>3. Iterative MLEM Reconstruction:</strong>
+        <p>Filtered Backprojection assumes deterministic, continuous line integrals and easily produces negative artifactual pixel values in low-count regions. <strong>Maximum Likelihood Expectation Maximization (MLEM)</strong> models the discrete Poisson statistics of radioactive decay:
+        <span class="code-math">\hat{f}_j^{(n+1)} = \hat{f}_j^{(n)} \frac{1}{\sum_i c_{ij}} \sum_i c_{ij} \frac{p_i}{\sum_k c_{ik} \hat{f}_k^{(n)}}</span>.
+        Each iteration compares projected estimates against actual measured counts, guaranteeing strictly non-negative activity and superior signal-to-noise ratios.</p>
+      </div>
+      <div>
+        <strong>4. 511 keV Photon Attenuation Correction:</strong>
+        <p>Before escaping the patient's body, 511 keV photons can undergo Compton scattering or photoelectric absorption. The survival probability along an LOR is <span class="code-math">A_i = \exp(-\int \mu(x,y) dl)</span>, independent of where along the LOR the emission took place! Without attenuation correction (CT or MRI-based <span class="code-math">\mu</span>-map), deep brain structures appear artificially hypometabolic while the cortical periphery creates false hypermetabolic rims.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Grid Dimensions for Fast In-Browser Tomography
+  const GRID_SIZE = 64; // 64 x 64 image
+  const NUM_ANGLES = 60; // theta from 0 to pi
+  const NUM_RADIAL = 64; // radial bins s
+
+  // Phantom State
+  // List of circles: { x, y, r, val, isBone } in normalized [-1, 1] coordinates
+  let phantomObjects = [];
+
+  function initPhantom() {
+    phantomObjects = [
+      // Brain parenchymal ellipse
+      { x: 0, y: 0.05, rx: 0.72, ry: 0.82, val: 0.45, isBone: false },
+      // Ventricles (cold CSF)
+      { x: -0.15, y: 0.05, rx: 0.08, ry: 0.22, val: 0.02, isBone: false },
+      { x: 0.15, y: 0.05, rx: 0.08, ry: 0.22, val: 0.02, isBone: false },
+      // Default Hot Tumor (Glioblastoma / Hypermetabolic focus)
+      { x: 0.32, y: -0.15, rx: 0.12, ry: 0.12, val: 1.0, isBone: false }
+    ];
+  }
+  initPhantom();
+
+  // Settings
+  let activeMode = 'ramlak'; // 'unfiltered', 'ramlak', 'hann', 'mlem'
+  let mlemIterations = 8;
+  let doseLevel = 4; // 1 to 5
+  let attenuationCorrection = true;
+
+  // Image arrays
+  const emissionImage = new Float32Array(GRID_SIZE * GRID_SIZE);
+  const muMap = new Float32Array(GRID_SIZE * GRID_SIZE);
+  const sinogram = new Float32Array(NUM_ANGLES * NUM_RADIAL);
+  const reconImage = new Float32Array(GRID_SIZE * GRID_SIZE);
+
+  // DOM references
+  const phantomCanvas = document.getElementById('phantomCanvas');
+  const pCtx = phantomCanvas.getContext('2d');
+  const sinogramCanvas = document.getElementById('sinogramCanvas');
+  const sCtx = sinogramCanvas.getContext('2d');
+  const reconCanvas = document.getElementById('reconCanvas');
+  const rCtx = reconCanvas.getContext('2d');
+
+  const reconLabel = document.getElementById('reconLabel');
+  const mlemGroup = document.getElementById('mlemGroup');
+  const iterSlider = document.getElementById('iterSlider');
+  const iterVal = document.getElementById('iterVal');
+  const doseSlider = document.getElementById('doseSlider');
+  const doseVal = document.getElementById('doseVal');
+  const chkAtten = document.getElementById('chkAtten');
+
+  // Generate 2D emission image from phantom objects
+  function rasterizePhantom() {
+    emissionImage.fill(0);
+    muMap.fill(0);
+
+    for (let gy = 0; gy < GRID_SIZE; gy++) {
+      const y = ((gy + 0.5) / GRID_SIZE) * 2 - 1;
+      for (let gx = 0; gx < GRID_SIZE; gx++) {
+        const x = ((gx + 0.5) / GRID_SIZE) * 2 - 1;
+        const idx = gy * GRID_SIZE + gx;
+
+        for (let obj of phantomObjects) {
+          const dx = (x - obj.x) / obj.rx;
+          const dy = (y - obj.y) / obj.ry;
+          if (dx * dx + dy * dy <= 1.0) {
+            emissionImage[idx] = obj.val;
+            // Brain tissue attenuation coefficient ~ 0.096 cm^-1
+            muMap[idx] = 0.10;
+          }
+        }
+      }
+    }
+  }
+
+  // Forward Radon Transform: calculate Sinogram p(s, theta)
+  function computeSinogram() {
+    sinogram.fill(0);
+    const dTheta = Math.PI / NUM_ANGLES;
+    const ds = 2.0 / NUM_RADIAL;
+
+    for (let a = 0; a < NUM_ANGLES; a++) {
+      const theta = a * dTheta;
+      const cosT = Math.cos(theta);
+      const sinT = Math.sin(theta);
+
+      for (let r = 0; r < NUM_RADIAL; r++) {
+        const s = (r + 0.5) * ds - 1.0;
+        let sumActivity = 0;
+        let sumAtten = 0;
+
+        // Line integral along u
+        for (let u = -1.2; u <= 1.2; u += 0.035) {
+          const x = s * cosT - u * sinT;
+          const y = s * sinT + u * cosT;
+
+          // Convert to grid index
+          const gx = Math.floor(((x + 1) / 2) * GRID_SIZE);
+          const gy = Math.floor(((y + 1) / 2) * GRID_SIZE);
+
+          if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
+            const idx = gy * GRID_SIZE + gx;
+            sumActivity += emissionImage[idx] * 0.035;
+            sumAtten += muMap[idx] * 0.035;
+          }
+        }
+
+        // Apply physical attenuation factor: exp(-integral(mu dl))
+        const attenFactor = Math.exp(-sumAtten * 8.0); // scaled for display
+        let detectedCounts = sumActivity * attenFactor;
+
+        // If attenuation correction is NOT applied during recon, the measurement keeps this attenuation drop
+        // If attenuation correction IS enabled, we divide by attenFactor
+        if (attenuationCorrection) {
+          detectedCounts = sumActivity; // perfectly corrected line integrals
+        } else {
+          detectedCounts = sumActivity * attenFactor; // center dropout artifact
+        }
+
+        // Add Poisson count noise based on doseLevel (1 = noisy, 5 = near clean)
+        const noiseScale = [0.25, 0.15, 0.08, 0.03, 0.005][doseLevel - 1];
+        if (detectedCounts > 0.001) {
+          const noise = (Math.random() - 0.5) * noiseScale * detectedCounts;
+          detectedCounts = Math.max(0, detectedCounts + noise);
+        }
+
+        sinogram[a * NUM_RADIAL + r] = detectedCounts;
+      }
+    }
+  }
+
+  // Tomographic Reconstruction
+  function reconstruct() {
+    reconImage.fill(0);
+
+    if (activeMode === 'unfiltered') {
+      reconstructSimpleBackprojection();
+    } else if (activeMode === 'ramlak' || activeMode === 'hann') {
+      reconstructFilteredBackprojection(activeMode === 'hann');
+    } else if (activeMode === 'mlem') {
+      reconstructMLEM();
+    }
+
+    renderAll();
+  }
+
+  // 1. Simple Unfiltered Backprojection (demonstrates 1/r blurring)
+  function reconstructSimpleBackprojection() {
+    const dTheta = Math.PI / NUM_ANGLES;
+
+    for (let a = 0; a < NUM_ANGLES; a++) {
+      const theta = a * dTheta;
+      const cosT = Math.cos(theta);
+      const sinT = Math.sin(theta);
+
+      for (let gy = 0; gy < GRID_SIZE; gy++) {
+        const y = ((gy + 0.5) / GRID_SIZE) * 2 - 1;
+        for (let gx = 0; gx < GRID_SIZE; gx++) {
+          const x = ((gx + 0.5) / GRID_SIZE) * 2 - 1;
+
+          const s = x * cosT + y * sinT;
+          const rBin = Math.floor(((s + 1.0) / 2.0) * NUM_RADIAL);
+
+          if (rBin >= 0 && rBin < NUM_RADIAL) {
+            reconImage[gy * GRID_SIZE + gx] += sinogram[a * NUM_RADIAL + rBin];
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Filtered Backprojection with Ram-Lak or Hann filter
+  function reconstructFilteredBackprojection(useHann) {
+    const dTheta = Math.PI / NUM_ANGLES;
+    const filteredSino = new Float32Array(NUM_ANGLES * NUM_RADIAL);
+
+    // 1D Fourier Ramp filtering on each angle projection
+    // Discrete spatial convolution with Ram-Lak ramp kernel:
+    // h(0) = 1/(4*d^2), h(odd) = -1/(pi^2 * n^2 * d^2), h(even) = 0
+    const kernelSize = 31;
+    const halfK = Math.floor(kernelSize / 2);
+    const kernel = new Float32Array(kernelSize);
+
+    for (let n = -halfK; n <= halfK; n++) {
+      let val = 0;
+      if (n === 0) {
+        val = 0.25;
+      } else if (n % 2 !== 0) {
+        val = -1.0 / (Math.PI * Math.PI * n * n);
+      }
+      if (useHann) {
+        // Hann window smoothing
+        val *= 0.5 * (1 + Math.cos((Math.PI * n) / halfK));
+      }
+      kernel[n + halfK] = val;
+    }
+
+    // Convolve each row of sinogram with filter kernel
+    for (let a = 0; a < NUM_ANGLES; a++) {
+      const rowOffset = a * NUM_RADIAL;
+      for (let r = 0; r < NUM_RADIAL; r++) {
+        let sum = 0;
+        for (let k = -halfK; k <= halfK; k++) {
+          const bin = r - k;
+          if (bin >= 0 && bin < NUM_RADIAL) {
+            sum += sinogram[rowOffset + bin] * kernel[k + halfK];
+          }
+        }
+        filteredSino[rowOffset + r] = sum;
+      }
+    }
+
+    // Backproject filtered projections
+    for (let a = 0; a < NUM_ANGLES; a++) {
+      const theta = a * dTheta;
+      const cosT = Math.cos(theta);
+      const sinT = Math.sin(theta);
+
+      for (let gy = 0; gy < GRID_SIZE; gy++) {
+        const y = ((gy + 0.5) / GRID_SIZE) * 2 - 1;
+        for (let gx = 0; gx < GRID_SIZE; gx++) {
+          const x = ((gx + 0.5) / GRID_SIZE) * 2 - 1;
+
+          const s = x * cosT + y * sinT;
+          const rBin = Math.floor(((s + 1.0) / 2.0) * NUM_RADIAL);
+
+          if (rBin >= 0 && rBin < NUM_RADIAL) {
+            const val = filteredSino[a * NUM_RADIAL + rBin];
+            reconImage[gy * GRID_SIZE + gx] += Math.max(0, val);
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Iterative MLEM Reconstruction
+  function reconstructMLEM() {
+    // Initial uniform non-zero estimate
+    reconImage.fill(0.5);
+    const dTheta = Math.PI / NUM_ANGLES;
+
+    const projected = new Float32Array(NUM_ANGLES * NUM_RADIAL);
+    const ratio = new Float32Array(NUM_ANGLES * NUM_RADIAL);
+    const backprojRatio = new Float32Array(GRID_SIZE * GRID_SIZE);
+
+    for (let iter = 0; iter < mlemIterations; iter++) {
+      projected.fill(0);
+
+      // Forward project current estimate
+      for (let a = 0; a < NUM_ANGLES; a++) {
+        const theta = a * dTheta;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+
+        for (let gy = 0; gy < GRID_SIZE; gy++) {
+          const y = ((gy + 0.5) / GRID_SIZE) * 2 - 1;
+          for (let gx = 0; gx < GRID_SIZE; gx++) {
+            const x = ((gx + 0.5) / GRID_SIZE) * 2 - 1;
+            const s = x * cosT + y * sinT;
+            const rBin = Math.floor(((s + 1.0) / 2.0) * NUM_RADIAL);
+            if (rBin >= 0 && rBin < NUM_RADIAL) {
+              projected[a * NUM_RADIAL + rBin] += reconImage[gy * GRID_SIZE + gx];
+            }
+          }
+        }
+      }
+
+      // Compute ratio = measured / projected
+      for (let i = 0; i < NUM_ANGLES * NUM_RADIAL; i++) {
+        ratio[i] = (projected[i] > 1e-5) ? (sinogram[i] / projected[i]) : 0;
+      }
+
+      // Backproject the ratio
+      backprojRatio.fill(0);
+      for (let a = 0; a < NUM_ANGLES; a++) {
+        const theta = a * dTheta;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+
+        for (let gy = 0; gy < GRID_SIZE; gy++) {
+          const y = ((gy + 0.5) / GRID_SIZE) * 2 - 1;
+          for (let gx = 0; gx < GRID_SIZE; gx++) {
+            const x = ((gx + 0.5) / GRID_SIZE) * 2 - 1;
+            const s = x * cosT + y * sinT;
+            const rBin = Math.floor(((s + 1.0) / 2.0) * NUM_RADIAL);
+            if (rBin >= 0 && rBin < NUM_RADIAL) {
+              backprojRatio[gy * GRID_SIZE + gx] += ratio[a * NUM_RADIAL + rBin];
+            }
+          }
+        }
+      }
+
+      // Multiplicative update
+      for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        reconImage[i] *= (backprojRatio[i] / NUM_ANGLES);
+      }
+    }
+  }
+
+  // Draw 2D Arrays to Canvases using colormaps
+  function renderAll() {
+    renderArrayToCanvas(emissionImage, GRID_SIZE, GRID_SIZE, phantomCanvas, pCtx, 'hot');
+    renderArrayToCanvas(sinogram, NUM_RADIAL, NUM_ANGLES, sinogramCanvas, sCtx, 'sinogram');
+    renderArrayToCanvas(reconImage, GRID_SIZE, GRID_SIZE, reconCanvas, rCtx, 'hot');
+  }
+
+  function renderArrayToCanvas(arr, nx, ny, cnv, context, cmap) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cnv.parentElement.clientWidth;
+    const h = 260;
+    cnv.width = w * dpr;
+    cnv.height = h * dpr;
+    cnv.style.width = w + 'px';
+    cnv.style.height = h + 'px';
+
+    context.save();
+    context.scale(dpr, dpr);
+
+    // Find max value for scaling
+    let maxVal = 1e-4;
+    for (let i = 0; i < nx * ny; i++) {
+      if (arr[i] > maxVal) maxVal = arr[i];
+    }
+
+    // Create ImageData buffer
+    const imgData = context.createImageData(nx, ny);
+    for (let i = 0; i < nx * ny; i++) {
+      const norm = Math.min(1.0, Math.max(0, arr[i] / maxVal));
+      let r = 0, g = 0, b = 0;
+
+      if (cmap === 'hot') {
+        // Black -> Red -> Yellow -> White (PET Hot Metal Colormap)
+        if (norm < 0.33) {
+          r = Math.floor((norm / 0.33) * 255);
+        } else if (norm < 0.66) {
+          r = 255;
+          g = Math.floor(((norm - 0.33) / 0.33) * 255);
+        } else {
+          r = 255;
+          g = 255;
+          b = Math.floor(((norm - 0.66) / 0.34) * 255);
+        }
+      } else {
+        // Sinogram: Viridis / Blue-Cyan
+        r = Math.floor(norm * 40);
+        g = Math.floor(norm * 180 + (norm > 0.6 ? (norm - 0.6) * 180 : 0));
+        b = Math.floor(norm * 255);
+      }
+
+      imgData.data[i * 4 + 0] = r;
+      imgData.data[i * 4 + 1] = g;
+      imgData.data[i * 4 + 2] = b;
+      imgData.data[i * 4 + 3] = 255;
+    }
+
+    // Draw smoothed to canvas
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = nx;
+    offCanvas.height = ny;
+    offCanvas.getContext('2d').putImageData(imgData, 0, 0);
+
+    context.imageSmoothingEnabled = true;
+    context.drawImage(offCanvas, 0, 0, w, h);
+
+    context.restore();
+  }
+
+  // Click on Phantom to add new tumor
+  phantomCanvas.addEventListener('click', (e) => {
+    const rect = phantomCanvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+
+    const normX = px * 2 - 1;
+    const normY = py * 2 - 1;
+
+    // Check inside brain bounds
+    if (Math.hypot(normX, normY) < 0.75) {
+      phantomObjects.push({
+        x: normX,
+        y: normY,
+        rx: 0.09,
+        ry: 0.09,
+        val: 1.0,
+        isBone: false
+      });
+      fullPipeline();
+    }
+  });
+
+  // Algorithm tabs
+  document.querySelectorAll('.recon-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.recon-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      activeMode = e.target.dataset.mode;
+
+      mlemGroup.style.display = (activeMode === 'mlem') ? 'block' : 'none';
+
+      const labels = {
+        unfiltered: 'Unfiltered Backprojection (1/r Blur)',
+        ramlak: 'Filtered Backprojection (Ram-Lak)',
+        hann: 'FBP (Hann Apodized)',
+        mlem: `Iterative MLEM (${mlemIterations} It.)`
+      };
+      reconLabel.innerText = labels[activeMode];
+
+      reconstruct();
+    });
+  });
+
+  // Controls
+  iterSlider.addEventListener('input', (e) => {
+    mlemIterations = parseInt(e.target.value, 10);
+    iterVal.innerText = `${mlemIterations} iterations`;
+    reconstruct();
+  });
+
+  doseSlider.addEventListener('input', (e) => {
+    doseLevel = parseInt(e.target.value, 10);
+    const names = ['Severe Poisson Noise', 'Low Dose', 'Standard', 'High (Low Noise)', 'Ideal (Count Limit)'];
+    doseVal.innerText = names[doseLevel - 1];
+    computeSinogram();
+    reconstruct();
+  });
+
+  chkAtten.addEventListener('change', (e) => {
+    attenuationCorrection = e.target.checked;
+    computeSinogram();
+    reconstruct();
+  });
+
+  document.getElementById('btnResetPhantom').addEventListener('click', () => {
+    initPhantom();
+    fullPipeline();
+  });
+
+  function fullPipeline() {
+    rasterizePhantom();
+    computeSinogram();
+    reconstruct();
+  }
+
+  window.addEventListener('resize', renderAll);
+
+  // Initialize
+  fullPipeline();
+})();
+</script>
+</body>
+</html>

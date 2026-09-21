@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structural Connectome Matrix &amp; Graph Theory Studio</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --grid-col: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --dmn: #f43f5e;
+    --mot: #3b82f6;
+    --vis: #10b981;
+    --exec: #f59e0b;
+    --sub: #8b5cf6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --grid-col: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+  }
+  @media (max-width: 960px) {
+    .grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+  @media (max-width: 600px) {
+    .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .m-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .m-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .m-val { font-size: 1.25rem; font-weight: 700; color: var(--fg); margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .m-sub { font-size: 0.68rem; color: var(--muted); }
+
+  .ctrl-group { margin-bottom: 14px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .action-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
+  .btn-danger:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+
+  .legend-modules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin-top: 14px;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.78rem;
+  }
+  .mod-item { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+  .mod-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .node-inspector {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week06/index.html">&larr; Back to Week 06</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>Structural Connectome Matrix &amp; Graph Theory Studio</h1>
+  <p class="sub">
+    Diffusion MRI &middot; Whole-Brain Streamline Adjacency, Small-World Topology, Rich-Club Hubs &amp; Targeted Lesion Resilience
+  </p>
+
+  <div class="banner">
+    <strong>Core Principle:</strong> Whole-brain tractography bridges voxelwise diffusion measurements to macroscopic systems neuroscience. Grouping streamline counts between parcellated cortical regions yields an <span class="code-math">N \times N</span> adjacency matrix <span class="code-math">A_{ij}</span>. The human brain balances local segregation (high clustering <span class="code-math">C</span>) with global integration (short path length <span class="code-math">L</span>) to form a <em>small-world</em> network (<span class="code-math">\sigma &gt; 1</span>). Highly connected "rich-club" hubs provide rapid inter-modular communication but represent critical points of vulnerability.
+  </div>
+
+  <div class="panel">
+    <div class="grid-layout">
+      <!-- Left: Anatomical Brain Network Canvas -->
+      <div>
+        <div class="canvas-box">
+          <canvas id="brainCanvas" height="460"></canvas>
+        </div>
+
+        <div class="legend-modules">
+          <div class="mod-item"><div class="mod-dot" style="background:var(--dmn);"></div>Default Mode Network (DMN)</div>
+          <div class="mod-item"><div class="mod-dot" style="background:var(--mot);"></div>Somatomotor Network (SMN)</div>
+          <div class="mod-item"><div class="mod-dot" style="background:var(--vis);"></div>Visual Network (VIS)</div>
+          <div class="mod-item"><div class="mod-dot" style="background:var(--exec);"></div>Executive / Salience (FPN)</div>
+          <div class="mod-item"><div class="mod-dot" style="background:var(--sub);"></div>Subcortical Hubs</div>
+        </div>
+
+        <!-- Global Graph Metrics -->
+        <div class="metrics-strip">
+          <div class="m-card">
+            <div class="m-lbl">Char. Path Length (L)</div>
+            <div class="m-val" id="metricL">--</div>
+            <div class="m-sub">Global Integration</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Clustering Coeff (C)</div>
+            <div class="m-val" id="metricC">--</div>
+            <div class="m-sub">Local Segregation</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Small-Worldness (&sigma;)</div>
+            <div class="m-val" id="metricSigma">--</div>
+            <div class="m-sub">&sigma; = (C/C<sub>rand</sub>) / (L/L<sub>rand</sub>)</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Global Efficiency (E)</div>
+            <div class="m-val" id="metricEff">--</div>
+            <div class="m-sub">Harmonic Mean Path</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Adjacency Heatmap & Attack Workbench -->
+      <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Connectivity Matrix A<sub>ij</sub></div>
+        <div class="canvas-box">
+          <canvas id="matrixCanvas" height="240"></canvas>
+        </div>
+
+        <!-- Node Inspector Info -->
+        <div class="node-inspector" id="nodeInfo">
+          Hover or click an anatomical node to inspect degree, community module, and connections.
+        </div>
+
+        <!-- Controls -->
+        <div style="margin-top:16px;">
+          <div class="ctrl-group">
+            <div class="ctrl-label">
+              <span>Streamline Density Threshold</span>
+              <span class="ctrl-val" id="threshVal">12%</span>
+            </div>
+            <input type="range" id="threshSlider" min="0" max="45" step="1" value="12">
+            <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+              <span>Dense (Keep Weak)</span>
+              <span>Sparse (Strict Core)</span>
+            </div>
+          </div>
+
+          <div style="font-size:0.85rem;font-weight:600;margin:12px 0 6px;">Network Resilience &amp; Lesions:</div>
+          <div class="btn-group">
+            <button class="action-btn" id="btnRandomAttack">Random Node Lesion</button>
+            <button class="action-btn btn-danger" id="btnTargetedAttack">Target Hub Attack</button>
+          </div>
+          <button class="action-btn" id="btnResetLesions" style="width:100%;margin-top:6px;">Restore All Brain Nodes</button>
+          
+          <div style="margin-top:10px;font-size:0.75rem;color:var(--muted);line-height:1.4;">
+            <strong>Test the Hypothesis:</strong> Random lesions simulate diffuse axonal injury; network efficiency degrades gradually. Targeted attacks strike rich-club hubs (Precuneus, Thalamus); path length surges and communication collapses.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Topological Principles of Brain Networks</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. From Streamlines to Adjacency Matrix:</strong>
+        <p>A structural connectome models the macroscale wiring of the brain. Whole-brain tractography generates millions of streamlines. By mapping cortical gray matter into parcellated Regions of Interest (ROIs), we count the number of streamlines connecting region <span class="code-math">i</span> to region <span class="code-math">j</span>, forming the symmetric adjacency matrix <span class="code-math">A_{ij}</span>. Thresholding removes false-positive streamlines resulting from tracking errors in crossing-fiber zones.</p>
+      </div>
+      <div>
+        <strong>2. Small-World Architecture:</strong>
+        <p>Random networks have short path lengths but negligible clustering. Lattice networks have high clustering but long path lengths. Brain networks exhibit <strong>small-world organization</strong>: high local clustering <span class="code-math">C \gg C_{\text{rand}}</span> (neighboring regions are densely interconnected for specialized local processing) combined with short characteristic path lengths <span class="code-math">L \approx L_{\text{rand}}</span> (long-range association fasciculi enable rapid whole-brain communication), producing <span class="code-math">\sigma = (C/C_{\text{rand}}) / (L/L_{\text{rand}}) &gt; 1</span>.</p>
+      </div>
+      <div>
+        <strong>3. Rich-Club Phenomenon:</strong>
+        <p>A subset of high-degree brain nodes (including the precuneus, superior frontal cortex, posterior cingulate, and thalamus) are more densely connected to one another than expected by degree distribution alone. This "rich club" forms a central high-capacity backbone for integrating information across disparate functional domains.</p>
+      </div>
+      <div>
+        <strong>4. Attack Vulnerability &amp; Clinical Pathology:</strong>
+        <p>Brain networks demonstrate a classic "scale-free-like" resilience profile: highly robust against random injury, but extraordinarily vulnerable to targeted attacks. In Alzheimer's disease and traumatic brain injury, amyloid deposition and axonal shearing disproportionately affect metabolic hubs, rapidly degrading global network efficiency <span class="code-math">E_{\text{glob}} = \frac{1}{N(N-1)}\sum_{i \neq j} \frac{1}{d_{ij}}</span>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // 20 Anatomical Nodes parcellated across Left & Right hemispheres
+  // Coordinates normalized to [0, 1] relative to axial brain schematic
+  const NODES = [
+    // Default Mode Network (DMN) - Red
+    { id: 'l_prec', name: 'L. Precuneus / PCC', x: 0.44, y: 0.65, mod: 'DMN', color: 'var(--dmn)', hex: '#f43f5e', isHub: true },
+    { id: 'r_prec', name: 'R. Precuneus / PCC', x: 0.56, y: 0.65, mod: 'DMN', color: 'var(--dmn)', hex: '#f43f5e', isHub: true },
+    { id: 'l_mpfc', name: 'L. Medial PFC',      x: 0.43, y: 0.22, mod: 'DMN', color: 'var(--dmn)', hex: '#f43f5e', isHub: false },
+    { id: 'r_mpfc', name: 'R. Medial PFC',      x: 0.57, y: 0.22, mod: 'DMN', color: 'var(--dmn)', hex: '#f43f5e', isHub: false },
+    { id: 'l_ipl',  name: 'L. Inf. Parietal',   x: 0.25, y: 0.62, mod: 'DMN', color: 'var(--dmn)', hex: '#f43f5e', isHub: false },
+    { id: 'r_ipl',  name: 'R. Inf. Parietal',   x: 0.75, y: 0.62, mod: 'DMN', color: 'var(--dmn)', hex: '#f43f5e', isHub: false },
+
+    // Somatomotor Network (SMN) - Blue
+    { id: 'l_m1',   name: 'L. Motor Cortex',    x: 0.30, y: 0.42, mod: 'SMN', color: 'var(--mot)', hex: '#3b82f6', isHub: false },
+    { id: 'r_m1',   name: 'R. Motor Cortex',    x: 0.70, y: 0.42, mod: 'SMN', color: 'var(--mot)', hex: '#3b82f6', isHub: false },
+    { id: 'l_sma',  name: 'L. Supp. Motor Area',x: 0.43, y: 0.36, mod: 'SMN', color: 'var(--mot)', hex: '#3b82f6', isHub: false },
+    { id: 'r_sma',  name: 'R. Supp. Motor Area',x: 0.57, y: 0.36, mod: 'SMN', color: 'var(--mot)', hex: '#3b82f6', isHub: false },
+
+    // Visual Network (VIS) - Green
+    { id: 'l_v1',   name: 'L. Primary Visual',  x: 0.43, y: 0.83, mod: 'VIS', color: 'var(--vis)', hex: '#10b981', isHub: false },
+    { id: 'r_v1',   name: 'R. Primary Visual',  x: 0.57, y: 0.83, mod: 'VIS', color: 'var(--vis)', hex: '#10b981', isHub: false },
+    { id: 'l_loc',  name: 'L. Lateral Occipital',x: 0.28, y: 0.76, mod: 'VIS', color: 'var(--vis)', hex: '#10b981', isHub: false },
+    { id: 'r_loc',  name: 'R. Lateral Occipital',x: 0.72, y: 0.76, mod: 'VIS', color: 'var(--vis)', hex: '#10b981', isHub: false },
+
+    // Executive / Frontoparietal (FPN) - Orange
+    { id: 'l_dlpfc',name: 'L. Dorsolat. PFC',   x: 0.26, y: 0.28, mod: 'FPN', color: 'var(--exec)', hex: '#f59e0b', isHub: true },
+    { id: 'r_dlpfc',name: 'R. Dorsolat. PFC',   x: 0.74, y: 0.28, mod: 'FPN', color: 'var(--exec)', hex: '#f59e0b', isHub: true },
+    { id: 'l_ins',  name: 'L. Anterior Insula', x: 0.32, y: 0.49, mod: 'FPN', color: 'var(--exec)', hex: '#f59e0b', isHub: false },
+    { id: 'r_ins',  name: 'R. Anterior Insula', x: 0.68, y: 0.49, mod: 'FPN', color: 'var(--exec)', hex: '#f59e0b', isHub: false },
+
+    // Subcortical Hubs - Purple
+    { id: 'l_thal', name: 'L. Thalamus',        x: 0.43, y: 0.52, mod: 'SUB', color: 'var(--sub)', hex: '#8b5cf6', isHub: true },
+    { id: 'r_thal', name: 'R. Thalamus',        x: 0.57, y: 0.52, mod: 'SUB', color: 'var(--sub)', hex: '#8b5cf6', isHub: true }
+  ];
+
+  const N = NODES.length;
+
+  // Base synthetic structural connectivity weights (representing streamline counts / density)
+  // Constructed with realistic modular intra-network connections, corpus callosum homotopic links, and rich-club hub cross-talk
+  const BASE_MATRIX = Array.from({ length: N }, () => new Float64Array(N));
+
+  function initBaseConnectivity() {
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        let weight = 0;
+        const nodeA = NODES[i];
+        const nodeB = NODES[j];
+
+        // 1. Intra-module connections (dense local clustering)
+        if (nodeA.mod === nodeB.mod) {
+          weight = 0.55 + Math.random() * 0.35;
+        }
+
+        // 2. Homotopic inter-hemispheric commissures (Corpus Callosum)
+        const isHomotopic = (nodeA.name.slice(3) === nodeB.name.slice(3));
+        if (isHomotopic) {
+          weight = Math.max(weight, 0.75 + Math.random() * 0.2);
+        }
+
+        // 3. Rich-Club Hub interconnectivity (dense high-degree backbone)
+        if (nodeA.isHub && nodeB.isHub) {
+          weight = Math.max(weight, 0.65 + Math.random() * 0.3);
+        }
+
+        // 4. Subcortical thalamo-cortical projections
+        if ((nodeA.mod === 'SUB' || nodeB.mod === 'SUB') && Math.random() > 0.35) {
+          weight = Math.max(weight, 0.4 + Math.random() * 0.35);
+        }
+
+        // 5. Frontoparietal long-range tract (SLF: dlPFC to IPL)
+        if ((nodeA.id.includes('dlpfc') && nodeB.id.includes('ipl')) || (nodeB.id.includes('dlpfc') && nodeA.id.includes('ipl'))) {
+          weight = Math.max(weight, 0.5 + Math.random() * 0.25);
+        }
+
+        // 6. Sparse background fibers
+        if (weight === 0 && Math.random() < 0.12) {
+          weight = 0.1 + Math.random() * 0.15;
+        }
+
+        BASE_MATRIX[i][j] = weight;
+        BASE_MATRIX[j][i] = weight;
+      }
+    }
+  }
+  initBaseConnectivity();
+
+  // State
+  let thresholdPercent = 12; // 0 to 45%
+  let lesioned = new Set(); // indices of knocked out nodes
+  let hoveredNode = null;
+  let selectedNode = null;
+
+  // Working adjacency matrix (thresholded & lesioned)
+  let adjMatrix = Array.from({ length: N }, () => new Float64Array(N));
+
+  // DOM elements
+  const brainCanvas = document.getElementById('brainCanvas');
+  const bCtx = brainCanvas.getContext('2d');
+  const matrixCanvas = document.getElementById('matrixCanvas');
+  const mCtx = matrixCanvas.getContext('2d');
+
+  const metricL = document.getElementById('metricL');
+  const metricC = document.getElementById('metricC');
+  const metricSigma = document.getElementById('metricSigma');
+  const metricEff = document.getElementById('metricEff');
+  const nodeInfo = document.getElementById('nodeInfo');
+  const threshSlider = document.getElementById('threshSlider');
+  const threshVal = document.getElementById('threshVal');
+
+  // Compute active adjacency matrix
+  function updateAdjMatrix() {
+    const minWeight = thresholdPercent / 100;
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        if (lesioned.has(i) || lesioned.has(j)) {
+          adjMatrix[i][j] = 0;
+        } else {
+          const w = BASE_MATRIX[i][j];
+          adjMatrix[i][j] = (w >= minWeight) ? w : 0;
+        }
+      }
+    }
+  }
+
+  // Graph Metrics Algorithms (Floyd-Warshall for shortest paths)
+  function computeMetrics() {
+    updateAdjMatrix();
+
+    // Active nodes count
+    const activeNodes = [];
+    for (let i = 0; i < N; i++) {
+      if (!lesioned.has(i)) activeNodes.push(i);
+    }
+    const nActive = activeNodes.length;
+    if (nActive < 2) {
+      metricL.innerText = 'Inf';
+      metricC.innerText = '0.00';
+      metricSigma.innerText = '0.00';
+      metricEff.innerText = '0.00';
+      return;
+    }
+
+    // 1. Clustering Coefficient (Binary)
+    let totalC = 0;
+    for (let i of activeNodes) {
+      const neighbors = [];
+      for (let j of activeNodes) {
+        if (adjMatrix[i][j] > 0) neighbors.push(j);
+      }
+      const k = neighbors.length;
+      if (k < 2) continue;
+
+      let links = 0;
+      for (let a = 0; a < k; a++) {
+        for (let b = a + 1; b < k; b++) {
+          if (adjMatrix[neighbors[a]][neighbors[b]] > 0) links++;
+        }
+      }
+      totalC += (2 * links) / (k * (k - 1));
+    }
+    const meanC = totalC / nActive;
+
+    // 2. Shortest Path Length (Distance Matrix via Floyd-Warshall)
+    const dist = Array.from({ length: N }, () => new Float64Array(N).fill(Infinity));
+    for (let i of activeNodes) {
+      dist[i][i] = 0;
+      for (let j of activeNodes) {
+        if (adjMatrix[i][j] > 0) dist[i][j] = 1; // Topological hop distance
+      }
+    }
+
+    for (let k of activeNodes) {
+      for (let i of activeNodes) {
+        for (let j of activeNodes) {
+          if (dist[i][k] + dist[k][j] < dist[i][j]) {
+            dist[i][j] = dist[i][k] + dist[k][j];
+          }
+        }
+      }
+    }
+
+    let pathSum = 0;
+    let pathCount = 0;
+    let effSum = 0;
+
+    for (let a = 0; a < nActive; a++) {
+      for (let b = a + 1; b < nActive; b++) {
+        const i = activeNodes[a];
+        const j = activeNodes[b];
+        const d = dist[i][j];
+        if (d < Infinity) {
+          pathSum += d;
+          pathCount++;
+          effSum += 1 / d;
+        }
+      }
+    }
+
+    const totalPairs = (nActive * (nActive - 1)) / 2;
+    const meanL = (pathCount > 0) ? (pathSum / pathCount) : Infinity;
+    const globalEff = (totalPairs > 0) ? (effSum / totalPairs) : 0;
+
+    // Small-Worldness reference (analytical random graph approximation)
+    // For Erdos-Renyi: C_rand ~ <k>/N, L_rand ~ ln(N)/ln(<k>)
+    let totalEdges = 0;
+    for (let i of activeNodes) {
+      for (let j of activeNodes) {
+        if (adjMatrix[i][j] > 0) totalEdges++;
+      }
+    }
+    const meanK = totalEdges / nActive;
+    const cRand = Math.max(0.04, meanK / nActive);
+    const lRand = Math.max(1.2, Math.log(nActive) / Math.max(0.1, Math.log(Math.max(1.1, meanK))));
+    const sigma = (meanL < Infinity && meanL > 0) ? (meanC / cRand) / (meanL / lRand) : 0;
+
+    // Display
+    metricL.innerText = (meanL === Infinity) ? '\u221E (Split)' : meanL.toFixed(2);
+    metricC.innerText = meanC.toFixed(2);
+    metricSigma.innerText = (sigma > 0) ? sigma.toFixed(2) : '0.00';
+    metricEff.innerText = globalEff.toFixed(2);
+
+    // Warning styling if disconnected
+    metricL.style.color = (meanL === Infinity) ? '#ef4444' : 'var(--fg)';
+  }
+
+  // Draw Brain Schematic & Graph
+  function renderBrain() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = brainCanvas.parentElement.clientWidth;
+    const h = 460;
+    brainCanvas.width = w * dpr;
+    brainCanvas.height = h * dpr;
+    brainCanvas.style.width = w + 'px';
+    brainCanvas.style.height = h + 'px';
+
+    bCtx.save();
+    bCtx.scale(dpr, dpr);
+
+    // Clear
+    bCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    bCtx.fillRect(0, 0, w, h);
+
+    // Brain Axial Outline Schematic
+    const cx = w * 0.5;
+    const cy = h * 0.52;
+    const rx = w * 0.44;
+    const ry = h * 0.42;
+
+    bCtx.strokeStyle = 'rgba(100, 116, 139, 0.22)';
+    bCtx.lineWidth = 1.5;
+    bCtx.beginPath();
+    bCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+    bCtx.stroke();
+
+    // Interhemispheric fissure
+    bCtx.strokeStyle = 'rgba(100, 116, 139, 0.15)';
+    bCtx.setLineDash([4, 4]);
+    bCtx.beginPath();
+    bCtx.moveTo(cx, cy - ry);
+    bCtx.lineTo(cx, cy + ry);
+    bCtx.stroke();
+    bCtx.setLineDash([]);
+
+    // Get pixel coordinates of nodes
+    const nodeCoords = NODES.map(n => ({
+      x: n.x * w,
+      y: n.y * h
+    }));
+
+    // 1. Draw Edges
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const weight = adjMatrix[i][j];
+        if (weight <= 0) continue;
+
+        const isConnectedToHover = (hoveredNode === i || hoveredNode === j || selectedNode === i || selectedNode === j);
+        const pA = nodeCoords[i];
+        const pB = nodeCoords[j];
+
+        bCtx.beginPath();
+        bCtx.moveTo(pA.x, pA.y);
+        // Slightly curved quadratic bezier towards center for aesthetic white-matter arch
+        const midX = (pA.x + pB.x) * 0.5;
+        const midY = (pA.y + pB.y) * 0.5;
+        const cpX = midX + (cx - midX) * 0.2;
+        const cpY = midY + (cy - midY) * 0.2;
+        bCtx.quadraticCurveTo(cpX, cpY, pB.x, pB.y);
+
+        if (isConnectedToHover) {
+          bCtx.strokeStyle = '#38bdf8';
+          bCtx.lineWidth = 1.2 + weight * 3.0;
+        } else {
+          bCtx.strokeStyle = `rgba(148, 163, 184, ${0.15 + weight * 0.45})`;
+          bCtx.lineWidth = 0.8 + weight * 2.0;
+        }
+        bCtx.stroke();
+      }
+    }
+
+    // 2. Draw Nodes
+    for (let i = 0; i < N; i++) {
+      const n = NODES[i];
+      const pt = nodeCoords[i];
+      const isDead = lesioned.has(i);
+      const isHover = (hoveredNode === i || selectedNode === i);
+
+      // Node degree calculation
+      let degree = 0;
+      for (let j = 0; j < N; j++) {
+        if (adjMatrix[i][j] > 0) degree++;
+      }
+
+      const baseR = n.isHub ? 8 : 5.5;
+      const r = isDead ? 4 : (isHover ? baseR + 3 : baseR);
+
+      bCtx.beginPath();
+      bCtx.arc(pt.x, pt.y, r, 0, 2 * Math.PI);
+
+      if (isDead) {
+        bCtx.fillStyle = '#475569';
+        bCtx.fill();
+        bCtx.strokeStyle = '#ef4444';
+        bCtx.lineWidth = 1.5;
+        bCtx.stroke();
+      } else {
+        bCtx.fillStyle = n.hex;
+        bCtx.fill();
+        bCtx.strokeStyle = n.isHub ? '#fbbf24' : '#ffffff';
+        bCtx.lineWidth = n.isHub ? 2.2 : 1.2;
+        bCtx.stroke();
+
+        // Hub outer halo
+        if (n.isHub && !isDead) {
+          bCtx.beginPath();
+          bCtx.arc(pt.x, pt.y, r + 4, 0, 2 * Math.PI);
+          bCtx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+          bCtx.lineWidth = 1.0;
+          bCtx.stroke();
+        }
+      }
+
+      // Label on hover or selected
+      if (isHover && !isDead) {
+        bCtx.font = 'bold 11px -apple-system, sans-serif';
+        bCtx.fillStyle = '#ffffff';
+        bCtx.textAlign = (pt.x > cx) ? 'left' : 'right';
+        const offsetX = (pt.x > cx) ? 12 : -12;
+        bCtx.fillText(`${n.name} (k=${degree})`, pt.x + offsetX, pt.y + 4);
+      }
+    }
+
+    bCtx.restore();
+  }
+
+  // Draw Matrix Heatmap
+  function renderMatrix() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = matrixCanvas.parentElement.clientWidth;
+    const h = 240;
+    matrixCanvas.width = w * dpr;
+    matrixCanvas.height = h * dpr;
+    matrixCanvas.style.width = w + 'px';
+    matrixCanvas.style.height = h + 'px';
+
+    mCtx.save();
+    mCtx.scale(dpr, dpr);
+
+    mCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    mCtx.fillRect(0, 0, w, h);
+
+    const pad = 12;
+    const size = Math.min(w - 2 * pad, h - 2 * pad);
+    const cellSize = size / N;
+    const startX = (w - size) / 2;
+    const startY = (h - size) / 2;
+
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const x = startX + j * cellSize;
+        const y = startY + i * cellSize;
+        const val = adjMatrix[i][j];
+
+        if (lesioned.has(i) || lesioned.has(j)) {
+          mCtx.fillStyle = '#1e293b';
+        } else if (i === j) {
+          mCtx.fillStyle = '#475569';
+        } else if (val > 0) {
+          // Viridis / magma-like gradient
+          const alpha = Math.min(1.0, 0.2 + val * 0.8);
+          mCtx.fillStyle = `rgba(56, 189, 248, ${alpha})`;
+        } else {
+          mCtx.fillStyle = '#0f172a';
+        }
+
+        mCtx.fillRect(x, y, cellSize - 0.8, cellSize - 0.8);
+
+        // Highlight active crosshairs
+        if (hoveredNode === i || hoveredNode === j || selectedNode === i || selectedNode === j) {
+          mCtx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+          mCtx.strokeRect(x, y, cellSize, cellSize);
+        }
+      }
+    }
+
+    mCtx.restore();
+  }
+
+  function renderAll() {
+    computeMetrics();
+    renderBrain();
+    renderMatrix();
+  }
+
+  // Mouse interactivity on brain canvas
+  brainCanvas.addEventListener('mousemove', (e) => {
+    const rect = brainCanvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left);
+    const mouseY = (e.clientY - rect.top);
+    const w = brainCanvas.parentElement.clientWidth;
+    const h = 460;
+
+    let hit = null;
+    for (let i = 0; i < N; i++) {
+      const nx = NODES[i].x * w;
+      const ny = NODES[i].y * h;
+      const dist = Math.hypot(mouseX - nx, mouseY - ny);
+      if (dist < 14) {
+        hit = i;
+        break;
+      }
+    }
+
+    if (hit !== hoveredNode) {
+      hoveredNode = hit;
+      if (hit !== null) {
+        updateNodeInspector(hit);
+      }
+      renderBrain();
+      renderMatrix();
+    }
+  });
+
+  brainCanvas.addEventListener('mouseleave', () => {
+    hoveredNode = null;
+    renderBrain();
+    renderMatrix();
+  });
+
+  brainCanvas.addEventListener('click', (e) => {
+    if (hoveredNode !== null) {
+      // Toggle lesion on clicked node
+      if (lesioned.has(hoveredNode)) {
+        lesioned.delete(hoveredNode);
+      } else {
+        lesioned.add(hoveredNode);
+      }
+      updateNodeInspector(hoveredNode);
+      renderAll();
+    }
+  });
+
+  function updateNodeInspector(idx) {
+    const node = NODES[idx];
+    const isDead = lesioned.has(idx);
+
+    let degree = 0;
+    for (let j = 0; j < N; j++) {
+      if (adjMatrix[idx][j] > 0) degree++;
+    }
+
+    nodeInfo.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>${node.name}</strong>
+        <span style="font-size:0.75rem;padding:2px 6px;border-radius:4px;background:${isDead ? '#fee2e2;color:#b91c1c' : '#dcfce7;color:#15803d'};">
+          ${isDead ? 'LESIONED / OFFLINE' : 'ACTIVE'}
+        </span>
+      </div>
+      <div style="color:var(--muted);font-size:0.78rem;margin-top:2px;">
+        Module: <strong>${node.mod}</strong> &middot; Degree: <strong>${degree}</strong> ${node.isHub ? '&middot; <span style="color:#f59e0b;font-weight:600;">Rich-Club Hub</span>' : ''}
+      </div>
+      <div style="font-size:0.75rem;margin-top:4px;color:var(--muted);">
+        <em>Click node to toggle lesion / knockout.</em>
+      </div>
+    `;
+  }
+
+  // Controls & Buttons
+  threshSlider.addEventListener('input', (e) => {
+    thresholdPercent = parseInt(e.target.value, 10);
+    threshVal.innerText = `${thresholdPercent}%`;
+    renderAll();
+  });
+
+  // Random node lesion
+  document.getElementById('btnRandomAttack').addEventListener('click', () => {
+    const available = [];
+    for (let i = 0; i < N; i++) {
+      if (!lesioned.has(i)) available.push(i);
+    }
+    if (available.length > 0) {
+      const pick = available[Math.floor(Math.random() * available.length)];
+      lesioned.add(pick);
+      updateNodeInspector(pick);
+      renderAll();
+    }
+  });
+
+  // Targeted hub lesion
+  document.getElementById('btnTargetedAttack').addEventListener('click', () => {
+    // Find highest degree active hub node
+    let bestNode = null;
+    let maxDegree = -1;
+
+    for (let i = 0; i < N; i++) {
+      if (lesioned.has(i)) continue;
+      let d = 0;
+      for (let j = 0; j < N; j++) {
+        if (adjMatrix[i][j] > 0) d++;
+      }
+      // Weight hubs with priority
+      if (NODES[i].isHub) d += 10;
+      if (d > maxDegree) {
+        maxDegree = d;
+        bestNode = i;
+      }
+    }
+
+    if (bestNode !== null) {
+      lesioned.add(bestNode);
+      updateNodeInspector(bestNode);
+      renderAll();
+    }
+  });
+
+  // Reset lesions
+  document.getElementById('btnResetLesions').addEventListener('click', () => {
+    lesioned.clear();
+    nodeInfo.innerHTML = 'All brain network nodes restored to normal functional baseline.';
+    renderAll();
+  });
+
+  window.addEventListener('resize', renderAll);
+
+  // Initialize
+  renderAll();
+})();
+</script>
+</body>
+</html>

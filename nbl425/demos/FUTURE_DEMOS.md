@@ -108,6 +108,19 @@ This document catalogs the interactive simulations and educational tools develop
   * Interactive seed points: click anywhere on the slice to launch deterministic streamlines.
   * Sliders for FA stopping threshold and angular curvature turning limits.
 
+### [COMPLETED] Structural Connectome Matrix & Graph Theory Studio
+* **Target File**: `nbl425/demos/connectome_graph.html`
+* **Course Week**: Week 06 (Diffusion Tensor Imaging & Connectomics)
+* **Core Concepts**:
+  * Whole-brain tractography streamline clustering into $N \times N$ adjacency matrix $A_{ij}$.
+  * Topological metrics: Characteristic path length ($L$), clustering coefficient ($C$), and small-worldness ($\sigma = \frac{C/C_{\text{rand}}}{L/L_{\text{rand}}} > 1$).
+  * Community detection, modularity, and rich-club hub organization.
+  * Targeted attack vulnerability vs. random damage resilience.
+* **Key Interaction**:
+  * Dual-panel view: 2D axial anatomical brain network diagram synchronized with an interactive $N \times N$ matrix heatmap.
+  * Interactive attack simulation: compare random node knockout (diffuse injury) against targeted rich-club hub attack (precuneus/thalamus).
+  * Real-time metric readouts for $L, C, \sigma$, and global efficiency $E_{\text{glob}}$.
+
 ---
 
 ## 4. Positron Emission Tomography (Week 07)
@@ -130,6 +143,20 @@ This document catalogs the interactive simulations and educational tools develop
 * **Key Interaction**:
   * Sliders for $K_1, k_2, k_3, k_4$, plasma glucose, and vascular volume fraction $V_b$.
   * Side-by-side Time-Activity Curves and Patlak/Logan linearization plots.
+
+### [COMPLETED] PET Sinogram & Tomographic Reconstruction Workbench
+* **Target File**: `nbl425/demos/pet_reconstruction.html`
+* **Course Week**: Week 07 (Positron Emission Tomography)
+* **Core Concepts**:
+  * 511 keV coincidence detection and Line of Response (LOR) formation.
+  * Radon transform ($p(s, \theta)$) and sinogram structure.
+  * Filtered Backprojection (FBP) with Ram-Lak ramp and Hann window filters.
+  * Maximum Likelihood Expectation Maximization (MLEM) iterative reconstruction.
+  * 511 keV tissue photon attenuation correction ($\mu$-map).
+* **Key Interaction**:
+  * Interactive brain phantom editor: click to add hot tumors or lesions.
+  * Real-time 2D sinogram generating intersecting sinusoidal wave patterns.
+  * Side-by-side reconstruction comparing Unfiltered $1/r$ blur, FBP, and MLEM iterations.
 
 ---
 
@@ -169,6 +196,19 @@ This document catalogs the interactive simulations and educational tools develop
   * Dual meter: Electric potential ($V_{\text{scalp}}$) vs. Magnetic flux density ($B_{\text{ext}}$).
   * Demonstrates why MEG is blind to gyral crests while EEG detects both, and why combining EEG+MEG provides complementary source coverage.
 
+### [COMPLETED] EEG Inverse Problem & Source Localization Studio
+* **Target File**: `nbl425/demos/eeg_inverse_solution.html`
+* **Course Week**: Week 08 (Electroencephalography)
+* **Core Concepts**:
+  * Discrete leadfield operator $V = L J + \epsilon$ and underdetermined nullspace.
+  * Tikhonov regularized Minimum Norm Estimation (MNE).
+  * Depth-weighted wMNE to cancel superficial cortical bias.
+  * Linearly Constrained Minimum Variance (LCMV) spatial beamforming.
+* **Key Interaction**:
+  * Click to place ground truth dipoles in superficial gyral crowns vs. deep sulcal banks.
+  * Compare unregularized pseudoinverse noise blow-up against regularized MNE and LCMV beamforming.
+  * Real-time metrics: Localization error (mm), Point-Spread Function dispersion (mm), and $R^2$ goodness of fit.
+
 ---
 
 ## 6. Optical Imaging (Week 10)
@@ -188,9 +228,42 @@ This document catalogs the interactive simulations and educational tools develop
   * Physiological stimulus trigger producing functional hyperemia ($\Delta[\text{HbO}] \uparrow$, $\Delta[\text{HbR}] \downarrow$).
   * Real-time $2 \times 2$ matrix inversion calculator displaying raw optical densities and final chromophore concentrations.
 
+### [COMPLETED] fNIRS Photon Transport & Short-Channel Scalp Regression
+* **Target File**: `nbl425/demos/fnirs_photon_transport.html`
+* **Course Week**: Week 10 (Functional NIRS)
+* **Core Concepts**:
+  * Radiative transport equation and Monte Carlo random walk of photon packets.
+  * Formation of the curved banana-shaped sensitivity profile ($z_{\text{mean}} \approx \frac{1}{2}\sqrt{d_{\text{SD}}}$).
+  * Superficial extracerebral contamination (scalp Mayer waves ~0.1 Hz, respiration ~0.25 Hz).
+  * Dual-distance optodes: short-separation (8 mm) reference vs. long-separation (30 mm) channel.
+  * Adaptive GLM regression removing systemic scalp noise.
+* **Key Interaction**:
+  * Animated photon scattering random walks through layered tissue slab (scalp, skull, CSF, cortex).
+  * Interactive long-separation optode distance slider (15 to 45 mm).
+  * Rolling multi-channel strip chart demonstrating real-time decontaminated signal recovery.
+
 ---
 
-## 7. Multi-Modal Integration (Week 12)
+## 7. Magnetic Resonance Spectroscopy (Week 11)
+
+### [COMPLETED] MRS Metabolite Basis Set & LCModel Spectral Fitter
+* **Target File**: `nbl425/demos/mrs_spectral_fitting.html`
+* **Course Week**: Week 11 (Magnetic Resonance Spectroscopy)
+* **Core Concepts**:
+  * Chemical shift dispersion in ppm vs. frequency spread in Hz ($\Delta\nu = \gamma B_0 \Delta\delta$).
+  * Metabolite basis sets (NAA, Creatine, Choline, Myo-inositol, Glx, Lactate doublet).
+  * The Linear Combination Model: $S(\delta) = \sum_k c_k B_k(\delta) \otimes L(\Delta\nu) + \text{Baseline}(\delta)$.
+  * Macromolecule baseline modeling with smooth polynomial splines.
+  * Cramer-Rao Lower Bounds (CRLB %SD) for parameter uncertainty.
+* **Key Interaction**:
+  * Main field selector (1.5T, 3T, 7T) illustrating peak dispersion and resolution of J-multiplets.
+  * Sliders for shim linewidth (FWHM in Hz), coil SNR, and phase offsets.
+  * Clinical pathology presets: Healthy brain, High-grade glioma, Ischemic stroke, Alzheimer's disease.
+  * Automatic least-squares spectral deconvolution into individual color-coded metabolite curves.
+
+---
+
+## 8. Multi-Modal Integration (Week 12)
 
 ### [COMPLETED] Simultaneous EEG-fMRI Artifact Decontamination Workbench
 * **Target File**: `nbl425/demos/eeg_fmri_decontamination.html`
@@ -207,3 +280,17 @@ This document catalogs the interactive simulations and educational tools develop
     2. Apply AAS gradient filter &rarr; reveals BCG heartbeat pulses.
     3. Apply OBS/PCA BCG filter &rarr; unmasks the continuous microvolt EEG stream.
     4. Epoch Averaging &rarr; reconstructs the clean Visual P100 evoked response waveform.
+
+### [COMPLETED] Multi-Modal Fusion & Representational Similarity Analysis (RSA)
+* **Target File**: `nbl425/demos/multimodal_fusion.html`
+* **Course Week**: Week 12 (Multi-Modal Integration)
+* **Core Concepts**:
+  * Disparate spatiotemporal limits: fMRI (millimeter spatial, sluggish hemodynamic) vs. EEG (millisecond temporal, smeared spatial).
+  * Second-order isomorphism: bridging modalities at the level of representational geometries without forced spatial constraints.
+  * Condition-by-condition Representational Dissimilarity Matrices (RDMs).
+  * Spatiotemporal fusion trajectory via time-resolved Spearman rank correlation ($\rho(t)$).
+  * Hierarchical visual processing stages: V1 (low-level, ~85 ms) $\to$ LOC (shape, ~135 ms) $\to$ FFA (face category, ~170 ms).
+* **Key Interaction**:
+  * Post-stimulus latency scrubber ($-50\text{ ms}$ to $+450\text{ ms}$) with animated playback.
+  * Synchronized view of dynamic EEG RDM vs. static fMRI regional RDMs (V1, LOC, FFA).
+  * Anatomical brain schematic lighting up corresponding visual cortex structures as their representational pattern emerges.

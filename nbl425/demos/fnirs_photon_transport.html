@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fNIRS Photon Transport &amp; Short-Channel Scalp Regression</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-emitter: #ef4444;
+    --c-short: #fbbf24;
+    --c-long: #38bdf8;
+    --c-photon: #f59e0b;
+    --c-task: #10b981;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  @media (max-width: 920px) {
+    .grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .ctrl-group { margin-bottom: 14px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .action-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .legend-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.18);
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week10/index.html">&larr; Back to Week 10</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>fNIRS Photon Transport &amp; Short-Channel Scalp Regression</h1>
+  <p class="sub">
+    Diffuse Optical Tomography &middot; Monte Carlo Photon Random Walks, Sensitivity Banana Paths &amp; Superficial Physiological Decontamination
+  </p>
+
+  <div class="banner">
+    <strong>The Scalp Contamination Problem:</strong> Near-infrared light diffuses through layered biological media in a characteristic curved "banana path". However, standard long-separation channels (<span class="code-math">d \approx 30\text{ mm}</span>) pass twice through superficial extracerebral tissue (scalp and skull). Up to 80% of recorded hemodynamic oscillations arise from systemic scalp Mayer waves (<span class="code-math">\approx 0.1\text{ Hz}</span>) rather than cortical brain activity. Modern fNIRS solves this by incorporating short-separation channels (<span class="code-math">d \approx 8\text{ mm}</span>) to measure and regress out superficial contamination.
+  </div>
+
+  <div class="panel">
+    <div class="grid-layout">
+      <!-- Left: Canvases -->
+      <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Tissue Slab &amp; Photon Transport Simulation</div>
+        <div class="canvas-box">
+          <canvas id="transportCanvas" height="260"></canvas>
+          <div class="legend-bar">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-emitter);"></div><span>Source (Emitter)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-short);"></div><span>Short Optode (8 mm)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-long);"></div><span>Long Optode (30 mm)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-photon);"></div><span>Photon Sensitivity (Banana Path)</span></div>
+          </div>
+        </div>
+
+        <div style="font-size:0.85rem;font-weight:600;margin:16px 0 6px;">Real-Time Hemodynamic Signal Decontamination</div>
+        <div class="canvas-box">
+          <canvas id="timeCanvas" height="180"></canvas>
+          <div class="legend-bar">
+            <div class="legend-item"><div style="width:12px;height:2px;background:var(--c-short);"></div><span>Short Channel (Scalp Mayer Wave)</span></div>
+            <div class="legend-item"><div style="width:12px;height:2px;background:var(--c-long);"></div><span>Raw Long Channel (Corrupted Mix)</span></div>
+            <div class="legend-item"><div style="width:12px;height:2px;background:var(--c-task);"></div><span>Decontaminated Cortical Signal</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div>
+        <!-- Source-Detector Distance Slider -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Long Optode Separation (d<sub>SD</sub>)</span>
+            <span class="ctrl-val" id="distVal">30 mm</span>
+          </div>
+          <input type="range" id="distSlider" min="15" max="45" step="1" value="30">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>15 mm (Superficial)</span>
+            <span>45 mm (Deep Penetration)</span>
+          </div>
+        </div>
+
+        <!-- Reduced Scattering Coefficient -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Tissue Scattering (&mu;'<sub>s</sub>)</span>
+            <span class="ctrl-val" id="scatVal">1.0 mm<sup>-1</sup></span>
+          </div>
+          <input type="range" id="scatSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+        </div>
+
+        <!-- Systemic Scalp Noise Amplitude -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Scalp Mayer Wave Amplitude</span>
+            <span class="ctrl-val" id="mayerVal">High</span>
+          </div>
+          <input type="range" id="mayerSlider" min="0" max="2" step="0.2" value="1.2">
+        </div>
+
+        <!-- Task Stimulation Button -->
+        <div style="margin-top:14px;">
+          <button class="action-btn btn-primary" id="btnTask" style="width:100%;">Trigger Cortical Neural Task (Event)</button>
+        </div>
+
+        <!-- Short-Channel Regression Toggle -->
+        <div style="margin-top:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="chkRegress" checked>
+            <span>Enable Short-Channel Scalp Regression</span>
+          </label>
+        </div>
+
+        <!-- Information Box -->
+        <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
+          <strong>Clinical Insight:</strong>
+          <p style="margin:4px 0 0;color:var(--muted);">
+            Notice how the <strong>Short Channel (8 mm)</strong> samples only the yellow scalp layer. Uncheck "Enable Short-Channel Scalp Regression" to observe how systemic blood pressure Mayer waves (0.1 Hz) contaminate the raw long channel, mimicking false brain activation.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Diffuse Optical Physics &amp; Signal Decontamination</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. Monte Carlo Radiative Transport:</strong>
+        <p>In biological tissue, the transport mean free path (<span class="code-math">1/\mu_s' \approx 1\text{ mm}</span>) is orders of magnitude shorter than the absorption length (<span class="code-math">1/\mu_a \approx 100\text{ mm}</span>). Photons undergo thousands of elastic scattering collisions before being detected or absorbed. The spatial probability distribution of detected photons follows the diffusion equation, producing the characteristic curved "banana path" whose mean penetration depth scales approximately as <span class="code-math">z_{\text{mean}} \approx \frac{1}{2} \sqrt{d_{\text{SD}}}</span>.</p>
+      </div>
+      <div>
+        <strong>2. The Extracerebral Contamination Hazard:</strong>
+        <p>Because photons enter and exit through the head's surface, they traverse the highly vascularized scalp and skull twice. Scalp blood vessels exhibit pronounced systemic physiological oscillations: Mayer waves in blood pressure (<span class="code-math">\sim 0.1\text{ Hz}</span>), respiration (<span class="code-math">\sim 0.25\text{ Hz}</span>), and cardiac pulsatility (<span class="code-math">\sim 1.0\text{ Hz}</span>). Because psychological stress, speech, and motor effort modulate autonomic blood pressure, these scalp oscillations correlate with task blocks, producing catastrophic false-positive activation maps.</p>
+      </div>
+      <div>
+        <strong>3. Short-Separation Optode Physics:</strong>
+        <p>By placing a detector at <span class="code-math">d_{\text{SD}} \le 8\text{ mm}</span> from the emitter, the sensitivity profile is strictly confined within the <span class="code-math">3-4\text{ mm}</span> scalp depth, entirely bypassing the underlying cerebral cortex. This provides a pure, real-time reference recording of extracerebral systemic physiology without any contamination from true brain activity.</p>
+      </div>
+      <div>
+        <strong>4. Adaptive GLM Short-Channel Filtering:</strong>
+        <p>To eliminate superficial noise, the long-channel optical density is modeled via multilinear regression:
+        <span class="code-math">Y_{\text{long}}(t) = \beta_{\text{task}} X_{\text{task}}(t) + \beta_{\text{scalp}} Y_{\text{short}}(t) + \epsilon(t)</span>.
+        Regressing out <span class="code-math">Y_{\text{short}}(t)</span> strips away the confounding systemic Mayer waves and respiratory noise, isolating the true cortical hemodynamic response.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Tissue Layer Depths (in mm)
+  // Scalp: 0 - 4 mm, Skull: 4 - 8 mm, CSF: 8 - 10 mm, Gray Matter Cortex: > 10 mm
+  const DEPTH_SCALP = 4;
+  const DEPTH_SKULL = 8;
+  const DEPTH_CSF = 10;
+  const MAX_DEPTH = 30;
+
+  // State
+  let longDistMm = 30; // 15 to 45 mm
+  let reducedScattering = 1.0; // mm^-1
+  let mayerAmp = 1.2;
+  let regressionEnabled = true;
+
+  // Real-time time series buffer
+  const TIME_POINTS = 240;
+  const shortHistory = new Float64Array(TIME_POINTS);
+  const longHistory = new Float64Array(TIME_POINTS);
+  const cleanHistory = new Float64Array(TIME_POINTS);
+
+  let taskActive = false;
+  let taskTimer = 0;
+  let timeStep = 0;
+
+  // Photon simulation particles
+  const MAX_PHOTONS = 280;
+  const photons = [];
+
+  function initPhotons() {
+    for (let i = 0; i < MAX_PHOTONS; i++) {
+      photons.push({
+        x: 0,
+        y: 0,
+        target: (Math.random() < 0.3) ? 'short' : 'long',
+        progress: Math.random(),
+        speed: 0.008 + Math.random() * 0.008,
+        wander: (Math.random() - 0.5) * 6
+      });
+    }
+  }
+  initPhotons();
+
+  // DOM Elements
+  const transportCanvas = document.getElementById('transportCanvas');
+  const tCtx = transportCanvas.getContext('2d');
+  const timeCanvas = document.getElementById('timeCanvas');
+  const tsCtx = timeCanvas.getContext('2d');
+
+  const distSlider = document.getElementById('distSlider');
+  const distVal = document.getElementById('distVal');
+  const scatSlider = document.getElementById('scatSlider');
+  const scatVal = document.getElementById('scatVal');
+  const mayerSlider = document.getElementById('mayerSlider');
+  const mayerVal = document.getElementById('mayerVal');
+  const btnTask = document.getElementById('btnTask');
+  const chkRegress = document.getElementById('chkRegress');
+
+  // Animation Loop
+  function tick() {
+    timeStep++;
+
+    // 1. Simulate true cortical hemodynamic response (gamma variate)
+    let taskSignal = 0;
+    if (taskActive) {
+      taskTimer++;
+      const tSec = taskTimer * 0.08;
+      // Double gamma HRF
+      taskSignal = 2.5 * (Math.pow(tSec / 4.0, 5) * Math.exp(-(tSec - 4.0) / 1.0));
+      if (taskTimer > 120) {
+        taskActive = false;
+        taskTimer = 0;
+      }
+    }
+
+    // 2. Simulate systemic physiological oscillations in scalp (0.1 Hz Mayer wave + 1.0 Hz cardiac)
+    const t = timeStep * 0.05;
+    const mayerWave = mayerAmp * (Math.sin(2 * Math.PI * 0.1 * t) + 0.35 * Math.sin(2 * Math.PI * 0.05 * t));
+    const cardiacWave = 0.25 * mayerAmp * Math.sin(2 * Math.PI * 1.0 * t);
+    const scalpPhysiology = mayerWave + cardiacWave;
+
+    // 3. Short channel: 100% scalp physiology, 0% cortical brain response
+    const shortVal = scalpPhysiology + (Math.random() - 0.5) * 0.15;
+
+    // 4. Long channel: mix of scalp contamination (~70%) + true cortical signal (~30%)
+    const scalpCoupling = 0.75;
+    const corticalCoupling = 0.35 * (longDistMm / 30); // deeper penetration with wider separation
+    const longVal = (scalpCoupling * scalpPhysiology) + (corticalCoupling * taskSignal) + (Math.random() - 0.5) * 0.2;
+
+    // 5. Decontaminated signal via short-channel regression
+    // Y_cortex = Y_long - beta * Y_short
+    let decontaminatedVal = 0;
+    if (regressionEnabled) {
+      decontaminatedVal = longVal - (scalpCoupling * shortVal);
+    } else {
+      decontaminatedVal = longVal;
+    }
+
+    // Push into rolling buffers
+    for (let i = 0; i < TIME_POINTS - 1; i++) {
+      shortHistory[i] = shortHistory[i + 1];
+      longHistory[i] = longHistory[i + 1];
+      cleanHistory[i] = cleanHistory[i + 1];
+    }
+    shortHistory[TIME_POINTS - 1] = shortVal;
+    longHistory[TIME_POINTS - 1] = longVal;
+    cleanHistory[TIME_POINTS - 1] = decontaminatedVal;
+
+    // Advance photons
+    for (let p of photons) {
+      p.progress += p.speed;
+      if (p.progress >= 1.0) {
+        p.progress = 0;
+        p.target = (Math.random() < 0.35) ? 'short' : 'long';
+        p.wander = (Math.random() - 0.5) * 6;
+      }
+    }
+
+    renderTransport();
+    renderTimeSeries();
+    requestAnimationFrame(tick);
+  }
+
+  // Draw Tissue Slab & Banana Paths
+  function renderTransport() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = transportCanvas.parentElement.clientWidth;
+    const h = 260;
+    transportCanvas.width = w * dpr;
+    transportCanvas.height = h * dpr;
+    transportCanvas.style.width = w + 'px';
+    transportCanvas.style.height = h + 'px';
+
+    tCtx.save();
+    tCtx.scale(dpr, dpr);
+
+    tCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    tCtx.fillRect(0, 0, w, h);
+
+    const padX = 60;
+    const surfaceY = 40;
+    const slabH = h - surfaceY - 20;
+
+    // Layer depths in pixels
+    const yScalp = surfaceY + (DEPTH_SCALP / MAX_DEPTH) * slabH;
+    const ySkull = surfaceY + (DEPTH_SKULL / MAX_DEPTH) * slabH;
+    const yCsf = surfaceY + (DEPTH_CSF / MAX_DEPTH) * slabH;
+    const yCortex = surfaceY + slabH;
+
+    // Draw tissue layers
+    // Scalp
+    tCtx.fillStyle = 'rgba(251, 191, 36, 0.12)';
+    tCtx.fillRect(padX, surfaceY, w - 2 * padX, yScalp - surfaceY);
+
+    // Skull
+    tCtx.fillStyle = 'rgba(148, 163, 184, 0.10)';
+    tCtx.fillRect(padX, yScalp, w - 2 * padX, ySkull - yScalp);
+
+    // CSF
+    tCtx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+    tCtx.fillRect(padX, ySkull, w - 2 * padX, yCsf - ySkull);
+
+    // Cerebral Cortex
+    tCtx.fillStyle = 'rgba(244, 63, 94, 0.15)';
+    tCtx.fillRect(padX, yCsf, w - 2 * padX, yCortex - yCsf);
+
+    // Layer dividing lines & text labels
+    tCtx.font = '10px -apple-system, sans-serif';
+    tCtx.fillStyle = '#64748b';
+    tCtx.textAlign = 'right';
+
+    tCtx.fillText('Scalp (0-4mm)', padX - 8, surfaceY + 14);
+    tCtx.fillText('Skull (4-8mm)', padX - 8, yScalp + 14);
+    tCtx.fillText('CSF (8-10mm)', padX - 8, ySkull + 12);
+    tCtx.fillText('Cortex (>10mm)', padX - 8, yCsf + 20);
+
+    tCtx.strokeStyle = 'rgba(100, 116, 139, 0.25)';
+    tCtx.lineWidth = 1;
+    [surfaceY, yScalp, ySkull, yCsf, yCortex].forEach(y => {
+      tCtx.beginPath();
+      tCtx.moveTo(padX, y);
+      tCtx.lineTo(w - padX, y);
+      tCtx.stroke();
+    });
+
+    // Optode positions (mapped to pixels: 1 mm ~ 8 px)
+    const mmToPx = (w - 2 * padX) / 55;
+    const emitterX = padX + 30;
+    const shortDetX = emitterX + 8 * mmToPx;
+    const longDetX = emitterX + longDistMm * mmToPx;
+
+    // Draw Photon Banana Paths (Elliptical Glow Profiles)
+    // 1. Short banana path (stays in scalp)
+    const shortMidX = (emitterX + shortDetX) / 2;
+    const shortDepth = (DEPTH_SCALP * 0.8 / MAX_DEPTH) * slabH;
+    const shortGrad = tCtx.createRadialGradient(shortMidX, surfaceY + shortDepth, 2, shortMidX, surfaceY, (shortDetX - emitterX) * 0.7);
+    shortGrad.addColorStop(0, 'rgba(251, 191, 36, 0.35)');
+    shortGrad.addColorStop(1, 'transparent');
+    tCtx.fillStyle = shortGrad;
+    tCtx.beginPath();
+    tCtx.ellipse(shortMidX, surfaceY + shortDepth * 0.5, (shortDetX - emitterX) * 0.6, shortDepth, 0, 0, Math.PI);
+    tCtx.fill();
+
+    // 2. Long banana path (penetrates deep into cortex)
+    const longMidX = (emitterX + longDetX) / 2;
+    const longDepth = (Math.min(MAX_DEPTH, 0.55 * Math.sqrt(longDistMm) * 3.5) / MAX_DEPTH) * slabH;
+    const longGrad = tCtx.createRadialGradient(longMidX, surfaceY + longDepth * 0.65, 5, longMidX, surfaceY, (longDetX - emitterX) * 0.7);
+    longGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    longGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.20)');
+    longGrad.addColorStop(1, 'transparent');
+    tCtx.fillStyle = longGrad;
+    tCtx.beginPath();
+    tCtx.ellipse(longMidX, surfaceY + longDepth * 0.5, (longDetX - emitterX) * 0.6, longDepth, 0, 0, Math.PI);
+    tCtx.fill();
+
+    // Draw active animated photons
+    for (let p of photons) {
+      const isShort = (p.target === 'short');
+      const detX = isShort ? shortDetX : longDetX;
+      const midX = (emitterX + detX) / 2;
+      const maxPen = isShort ? shortDepth : longDepth;
+
+      // Parabolic / elliptical trajectory with scattering wander
+      const frac = p.progress;
+      const x = emitterX + frac * (detX - emitterX);
+      const arc = 4 * frac * (1 - frac);
+      const y = surfaceY + arc * maxPen + p.wander * Math.sin(frac * Math.PI);
+
+      tCtx.beginPath();
+      tCtx.arc(x, Math.max(surfaceY + 1, y), 1.6, 0, 2 * Math.PI);
+      tCtx.fillStyle = isShort ? '#fbbf24' : '#f59e0b';
+      tCtx.fill();
+    }
+
+    // Draw Optodes on surface
+    // Emitter
+    tCtx.beginPath();
+    tCtx.arc(emitterX, surfaceY, 6, 0, 2 * Math.PI);
+    tCtx.fillStyle = 'var(--c-emitter)';
+    tCtx.fill();
+    tCtx.strokeStyle = '#fff';
+    tCtx.lineWidth = 1.5;
+    tCtx.stroke();
+
+    // Short Detector
+    tCtx.beginPath();
+    tCtx.arc(shortDetX, surfaceY, 5, 0, 2 * Math.PI);
+    tCtx.fillStyle = 'var(--c-short)';
+    tCtx.fill();
+    tCtx.strokeStyle = '#fff';
+    tCtx.lineWidth = 1.5;
+    tCtx.stroke();
+
+    // Long Detector
+    tCtx.beginPath();
+    tCtx.arc(longDetX, surfaceY, 6, 0, 2 * Math.PI);
+    tCtx.fillStyle = 'var(--c-long)';
+    tCtx.fill();
+    tCtx.strokeStyle = '#fff';
+    tCtx.lineWidth = 1.5;
+    tCtx.stroke();
+
+    // Optode labels
+    tCtx.font = 'bold 11px -apple-system, sans-serif';
+    tCtx.textAlign = 'center';
+    tCtx.fillStyle = 'var(--c-emitter)';
+    tCtx.fillText('Source', emitterX, surfaceY - 12);
+    tCtx.fillStyle = 'var(--c-short)';
+    tCtx.fillText('8 mm', shortDetX, surfaceY - 12);
+    tCtx.fillStyle = 'var(--c-long)';
+    tCtx.fillText(`${longDistMm} mm`, longDetX, surfaceY - 12);
+
+    tCtx.restore();
+  }
+
+  // Draw Time Series Strip Chart
+  function renderTimeSeries() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = timeCanvas.parentElement.clientWidth;
+    const h = 180;
+    timeCanvas.width = w * dpr;
+    timeCanvas.height = h * dpr;
+    timeCanvas.style.width = w + 'px';
+    timeCanvas.style.height = h + 'px';
+
+    tsCtx.save();
+    tsCtx.scale(dpr, dpr);
+
+    tsCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    tsCtx.fillRect(0, 0, w, h);
+
+    const padL = 40;
+    const padR = 20;
+    const plotW = w - padL - padR;
+
+    // Grid & Zero lines
+    tsCtx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+    tsCtx.lineWidth = 1;
+    const midY = h * 0.52;
+
+    tsCtx.beginPath();
+    tsCtx.moveTo(padL, midY);
+    tsCtx.lineTo(padL + plotW, midY);
+    tsCtx.stroke();
+
+    const scaleY = 32;
+
+    // 1. Draw Short Channel Trace (Yellow)
+    tsCtx.strokeStyle = 'rgba(251, 191, 36, 0.75)';
+    tsCtx.lineWidth = 1.2;
+    tsCtx.beginPath();
+    for (let i = 0; i < TIME_POINTS; i++) {
+      const x = padL + (i / (TIME_POINTS - 1)) * plotW;
+      const y = midY - shortHistory[i] * scaleY;
+      if (i === 0) tsCtx.moveTo(x, y);
+      else tsCtx.lineTo(x, y);
+    }
+    tsCtx.stroke();
+
+    // 2. Draw Long Channel Trace (Blue)
+    tsCtx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+    tsCtx.lineWidth = 1.2;
+    tsCtx.beginPath();
+    for (let i = 0; i < TIME_POINTS; i++) {
+      const x = padL + (i / (TIME_POINTS - 1)) * plotW;
+      const y = midY - longHistory[i] * scaleY;
+      if (i === 0) tsCtx.moveTo(x, y);
+      else tsCtx.lineTo(x, y);
+    }
+    tsCtx.stroke();
+
+    // 3. Draw Decontaminated Cortical Signal (Green, Bold)
+    tsCtx.strokeStyle = '#10b981';
+    tsCtx.lineWidth = 2.2;
+    tsCtx.beginPath();
+    for (let i = 0; i < TIME_POINTS; i++) {
+      const x = padL + (i / (TIME_POINTS - 1)) * plotW;
+      const y = midY - cleanHistory[i] * scaleY;
+      if (i === 0) tsCtx.moveTo(x, y);
+      else tsCtx.lineTo(x, y);
+    }
+    tsCtx.stroke();
+
+    tsCtx.restore();
+  }
+
+  // Event Listeners
+  distSlider.addEventListener('input', (e) => {
+    longDistMm = parseInt(e.target.value, 10);
+    distVal.innerText = `${longDistMm} mm`;
+  });
+
+  scatSlider.addEventListener('input', (e) => {
+    reducedScattering = parseFloat(e.target.value);
+    scatVal.innerHTML = `${reducedScattering.toFixed(1)} mm<sup>-1</sup>`;
+  });
+
+  mayerSlider.addEventListener('input', (e) => {
+    mayerAmp = parseFloat(e.target.value);
+    mayerVal.innerText = (mayerAmp > 1.4) ? 'Severe' : (mayerAmp > 0.6) ? 'High' : (mayerAmp > 0) ? 'Mild' : 'Zero';
+  });
+
+  btnTask.addEventListener('click', () => {
+    taskActive = true;
+    taskTimer = 0;
+  });
+
+  chkRegress.addEventListener('change', (e) => {
+    regressionEnabled = e.target.checked;
+  });
+
+  // Start Animation
+  tick();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG Inverse Problem &amp; Source Localization Studio</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-true: #10b981;
+    --c-est: #f43f5e;
+    --c-mne: #3b82f6;
+    --c-beam: #8b5cf6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+  }
+  @media (max-width: 920px) {
+    .grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .solver-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .solver-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+  .solver-btn:hover { border-color: var(--accent); }
+  .solver-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .m-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .m-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .m-val { font-size: 1.15rem; font-weight: 700; color: var(--fg); margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .m-sub { font-size: 0.68rem; color: var(--muted); }
+
+  .ctrl-group { margin-bottom: 14px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .legend-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.18);
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week08/index.html">&larr; Back to Week 08</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>EEG Inverse Problem &amp; Source Localization Studio</h1>
+  <p class="sub">
+    Electrophysiology &middot; Underdetermined Ill-Posed Inverses, Minimum Norm Estimation (MNE), Depth Weighting &amp; LCMV Beamforming
+  </p>
+
+  <div class="banner">
+    <strong>The Core Inverse Challenge:</strong> While the forward model <span class="code-math">V = L J + \epsilon</span> is deterministic, reconstructing intracranial current dipoles <span class="code-math">J</span> from scalp potentials <span class="code-math">V</span> is mathematically <em>ill-posed and underdetermined</em> (<span class="code-math">M</span> electrodes &ll; <span class="code-math">P</span> cortical sources). Without regularization, unconstrained pseudoinverses suffer catastrophic noise amplification. Comparing MNE, depth-weighted wMNE, and LCMV spatial beamformers reveals the fundamental trade-offs between point-spread dispersion, depth bias, and noise sensitivity.
+  </div>
+
+  <div class="panel">
+    <!-- Solver Selection Tabs -->
+    <div class="solver-tabs">
+      <button class="solver-btn" data-solver="pinv">Pseudoinverse (No Reg)</button>
+      <button class="solver-btn active" data-solver="mne">Minimum Norm (MNE)</button>
+      <button class="solver-btn" data-solver="wmne">Depth-Weighted MNE</button>
+      <button class="solver-btn" data-solver="lcmv">LCMV Beamformer</button>
+    </div>
+
+    <div class="grid-layout">
+      <!-- Left: Cross-Section Canvas -->
+      <div>
+        <div class="canvas-box">
+          <canvas id="inverseCanvas" height="460"></canvas>
+          <div class="legend-bar">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-true);border:1px solid #fff;"></div><span>Ground Truth Dipole (Click to place)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-est);"></div><span>Estimated Current Density J&#770;</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div><span>Scalp Electrodes (10-20)</span></div>
+          </div>
+        </div>
+
+        <!-- Metrics Strip -->
+        <div class="metrics-strip">
+          <div class="m-card">
+            <div class="m-lbl">Localization Error</div>
+            <div class="m-val" id="metricError">--</div>
+            <div class="m-sub">Peak-to-True Distance</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Point-Spread (PSF FWHM)</div>
+            <div class="m-val" id="metricSpread">--</div>
+            <div class="m-sub">Spatial Dispersion</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Goodness of Fit (R<sup>2</sup>)</div>
+            <div class="m-val" id="metricR2">--</div>
+            <div class="m-sub">Scalp Field Explained</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div>
+        <!-- Regularization Lambda -->
+        <div class="ctrl-group" id="regGroup">
+          <div class="ctrl-label">
+            <span>Tikhonov Regularizer (&lambda;)</span>
+            <span class="ctrl-val" id="lambdaVal">0.10</span>
+          </div>
+          <input type="range" id="lambdaSlider" min="-3" max="1" step="0.1" value="-1.0">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>Under-reg (Noise spikes)</span>
+            <span>Over-reg (Over-smoothed)</span>
+          </div>
+        </div>
+
+        <!-- Sensor Noise Level -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Scalp Sensor Noise (SNR)</span>
+            <span class="ctrl-val" id="snrVal">15 dB</span>
+          </div>
+          <input type="range" id="snrSlider" min="0" max="30" step="1" value="15">
+        </div>
+
+        <!-- Number of True Sources -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Ground Truth Sources</span>
+            <span class="ctrl-val" id="sourcesVal">1 Dipole</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">
+            <button class="solver-btn active" id="btn1Src">Single Source</button>
+            <button class="solver-btn" id="btn2Src">Two Sources</button>
+          </div>
+        </div>
+
+        <!-- Dipole Depth / Source presets -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Preset Dipole Locations:</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">
+            <button class="solver-btn" id="btnSuperficial">Superficial Crown</button>
+            <button class="solver-btn" id="btnDeep">Deep Sulcal Source</button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
+          <strong>Interactive Guidance:</strong>
+          <p style="margin:4px 0 0;color:var(--muted);">
+            Click anywhere on the gray cortical mantle to position the active dipole. Watch how <em>unweighted MNE</em> systematically pulls deep sources toward superficial electrodes, while <em>Depth-Weighted MNE</em> and <em>LCMV Beamforming</em> recover correct deep anatomical coordinates.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Mathematical Formulations of Inverse Solvers</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. The Discrete Leadfield Matrix:</strong>
+        <p>The forward problem discretizes the cortex into <span class="code-math">P = 48</span> target locations, mapping dipole moments <span class="code-math">J \in \mathbb{R}^P</span> to <span class="code-math">M = 16</span> scalp electrode measurements: <span class="code-math">V = L J + \epsilon</span>. The leadfield column <span class="code-math">L_{:,p}</span> represents the scalp potential pattern generated by a unit dipole at location <span class="code-math">p</span>. Because <span class="code-math">M \ll P</span>, the nullspace <span class="code-math">\text{null}(L)</span> is non-empty: infinitely many silent source configurations produce exactly <span class="code-math">0\text{ V}</span> on the scalp.</p>
+      </div>
+      <div>
+        <strong>2. Minimum Norm Estimation (MNE):</strong>
+        <p>MNE resolves ambiguity by penalizing total source energy via Tikhonov regularization:
+        <span class="code-math">\hat{J}_{\text{MNE}} = \arg\min_J \left( ||V - LJ||_2^2 + \lambda^2 ||J||_2^2 \right) = L^T (L L^T + \lambda^2 I)^{-1} V</span>.
+        While numerically stable, leadfield magnitude falls off rapidly with distance from the scalp (<span class="code-math">||L_p|| \propto 1/r^2</span>), inherently biasing unweighted MNE to place spurious activity in the most superficial cortical layers.</p>
+      </div>
+      <div>
+        <strong>3. Depth-Weighted wMNE:</strong>
+        <p>To counteract superficial bias, depth-weighting scales each source by its leadfield norm:
+        <span class="code-math">W = \text{diag}(||L_{:,p}||^{-\gamma})</span> (typically <span class="code-math">\gamma \approx 0.8</span>).
+        The regularized solution becomes <span class="code-math">\hat{J}_{\text{wMNE}} = W^{-1} L^T (L W^{-1} L^T + \lambda^2 I)^{-1} V</span>.
+        This provides uniform sensitivity across both deep sulcal structures and superficial gyral crowns.</p>
+      </div>
+      <div>
+        <strong>4. LCMV Spatial Beamforming:</strong>
+        <p>The Linearly Constrained Minimum Variance beamformer constructs an adaptive spatial filter <span class="code-math">w_p</span> for each location <span class="code-math">p</span> that passes unit gain from <span class="code-math">p</span> (<span class="code-math">w_p^T L_p = 1</span>) while minimizing overall variance from all other brain regions:
+        <span class="code-math">w_p = \frac{C_v^{-1} L_p}{L_p^T C_v^{-1} L_p}</span>, where <span class="code-math">C_v = \text{Cov}(V)</span>. Beamformers achieve remarkably sharp Point-Spread Functions when multiple uncorrelated sources are active simultaneously.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Head Geometry: 2D Coronal Cross-Section
+  // Radii: Brain = 0.82, Skull = 0.91, Scalp = 1.00
+  const R_BRAIN = 0.80;
+  const R_SKULL = 0.90;
+  const R_SCALP = 1.00;
+
+  // 16 Scalp Electrodes placed along top arc: -75 deg to +75 deg
+  const NUM_ELECTRODES = 16;
+  const ELECTRODES = [];
+  for (let i = 0; i < NUM_ELECTRODES; i++) {
+    const frac = i / (NUM_ELECTRODES - 1);
+    const theta = -Math.PI * 0.42 + frac * Math.PI * 0.84; // Coronal arc
+    ELECTRODES.push({
+      id: `E${i+1}`,
+      theta: theta,
+      x: R_SCALP * Math.sin(theta),
+      y: -R_SCALP * Math.cos(theta)
+    });
+  }
+
+  // 48 Cortical Dipole Target Locations along cortical ribbon
+  // Arranged across 3 depth tiers (superficial gyri, mid sulci, deep structures)
+  const NUM_SOURCES = 48;
+  const SOURCES = [];
+  for (let i = 0; i < NUM_SOURCES; i++) {
+    const tier = i % 3; // 0 = superficial, 1 = mid, 2 = deep
+    const r = (tier === 0) ? 0.74 : (tier === 1) ? 0.58 : 0.42;
+    const frac = Math.floor(i / 3) / 15; // 16 angular slices
+    const theta = -Math.PI * 0.40 + frac * Math.PI * 0.80;
+    SOURCES.push({
+      idx: i,
+      r: r,
+      theta: theta,
+      x: r * Math.sin(theta),
+      y: -r * Math.cos(theta),
+      tier: tier
+    });
+  }
+
+  // Precompute 3-Shell Leadfield Matrix L (M x P)
+  // Analytical approximation for concentric spheres with high skull resistivity (sigma_ratio ~ 1:80)
+  const L = Array.from({ length: NUM_ELECTRODES }, () => new Float64Array(NUM_SOURCES));
+  const leadfieldNorms = new Float64Array(NUM_SOURCES);
+
+  function computeLeadfield() {
+    const sigmaRatio = 1 / 80; // Skull attenuation
+
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      const el = ELECTRODES[e];
+      for (let s = 0; s < NUM_SOURCES; s++) {
+        const src = SOURCES[s];
+        // Angular difference
+        const dTheta = el.theta - src.theta;
+        const cosAngle = Math.cos(dTheta);
+        // Distance in 2D
+        const dx = el.x - src.x;
+        const dy = el.y - src.y;
+        const distSq = dx * dx + dy * dy;
+        const dist = Math.sqrt(distSq);
+
+        // Dipole field formula with skull volume conduction attenuation & spatial blurring
+        // V ~ (r_dipole / dist^2) * cosAngle * sigmaRatio
+        const gain = (src.r / Math.pow(distSq + 0.05, 1.3)) * cosAngle * (1 + 0.5 * sigmaRatio);
+        L[e][s] = gain;
+      }
+    }
+
+    // Column norms for depth weighting
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      let sumSq = 0;
+      for (let e = 0; e < NUM_ELECTRODES; e++) {
+        sumSq += L[e][s] * L[e][s];
+      }
+      leadfieldNorms[s] = Math.sqrt(sumSq);
+    }
+  }
+  computeLeadfield();
+
+  // State
+  let activeSolver = 'mne';
+  let lambdaExp = -1.0; // 10^-1 = 0.10
+  let snrDb = 15;
+  let numTrueSources = 1;
+
+  // Ground truth source activations J_true (P)
+  let J_true = new Float64Array(NUM_SOURCES);
+  // Default: activate one superficial dipole at index 24
+  J_true[24] = 1.0;
+
+  // Calculated arrays
+  let V_clean = new Float64Array(NUM_ELECTRODES);
+  let V_meas = new Float64Array(NUM_ELECTRODES);
+  let J_est = new Float64Array(NUM_SOURCES);
+
+  // DOM elements
+  const canvas = document.getElementById('inverseCanvas');
+  const ctx = canvas.getContext('2d');
+  const metricError = document.getElementById('metricError');
+  const metricSpread = document.getElementById('metricSpread');
+  const metricR2 = document.getElementById('metricR2');
+  const lambdaSlider = document.getElementById('lambdaSlider');
+  const lambdaVal = document.getElementById('lambdaVal');
+  const snrSlider = document.getElementById('snrSlider');
+  const snrVal = document.getElementById('snrVal');
+
+  // Forward solve: V = L J + noise
+  function forwardSolve() {
+    V_clean.fill(0);
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      for (let s = 0; s < NUM_SOURCES; s++) {
+        V_clean[e] += L[e][s] * J_true[s];
+      }
+    }
+
+    // Determine signal power
+    let sigPow = 0;
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      sigPow += V_clean[e] * V_clean[e];
+    }
+    sigPow /= NUM_ELECTRODES;
+
+    // Noise std dev from SNR in dB: SNR = 10 * log10(sigPow / noisePow)
+    const noisePow = sigPow / Math.pow(10, snrDb / 10);
+    const noiseStd = Math.sqrt(noisePow);
+
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      let u = 1 - Math.random();
+      let v = Math.random();
+      let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      V_meas[e] = V_clean[e] + z * noiseStd;
+    }
+  }
+
+  // Inverse Reconstruction Engine
+  function inverseSolve() {
+    forwardSolve();
+    const M = NUM_ELECTRODES;
+    const P = NUM_SOURCES;
+    const lambda = Math.pow(10, lambdaExp);
+
+    if (activeSolver === 'pinv') {
+      // Unregularized Pseudoinverse: L^T (L L^T)^-1 V
+      // Add tiny epsilon 1e-6 to avoid strict singular crash, but allow realistic noise explosion
+      solveMNE(1e-5, false);
+    } else if (activeSolver === 'mne') {
+      // Standard MNE: L^T (L L^T + lambda^2 I)^-1 V
+      solveMNE(lambda, false);
+    } else if (activeSolver === 'wmne') {
+      // Depth-Weighted MNE: W^-1 L^T (L W^-1 L^T + lambda^2 I)^-1 V
+      solveMNE(lambda, true);
+    } else if (activeSolver === 'lcmv') {
+      // LCMV Spatial Beamformer: w_p = C_v^-1 L_p / (L_p^T C_v^-1 L_p)
+      solveLCMV(lambda);
+    }
+
+    computeStats();
+    render();
+  }
+
+  // MNE / wMNE Implementation
+  function solveMNE(regLambda, useDepthWeights) {
+    const M = NUM_ELECTRODES;
+    const P = NUM_SOURCES;
+
+    // Weighting matrix W_inv
+    const wInv = new Float64Array(P);
+    for (let p = 0; p < P; p++) {
+      if (useDepthWeights) {
+        // ||L_p||^-0.8
+        wInv[p] = 1.0 / Math.pow(leadfieldNorms[p] + 1e-4, 0.8);
+      } else {
+        wInv[p] = 1.0;
+      }
+    }
+
+    // Compute G = L * W_inv * L^T  (M x M)
+    const G = Array.from({ length: M }, () => new Float64Array(M));
+    for (let i = 0; i < M; i++) {
+      for (let j = i; j < M; j++) {
+        let sum = 0;
+        for (let p = 0; p < P; p++) {
+          sum += L[i][p] * wInv[p] * L[j][p];
+        }
+        G[i][j] = sum;
+        G[j][i] = sum;
+      }
+      // Add Tikhonov regularizer
+      G[i][i] += regLambda * regLambda;
+    }
+
+    // Invert G using Gauss-Jordan
+    const invG = invertMatrix(G, M);
+
+    // Temp alpha = invG * V_meas  (M x 1)
+    const alpha = new Float64Array(M);
+    for (let i = 0; i < M; i++) {
+      for (let j = 0; j < M; j++) {
+        alpha[i] += invG[i][j] * V_meas[j];
+      }
+    }
+
+    // J_est = W_inv * L^T * alpha  (P x 1)
+    for (let p = 0; p < P; p++) {
+      let sum = 0;
+      for (let e = 0; e < M; e++) {
+        sum += L[e][p] * alpha[e];
+      }
+      J_est[p] = Math.max(0, sum * wInv[p]); // Positive current density
+    }
+  }
+
+  // LCMV Beamformer Implementation
+  function solveLCMV(regLambda) {
+    const M = NUM_ELECTRODES;
+    const P = NUM_SOURCES;
+
+    // Covariance matrix C_v = V V^T + lambda^2 I
+    const Cv = Array.from({ length: M }, () => new Float64Array(M));
+    for (let i = 0; i < M; i++) {
+      for (let j = 0; j < M; j++) {
+        Cv[i][j] = V_meas[i] * V_meas[j];
+      }
+      Cv[i][i] += regLambda * regLambda + 1e-3;
+    }
+
+    const invCv = invertMatrix(Cv, M);
+
+    for (let p = 0; p < P; p++) {
+      // temp = invCv * L_p
+      let denom = 0;
+      const temp = new Float64Array(M);
+      for (let i = 0; i < M; i++) {
+        for (let j = 0; j < M; j++) {
+          temp[i] += invCv[i][j] * L[j][p];
+        }
+        denom += L[i][p] * temp[i];
+      }
+
+      // Output power / estimate
+      if (denom > 1e-8) {
+        let num = 0;
+        for (let i = 0; i < M; i++) {
+          num += temp[i] * V_meas[i];
+        }
+        J_est[p] = Math.max(0, num / denom);
+      } else {
+        J_est[p] = 0;
+      }
+    }
+  }
+
+  // Standard matrix inverter
+  function invertMatrix(mat, dim) {
+    const A = mat.map(row => Float64Array.from(row));
+    const inv = Array.from({ length: dim }, (_, r) => {
+      const row = new Float64Array(dim);
+      row[r] = 1.0;
+      return row;
+    });
+
+    for (let i = 0; i < dim; i++) {
+      let pivot = A[i][i];
+      if (Math.abs(pivot) < 1e-12) pivot = 1e-12;
+      for (let j = 0; j < dim; j++) {
+        A[i][j] /= pivot;
+        inv[i][j] /= pivot;
+      }
+      for (let k = 0; k < dim; k++) {
+        if (k !== i) {
+          const factor = A[k][i];
+          for (let j = 0; j < dim; j++) {
+            A[k][j] -= factor * A[i][j];
+            inv[k][j] -= factor * inv[i][j];
+          }
+        }
+      }
+    }
+    return inv;
+  }
+
+  // Statistics: Error distance (mm), PSF spread (mm), Goodness of fit (R^2)
+  function computeStats() {
+    // 1. Peak estimated source location vs True source location
+    let truePeakIdx = 0;
+    let maxTrue = -1;
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      if (J_true[s] > maxTrue) {
+        maxTrue = J_true[s];
+        truePeakIdx = s;
+      }
+    }
+
+    let estPeakIdx = 0;
+    let maxEst = -1;
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      if (J_est[s] > maxEst) {
+        maxEst = J_est[s];
+        estPeakIdx = s;
+      }
+    }
+
+    // Coordinate distance (scaled to realistic 90 mm radius brain)
+    const pTrue = SOURCES[truePeakIdx];
+    const pEst = SOURCES[estPeakIdx];
+    const dx = (pTrue.x - pEst.x) * 90;
+    const dy = (pTrue.y - pEst.y) * 90;
+    const distMm = Math.hypot(dx, dy);
+
+    // 2. Spatial dispersion (FWHM equivalent spread around peak)
+    let totalWeight = 0;
+    let spreadSum = 0;
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      const w = J_est[s];
+      if (w > 0.05 * maxEst) {
+        const d = Math.hypot((SOURCES[s].x - pEst.x) * 90, (SOURCES[s].y - pEst.y) * 90);
+        spreadSum += d * w;
+        totalWeight += w;
+      }
+    }
+    const meanSpreadMm = (totalWeight > 0) ? (spreadSum / totalWeight) * 2.355 : 0;
+
+    // 3. Goodness of fit (R^2 between V_meas and V_reconstructed)
+    const V_rec = new Float64Array(NUM_ELECTRODES);
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      for (let s = 0; s < NUM_SOURCES; s++) {
+        V_rec[e] += L[e][s] * J_est[s];
+      }
+    }
+    let ssTot = 0;
+    let ssRes = 0;
+    let meanV = 0;
+    for (let e = 0; e < NUM_ELECTRODES; e++) meanV += V_meas[e];
+    meanV /= NUM_ELECTRODES;
+
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      ssTot += (V_meas[e] - meanV) * (V_meas[e] - meanV);
+      ssRes += (V_meas[e] - V_rec[e]) * (V_meas[e] - V_rec[e]);
+    }
+    const r2 = (ssTot > 1e-8) ? Math.max(0, 1 - (ssRes / ssTot)) : 0;
+
+    // Update UI
+    metricError.innerText = `${distMm.toFixed(1)} mm`;
+    metricSpread.innerText = `${meanSpreadMm.toFixed(1)} mm`;
+    metricR2.innerText = `${(r2 * 100).toFixed(1)}%`;
+
+    metricError.style.color = (distMm < 8) ? '#10b981' : (distMm < 20) ? '#f59e0b' : '#ef4444';
+  }
+
+  // Render Display
+  function render() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.parentElement.clientWidth;
+    const h = 460;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    ctx.fillRect(0, 0, w, h);
+
+    const cx = w * 0.5;
+    const cy = h * 0.72; // Origin of head cross section near bottom
+    const scale = Math.min(w * 0.44, h * 0.58);
+
+    // 1. Draw Concentric Head Shells (Scalp, Skull, Brain)
+    // Scalp
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_SCALP * scale, -Math.PI * 0.85, -Math.PI * 0.15);
+    ctx.stroke();
+
+    // Skull
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_SKULL * scale, -Math.PI * 0.85, -Math.PI * 0.15);
+    ctx.stroke();
+
+    // Brain Gray Matter Mantle
+    ctx.fillStyle = 'rgba(30, 41, 59, 0.45)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_BRAIN * scale, -Math.PI * 0.85, -Math.PI * 0.15);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Shell labels
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'right';
+    ctx.fillText('Scalp (\u03C3=0.33 S/m)', cx - R_SCALP * scale + 10, cy - 8);
+    ctx.fillText('Skull (\u03C3=0.004 S/m)', cx - R_SKULL * scale + 10, cy - 24);
+    ctx.fillText('Brain Cortex', cx - R_BRAIN * scale + 10, cy - 40);
+
+    // 2. Draw Reconstructed Current Density Heatmap on Cortical Points
+    let maxEst = 1e-4;
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      if (J_est[s] > maxEst) maxEst = J_est[s];
+    }
+
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      const src = SOURCES[s];
+      const px = cx + src.x * scale;
+      const py = cy + src.y * scale;
+      const normJ = Math.min(1.0, J_est[s] / maxEst);
+
+      if (normJ > 0.02) {
+        ctx.beginPath();
+        const rBlob = 6 + normJ * 18;
+        ctx.arc(px, py, rBlob, 0, 2 * Math.PI);
+        const alpha = Math.min(0.85, normJ * 0.85);
+        ctx.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+        ctx.fill();
+      }
+    }
+
+    // 3. Draw All Cortical Source Targets (Dots)
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      const src = SOURCES[s];
+      const px = cx + src.x * scale;
+      const py = cy + src.y * scale;
+
+      ctx.beginPath();
+      ctx.arc(px, py, 2.5, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(100, 116, 139, 0.4)';
+      ctx.fill();
+
+      // If this is a ground truth source, draw prominent marker
+      if (J_true[s] > 0) {
+        ctx.beginPath();
+        ctx.arc(px, py, 9, 0, 2 * Math.PI);
+        ctx.fillStyle = 'var(--c-true)';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Target pulsing ring
+        ctx.beginPath();
+        ctx.arc(px, py, 15, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    // 4. Draw Electrodes and Measured Scalp Voltage Bars
+    let maxV = 1e-4;
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      if (Math.abs(V_meas[e]) > maxV) maxV = Math.abs(V_meas[e]);
+    }
+
+    for (let e = 0; e < NUM_ELECTRODES; e++) {
+      const el = ELECTRODES[e];
+      const ex = cx + el.x * scale;
+      const ey = cy + el.y * scale;
+
+      // Electrode dot
+      ctx.beginPath();
+      ctx.arc(ex, ey, 4.5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Radial vector pointing outward for voltage indicator bar
+      const barLen = (V_meas[e] / maxV) * 32;
+      const nx = Math.sin(el.theta);
+      const ny = -Math.cos(el.theta);
+
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex + nx * barLen, ey + ny * barLen);
+      ctx.strokeStyle = (V_meas[e] >= 0) ? '#f43f5e' : '#38bdf8';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  // Mouse Interaction: Click to place ground truth dipole
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const w = canvas.parentElement.clientWidth;
+    const h = 460;
+    const cx = w * 0.5;
+    const cy = h * 0.72;
+    const scale = Math.min(w * 0.44, h * 0.58);
+
+    // Find nearest source point
+    let nearestIdx = 0;
+    let minDist = Infinity;
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      const px = cx + SOURCES[s].x * scale;
+      const py = cy + SOURCES[s].y * scale;
+      const d = Math.hypot(mouseX - px, mouseY - py);
+      if (d < minDist) {
+        minDist = d;
+        nearestIdx = s;
+      }
+    }
+
+    if (minDist < 40) {
+      if (numTrueSources === 1) {
+        J_true.fill(0);
+        J_true[nearestIdx] = 1.0;
+      } else {
+        // Toggle or set second source
+        J_true[nearestIdx] = (J_true[nearestIdx] > 0) ? 0 : 1.0;
+      }
+      inverseSolve();
+    }
+  });
+
+  // Solver buttons
+  document.querySelectorAll('.solver-btn[data-solver]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.solver-btn[data-solver]').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      activeSolver = e.target.dataset.solver;
+      inverseSolve();
+    });
+  });
+
+  // Sliders
+  lambdaSlider.addEventListener('input', (e) => {
+    lambdaExp = parseFloat(e.target.value);
+    const val = Math.pow(10, lambdaExp);
+    lambdaVal.innerText = val.toFixed(val < 0.01 ? 3 : 2);
+    inverseSolve();
+  });
+
+  snrSlider.addEventListener('input', (e) => {
+    snrDb = parseInt(e.target.value, 10);
+    snrVal.innerText = `${snrDb} dB`;
+    inverseSolve();
+  });
+
+  // Source presets
+  document.getElementById('btn1Src').addEventListener('click', () => {
+    numTrueSources = 1;
+    document.getElementById('btn1Src').classList.add('active');
+    document.getElementById('btn2Src').classList.remove('active');
+    document.getElementById('sourcesVal').innerText = '1 Dipole';
+    J_true.fill(0);
+    J_true[24] = 1.0;
+    inverseSolve();
+  });
+
+  document.getElementById('btn2Src').addEventListener('click', () => {
+    numTrueSources = 2;
+    document.getElementById('btn2Src').classList.add('active');
+    document.getElementById('btn1Src').classList.remove('active');
+    document.getElementById('sourcesVal').innerText = '2 Dipoles';
+    J_true.fill(0);
+    J_true[15] = 1.0; // Left motor
+    J_true[33] = 1.0; // Right motor
+    inverseSolve();
+  });
+
+  document.getElementById('btnSuperficial').addEventListener('click', () => {
+    J_true.fill(0);
+    J_true[24] = 1.0; // Tier 0 superficial crown
+    inverseSolve();
+  });
+
+  document.getElementById('btnDeep').addEventListener('click', () => {
+    J_true.fill(0);
+    J_true[26] = 1.0; // Tier 2 deep structure
+    inverseSolve();
+  });
+
+  window.addEventListener('resize', render);
+
+  // Initial Run
+  inverseSolve();
+})();
+</script>
+</body>
+</html>
