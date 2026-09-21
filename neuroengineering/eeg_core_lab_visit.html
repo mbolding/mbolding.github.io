@@ -28,42 +28,76 @@
 
     <style>
         :root {
-            --bg-color: #ffffff;
-            --text-color: #111111;
-            --secondary-text: #555566;
-            --accent-color: #a855f7;
-            --accent-dark: #9333ea;
-            --code-font: 'JetBrains Mono', monospace;
-            --serif-font: 'Instrument Serif', Georgia, serif;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-muted: #6b7280;
+            --accent: #9333ea;
+            --accent-glow: rgba(147, 51, 234, 0.15);
+            --accent-dark: #7e22ce;
+            --accent-light: #c084fc;
             --border-color: #e5e7eb;
-            --card-bg: #f9fafb;
+            --card-bg: #ffffff;
             --card-border: #e5e7eb;
             --highlight-bg: #faf5ff;
+            --code-font: 'JetBrains Mono', monospace;
+            --serif-font: 'Instrument Serif', Georgia, serif;
+            --sans-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0a0a0d;
+            --bg-secondary: #121216;
+            --bg-tertiary: #1a1a22;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #a855f7;
+            --accent-glow: rgba(168, 85, 247, 0.25);
+            --accent-dark: #7e22ce;
+            --accent-light: #c084fc;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --highlight-bg: rgba(168, 85, 247, 0.08);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0;
+            font-family: var(--sans-font);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             line-height: 1.7;
             -webkit-font-smoothing: antialiased;
+            transition: background-color 0.2s, color 0.2s;
         }
 
         .container {
-            max-width: 920px;
+            max-width: 960px;
             margin: 0 auto;
-            padding: 60px 40px 100px 40px;
+            padding: 40px 24px 100px 24px;
         }
 
+        /* Top Bar Navigation */
         .top-nav {
             position: sticky;
             top: 0;
             z-index: 100;
-            background: rgba(255, 255, 255, 0.94);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-color);
             padding: 0.75rem 2rem;
             display: flex;
@@ -73,13 +107,18 @@
             font-family: var(--code-font);
         }
 
+        [data-theme="dark"] .top-nav {
+            background: rgba(10, 10, 13, 0.92);
+        }
+
         .top-nav a {
-            color: var(--secondary-text);
+            color: var(--text-secondary);
             text-decoration: none;
+            transition: color 0.15s;
         }
 
         .top-nav a:hover {
-            color: var(--accent-dark);
+            color: var(--accent-light);
         }
 
         .top-nav-links {
@@ -88,74 +127,178 @@
             align-items: center;
         }
 
+        .theme-toggle-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-family: var(--code-font);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent-light);
+        }
+
+        /* Header & Badges */
         header {
-            margin-top: 2rem;
-            margin-bottom: 3.5rem;
-            border-bottom: 3px solid var(--text-color);
+            margin-top: 1.5rem;
+            margin-bottom: 3rem;
+            border-bottom: 2px solid var(--border-color);
             padding-bottom: 2rem;
         }
 
         .breadcrumb {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-family: var(--code-font);
-            color: var(--secondary-text);
+            color: var(--text-muted);
             margin-bottom: 1rem;
         }
 
-        .phase-badge {
+        .breadcrumb a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--accent);
+        }
+
+        .badge {
             display: inline-block;
             font-family: var(--code-font);
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #7e22ce;
-            background-color: var(--highlight-bg);
-            border: 1px solid #e9d5ff;
+            letter-spacing: 0.06em;
+            color: var(--accent-light);
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
             padding: 4px 10px;
             border-radius: 9999px;
             margin-bottom: 1rem;
         }
 
         h1 {
-            font-size: 2.5rem;
+            font-size: 2.3rem;
             font-weight: 800;
-            line-height: 1.15;
+            line-height: 1.2;
             letter-spacing: -0.03em;
-            margin: 0 0 1rem 0;
+            margin-bottom: 0.85rem;
         }
 
         h1 span.serif {
             font-family: var(--serif-font);
             font-weight: 400;
             font-style: italic;
-            color: var(--accent-dark);
+            color: var(--accent);
         }
 
         .subtitle {
-            font-size: 1.15rem;
-            color: var(--secondary-text);
+            font-size: 1.05rem;
+            color: var(--text-secondary);
             margin-bottom: 1.75rem;
-            line-height: 1.5;
+            line-height: 1.55;
         }
 
         .lecture-meta {
             display: flex;
-            gap: 1.5rem;
+            gap: 1.25rem;
             flex-wrap: wrap;
-            font-size: 0.85rem;
-            color: var(--secondary-text);
+            font-size: 0.82rem;
+            color: var(--text-secondary);
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             padding: 12px 18px;
             border-radius: 8px;
+            box-shadow: var(--shadow-sm);
         }
 
+        .lecture-meta span strong {
+            color: var(--text-primary);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.25rem;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-family: var(--code-font);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: all 0.15s;
+        }
+
+        .btn-action:hover {
+            border-color: var(--accent);
+            color: var(--accent-light);
+            transform: translateY(-1px);
+        }
+
+        .btn-action.primary {
+            background: var(--accent-dark);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        .btn-action.primary:hover {
+            background: var(--accent);
+        }
+
+        /* Content Sections */
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .sec-num {
+            font-family: var(--code-font);
+            color: var(--accent);
+            font-size: 1rem;
+        }
+
+        p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+
+        /* Cards & Grids */
         .card-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.25rem;
-            margin: 1.75rem 0;
+            margin: 1.5rem 0;
+        }
+
+        .card-grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         }
 
         .slide-card {
@@ -168,60 +311,302 @@
 
         .slide-card h4 {
             margin: 0 0 8px 0;
-            font-size: 1rem;
+            font-size: 0.98rem;
             font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .slide-card p {
-            font-size: 0.88rem;
-            color: #374151;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
             margin-bottom: 0.5rem;
             line-height: 1.55;
         }
 
+        .slide-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Equation Block */
         .equation-block {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-left: 4px solid var(--accent-color);
-            padding: 18px 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent);
+            padding: 16px 22px;
             border-radius: 6px;
-            margin: 1.75rem 0;
+            margin: 1.5rem 0;
             overflow-x: auto;
         }
 
         .equation-caption {
-            font-size: 0.82rem;
-            color: var(--secondary-text);
-            margin-top: 8px;
-            font-style: italic;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-family: var(--code-font);
         }
 
-        .nicu-banner {
-            background: rgba(168, 85, 247, 0.08);
-            border-left: 5px solid var(--accent-color);
-            padding: 18px 22px;
-            border-radius: 8px;
-            margin: 2rem 0;
+        /* Callout Banners */
+        .callout-box {
+            background: var(--highlight-bg);
+            border: 1px solid rgba(147, 51, 234, 0.25);
+            border-left: 4px solid var(--accent);
+            padding: 16px 20px;
+            border-radius: 6px;
+            margin: 1.5rem 0;
+            font-size: 0.88rem;
         }
 
-        .nicu-banner h3 {
-            margin: 0 0 8px 0;
-            color: #7e22ce;
+        .callout-box h3, .callout-box h4 {
+            color: var(--accent);
+            margin-bottom: 6px;
+            font-size: 0.98rem;
         }
 
+        /* Interactive Simulator Panels */
+        .interactive-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 1.75rem 0;
+            box-shadow: var(--shadow-md);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .panel-title {
+            font-family: var(--code-font);
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--accent-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-family: var(--code-font);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .form-control {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-family: var(--sans-font);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent);
+        }
+
+        canvas {
+            width: 100%;
+            height: 200px;
+            background: #090a0e;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: block;
+            margin: 12px 0;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-family: var(--code-font);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .metric-val {
+            font-family: var(--code-font);
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--accent-light);
+            margin-top: 2px;
+        }
+
+        /* Impedance Checker Grid */
+        .electrode-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
+            margin: 14px 0;
+        }
+
+        .electrode-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: var(--code-font);
+            font-size: 0.78rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .electrode-item .name {
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-optimal { background: #10b981; }
+        .status-warn { background: #f59e0b; }
+        .status-poor { background: #ef4444; }
+
+        /* Tables */
+        table.spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+            margin: 1.5rem 0;
+        }
+
+        table.spec-table th,
+        table.spec-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        table.spec-table th {
+            background: var(--bg-tertiary);
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Student Observation Log Form */
+        .observation-form {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 24px;
+            margin-top: 2rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .observation-form textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: var(--sans-font);
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+
+        .observation-form textarea:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Footer */
         footer {
             margin-top: 5rem;
             padding-top: 2rem;
             border-top: 1px solid var(--border-color);
-            font-size: 0.85rem;
-            color: var(--secondary-text);
+            font-size: 0.82rem;
+            color: var(--text-muted);
             text-align: center;
+        }
+
+        footer a {
+            color: var(--text-secondary);
+            text-decoration: underline;
+        }
+
+        footer a:hover {
+            color: var(--accent);
+        }
+
+        @media print {
+            .top-nav, .theme-toggle-btn, .quick-actions, .form-actions, canvas {
+                display: none !important;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            .interactive-panel, .observation-form {
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
         }
     </style>
 </head>
 
 <body>
 
+    <!-- Sticky Top Navigation -->
     <nav class="top-nav">
         <div>
             <a href="index.html"><strong>IDNE 701</strong>: Neuroengineering</a>
@@ -230,16 +615,18 @@
             <a href="IDNE701_FA2026.html#week-9">Syllabus</a>
             <a href="pulse_sequences_kspace.html">Week 8 Sequences</a>
             <a href="artifact_mitigation_motion.html">Week 10 Artifacts</a>
+            <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">🌓 Theme</button>
         </div>
     </nav>
 
     <div class="container">
+        <!-- Breadcrumbs -->
         <div class="breadcrumb">
             <a href="../index.html">Home</a> / <a href="index.html">Neuroengineering</a> / <a href="IDNE701_FA2026.html#week-9">Syllabus</a> / Week 9 EMU Visit
         </div>
 
         <header>
-            <div class="phase-badge">Phase 3 · Clinical EMU &amp; Electrophysiology Core Visit</div>
+            <div class="badge">Phase 3 · Clinical EMU &amp; Electrophysiology Core Visit</div>
             <h1>Lab Visit: Clinical EMU &amp; <span class="serif">High-Density EEG Core</span></h1>
             <p class="subtitle">
                 Clinical protocols for continuous long-term video-EEG in the Epilepsy Monitoring Unit (EMU), 128/256-channel high-density electroencephalography, Faraday cage isolation, electrode impedance physics, active shielding, and continuous bedside neonatal amplitude-integrated EEG (aEEG).
@@ -251,74 +638,309 @@
                 <span><strong>Location:</strong> Clinical Epilepsy Monitoring Unit (EMU) &amp; Electrophysiology Core</span>
                 <span><strong>Instructor:</strong> Mark Bolding, PhD</span>
             </div>
+
+            <div class="quick-actions">
+                <a href="#station1" class="btn-action primary">⚡ Station 1: EMU Telemetry &amp; Impedance</a>
+                <a href="#station2" class="btn-action">👶 Station 2: aEEG Simulator</a>
+                <a href="#studentLog" class="btn-action">📝 Student Observation Log</a>
+                <a href="IDNE701_FA2026.html#week-9" class="btn-action">📅 Syllabus Timeline</a>
+            </div>
         </header>
 
-        <!-- Section 1: Core Facility Overview -->
-        <section>
-            <h2>01. Instrumentation &amp; Shielding Infrastructure</h2>
+        <!-- Section 1: Clinical EMU Infrastructure & Telemetry Workflow -->
+        <section id="station1">
+            <h2><span class="sec-num">01.</span> Clinical EMU Infrastructure &amp; Video Telemetry</h2>
             <p>
-                The Clinical Epilepsy Monitoring Unit (EMU) and Neuroengineering EEG Core facilities feature multi-bed continuous synchronized video-EEG suites and double-walled Faradaic copper-mesh shielded testing chambers designed to attenuate ambient AC powerline induction ($60\,\text{Hz}$) by $> 80\,\text{dB}$.
+                The <strong>Epilepsy Monitoring Unit (EMU)</strong> is a specialized inpatient facility designed for continuous, multi-day recording of electroencephalographic (EEG) and synchronized high-definition video telemetry. Its primary mission is capturing spontaneous paroxysmal events to localize epileptogenic seizure onset zones (SOZs) for pre-surgical evaluation and to differentiate epileptic seizures from non-epileptic psychogenic events.
             </p>
 
             <div class="card-grid">
                 <div class="slide-card">
-                    <h4>🛡️ Active Shielding &amp; Driven Right Leg (DRL)</h4>
+                    <h4>📹 Time-Synchronized Video Telemetry</h4>
                     <p>
-                        Cable capacitance introduces $60\,\text{Hz}$ displacement currents. Active coaxial shielding drives outer cable shields at the common-mode voltage, eliminating dielectric leakage currents. DRL circuits invert common-mode noise and drive it back to the body, boosting CMRR to $> 110\,\text{dB}$.
+                        Dual pan-tilt-zoom (PTZ) infrared cameras continuous track patient motor behavior, eye deviation, and automations. Video frames are stamped with sample-accurate SMPTE hardware timecodes, perfectly synchronized to raw amplifier timebases.
                     </p>
                 </div>
 
                 <div class="slide-card">
-                    <h4>⚡ High-Density Montages (128 / 256 Channels)</h4>
+                    <h4>🔘 Patient &amp; Staff Event Triggers</h4>
                     <p>
-                        Geodesic sensor nets use $\text{Ag/AgCl}$ sintered pellets with sponge reservoirs soaked in potassium chloride electrolyte. Enables whole-head scalp potential mapping with inter-electrode distance $\le 15\,\text{mm}$.
+                        Bedside pushbutton trigger inputs insert instantaneous digital event flags into the continuous data stream when the patient perceives an aura or nursing staff observe seizure semiology, initiating immediate high-rate video archiving.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🔌 Galvanic Isolation &amp; Patient Safety</h4>
+                    <p>
+                        Headbox preamplifiers employ optical or magnetic digital isolators with isolation barrier ratings $> 4\,\text{kV}_{\text{RMS}}$. Chassis leakage current must remain $< 10\,\mu\text{A}$ (IEC 60601-1 Type BF/CF cardiac-floating safety rating).
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>🩹 Long-Term Skin Preservation</h4>
+                    <p>
+                        Unlike acute 30-minute diagnostic EEG, EMU monitoring lasts 72–168 hours. Collodion-affixed disc electrodes require hydrogel rehydration ports and pressure-relief silicone pads to prevent skin maceration and contact necrosis.
                     </p>
                 </div>
             </div>
         </section>
 
-        <!-- Section 2: Forward Problem & Lead Field -->
+        <!-- Section 2: Instrumentation Physics, Faradaic Shielding & DRL -->
         <section>
-            <h2>02. Volume Conduction &amp; The Forward Lead-Field Matrix</h2>
+            <h2><span class="sec-num">02.</span> Electromagnetic Shielding &amp; Driven Right Leg (DRL) Physics</h2>
             <p>
-                Scalp surface potentials $V_e$ represent volume-conducted superposition of dipolar current sources $\vec{J}_p(\vec{r})$ across cortical pyramidal columns:
+                Surface scalp potentials generated by cortical postsynaptic dipoles are microscopic ($10 - 100\,\mu\text{V}$). In contrast, ambient $120\,\text{V}/60\,\text{Hz}$ building powerlines couple capacitive displacement currents $I_d = C \frac{dV}{dt}$ into the human body, inducing common-mode voltages of $1 - 10\,\text{mV}$ ($40 - 60\,\text{dB}$ larger than the neural signal).
             </p>
+
+            <div class="equation-block">
+                $$V_{\text{cm}} = \frac{1}{N}\sum_{i=1}^N V_i, \qquad V_{\text{DRL}} = -A_{\text{DRL}} \cdot V_{\text{cm}} \implies V_{\text{body, effective}} = \frac{V_{\text{cm}}}{1 + A_{\text{DRL}}}$$
+                <div class="equation-caption">Equation 1: Driven Right Leg (DRL) closed-loop common-mode cancellation</div>
+            </div>
+
+            <div class="card-grid">
+                <div class="slide-card">
+                    <h4>🛡️ Faraday Room Attenuation</h4>
+                    <p>
+                        Double-walled continuous copper-mesh suites attenuate ambient electromagnetic radiation by $> 80\,\text{dB}$ across $10\,\text{kHz} - 1\,\text{GHz}$. Penetration panels route isolated DC power and fiber-optic signals without compromising the Faradaic shield.
+                    </p>
+                </div>
+
+                <div class="slide-card">
+                    <h4>⚡ Active Coaxial Cable Shielding</h4>
+                    <p>
+                        Parasitic capacitance between electrode wires and ambient noise causes cable movement artifacts. Active unity-gain buffer amplifiers drive the outer coaxial cable shield at the exact same instantaneous potential as the inner signal wire, nullifying displacement current leakage.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Interactive Station 1: Impedance & Noise Budget Station -->
+        <section>
+            <h2><span class="sec-num">03.</span> Interactive Station 1: Electrode Impedance &amp; Thermal Noise Budget</h2>
+            <p>
+                Measure and adjust contact impedance for 8 standard scalp montage locations. Observe how electrode-electrolyte contact resistance directly alters the Johnson-Nyquist thermal noise floor and $60\,\text{Hz}$ powerline common-mode conversion.
+            </p>
+
+            <div class="interactive-panel">
+                <div class="panel-header">
+                    <span class="panel-title">🎛️ Real-Time Electrode Impedance Checker</span>
+                    <span style="font-family: var(--code-font); font-size: 0.75rem; color: var(--text-muted);">Threshold: &lt; 5.0 kΩ</span>
+                </div>
+
+                <div class="electrode-grid" id="electrodeGrid">
+                    <!-- Populated via JavaScript -->
+                </div>
+
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Mean Impedance</div>
+                        <div class="metric-val" id="meanImpVal">3.2 kΩ</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Max Impedance Mismatch</div>
+                        <div class="metric-val" id="mismatchVal">1.4 kΩ</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Thermal Noise (0.5–70 Hz)</div>
+                        <div class="metric-val" id="thermalNoiseVal">0.06 µV_rms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">60 Hz Conversion</div>
+                        <div class="metric-val" id="humPickupVal">&lt; 0.2 µV</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 14px; text-align: right;">
+                    <button class="btn-action" onclick="randomizeImpedance()">🎲 Simulate Patient Re-Gel</button>
+                    <button class="btn-action primary" onclick="optimizeImpedance()">✨ Apply Abrasive Skin Prep (&lt; 3 kΩ)</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Forward Problem & Volume Conduction -->
+        <section>
+            <h2><span class="sec-num">04.</span> Volume Conduction &amp; The Forward Lead-Field Matrix</h2>
+            <p>
+                Scalp surface potentials $V_e$ represent the volume-conducted superposition of dipolar current sources $\vec{J}_p(\vec{r})$ across cortical pyramidal columns governed by Poisson's quasi-static volume conduction equation:
+            </p>
+
             <div class="equation-block">
                 $$\nabla \cdot (\sigma(\vec{r}) \nabla \Phi(\vec{r})) = \nabla \cdot \vec{J}_p(\vec{r}) \implies \mathbf{v} = \mathbf{L}\mathbf{j} + \mathbf{n}$$
-                <div class="equation-caption">Equation 1: Quasi-static Poisson volume conduction and discrete lead-field matrix L</div>
+                <div class="equation-caption">Equation 2: Poisson volume conduction and discrete lead-field matrix L mapping dipoles j to scalp voltages v</div>
             </div>
+
+            <table class="spec-table">
+                <thead>
+                    <tr>
+                        <th>Anatomical Layer</th>
+                        <th>Adult Conductivity ($\sigma$)</th>
+                        <th>Neonatal Conductivity ($\sigma$)</th>
+                        <th>Spatial Filtering Effect</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Scalp &amp; Subcutis</strong></td>
+                        <td>$0.33 - 0.43\,\text{S/m}$</td>
+                        <td>$0.40 - 0.50\,\text{S/m}$</td>
+                        <td>High water content; minimal distortion.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cranial Bone (Skull)</strong></td>
+                        <td>$0.0042 - 0.010\,\text{S/m}$</td>
+                        <td>$0.025 - 0.045\,\text{S/m}$</td>
+                        <td>Adult skull is heavily insulating ($\sim 1/80$ ratio), low-pass blurring dipoles. Neonatal skull is thin and 5–10× more conductive.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fontanelles &amp; Sutures</strong></td>
+                        <td>N/A (Fused)</td>
+                        <td>$1.79\,\text{S/m}$ (CSF equivalent)</td>
+                        <td>Unfused anterior fontanelle provides a massive open electrical window, creating sharp localized potential peaks.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cerebrospinal Fluid (CSF)</strong></td>
+                        <td>$1.79\,\text{S/m}$</td>
+                        <td>$1.79\,\text{S/m}$</td>
+                        <td>Current shunting layer; spreads dipolar currents laterally before reaching bone.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 5: Interactive Station 2: aEEG Simulator -->
+        <section id="station2">
+            <h2><span class="sec-num">05.</span> Interactive Station 2: Bedside aEEG Seizure &amp; Burst-Suppression Simulator</h2>
             <p>
-                Because skull conductivity is $\approx 1/15$ to $1/80$ of brain tissue, the adult skull acts as a spatial low-pass filter, blurring high spatial frequency electric fields.
+                In the Neonatal Intensive Care Unit (NICU), full 128-channel montages are impractical due to extreme skin fragility and incubator nursing. Clinicians rely on <strong>amplitude-integrated EEG (aEEG)</strong> (typically biparietal C3–P3, C4–P4): signals are asymmetric bandpass filtered ($2 - 15\,\text{Hz}$), rectified, and compressed on a semi-logarithmic scale ($< 10\,\mu\text{V}$ linear, $> 10\,\mu\text{V}$ log) and written at slow speed ($6\,\text{cm/hr}$).
             </p>
+
+            <div class="interactive-panel">
+                <div class="panel-header">
+                    <span class="panel-title">👶 NICU Bedside aEEG Monitor &amp; Trace Classifier</span>
+                    <span style="font-family: var(--code-font); font-size: 0.75rem; color: var(--accent-light);" id="patternBadge">Continuous Normal Voltage (CNV)</span>
+                </div>
+
+                <div class="control-row">
+                    <div class="form-group">
+                        <label for="aeegPatternSelect">Select Clinical Pattern</label>
+                        <select id="aeegPatternSelect" class="form-control" onchange="changeAeegPattern()">
+                            <option value="cnv">Continuous Normal Voltage (CNV) — Healthy Term Infant</option>
+                            <option value="dnv">Discontinuous Normal Voltage (DNV) — Mild Encephalopathy</option>
+                            <option value="bs">Burst-Suppression (BS) — Severe HIE / Hypothermia</option>
+                            <option value="clv">Continuous Low Voltage (CLV) — Profound Injury</option>
+                            <option value="seizure">Electrographic Seizure (Rhythmic Spikes &amp; Sawtooth Run)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="hypothermiaSelect">Therapeutic State</label>
+                        <select id="hypothermiaSelect" class="form-control" onchange="renderAeeg()">
+                            <option value="normo">Normothermia (37.0°C)</option>
+                            <option value="hypo" selected>Active Therapeutic Hypothermia (33.5°C)</option>
+                            <option value="rewarm">Controlled Rewarming (0.5°C / hr)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="font-family: var(--code-font); font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;">
+                    COMPRESSED aEEG TREND (6 cm/hr, 2-Hour Window, Semi-Log Scale: 0–10 µV Linear, 10–100 µV Log)
+                </div>
+                <canvas id="aeegTrendCanvas"></canvas>
+
+                <div style="font-family: var(--code-font); font-size: 0.72rem; color: var(--text-muted); margin-top: 10px; margin-bottom: 4px;">
+                    RAW BIPARIETAL EEG STRIP (C3–P3, 10-Second Epoch, 250 Hz Sample Rate)
+                </div>
+                <canvas id="rawEegCanvas" style="height: 120px;"></canvas>
+
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Upper Margin</div>
+                        <div class="metric-val" id="upperMarginVal">28.4 µV</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Lower Margin</div>
+                        <div class="metric-val" id="lowerMarginVal">11.2 µV</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Burst-Suppression Ratio (BSR)</div>
+                        <div class="metric-val" id="bsrVal">0 %</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Clinical Alert Status</div>
+                        <div class="metric-val" id="alertStatusVal" style="color: #10b981; font-size: 0.95rem;">NORMAL</div>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <!-- Section 3: Grand Challenge 06 Focus -->
+        <!-- Section 6: Grand Challenge Focus: NICU Engineering Constraints -->
         <section>
-            <h2>03. Grand Challenge Focus: Neonatal Amplitude-Integrated EEG (aEEG)</h2>
-            <div class="nicu-banner">
-                <h3>👶 Continuous Bedside Seizure &amp; Burst-Suppression Tracking</h3>
+            <h2><span class="sec-num">06.</span> Grand Challenge 06 Focus: NICU Bedside Constraints</h2>
+            <div class="callout-box">
+                <h3>🛡️ Protecting Fragile Neonatal Skin &amp; Temperature Calibration</h3>
                 <p>
-                    In the neonatal intensive care unit (NICU), full 128-channel montages are impractical due to skin fragility and interference with incubator nursing care. Bedside monitoring relies on <strong>amplitude-integrated EEG (aEEG)</strong>:
+                    Designing clinical neurotechnology for premature infants ($< 32$ weeks gestational age) imposes physical and chemical boundaries that differ drastically from adult ambulatory EMU systems:
                 </p>
+                <ul style="padding-left: 20px; margin-top: 8px; line-height: 1.6;">
+                    <li><strong>Stratum Corneum Fragility:</strong> Preterm infants have only 2–3 layers of cornified skin cells. Standard abrasive skin-prep pastes (e.g. NuPrep) strip epidermis, leading to sepsis. Hydrogel electrolyte reservoirs with gentle saline activation must achieve $< 5\,\text{k}\Omega$ without mechanical abrasion.</li>
+                    <li><strong>Sustained Interface Pressure:</strong> Cap straps and head holders must distribute force evenly such that sustained pressure remains <strong>$&lt; 20\,\text{mmHg}$</strong> ($2.67\,\text{kPa}$), preserving capillary perfusion to prevent pressure ulcer necrosis.</li>
+                    <li><strong>72-Hour Therapeutic Hypothermia ($33.5^\circ\text{C}$):</strong> Standard of care for neonatal hypoxic-ischemic encephalopathy (HIE) lowers body temperature to $306.65\,\text{K}$. This shifts electrode electrochemical half-cell potential, increases skin contact impedance, and suppresses background cerebral metabolic rate ($\text{CMRO}_2$).</li>
+                </ul>
             </div>
+        </section>
 
-            <div class="card-grid">
-                <div class="slide-card">
-                    <h4>📉 Asymmetric Compression &amp; Filtering</h4>
-                    <p>
-                        Raw single- or dual-channel EEG (C3–P3, C4–P4) is bandpass filtered ($2 - 15\,\text{Hz}$), rectified, and logarithmically compressed below $10\,\mu\text{V}$. The signal is displayed at a slow time scale ($6\,\text{cm/hr}$), allowing neonatologists to visually track sleep-wake cycling and burst-suppression trends over 72 hours at a glance.
-                    </p>
+        <!-- Section 7: Student Lab Observation Log -->
+        <section id="studentLog">
+            <h2><span class="sec-num">07.</span> Student Lab Observation Log &amp; Verification Protocol</h2>
+            <p>
+                Complete the following checklist and qualitative observations during your hands-on tour of the Clinical EMU and Neuroengineering EEG Core. Save your progress locally or export your dossier report for your course design archive.
+            </p>
+
+            <div class="observation-form">
+                <div class="control-row">
+                    <div class="form-group">
+                        <label for="studentName">Student Engineer Name</label>
+                        <input type="text" id="studentName" class="form-control" placeholder="e.g. Alex Chen" oninput="autoSave()">
+                    </div>
+                    <div class="form-group">
+                        <label for="teamName">Design Team / Project Title</label>
+                        <input type="text" id="teamName" class="form-control" placeholder="e.g. Team NeoScan (GC 06)" oninput="autoSave()">
+                    </div>
                 </div>
 
-                <div class="slide-card">
-                    <h4>🧠 Thin Fontanelle Conductivity Contrast</h4>
-                    <p>
-                        The neonatal cranium is thin ($1.5\,\text{mm}$) and fontanelles have the high electrical conductivity of CSF ($\sigma \approx 1.79\,\text{S/m}$), with no insulating bone. Consequently, neonatal scalp potentials exhibit much higher amplitude and higher spatial gradient sharpness than adult EEG.
-                    </p>
+                <div class="control-row" style="margin-top: 10px;">
+                    <div class="form-group">
+                        <label for="measuredShielding">Faradaic Room 60 Hz Attenuation (dB)</label>
+                        <input type="text" id="measuredShielding" class="form-control" placeholder="e.g. 84.5 dB attenuation" oninput="autoSave()">
+                    </div>
+                    <div class="form-group">
+                        <label for="drlCmrr">Measured DRL System CMRR (dB)</label>
+                        <input type="text" id="drlCmrr" class="form-control" placeholder="e.g. 112 dB" oninput="autoSave()">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 14px;">
+                    <label for="notesEmu">EMU Clinical Telemetry Observations</label>
+                    <textarea id="notesEmu" placeholder="Document camera mounting angles, timecode synchronization latency, patient emergency event trigger response, and electrode skin care protocols observed..." oninput="autoSave()"></textarea>
+                </div>
+
+                <div class="form-group" style="margin-top: 14px;">
+                    <label for="notesaEEG">Neonatal aEEG &amp; Seizure Detection Notes</label>
+                    <textarea id="notesaEEG" placeholder="Record differences in fontanelle potential gradients vs adult parietal montages, burst-suppression tracking during hypothermia, and how your semester project interface avoids neonatal skin necrosis..." oninput="autoSave()"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn-action primary" onclick="saveToStorage(true)">💾 Save Progress Locally</button>
+                    <button class="btn-action" onclick="exportDataJson()">📥 Export JSON</button>
+                    <button class="btn-action" onclick="generateMarkdownReport()">📄 Generate Markdown Dossier</button>
+                    <button class="btn-action" onclick="window.print()">🖨️ Print Protocol / PDF</button>
+                </div>
+                <div id="saveNotification" style="font-family: var(--code-font); font-size: 0.75rem; color: #10b981; margin-top: 8px; display: none;">
+                    ✓ Progress saved to local browser storage!
                 </div>
             </div>
         </section>
 
+        <!-- Footer -->
         <footer>
             <p>IDNE 701 · Introduction to Neuroengineering · Department of Biomedical Engineering</p>
             <p style="margin-top: 0.75rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
@@ -329,5 +951,422 @@
         </footer>
     </div>
 
+    <!-- JavaScript Interactive Logic -->
+    <script>
+        // Theme Toggle Functionality
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute("data-theme");
+            const next = current === "dark" ? "light" : "dark";
+            document.documentElement.setAttribute("data-theme", next);
+            localStorage.setItem("idne701_theme", next);
+            renderAeeg();
+        }
+
+        // Initialize Theme from localStorage
+        (function initTheme() {
+            const saved = localStorage.getItem("idne701_theme");
+            if (saved) {
+                document.documentElement.setAttribute("data-theme", saved);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+
+        // Station 1: Electrode Impedance Checker Data
+        const electrodes = [
+            { name: "Fp1", imp: 2.8 },
+            { name: "Fp2", imp: 3.1 },
+            { name: "C3", imp: 2.4 },
+            { name: "C4", imp: 2.6 },
+            { name: "T3", imp: 4.8 },
+            { name: "T4", imp: 5.2 },
+            { name: "O1", imp: 3.9 },
+            { name: "O2", imp: 3.6 }
+        ];
+
+        function renderElectrodes() {
+            const grid = document.getElementById("electrodeGrid");
+            if (!grid) return;
+            grid.innerHTML = "";
+
+            let sum = 0;
+            let minImp = 999;
+            let maxImp = -999;
+
+            electrodes.forEach((e, idx) => {
+                sum += e.imp;
+                if (e.imp < minImp) minImp = e.imp;
+                if (e.imp > maxImp) maxImp = e.imp;
+
+                let dotClass = "status-optimal";
+                if (e.imp >= 5.0 && e.imp < 8.0) dotClass = "status-warn";
+                else if (e.imp >= 8.0) dotClass = "status-poor";
+
+                const div = document.createElement("div");
+                div.className = "electrode-item";
+                div.innerHTML = `
+                    <div class="name">
+                        <span>${e.name}</span>
+                        <span class="status-dot ${dotClass}"></span>
+                    </div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: var(--accent-light);">
+                        ${e.imp.toFixed(1)} kΩ
+                    </div>
+                    <input type="range" min="0.5" max="15.0" step="0.1" value="${e.imp}" 
+                           style="width: 100%; accent-color: var(--accent);" 
+                           oninput="updateElectrodeImp(${idx}, this.value)">
+                `;
+                grid.appendChild(div);
+            });
+
+            const mean = sum / electrodes.length;
+            const mismatch = maxImp - minImp;
+            document.getElementById("meanImpVal").innerText = mean.toFixed(1) + " kΩ";
+            document.getElementById("mismatchVal").innerText = mismatch.toFixed(1) + " kΩ";
+
+            // Johnson-Nyquist thermal noise: sqrt(4 * kB * T * R * deltaF)
+            // T = 310 K, deltaF = 70 Hz, R in Ohms
+            const kB = 1.380649e-23;
+            const T = 310.15;
+            const deltaF = 70;
+            const R = mean * 1000;
+            const vn = Math.sqrt(4 * kB * T * R * deltaF) * 1e6; // in microvolts
+            document.getElementById("thermalNoiseVal").innerText = vn.toFixed(3) + " µV_rms";
+
+            // Hum pickup estimate based on mismatch
+            const hum = (mismatch * 0.05).toFixed(2);
+            document.getElementById("humPickupVal").innerText = "~" + hum + " µV";
+        }
+
+        function updateElectrodeImp(idx, val) {
+            electrodes[idx].imp = parseFloat(val);
+            renderElectrodes();
+        }
+
+        function randomizeImpedance() {
+            electrodes.forEach(e => {
+                e.imp = +(Math.random() * 8 + 1).toFixed(1);
+            });
+            renderElectrodes();
+        }
+
+        function optimizeImpedance() {
+            electrodes.forEach(e => {
+                e.imp = +(Math.random() * 1.5 + 1.2).toFixed(1);
+            });
+            renderElectrodes();
+        }
+
+        // Station 2: aEEG Canvas Simulation
+        const patternConfigs = {
+            cnv: {
+                badge: "Continuous Normal Voltage (CNV)",
+                upper: 28.5,
+                lower: 11.2,
+                bsr: 0,
+                status: "NORMAL",
+                statusColor: "#10b981",
+                rawAmp: 35,
+                rawFreq: 6.5,
+                burstProb: 0
+            },
+            dnv: {
+                badge: "Discontinuous Normal Voltage (DNV)",
+                upper: 22.0,
+                lower: 4.8,
+                bsr: 12,
+                status: "MILD DEPRESSION",
+                statusColor: "#f59e0b",
+                rawAmp: 25,
+                rawFreq: 5.0,
+                burstProb: 0.15
+            },
+            bs: {
+                badge: "Burst-Suppression (BS)",
+                upper: 42.0,
+                lower: 2.1,
+                bsr: 68,
+                status: "SEVERE HIE / CRITICAL",
+                statusColor: "#ef4444",
+                rawAmp: 85,
+                rawFreq: 8.0,
+                burstProb: 0.75
+            },
+            clv: {
+                badge: "Continuous Low Voltage (CLV)",
+                upper: 8.2,
+                lower: 2.0,
+                bsr: 92,
+                status: "PROFOUND DEPRESSION",
+                statusColor: "#ef4444",
+                rawAmp: 6,
+                rawFreq: 3.0,
+                burstProb: 0.95
+            },
+            seizure: {
+                badge: "Electrographic Seizure Run",
+                upper: 65.0,
+                lower: 24.0,
+                bsr: 0,
+                status: "ACTIVE SEIZURE",
+                statusColor: "#ec4899",
+                rawAmp: 75,
+                rawFreq: 11.5,
+                burstProb: 0
+            }
+        };
+
+        function changeAeegPattern() {
+            const p = document.getElementById("aeegPatternSelect").value;
+            const cfg = patternConfigs[p];
+            document.getElementById("patternBadge").innerText = cfg.badge;
+            document.getElementById("upperMarginVal").innerText = cfg.upper.toFixed(1) + " µV";
+            document.getElementById("lowerMarginVal").innerText = cfg.lower.toFixed(1) + " µV";
+            document.getElementById("bsrVal").innerText = cfg.bsr + " %";
+            
+            const alertEl = document.getElementById("alertStatusVal");
+            alertEl.innerText = cfg.status;
+            alertEl.style.color = cfg.statusColor;
+
+            renderAeeg();
+        }
+
+        function renderAeeg() {
+            const patternKey = document.getElementById("aeegPatternSelect").value;
+            const thermoState = document.getElementById("hypothermiaSelect").value;
+            const cfg = patternConfigs[patternKey];
+
+            // Render Compressed aEEG Trend (Canvas 1)
+            const trendCvs = document.getElementById("aeegTrendCanvas");
+            if (!trendCvs) return;
+            const tctx = trendCvs.getContext("2d");
+            const w = trendCvs.parentElement.clientWidth - 40;
+            trendCvs.width = w;
+            trendCvs.height = 180;
+
+            tctx.fillStyle = "#0a0a0f";
+            tctx.fillRect(0, 0, w, 180);
+
+            // Grid lines on semi-log scale (0, 5, 10, 25, 50, 100 uV)
+            tctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+            tctx.lineWidth = 1;
+            [0, 5, 10, 25, 50, 100].forEach(val => {
+                let y;
+                if (val <= 10) {
+                    y = 170 - (val / 10) * 60;
+                } else {
+                    y = 110 - (Math.log10(val / 10)) * 95;
+                }
+                tctx.beginPath();
+                tctx.moveTo(35, y);
+                tctx.lineTo(w - 10, y);
+                tctx.stroke();
+
+                tctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                tctx.font = "10px 'JetBrains Mono'";
+                tctx.fillText(val + "µV", 5, y + 3);
+            });
+
+            // Draw envelope band
+            const points = 180;
+            tctx.beginPath();
+            let upperY = [];
+            let lowerY = [];
+
+            for (let i = 0; i < points; i++) {
+                const x = 35 + (i / (points - 1)) * (w - 45);
+                const noiseU = (Math.random() - 0.5) * 4;
+                const noiseL = (Math.random() - 0.5) * 2;
+                
+                let uVal = cfg.upper + noiseU;
+                let lVal = cfg.lower + noiseL;
+
+                if (thermoState === "hypo") {
+                    uVal *= 0.9;
+                    lVal *= 0.85;
+                }
+
+                const uY = uVal <= 10 ? 170 - (uVal / 10) * 60 : 110 - (Math.log10(uVal / 10)) * 95;
+                const lY = lVal <= 10 ? 170 - (lVal / 10) * 60 : 110 - (Math.log10(lVal / 10)) * 95;
+
+                upperY.push({ x, y: uY });
+                lowerY.push({ x, y: lY });
+            }
+
+            // Fill envelope
+            tctx.fillStyle = "rgba(168, 85, 247, 0.25)";
+            tctx.beginPath();
+            tctx.moveTo(upperY[0].x, upperY[0].y);
+            upperY.forEach(p => tctx.lineTo(p.x, p.y));
+            for (let i = lowerY.length - 1; i >= 0; i--) {
+                tctx.lineTo(lowerY[i].x, lowerY[i].y);
+            }
+            tctx.closePath();
+            tctx.fill();
+
+            // Trace borders
+            tctx.strokeStyle = "#c084fc";
+            tctx.lineWidth = 1.5;
+            tctx.beginPath();
+            upperY.forEach((p, i) => i === 0 ? tctx.moveTo(p.x, p.y) : tctx.lineTo(p.x, p.y));
+            tctx.stroke();
+
+            tctx.strokeStyle = "#9333ea";
+            tctx.beginPath();
+            lowerY.forEach((p, i) => i === 0 ? tctx.moveTo(p.x, p.y) : tctx.lineTo(p.x, p.y));
+            tctx.stroke();
+
+            // Render Raw EEG Strip (Canvas 2)
+            const rawCvs = document.getElementById("rawEegCanvas");
+            if (!rawCvs) return;
+            const rctx = rawCvs.getContext("2d");
+            rawCvs.width = w;
+            rawCvs.height = 120;
+
+            rctx.fillStyle = "#07080b";
+            rctx.fillRect(0, 0, w, 120);
+
+            rctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+            rctx.beginPath();
+            rctx.moveTo(0, 60);
+            rctx.lineTo(w, 60);
+            rctx.stroke();
+
+            rctx.strokeStyle = cfg.statusColor;
+            rctx.lineWidth = 1.4;
+            rctx.beginPath();
+
+            const rawSamples = w;
+            for (let x = 0; x < rawSamples; x++) {
+                const t = x / 60;
+                let sig = 0;
+
+                if (patternKey === "bs") {
+                    // Periodic high voltage burst followed by isoelectric flat line
+                    const burstCycle = (x % 160);
+                    if (burstCycle < 45) {
+                        sig = Math.sin(t * 18) * 35 + Math.sin(t * 32) * 20;
+                    } else {
+                        sig = (Math.random() - 0.5) * 3; // flat suppression
+                    }
+                } else if (patternKey === "seizure") {
+                    // Sawtooth rhythmic spikes
+                    sig = Math.sin(t * 22) * 38 + Math.cos(t * 44) * 15 + ((x % 18) > 12 ? 20 : -10);
+                } else if (patternKey === "clv") {
+                    sig = (Math.random() - 0.5) * 6;
+                } else {
+                    // CNV / DNV
+                    sig = Math.sin(t * cfg.rawFreq) * (cfg.rawAmp * 0.4) + 
+                          Math.sin(t * (cfg.rawFreq * 1.8)) * (cfg.rawAmp * 0.25) + 
+                          (Math.random() - 0.5) * 8;
+                }
+
+                const y = 60 - sig;
+                if (x === 0) rctx.moveTo(x, y);
+                else rctx.lineTo(x, y);
+            }
+            rctx.stroke();
+        }
+
+        // Student Observation Log Persistence
+        function autoSave() {
+            saveToStorage(false);
+        }
+
+        function saveToStorage(showNotice) {
+            const data = {
+                studentName: document.getElementById("studentName").value,
+                teamName: document.getElementById("teamName").value,
+                measuredShielding: document.getElementById("measuredShielding").value,
+                drlCmrr: document.getElementById("drlCmrr").value,
+                notesEmu: document.getElementById("notesEmu").value,
+                notesaEEG: document.getElementById("notesaEEG").value
+            };
+            localStorage.setItem("idne701_emu_log", JSON.stringify(data));
+
+            if (showNotice) {
+                const note = document.getElementById("saveNotification");
+                note.style.display = "block";
+                setTimeout(() => { note.style.display = "none"; }, 3000);
+            }
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem("idne701_emu_log");
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.studentName) document.getElementById("studentName").value = data.studentName;
+                    if (data.teamName) document.getElementById("teamName").value = data.teamName;
+                    if (data.measuredShielding) document.getElementById("measuredShielding").value = data.measuredShielding;
+                    if (data.drlCmrr) document.getElementById("drlCmrr").value = data.drlCmrr;
+                    if (data.notesEmu) document.getElementById("notesEmu").value = data.notesEmu;
+                    if (data.notesaEEG) document.getElementById("notesaEEG").value = data.notesaEEG;
+                } catch (e) {
+                    console.error("Failed to load saved EMU log", e);
+                }
+            }
+        }
+
+        function exportDataJson() {
+            saveToStorage(false);
+            const saved = localStorage.getItem("idne701_emu_log") || "{}";
+            const blob = new Blob([saved], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "IDNE701_EMU_Lab_Log.json";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function generateMarkdownReport() {
+            const sName = document.getElementById("studentName").value || "Anonymous";
+            const tName = document.getElementById("teamName").value || "IDNE 701 Team";
+            const shield = document.getElementById("measuredShielding").value || "N/A";
+            const cmrr = document.getElementById("drlCmrr").value || "N/A";
+            const emuNotes = document.getElementById("notesEmu").value || "None recorded.";
+            const aeegNotes = document.getElementById("notesaEEG").value || "None recorded.";
+
+            const md = `# IDNE 701 — Clinical EMU & Electrophysiology Core Lab Verification
+**Student:** ${sName} | **Team:** ${tName}
+**Date:** Oct 23, 2026 (Week 9)
+**Location:** Clinical Epilepsy Monitoring Unit (EMU) & Neuroengineering Core
+
+---
+
+## 1. Physical Facility & Shielding Metrics
+- **Faradaic Room 60 Hz Attenuation:** ${shield}
+- **Driven Right Leg (DRL) Common-Mode Rejection:** ${cmrr}
+
+## 2. Clinical EMU Observations
+${emuNotes}
+
+## 3. Neonatal aEEG & Seizure Monitoring Notes
+${aeegNotes}
+
+---
+*Generated via IDNE 701 Interactive Lab Protocol*`;
+
+            const blob = new Blob([md], { type: "text/markdown" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "IDNE701_EMU_Report.md";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize on load
+        window.addEventListener("DOMContentLoaded", () => {
+            renderElectrodes();
+            changeAeegPattern();
+            loadFromStorage();
+        });
+
+        window.addEventListener("resize", () => {
+            renderAeeg();
+        });
+    </script>
 </body>
 </html>
