@@ -1,0 +1,1499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fMRI Preprocessing Pipeline Workbench</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --taskA: #ea580c;
+    --taskB: #0284c7;
+    --good: #16a34a;
+    --bad: #dc2626;
+    --fit-line: #a855f7;
+    --scope-bg: #090d16;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --taskA: #fb923c;
+      --taskB: #38bdf8;
+      --good: #4ade80;
+      --bad: #f87171;
+      --fit-line: #c084fc;
+      --scope-bg: #050811;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button:disabled { opacity: 0.5; cursor: progress; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  canvas.scope { background: var(--scope-bg); border-color: var(--scope-grid); }
+  .canvas-box { margin-bottom: 16px; position: relative; }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .stage-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--border);
+    background: rgba(148, 163, 184, 0.06);
+    border-radius: 6px;
+    padding: 7px 11px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .stage.on {
+    border-color: var(--good);
+    background: rgba(22, 163, 74, 0.12);
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .stage input { accent-color: var(--good); margin: 0; }
+  .arrow { color: var(--muted); font-size: 0.9rem; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stat-card { background: rgba(148, 163, 184, 0.08); border-radius: 6px; padding: 8px 12px; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+  .stat-val { font-size: 1.1rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+  .stat-val.good { color: var(--good); }
+  .stat-val.bad { color: var(--bad); }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .note { font-size: 0.86rem; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+  .note strong { color: var(--fg); }
+  .note a { color: var(--accent); }
+  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>fMRI Preprocessing Pipeline Workbench</h1>
+  <p class="sub">
+    Acquire a synthetic block-design run with head motion, interleaved slice timing, scanner drift, thermal noise and spatially correlated physiological noise, then switch each preprocessing stage on and off and watch what it does to the statistics. Two activation foci are planted, one broad and one tight, because most preprocessing decisions are a trade between them.
+    Every stage here is really computed: realignment parameters are <em>estimated</em> by minimising image difference, not read back from the simulation, so you can see how well registration actually recovers the motion you put in.
+  </p>
+
+  <div class="panel">
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Acquisition:</span>
+      <button id="btnClean" class="secondary">Still Participant</button>
+      <button id="btnTask" class="active">Task-Correlated Motion</button>
+      <button id="btnDrift" class="secondary">Slow Drift &amp; Spikes</button>
+      <button id="btnReseed" class="secondary" style="margin-left: auto;">New Noise Instance</button>
+    </div>
+
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Task-Correlated Motion:</strong> the participant tenses slightly at every block onset, so head position is correlated with the design. This is the single most dangerous artifact in task fMRI.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;"></span>
+    </div>
+
+    <div class="canvas-box">
+      <canvas id="cImages" width="996" height="404"></canvas>
+      <div class="canvas-caption">Left: raw acquired volume. Centre: the same volume after the enabled preprocessing stages. Right: voxelwise <i>t</i>-map thresholded at <i>p</i> &lt; 0.001 uncorrected, with the <span style="color:#22c55e;font-weight:600;">true activation boundaries</span> outlined in green.</div>
+    </div>
+
+    <div class="stage-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 2px;">Pipeline:</span>
+      <label class="stage" id="stMC"><input type="checkbox" id="chkMC"> Motion Correction</label>
+      <span class="arrow">&rarr;</span>
+      <label class="stage" id="stSTC"><input type="checkbox" id="chkSTC"> Slice-Timing Correction</label>
+      <span class="arrow">&rarr;</span>
+      <label class="stage" id="stSm"><input type="checkbox" id="chkSm"> Spatial Smoothing</label>
+      <span class="arrow">&rarr;</span>
+      <label class="stage" id="stHP"><input type="checkbox" id="chkHP"> High-Pass Filter</label>
+      <span class="arrow">&rarr;</span>
+      <label class="stage" id="stReg"><input type="checkbox" id="chkReg"> Motion Regressors</label>
+      <button id="btnAll" class="secondary" style="margin-left: auto;">Enable Everything</button>
+      <button id="btnNone" class="secondary">Disable Everything</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Peak <i>t</i>, Broad Focus</div>
+        <div class="stat-val good" id="dispPeakT">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Peak <i>t</i>, Tight Focus</div>
+        <div class="stat-val good" id="dispPeakTB">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Foci Resolved</div>
+        <div class="stat-val good" id="dispResolved">2 / 2</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">False-Positive Voxels</div>
+        <div class="stat-val bad" id="dispFP">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Blob Voxels Detected</div>
+        <div class="stat-val" id="dispHit">0 / 0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Mean tSNR</div>
+        <div class="stat-val" id="dispTSNR">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Motion Applied (RMS)</div>
+        <div class="stat-val" id="dispMot">0.00 vox</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Residual After Realign</div>
+        <div class="stat-val" id="dispResid">0.00 vox</div>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+      <div>
+        <label>True Activation Amplitude: <span class="val-badge" id="valBeta">1.5%</span></label>
+        <input type="range" id="sliderBeta" min="0" max="4" value="1.5" step="0.1">
+      </div>
+      <div>
+        <label>Thermal Noise (&sigma;): <span class="val-badge" id="valNoise">0.8%</span></label>
+        <input type="range" id="sliderNoise" min="0.1" max="3" value="0.8" step="0.05">
+      </div>
+      <div>
+        <label>Structured Noise (spatially smooth): <span class="val-badge" id="valStruct">0.70%</span></label>
+        <input type="range" id="sliderStruct" min="0" max="2.5" value="0.7" step="0.05">
+      </div>
+      <div>
+        <label>Motion Amplitude: <span class="val-badge" id="valMotion">1.2 vox</span></label>
+        <input type="range" id="sliderMotion" min="0" max="4" value="1.2" step="0.1">
+      </div>
+      <div>
+        <label>Scanner Drift: <span class="val-badge" id="valDrift">2.0%</span></label>
+        <input type="range" id="sliderDrift" min="0" max="6" value="2.0" step="0.1">
+      </div>
+      <div>
+        <label>Smoothing Kernel FWHM: <span class="val-badge" id="valFWHM">6.0 mm</span></label>
+        <input type="range" id="sliderFWHM" min="0" max="18" value="6" step="0.5">
+      </div>
+      <div>
+        <label>High-Pass Cutoff Period: <span class="val-badge" id="valHP">100 s</span></label>
+        <input type="range" id="sliderHP" min="20" max="200" value="100" step="5">
+      </div>
+      <div>
+        <label>Displayed Volume: <span class="val-badge" id="valFrame">1 / 100</span></label>
+        <input type="range" id="sliderFrame" min="0" max="99" value="0" step="1">
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <button id="btnPlay" class="secondary" style="width:100%;">&#9654; Play Volumes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="canvas-box">
+      <canvas id="cMotion" class="scope" width="996" height="190"></canvas>
+      <div class="canvas-caption">Motion parameters over the run. <span style="color:#94a3b8;">Dashed</span> = motion actually applied by the simulation; solid = motion <em>estimated</em> by the realignment search. The gap between them is registration error, and it never reaches zero.</div>
+    </div>
+    <div class="canvas-box" style="margin-bottom:0;">
+      <canvas id="cSeries" class="scope" width="996" height="220"></canvas>
+      <div class="canvas-caption">Time series from the peak activation voxel: <span style="color:#94a3b8;">raw</span> vs. <span style="color:#4ade80;">preprocessed</span>, with the <span style="color:var(--taskA);">task blocks</span> shaded and the <span style="color:var(--fit-line);">GLM fit</span> overlaid.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;"><strong>What each stage is for:</strong></p>
+    <p class="note">
+      1. <strong>Motion Correction (Realignment):</strong> Each volume is registered back to the first by searching over rigid-body parameters (here 2 translations and 1 in-plane rotation; a real 3D pipeline estimates 6) for the transform that minimises the sum of squared intensity differences. The correction is then applied by resampling. Realignment is very good, but it is never perfect: interpolation blurs, and spin-history effects mean a moved voxel does not carry the magnetisation it would have had if it had stayed put. Watch the residual figure stay stubbornly non-zero.
+    </p>
+    <p class="note">
+      2. <strong>Motion Regressors:</strong> Realignment repositions the images but leaves motion-linked intensity changes behind. Adding the six (here three) estimated parameters to the design matrix as nuisance covariates removes variance that tracks head position. With <em>task-correlated</em> motion this is a double-edged tool: the regressors are correlated with the task regressor, so they soak up real signal along with the artifact, and your peak <i>t</i> falls. There is no setting of this switch that gets you back what the motion destroyed, which is the entire argument for preventing motion at the scanner rather than fixing it afterwards.
+    </p>
+    <p class="note">
+      3. <strong>Slice-Timing Correction:</strong> A volume is not an instant. Slices are acquired one at a time across the TR, usually interleaved to limit cross-slice excitation, so a voxel in the last-acquired slice is sampled nearly a whole TR later than one in the first. The GLM assumes every voxel in a volume was sampled at the same moment, so uncorrected slice timing puts a phase error into the design. Correction shifts each slice's time series back to a common reference time by temporal interpolation. This simulation folds the slice axis onto image rows so you can see it, which is a didactic stand-in: in a real acquisition the slice axis runs through-plane.
+    </p>
+    <p class="note">
+      The <em>choice of interpolator</em> matters more than students expect, and this demo is deliberate about it. Shifting by linear interpolation is easy but it is also a crude temporal low-pass filter: it shrinks the noise variance, inflates tSNR by a quarter or more, and leaves autocorrelation behind, so the <i>t</i>-test that follows is no longer calibrated and false positives climb even though nothing was activated. This demo therefore shifts with a Hann-windowed sinc, the finite-length approximation to the ideal Fourier shift that SPM, FSL and AFNI perform, which leaves tSNR essentially where it found it. Note also that for a <em>block</em> design the payoff from correction is small, because a 20 s block is barely perturbed by a 2 s phase error. Slice timing bites hardest in rapid event-related designs and at long TRs.
+    </p>
+    <p class="note">
+      4. <strong>Spatial Smoothing:</strong> Convolving each volume with a Gaussian kernel raises sensitivity when the kernel is matched to the size of the activation (the matched filter theorem), suppresses spatially uncorrelated noise, and makes the smoothness assumptions behind random field theory defensible. The reason this demo plants <em>two</em> foci, one about 18 mm across and one about 9 mm across, is that there is no single kernel that is right for both. Walk the FWHM slider up and watch the two peak-<i>t</i> readouts diverge: the tight focus peaks at roughly 6 mm and then declines, exactly where the matched filter theorem says it should, while the broad focus keeps gaining out to 14 mm and beyond. Whichever you choose, you have chosen against one of them.
+    </p>
+    <p class="note">
+      Smoothing also costs spatial specificity, which the <strong>Foci Resolved</strong> readout makes concrete. Below about 8 mm the two foci survive thresholding as two separate clusters. By 12 mm they have fused into one, and the map now reports a single large activation where the truth is two distinct ones, with a peak that sits between them and corresponds to nothing. The false-positive count climbs the same way, from a couple of voxels to several dozen, because smoothing drags suprathreshold signal out into tissue that was never active. A bigger kernel does not create information, it redistributes it.
+    </p>
+    <p class="note">
+      5. <strong>High-Pass Temporal Filtering:</strong> Scanner and physiological drift put most of their power below about 0.01 Hz. A discrete cosine basis up to the cutoff frequency is projected out of the data, <em>and out of the design matrix</em>, so that the model and the data are filtered identically. The trap is setting the cutoff too aggressively: drop the cutoff period below roughly twice the block period and the filter starts removing the task response itself. Take the cutoff down to 20 s with a 40 s block cycle and watch the peak <i>t</i> collapse.
+    </p>
+    <p class="note">
+      6. <strong>The noise model:</strong> Thermal noise is spatially independent, but most of the noise in a real BOLD run is not: vascular pulsation, respiration-linked field shifts and unmodelled physiology are already spatially smooth before you apply any kernel. That distinction decides how much smoothing can buy you, so this simulation generates both. The <strong>structured noise</strong> slider adds a field pre-smoothed to about 5 mm FWHM. Set it to zero and the smoothing slider starts producing tSNR figures in the hundreds and <i>t</i>-values that no single run ever yields, which is a useful way to see that a simulation with only white noise will systematically flatter every spatial filter you test in it.
+    </p>
+    <p class="note">
+      7. <strong>What this thresholding does not do:</strong> the <i>t</i>-map on the right is thresholded at <i>p</i> &lt; 0.001 <em>uncorrected</em>, which is what makes the false-positive count non-zero even with a clean acquisition. Roughly 0.1% of the null voxels will pass by chance no matter how good your preprocessing is, because that is what a 0.001 threshold means. Correcting for that is a separate problem, taken up in the <a href="whole_brain_inference.html">Whole-Brain Thresholding demo</a>.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; Preprocessing Pipeline Simulation</footer>
+</div>
+<script>
+// ============================================================================
+// Acquisition geometry. The slice axis is folded onto image rows so that slice
+// timing is visible in a 2D demo; in a real EPI acquisition it runs through-plane.
+// ============================================================================
+const NX = 64, NY = 64, NV = NX * NY;
+const NT = 100;            // volumes
+const TR = 2.0;            // seconds
+const VOX_MM = 3.0;        // in-plane voxel size
+const NSLICES = 16;        // "slices" = row bands
+const ROWS_PER_SLICE = NY / NSLICES;
+const RUN_SECONDS = NT * TR;
+const BLOCK = 20.0;        // seconds on, seconds off
+
+// --- Interleaved acquisition order: even slices first, then odd ---
+const sliceOrder = [];
+for (let s = 0; s < NSLICES; s += 2) sliceOrder.push(s);
+for (let s = 1; s < NSLICES; s += 2) sliceOrder.push(s);
+const sliceTau = new Float32Array(NSLICES);   // acquisition offset within the TR
+sliceOrder.forEach((s, pos) => { sliceTau[s] = (pos / NSLICES) * TR; });
+const sliceOfRow = new Int32Array(NY);
+for (let y = 0; y < NY; y++) sliceOfRow[y] = Math.floor(y / ROWS_PER_SLICE);
+
+// --- Tunable parameters ---
+let betaPct = 1.5;       // true activation amplitude, % signal change
+let noisePct = 0.8;      // thermal (spatially white) noise, % of grey matter intensity
+let structPct = 0.7;     // spatially correlated physiological noise, % of GM intensity
+let motionAmp = 1.2;     // motion scale, voxels
+let driftPct = 2.0;      // linear drift, % over the run
+let fwhmMM = 6.0;        // smoothing kernel
+let hpCutoff = 100;      // high-pass cutoff period, seconds
+let motionKind = 'task';
+let frameShown = 0;
+
+const stages = { mc: false, stc: false, sm: false, hp: false, reg: false };
+
+function randn() {
+  const u = Math.random(), v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u || 1e-9)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// ============================================================================
+// Student's t, exact via the regularized incomplete beta
+// ============================================================================
+function logGamma(x) {
+  const cof = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+               -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x, tmp = x + 5.5;
+  tmp -= (x + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) ser += cof[j] / ++y;
+  return -tmp + Math.log(2.5066282746310005 * ser / x);
+}
+function betacf(a, b, x) {
+  const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+  const qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c; h *= del;
+    if (Math.abs(del - 1.0) < EPS) break;
+  }
+  return h;
+}
+function betai(a, b, x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) +
+                      a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+  return 1 - bt * betacf(b, a, 1 - x) / b;
+}
+function tTwoTailedP(t, df) {
+  if (!isFinite(t)) return 0;
+  return betai(0.5 * df, 0.5, df / (df + t * t));
+}
+function tCritical(alpha, df) {
+  let lo = 0, hi = 40;
+  for (let k = 0; k < 80; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (tTwoTailedP(mid, df) > alpha) lo = mid; else hi = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+// ============================================================================
+// Synthetic anatomy: an elliptical slice with white matter, a grey matter rim,
+// ventricles, and a little fixed texture so that the rigid-body registration
+// below has real structure to lock onto rather than a featureless blob.
+// ============================================================================
+const anat = new Float32Array(NV);
+const mask = new Uint8Array(NV);
+const actW = new Float32Array(NV);   // true activation weight, 0..1
+const blobId = new Uint8Array(NV);   // which focus a voxel belongs to, 1 or 2
+const I_GM = 105, I_WM = 145, I_CSF = 35;
+
+// Focus A is broad (about 18 mm FWHM), focus B is tight (about 9 mm FWHM). A kernel
+// matched to A is already too wide for B, which is the whole point of the comparison.
+const FOCUS_A = [20, 42], SIG_A = 2.6;
+const FOCUS_B = [29, 45], SIG_B = 1.25;
+
+(function buildAnatomy() {
+  const cx = (NX - 1) / 2, cy = (NY - 1) / 2;
+  const rx = 26, ry = 22;
+  // A fixed low-frequency texture field, identical on every run
+  const tex = new Float32Array(NV);
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      tex[y * NX + x] = 0.06 * (Math.sin(x * 0.41 + 1.3) * Math.cos(y * 0.33 - 0.7)
+                              + 0.6 * Math.sin((x + y) * 0.22));
+    }
+  }
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      const i = y * NX + x;
+      const r = Math.hypot((x - cx) / rx, (y - cy) / ry);
+      if (r > 1.0) { anat[i] = 4; mask[i] = 0; continue; }
+      mask[i] = 1;
+      anat[i] = (r > 0.80) ? I_GM : I_WM;
+      // Lateral ventricles
+      const vl = Math.hypot((x - cx + 5) / 4.0, (y - cy + 1) / 8.0);
+      const vr = Math.hypot((x - cx - 5) / 4.0, (y - cy + 1) / 8.0);
+      if (vl < 1.0 || vr < 1.0) anat[i] = I_CSF;
+      anat[i] *= (1 + tex[i]);
+    }
+  }
+  // Two activation foci of different extent, close enough together that a large
+  // smoothing kernel will merge them. Both carry the same true amplitude, so any
+  // difference in how they survive smoothing is about size alone.
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      const i = y * NX + x;
+      if (!mask[i]) continue;
+      const dA = (x - FOCUS_A[0]) ** 2 + (y - FOCUS_A[1]) ** 2;
+      const dB = (x - FOCUS_B[0]) ** 2 + (y - FOCUS_B[1]) ** 2;
+      const wA = Math.exp(-dA / (2 * SIG_A * SIG_A));
+      const wB = Math.exp(-dB / (2 * SIG_B * SIG_B));
+      const w = Math.max(wA, wB);
+      actW[i] = w > 0.02 ? w : 0;
+      blobId[i] = w > 0.02 ? (wA >= wB ? 1 : 2) : 0;
+    }
+  }
+})();
+
+const blobIdx = [], blobAIdx = [], blobBIdx = [], nullIdx = [], maskIdx = [];
+for (let i = 0; i < NV; i++) {
+  if (!mask[i]) continue;
+  maskIdx.push(i);
+  if (actW[i] >= 0.5) {
+    blobIdx.push(i);
+    (blobId[i] === 1 ? blobAIdx : blobBIdx).push(i);
+  } else if (actW[i] < 0.05) nullIdx.push(i);
+}
+const peakA = FOCUS_A[1] * NX + FOCUS_A[0];
+const peakB = FOCUS_B[1] * NX + FOCUS_B[0];
+const peakVoxel = peakA;
+
+// Subsampled in-brain points used by the registration cost function
+const regPts = [];
+for (let y = 2; y < NY - 2; y += 2) {
+  for (let x = 2; x < NX - 2; x += 2) {
+    if (mask[y * NX + x]) regPts.push(y * NX + x);
+  }
+}
+
+// ============================================================================
+// Canonical HRF and the task regressor, built on a fine grid so it can be
+// sampled at arbitrary slice acquisition times.
+// ============================================================================
+const FDT = 0.1;
+const NF = Math.round((RUN_SECONDS + 40) / FDT);
+const boldFine = new Float32Array(NF);
+
+(function buildRegressor() {
+  function gammaPdf(t, a, b) {
+    let fact = 1;
+    for (let i = 1; i < a; i++) fact *= i;
+    return (Math.pow(t, a - 1) * Math.exp(-t / b)) / (fact * Math.pow(b, a));
+  }
+  const hrfLen = Math.round(32 / FDT);
+  const hrf = new Float32Array(hrfLen);
+  for (let i = 0; i < hrfLen; i++) {
+    const t = i * FDT;
+    hrf[i] = gammaPdf(t, 6, 1) - (1 / 6) * gammaPdf(t, 16, 1);
+  }
+  const box = new Float32Array(NF);
+  for (let i = 0; i < NF; i++) {
+    const t = i * FDT;
+    box[i] = (t >= 10 && ((t - 10) % (2 * BLOCK)) < BLOCK) ? 1 : 0;
+  }
+  let mx = 0;
+  for (let i = 0; i < NF; i++) {
+    let s = 0;
+    for (let j = 0; j < hrfLen; j++) if (i - j >= 0) s += box[i - j] * hrf[j] * FDT;
+    boldFine[i] = s;
+    if (s > mx) mx = s;
+  }
+  if (mx > 0) for (let i = 0; i < NF; i++) boldFine[i] /= mx;
+})();
+
+function boldAt(tSec) {
+  const f = tSec / FDT;
+  if (f <= 0) return 0;
+  const i = Math.floor(f);
+  if (i >= NF - 1) return boldFine[NF - 1];
+  const a = f - i;
+  return boldFine[i] * (1 - a) + boldFine[i + 1] * a;
+}
+function stimAt(tSec) {
+  return (tSec >= 10 && ((tSec - 10) % (2 * BLOCK)) < BLOCK) ? 1 : 0;
+}
+
+// ============================================================================
+// Rigid-body transforms. An affine maps OUTPUT coordinates back into the SOURCE
+// image, which is the direction resampling actually needs.
+//   forward  (simulate motion): p_src = R(-th) * (p_out - c - t) + c
+//   inverse  (undo motion):     p_src = R(+th) * (p_out - c) + c + t
+// ============================================================================
+function affineOf(tx, ty, th, inverse) {
+  const cx = (NX - 1) / 2, cy = (NY - 1) / 2;
+  const ang = inverse ? th : -th;
+  const co = Math.cos(ang), si = Math.sin(ang);
+  return inverse
+    ? { a: co, b: -si, c: si, d: co, ox: cx + tx, oy: cy + ty, sx: cx, sy: cy }
+    : { a: co, b: -si, c: si, d: co, ox: cx, oy: cy, sx: cx + tx, sy: cy + ty };
+}
+
+function bilinear(img, x, y) {
+  if (x < 0 || y < 0 || x > NX - 1 || y > NY - 1) return 0;
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const x1 = Math.min(x0 + 1, NX - 1), y1 = Math.min(y0 + 1, NY - 1);
+  const fx = x - x0, fy = y - y0;
+  const v00 = img[y0 * NX + x0], v10 = img[y0 * NX + x1];
+  const v01 = img[y1 * NX + x0], v11 = img[y1 * NX + x1];
+  return (v00 * (1 - fx) + v10 * fx) * (1 - fy) + (v01 * (1 - fx) + v11 * fx) * fy;
+}
+
+function applyAffine(src, dst, m) {
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      const ux = x - m.sx, uy = y - m.sy;
+      dst[y * NX + x] = bilinear(src, m.a * ux + m.b * uy + m.ox,
+                                      m.c * ux + m.d * uy + m.oy);
+    }
+  }
+}
+
+// Registration cost: mean squared difference between the reference and the
+// candidate-corrected frame, evaluated only on subsampled in-brain points.
+function ssdAt(obs, ref, tx, ty, th) {
+  const m = affineOf(tx, ty, th, true);
+  let s = 0;
+  for (let k = 0; k < regPts.length; k++) {
+    const idx = regPts[k], x = idx % NX, y = (idx / NX) | 0;
+    const ux = x - m.sx, uy = y - m.sy;
+    const d = bilinear(obs, m.a * ux + m.b * uy + m.ox,
+                            m.c * ux + m.d * uy + m.oy) - ref[idx];
+    s += d * d;
+  }
+  return s / regPts.length;
+}
+
+// ============================================================================
+// Separable Gaussian blur over one volume, renormalised at the edges
+// ============================================================================
+function gaussianBlur(src, dst, sigma, scratch) {
+  const rad = Math.max(1, Math.ceil(3 * sigma));
+  const ker = new Float32Array(2 * rad + 1);
+  let ksum = 0;
+  for (let k = -rad; k <= rad; k++) {
+    ker[k + rad] = Math.exp(-(k * k) / (2 * sigma * sigma));
+    ksum += ker[k + rad];
+  }
+  for (let k = 0; k < ker.length; k++) ker[k] /= ksum;
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      let a = 0, w = 0;
+      for (let k = -rad; k <= rad; k++) {
+        const xx = x + k;
+        if (xx < 0 || xx >= NX) continue;
+        a += src[y * NX + xx] * ker[k + rad]; w += ker[k + rad];
+      }
+      scratch[y * NX + x] = a / w;
+    }
+  }
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      let a = 0, w = 0;
+      for (let k = -rad; k <= rad; k++) {
+        const yy = y + k;
+        if (yy < 0 || yy >= NY) continue;
+        a += scratch[yy * NX + x] * ker[k + rad]; w += ker[k + rad];
+      }
+      dst[y * NX + x] = a / w;
+    }
+  }
+}
+
+// ============================================================================
+// Data buffers
+// ============================================================================
+const rawData = new Float32Array(NT * NV);
+const procData = new Float32Array(NT * NV);
+const voxMean = new Float32Array(NV);     // temporal mean captured before high-pass
+const tMap = new Float32Array(NV);
+const bufA = new Float32Array(NV), bufB = new Float32Array(NV);
+const bufC = new Float32Array(NV), bufD = new Float32Array(NV);
+
+// Intrinsic smoothness of the physiological noise field. Real BOLD noise is not
+// spatially independent: vascular and physiological sources are already smooth before
+// any kernel is applied, which is exactly why smoothing cannot keep buying you SNR.
+const NOISE_FWHM_MM = 5.0;
+const NOISE_SIGMA_VOX = NOISE_FWHM_MM / (2.3548 * VOX_MM);
+
+// Draw a unit-variance spatially correlated noise field
+function makeStructuredField(out) {
+  for (let i = 0; i < NV; i++) bufC[i] = randn();
+  gaussianBlur(bufC, out, NOISE_SIGMA_VOX, bufD);
+  let m = 0, m2 = 0;
+  for (const i of maskIdx) { m += out[i]; m2 += out[i] * out[i]; }
+  m /= maskIdx.length;
+  const sd = Math.sqrt(Math.max(1e-12, m2 / maskIdx.length - m * m));
+  for (let i = 0; i < NV; i++) out[i] = (out[i] - m) / sd;
+}
+let trueMot = [], estMot = [];
+let stats = { peakT: 0, fp: 0, hits: 0, tsnr: 0, motRMS: 0, residRMS: 0, df: NT - 3, tThr: 3.4 };
+
+// Dirty-stage tracking, so that dragging the smoothing slider does not re-run
+// the realignment search. 0 = acquisition, 1 = realign, 2 = pipeline, 3 = stats.
+let dirtyFrom = 0;
+function markDirty(stage) { dirtyFrom = Math.min(dirtyFrom, stage); }
+
+// ============================================================================
+// Motion generation. The first volume is always anchored at zero so that it can
+// serve as the registration reference.
+// ============================================================================
+function buildMotion() {
+  trueMot = [];
+  for (let t = 0; t < NT; t++) {
+    const tsec = t * TR;
+    let tx = 0, ty = 0, th = 0;
+    if (motionKind === 'task') {
+      // The participant tenses at block onset, so displacement tracks the design
+      const s = stimAt(tsec);
+      tx = motionAmp * s;
+      ty = 0.6 * motionAmp * s;
+      th = 0.012 * motionAmp * s;
+      tx += 0.10 * motionAmp * randn();
+      ty += 0.10 * motionAmp * randn();
+    } else if (motionKind === 'drift') {
+      const u = t / NT;
+      tx = motionAmp * (0.7 * Math.sin(2 * Math.PI * 0.7 * u) + 1.1 * u);
+      ty = motionAmp * (0.5 * Math.cos(2 * Math.PI * 0.5 * u + 1.0));
+      th = 0.010 * motionAmp * Math.sin(2 * Math.PI * 0.4 * u);
+      if (t === 34 || t === 35) { tx += 2.0 * motionAmp; ty -= 1.4 * motionAmp; }
+      if (t === 71) { ty += 2.4 * motionAmp; th += 0.030 * motionAmp; }
+    }
+    trueMot.push([tx, ty, th]);
+  }
+  const p0 = trueMot[0].slice();
+  for (const p of trueMot) { p[0] -= p0[0]; p[1] -= p0[1]; p[2] -= p0[2]; }
+}
+
+// ============================================================================
+// Acquire the run: BOLD response -> drift -> head motion -> thermal noise.
+// Noise is added last because it belongs to the measurement, not to the head.
+// ============================================================================
+function buildRaw() {
+  buildMotion();
+  const nsd = noisePct * 0.01 * I_GM;
+  for (let t = 0; t < NT; t++) {
+    const tsec = t * TR;
+    const dr = driftPct * 0.01 * ((t / (NT - 1)) - 0.5);
+    for (let y = 0; y < NY; y++) {
+      // Every row band is a "slice" and is sampled at its own time within the TR
+      const bv = boldAt(tsec + sliceTau[sliceOfRow[y]]);
+      for (let x = 0; x < NX; x++) {
+        const i = y * NX + x;
+        bufA[i] = anat[i] * (1 + 0.01 * betaPct * actW[i] * bv + dr);
+      }
+    }
+    const p = trueMot[t];
+    if (p[0] !== 0 || p[1] !== 0 || p[2] !== 0) {
+      applyAffine(bufA, bufB, affineOf(p[0], p[1], p[2], false));
+    } else {
+      bufB.set(bufA);
+    }
+    makeStructuredField(bufA);
+    const ssd = structPct * 0.01 * I_GM;
+    const off = t * NV;
+    for (let i = 0; i < NV; i++) rawData[off + i] = bufB[i] + nsd * randn() + ssd * bufA[i];
+  }
+}
+
+// ============================================================================
+// Realignment: for every volume, search rigid-body parameters that minimise the
+// mean squared difference against volume 0. Coordinate descent with a halving
+// step size. Nothing here consults the true motion.
+// ============================================================================
+function estimateMotionAll() {
+  estMot = [];
+  const ref = rawData.subarray(0, NV);
+  for (let t = 0; t < NT; t++) {
+    const obs = rawData.subarray(t * NV, (t + 1) * NV);
+    let p = [0, 0, 0];
+    let step = [1.5, 1.5, 0.030];
+    let best = ssdAt(obs, ref, 0, 0, 0);
+    for (let round = 0; round < 5; round++) {
+      let improved = true, guard = 0;
+      while (improved && guard++ < 8) {
+        improved = false;
+        for (let d = 0; d < 3; d++) {
+          for (const sgn of [1, -1]) {
+            const q = p.slice();
+            q[d] += sgn * step[d];
+            const s = ssdAt(obs, ref, q[0], q[1], q[2]);
+            if (s < best - 1e-10) { best = s; p = q; improved = true; break; }
+          }
+        }
+      }
+      step = [step[0] * 0.5, step[1] * 0.5, step[2] * 0.5];
+    }
+    estMot.push(p);
+  }
+}
+
+// ============================================================================
+// Discrete cosine high-pass basis. K cosines spans everything slower than the
+// cutoff period; projecting them out of a series removes that drift.
+// ============================================================================
+function dctBasis(cutoffSec) {
+  const K = Math.max(1, Math.floor(2 * RUN_SECONDS / cutoffSec));
+  const cols = [];
+  const c0 = new Float32Array(NT);
+  c0.fill(1 / Math.sqrt(NT));
+  cols.push(c0);
+  for (let k = 1; k <= K; k++) {
+    const c = new Float32Array(NT);
+    let ss = 0;
+    for (let t = 0; t < NT; t++) {
+      c[t] = Math.cos(Math.PI * (2 * t + 1) * k / (2 * NT));
+      ss += c[t] * c[t];
+    }
+    const nrm = Math.sqrt(ss);
+    for (let t = 0; t < NT; t++) c[t] /= nrm;
+    cols.push(c);
+  }
+  return cols;
+}
+
+// Windowed-sinc fractional-shift kernel. out[t] = sum_j series[t+j] * h[j], with
+// h[j] = sinc(j + shift) tapered by a Hann window and normalised to unit DC gain.
+const SINC_TAPS = 8;
+function buildShiftKernel(shift, L) {
+  const h = new Float64Array(2 * L + 1);
+  let sum = 0;
+  for (let j = -L; j <= L; j++) {
+    const x = j + shift;
+    const sc = (Math.abs(x) < 1e-9) ? 1 : Math.sin(Math.PI * x) / (Math.PI * x);
+    const win = 0.5 * (1 + Math.cos(Math.PI * j / (L + 1)));
+    h[j + L] = sc * win;
+    sum += h[j + L];
+  }
+  for (let k = 0; k < h.length; k++) h[k] /= sum;
+  return h;
+}
+
+function projectOut(series, basis) {
+  for (let b = 0; b < basis.length; b++) {
+    const col = basis[b];
+    let d = 0;
+    for (let t = 0; t < NT; t++) d += series[t] * col[t];
+    for (let t = 0; t < NT; t++) series[t] -= d * col[t];
+  }
+}
+
+// ============================================================================
+// Run the enabled preprocessing stages, in FSL FEAT order:
+// realign -> slice timing -> spatial smoothing -> temporal high-pass
+// ============================================================================
+function runPipeline() {
+  procData.set(rawData);
+
+  // --- Stage 1: motion correction (resample each volume by the inverse transform)
+  if (stages.mc) {
+    for (let t = 0; t < NT; t++) {
+      const p = estMot[t];
+      bufA.set(procData.subarray(t * NV, (t + 1) * NV));
+      applyAffine(bufA, bufB, affineOf(p[0], p[1], p[2], true));
+      procData.set(bufB, t * NV);
+    }
+  }
+
+  // --- Stage 2: slice-timing correction (shift each slice back to a common time)
+  // Linear interpolation would be simpler, but it is a crude temporal low-pass filter:
+  // it shrinks the noise variance, inflates tSNR and leaves autocorrelation behind, so
+  // the t-test that follows is no longer calibrated. Real packages shift in the Fourier
+  // domain; the windowed sinc used here is the standard finite-length equivalent.
+  if (stages.stc) {
+    const series = new Float32Array(NT);
+    const kernels = [];
+    for (let sl = 0; sl < NSLICES; sl++) kernels.push(buildShiftKernel(sliceTau[sl] / TR, SINC_TAPS));
+    for (let y = 0; y < NY; y++) {
+      const sl = sliceOfRow[y];
+      if (sliceTau[sl] === 0) continue;
+      const h = kernels[sl];
+      for (let x = 0; x < NX; x++) {
+        const i = y * NX + x;
+        for (let t = 0; t < NT; t++) series[t] = procData[t * NV + i];
+        for (let t = 0; t < NT; t++) {
+          let acc = 0;
+          for (let j = -SINC_TAPS; j <= SINC_TAPS; j++) {
+            const n = Math.max(0, Math.min(NT - 1, t + j));   // replicate at the run edges
+            acc += series[n] * h[j + SINC_TAPS];
+          }
+          procData[t * NV + i] = acc;
+        }
+      }
+    }
+  }
+
+  // --- Stage 3: spatial smoothing (separable Gaussian, edge-renormalised)
+  const sigma = fwhmMM / (2.3548 * VOX_MM);
+  if (stages.sm && sigma > 0.05) {
+    for (let t = 0; t < NT; t++) {
+      bufA.set(procData.subarray(t * NV, (t + 1) * NV));
+      gaussianBlur(bufA, bufB, sigma, bufC);
+      procData.set(bufB, t * NV);
+    }
+  }
+
+  // Capture the temporal mean here, before high-pass filtering removes it.
+  for (let i = 0; i < NV; i++) {
+    let s = 0;
+    for (let t = 0; t < NT; t++) s += procData[t * NV + i];
+    voxMean[i] = s / NT;
+  }
+
+  // --- Stage 4: temporal high-pass filter
+  let hpBasis = null;
+  if (stages.hp) {
+    hpBasis = dctBasis(hpCutoff);
+    const series = new Float32Array(NT);
+    for (let i = 0; i < NV; i++) {
+      for (let t = 0; t < NT; t++) series[t] = procData[t * NV + i];
+      projectOut(series, hpBasis);
+      for (let t = 0; t < NT; t++) procData[t * NV + i] = series[t];
+    }
+  }
+  return hpBasis;
+}
+
+// ============================================================================
+// Design matrix and voxelwise GLM
+// ============================================================================
+function invertMatrix(M) {
+  const n = M.length;
+  const A = M.map((row, r) => {
+    const aug = new Float64Array(2 * n);
+    for (let j = 0; j < n; j++) aug[j] = row[j];
+    aug[n + r] = 1;
+    return aug;
+  });
+  for (let i = 0; i < n; i++) {
+    let piv = i;
+    for (let k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[piv][i])) piv = k;
+    const tmp = A[i]; A[i] = A[piv]; A[piv] = tmp;
+    let p = A[i][i];
+    if (Math.abs(p) < 1e-12) p = 1e-12;        // numerical guard for degenerate designs
+    for (let j = 0; j < 2 * n; j++) A[i][j] /= p;
+    for (let k = 0; k < n; k++) {
+      if (k === i) continue;
+      const f = A[k][i];
+      if (f === 0) continue;
+      for (let j = 0; j < 2 * n; j++) A[k][j] -= f * A[i][j];
+    }
+  }
+  return A.map(row => Array.from(row.slice(n)));
+}
+
+let cachedCols = null, cachedBeta = null;
+
+// Flood-fill connected components over the suprathreshold positive voxels (4-connected).
+function labelClusters(thr) {
+  const lab = new Int32Array(NV);
+  const stack = [];
+  let next = 0;
+  for (const start of maskIdx) {
+    if (lab[start] !== 0 || tMap[start] <= thr) continue;
+    lab[start] = ++next;
+    stack.length = 0;
+    stack.push(start);
+    while (stack.length) {
+      const i = stack.pop();
+      const x = i % NX, y = (i / NX) | 0;
+      if (x > 0) { const n = i - 1; if (!lab[n] && mask[n] && tMap[n] > thr) { lab[n] = next; stack.push(n); } }
+      if (x < NX - 1) { const n = i + 1; if (!lab[n] && mask[n] && tMap[n] > thr) { lab[n] = next; stack.push(n); } }
+      if (y > 0) { const n = i - NX; if (!lab[n] && mask[n] && tMap[n] > thr) { lab[n] = next; stack.push(n); } }
+      if (y < NY - 1) { const n = i + NX; if (!lab[n] && mask[n] && tMap[n] > thr) { lab[n] = next; stack.push(n); } }
+    }
+  }
+  return lab;
+}
+
+function buildDesignAndFit(hpBasis) {
+  const cols = [];
+
+  // Task regressor, sampled at the nominal volume time
+  const task = new Float32Array(NT);
+  for (let t = 0; t < NT; t++) task[t] = boldAt(t * TR);
+  cols.push(task);
+
+  // When the high-pass filter is on, the DCT basis already spans the constant and
+  // the drift, so including them again would make the design singular. Their cost
+  // is charged to the degrees of freedom instead.
+  if (!stages.hp) {
+    const lin = new Float32Array(NT);
+    for (let t = 0; t < NT; t++) lin[t] = (t / (NT - 1)) - 0.5;
+    cols.push(lin);
+    const one = new Float32Array(NT);
+    one.fill(1);
+    cols.push(one);
+  }
+
+  // Estimated motion parameters as nuisance covariates
+  if (stages.reg) {
+    for (let d = 0; d < 3; d++) {
+      const c = new Float32Array(NT);
+      let m = 0;
+      for (let t = 0; t < NT; t++) { c[t] = estMot[t][d]; m += c[t]; }
+      m /= NT;
+      let ss = 0;
+      for (let t = 0; t < NT; t++) { c[t] -= m; ss += c[t] * c[t]; }
+      const sd = Math.sqrt(ss / NT);
+      if (sd > 1e-9) for (let t = 0; t < NT; t++) c[t] /= sd;
+      cols.push(c);
+    }
+  }
+
+  // Filter the design exactly as the data was filtered, or the model and the data
+  // no longer describe the same thing.
+  if (hpBasis) for (const c of cols) projectOut(c, hpBasis);
+
+  const k = cols.length;
+  const df = NT - k - (hpBasis ? hpBasis.length : 0);
+
+  const XtX = [];
+  for (let a = 0; a < k; a++) {
+    XtX.push(new Array(k).fill(0));
+    for (let b = 0; b < k; b++) {
+      let s = 0;
+      for (let t = 0; t < NT; t++) s += cols[a][t] * cols[b][t];
+      XtX[a][b] = s;
+    }
+  }
+  const inv = invertMatrix(XtX);
+
+  // P = (X'X)^-1 X'  so that beta = P y
+  const P = [];
+  for (let a = 0; a < k; a++) {
+    const row = new Float32Array(NT);
+    for (let t = 0; t < NT; t++) {
+      let s = 0;
+      for (let b = 0; b < k; b++) s += inv[a][b] * cols[b][t];
+      row[t] = s;
+    }
+    P.push(row);
+  }
+
+  // Contrast is [1, 0, ...]: the task effect, so c'(X'X)^-1 c is just inv[0][0]
+  const cvc = Math.max(inv[0][0], 1e-12);
+  const beta = new Float32Array(k);
+  const yv = new Float32Array(NT);
+  let tsnrSum = 0, tsnrN = 0;
+  tMap.fill(0);
+
+  for (let mi = 0; mi < maskIdx.length; mi++) {
+    const i = maskIdx[mi];
+    for (let t = 0; t < NT; t++) yv[t] = procData[t * NV + i];
+    for (let a = 0; a < k; a++) {
+      let s = 0;
+      for (let t = 0; t < NT; t++) s += P[a][t] * yv[t];
+      beta[a] = s;
+    }
+    let rss = 0;
+    for (let t = 0; t < NT; t++) {
+      let p = 0;
+      for (let a = 0; a < k; a++) p += beta[a] * cols[a][t];
+      const r = yv[t] - p;
+      rss += r * r;
+    }
+    const sigma2 = rss / Math.max(1, df);
+    const sd = Math.sqrt(sigma2);
+    tMap[i] = beta[0] / Math.sqrt(Math.max(1e-20, sigma2 * cvc));
+    if (sd > 1e-9) { tsnrSum += voxMean[i] / sd; tsnrN++; }
+    if (i === peakVoxel) cachedBeta = Array.from(beta);
+  }
+
+  cachedCols = cols;
+
+  // --- Metrics ---
+  const tThr = tCritical(0.001, Math.max(1, df));
+  let peakT = -1e9, peakTB = -1e9, hits = 0, fp = 0;
+  for (const i of blobAIdx) if (tMap[i] > peakT) peakT = tMap[i];
+  for (const i of blobBIdx) if (tMap[i] > peakTB) peakTB = tMap[i];
+  for (const i of blobIdx) if (tMap[i] > tThr) hits++;
+  for (const i of nullIdx) if (Math.abs(tMap[i]) > tThr) fp++;
+
+  // Are the two foci still distinguishable? Over-smoothing fuses them into one
+  // suprathreshold cluster, which is how spatial specificity is actually lost.
+  const lab = labelClusters(tThr);
+  const la = lab[peakA], lb = lab[peakB];
+  const resolved = (la > 0 && lb > 0) ? (la === lb ? 1 : 2) : ((la > 0 || lb > 0) ? 1 : 0);
+  const merged = (la > 0 && la === lb);
+
+  // RMS displacement, taking rotation at a representative 20-voxel radius
+  const R = 20;
+  let ms = 0, mr = 0;
+  for (let t = 0; t < NT; t++) {
+    const a = trueMot[t], b = estMot[t];
+    ms += a[0] * a[0] + a[1] * a[1] + (a[2] * R) * (a[2] * R);
+    const dx = a[0] - b[0], dy = a[1] - b[1], dth = (a[2] - b[2]) * R;
+    mr += dx * dx + dy * dy + dth * dth;
+  }
+
+  stats = {
+    peakT: peakT, peakTB: peakTB, resolved: resolved, merged: merged,
+    fp: fp, hits: hits, nBlob: blobIdx.length,
+    tsnr: tsnrN ? tsnrSum / tsnrN : 0,
+    motRMS: Math.sqrt(ms / NT), residRMS: Math.sqrt(mr / NT),
+    df: df, tThr: tThr
+  };
+}
+
+// ============================================================================
+// Recompute only the stages that changed
+// ============================================================================
+function recompute() {
+  if (dirtyFrom <= 0) buildRaw();
+  if (dirtyFrom <= 1) estimateMotionAll();
+  const hpBasis = runPipeline();
+  buildDesignAndFit(hpBasis);
+  dirtyFrom = 3;
+  render();
+  updateReadouts();
+}
+
+function updateReadouts() {
+  const set = (id, v) => { document.getElementById(id).textContent = v; };
+  set('dispPeakT', stats.peakT.toFixed(2));
+  set('dispPeakTB', stats.peakTB.toFixed(2));
+  set('dispResolved', `${stats.resolved} / 2` + (stats.merged ? ' (merged)' : ''));
+  document.getElementById('dispResolved').className = 'stat-val ' + (stats.resolved === 2 ? 'good' : 'bad');
+  set('dispFP', String(stats.fp));
+  set('dispHit', `${stats.hits} / ${stats.nBlob}`);
+  set('dispTSNR', stats.tsnr.toFixed(1));
+  set('dispMot', stats.motRMS.toFixed(2) + ' vox');
+  set('dispResid', stats.residRMS.toFixed(2) + ' vox');
+  document.getElementById('dispFP').className = 'stat-val ' + (stats.fp > 12 ? 'bad' : 'good');
+  document.getElementById('bannerSub').textContent =
+    `df = ${stats.df} · threshold |t| > ${stats.tThr.toFixed(2)} (p < 0.001 uncorrected)`;
+}
+
+// ============================================================================
+// Rendering
+// ============================================================================
+const cImg = document.getElementById('cImages'), ctxImg = cImg.getContext('2d');
+const cMot = document.getElementById('cMotion'), ctxMot = cMot.getContext('2d');
+const cSer = document.getElementById('cSeries'), ctxSer = cSer.getContext('2d');
+const offC = document.createElement('canvas');
+offC.width = NX; offC.height = NY;
+const offCtx = offC.getContext('2d');
+const DISP_MAX = 190;
+
+function drawGrid(px, py, size, colorFn) {
+  const im = offCtx.createImageData(NX, NY);
+  for (let i = 0; i < NV; i++) {
+    const c = colorFn(i);
+    const o = i * 4;
+    im.data[o] = c[0]; im.data[o + 1] = c[1]; im.data[o + 2] = c[2]; im.data[o + 3] = 255;
+  }
+  offCtx.putImageData(im, 0, 0);
+  ctxImg.imageSmoothingEnabled = false;
+  ctxImg.drawImage(offC, px, py, size, size);
+}
+
+function greyOf(v, scale) {
+  const g = Math.max(0, Math.min(1, v / DISP_MAX)) * 255 * (scale === undefined ? 1 : scale);
+  return [g, g, g];
+}
+function hotColor(v) {
+  return [255 * Math.min(1, v * 3),
+          255 * Math.min(1, Math.max(0, v * 3 - 1)),
+          255 * Math.min(1, Math.max(0, v * 3 - 2))];
+}
+function coolColor(v) {
+  return [0, 255 * Math.min(1, Math.max(0, v * 1.4 - 0.4)), 255 * (0.42 + 0.58 * Math.min(1, v))];
+}
+
+// True activation boundary: voxels above threshold that touch a voxel below it
+const edgeMask = new Uint8Array(NV);
+(function markEdges() {
+  for (let y = 1; y < NY - 1; y++) {
+    for (let x = 1; x < NX - 1; x++) {
+      const i = y * NX + x;
+      if (actW[i] < 0.5) continue;
+      if (actW[i - 1] < 0.5 || actW[i + 1] < 0.5 || actW[i - NX] < 0.5 || actW[i + NX] < 0.5) edgeMask[i] = 1;
+    }
+  }
+})();
+
+function renderImages() {
+  const w = cImg.width, h = cImg.height;
+  ctxImg.clearRect(0, 0, w, h);
+  ctxImg.fillStyle = '#050811';
+  ctxImg.fillRect(0, 0, w, h);
+
+  const size = 300, gap = 28;
+  const x0 = (w - (3 * size + 2 * gap)) / 2;
+  const yTop = 26;
+  const off = frameShown * NV;
+
+  ctxImg.font = 'bold 12px sans-serif';
+  ctxImg.fillStyle = '#e2e8f0';
+  ctxImg.fillText('Raw acquired volume', x0, 18);
+  ctxImg.fillText('After preprocessing' + (stages.hp ? ' (mean restored for display)' : ''), x0 + size + gap, 18);
+  ctxImg.fillText('t-map, p < 0.001 uncorrected', x0 + 2 * (size + gap), 18);
+
+  drawGrid(x0, yTop, size, (i) => greyOf(rawData[off + i]));
+  drawGrid(x0 + size + gap, yTop, size,
+           (i) => greyOf(procData[off + i] + (stages.hp ? voxMean[i] : 0)));
+
+  let tMax = stats.tThr * 1.6;
+  for (const i of maskIdx) if (Math.abs(tMap[i]) > tMax) tMax = Math.abs(tMap[i]);
+  const span = Math.max(1e-6, tMax - stats.tThr);
+
+  drawGrid(x0 + 2 * (size + gap), yTop, size, (i) => {
+    if (edgeMask[i]) return [34, 197, 94];
+    const base = greyOf(anat[i], 0.5);
+    if (!mask[i]) return base;
+    const t = tMap[i];
+    if (Math.abs(t) <= stats.tThr) return base;
+    const v = Math.min(1, (Math.abs(t) - stats.tThr) / span);
+    return t > 0 ? hotColor(v) : coolColor(v);
+  });
+
+  // Colour bar for the t overlay
+  const cbY = yTop + size + 12, cbW = size, cbH = 12;
+  const cbX = x0 + 2 * (size + gap);
+  for (let px = 0; px < cbW; px++) {
+    const v = px / (cbW - 1);
+    const c = hotColor(v);
+    ctxImg.fillStyle = `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+    ctxImg.fillRect(cbX + px, cbY, 1, cbH);
+  }
+  ctxImg.font = '10px ui-monospace, monospace';
+  ctxImg.fillStyle = '#94a3b8';
+  ctxImg.fillText('t = ' + stats.tThr.toFixed(1), cbX, cbY + cbH + 12);
+  ctxImg.fillText(tMax.toFixed(1), cbX + cbW - 22, cbY + cbH + 12);
+  ctxImg.fillStyle = '#22c55e';
+  ctxImg.fillText('green outline = ground truth', cbX, cbY + cbH + 26);
+  ctxImg.fillStyle = '#38bdf8';
+  ctxImg.fillText('blue = negative t (motion edge artifact)', cbX, cbY + cbH + 40);
+  ctxImg.fillStyle = '#94a3b8';
+  ctxImg.fillText(`volume ${frameShown + 1} of ${NT}   (t = ${(frameShown * TR).toFixed(0)} s)`, x0, cbY + cbH + 12);
+  ctxImg.fillText(`${NT} volumes, TR = ${TR.toFixed(1)} s, ${NSLICES} interleaved slices`, x0, cbY + cbH + 26);
+  ctxImg.fillText(`voxel ${VOX_MM.toFixed(0)} mm, smoothing ${stages.sm ? fwhmMM.toFixed(1) + ' mm' : 'off'}`, x0, cbY + cbH + 40);
+}
+
+function axisFrame(ctx, w, h, padL, padR, padT, padB) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let t = 0; t <= RUN_SECONDS; t += 20) {
+    const x = padL + (t / RUN_SECONDS) * (w - padL - padR);
+    ctx.moveTo(x, padT); ctx.lineTo(x, h - padB);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px ui-monospace, monospace';
+  for (let t = 0; t <= RUN_SECONDS; t += 40) {
+    const x = padL + (t / RUN_SECONDS) * (w - padL - padR);
+    ctx.fillText(t + 's', x - 8, h - 8);
+  }
+}
+
+function shadeBlocks(ctx, w, h, padL, padR, padT, padB) {
+  ctx.fillStyle = 'rgba(234, 88, 12, 0.16)';
+  const plotW = w - padL - padR;
+  for (let t = 10; t < RUN_SECONDS; t += 2 * BLOCK) {
+    const xa = padL + (t / RUN_SECONDS) * plotW;
+    const xb = padL + (Math.min(t + BLOCK, RUN_SECONDS) / RUN_SECONDS) * plotW;
+    ctx.fillRect(xa, padT, xb - xa, h - padT - padB);
+  }
+}
+
+function renderMotion() {
+  const w = cMot.width, h = cMot.height;
+  const padL = 46, padR = 20, padT = 20, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  axisFrame(ctxMot, w, h, padL, padR, padT, padB);
+  shadeBlocks(ctxMot, w, h, padL, padR, padT, padB);
+
+  const R = 20;
+  const series = [
+    { key: 0, scale: 1, color: '#fb923c', name: 'x translation' },
+    { key: 1, scale: 1, color: '#38bdf8', name: 'y translation' },
+    { key: 2, scale: R, color: '#c084fc', name: 'rotation (vox at r=20)' }
+  ];
+
+  let mx = 0.2;
+  for (const s of series) {
+    for (let t = 0; t < NT; t++) {
+      mx = Math.max(mx, Math.abs(trueMot[t][s.key] * s.scale), Math.abs(estMot[t][s.key] * s.scale));
+    }
+  }
+  const midY = padT + plotH / 2;
+  const yOf = (v) => midY - (v / (mx * 1.15)) * (plotH / 2);
+
+  ctxMot.strokeStyle = 'rgba(148,163,184,0.5)';
+  ctxMot.beginPath(); ctxMot.moveTo(padL, midY); ctxMot.lineTo(padL + plotW, midY); ctxMot.stroke();
+
+  for (const s of series) {
+    for (const which of ['true', 'est']) {
+      const src = which === 'true' ? trueMot : estMot;
+      ctxMot.strokeStyle = s.color;
+      ctxMot.globalAlpha = which === 'true' ? 0.55 : 1.0;
+      ctxMot.lineWidth = which === 'true' ? 1.4 : 2.0;
+      ctxMot.setLineDash(which === 'true' ? [5, 4] : []);
+      ctxMot.beginPath();
+      for (let t = 0; t < NT; t++) {
+        const x = padL + (t * TR / RUN_SECONDS) * plotW;
+        const y = yOf(src[t][s.key] * s.scale);
+        if (t === 0) ctxMot.moveTo(x, y); else ctxMot.lineTo(x, y);
+      }
+      ctxMot.stroke();
+    }
+  }
+  ctxMot.setLineDash([]);
+  ctxMot.globalAlpha = 1;
+
+  ctxMot.font = 'bold 11px sans-serif';
+  let lx = padL + 10;
+  for (const s of series) {
+    ctxMot.fillStyle = s.color;
+    ctxMot.fillText('— ' + s.name, lx, padT + 12);
+    lx += 200;
+  }
+  ctxMot.fillStyle = '#94a3b8';
+  ctxMot.font = '10px ui-monospace, monospace';
+  ctxMot.fillText('+' + mx.toFixed(1), 12, padT + 10);
+  ctxMot.fillText('-' + mx.toFixed(1), 12, padT + plotH);
+}
+
+function renderSeries() {
+  const w = cSer.width, h = cSer.height;
+  const padL = 52, padR = 20, padT = 20, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  axisFrame(ctxSer, w, h, padL, padR, padT, padB);
+  shadeBlocks(ctxSer, w, h, padL, padR, padT, padB);
+
+  const i = peakVoxel;
+  const m = voxMean[i] || 1;
+
+  const rawS = new Float32Array(NT), procS = new Float32Array(NT), fitS = new Float32Array(NT);
+  let rawMean = 0;
+  for (let t = 0; t < NT; t++) { rawS[t] = rawData[t * NV + i]; rawMean += rawS[t]; }
+  rawMean /= NT;
+  let procMean = 0, fitMean = 0;
+  for (let t = 0; t < NT; t++) {
+    procS[t] = procData[t * NV + i];
+    procMean += procS[t];
+    let p = 0;
+    if (cachedCols && cachedBeta) for (let a = 0; a < cachedCols.length; a++) p += cachedBeta[a] * cachedCols[a][t];
+    fitS[t] = p; fitMean += p;
+  }
+  procMean /= NT; fitMean /= NT;
+
+  const rawPct = [], procPct = [], fitPct = [];
+  for (let t = 0; t < NT; t++) {
+    rawPct.push((rawS[t] - rawMean) / (rawMean || 1) * 100);
+    procPct.push((procS[t] - procMean) / m * 100);
+    fitPct.push((fitS[t] - fitMean) / m * 100);
+  }
+
+  let mx = 0.5;
+  for (let t = 0; t < NT; t++) mx = Math.max(mx, Math.abs(rawPct[t]), Math.abs(procPct[t]));
+  const midY = padT + plotH / 2;
+  const yOf = (v) => midY - (v / (mx * 1.12)) * (plotH / 2);
+
+  ctxSer.strokeStyle = 'rgba(148,163,184,0.45)';
+  ctxSer.beginPath(); ctxSer.moveTo(padL, midY); ctxSer.lineTo(padL + plotW, midY); ctxSer.stroke();
+
+  const drawLine = (arr, color, width, alpha) => {
+    ctxSer.strokeStyle = color; ctxSer.lineWidth = width; ctxSer.globalAlpha = alpha;
+    ctxSer.beginPath();
+    for (let t = 0; t < NT; t++) {
+      const x = padL + (t * TR / RUN_SECONDS) * plotW, y = yOf(arr[t]);
+      if (t === 0) ctxSer.moveTo(x, y); else ctxSer.lineTo(x, y);
+    }
+    ctxSer.stroke();
+    ctxSer.globalAlpha = 1;
+  };
+  drawLine(rawPct, '#94a3b8', 1.3, 0.75);
+  drawLine(procPct, '#4ade80', 2.0, 1);
+  drawLine(fitPct, '#c084fc', 2.2, 1);
+
+  ctxSer.font = 'bold 11px sans-serif';
+  ctxSer.fillStyle = '#94a3b8'; ctxSer.fillText('— raw', padL + 10, padT + 12);
+  ctxSer.fillStyle = '#4ade80'; ctxSer.fillText('— preprocessed', padL + 80, padT + 12);
+  ctxSer.fillStyle = '#c084fc'; ctxSer.fillText('— GLM fit', padL + 220, padT + 12);
+  ctxSer.fillStyle = '#94a3b8';
+  ctxSer.font = '10px ui-monospace, monospace';
+  ctxSer.fillText('+' + mx.toFixed(1) + '%', 8, padT + 10);
+  ctxSer.fillText('-' + mx.toFixed(1) + '%', 8, padT + plotH);
+}
+
+function render() {
+  renderImages();
+  renderMotion();
+  renderSeries();
+}
+
+// ============================================================================
+// Controls
+// ============================================================================
+let pending = null;
+function refresh(stage) {
+  dirtyFrom = Math.min(dirtyFrom, stage);
+  if (pending) clearTimeout(pending);
+  pending = setTimeout(() => { pending = null; recompute(); }, 80);
+}
+
+const BANNERS = {
+  clean: '<strong>Still Participant:</strong> no head motion at all. An idealisation, but it isolates what the remaining stages do. Note that the false-positive count still does not reach zero, because the map is thresholded uncorrected.',
+  task: '<strong>Task-Correlated Motion:</strong> the participant tenses slightly at every block onset, so head position is correlated with the design. This is the single most dangerous artifact in task fMRI: the false activation it creates sits exactly where the model is looking.',
+  drift: '<strong>Slow Drift &amp; Spikes:</strong> gradual settling across the run plus two sudden jumps. Because the motion is largely uncorrelated with the task, it costs sensitivity rather than manufacturing false positives, and realignment recovers most of it.'
+};
+
+function setPreset(kind, btn) {
+  motionKind = kind;
+  document.querySelectorAll('.preset-bar button').forEach(b => {
+    b.classList.remove('active');
+    if (b.id !== 'btnReseed') b.classList.add('secondary');
+  });
+  btn.classList.remove('secondary');
+  btn.classList.add('active');
+  document.getElementById('bannerText').innerHTML = BANNERS[kind];
+  refresh(0);
+}
+
+document.getElementById('btnClean').addEventListener('click', (e) => setPreset('clean', e.target));
+document.getElementById('btnTask').addEventListener('click', (e) => setPreset('task', e.target));
+document.getElementById('btnDrift').addEventListener('click', (e) => setPreset('drift', e.target));
+document.getElementById('btnReseed').addEventListener('click', () => refresh(0));
+
+const stageDefs = [
+  { key: 'mc', chk: 'chkMC', box: 'stMC' },
+  { key: 'stc', chk: 'chkSTC', box: 'stSTC' },
+  { key: 'sm', chk: 'chkSm', box: 'stSm' },
+  { key: 'hp', chk: 'chkHP', box: 'stHP' },
+  { key: 'reg', chk: 'chkReg', box: 'stReg' }
+];
+
+function syncStageUI() {
+  for (const s of stageDefs) {
+    document.getElementById(s.chk).checked = stages[s.key];
+    document.getElementById(s.box).classList.toggle('on', stages[s.key]);
+  }
+}
+
+for (const s of stageDefs) {
+  document.getElementById(s.chk).addEventListener('change', (e) => {
+    stages[s.key] = e.target.checked;
+    syncStageUI();
+    refresh(2);
+  });
+}
+
+document.getElementById('btnAll').addEventListener('click', () => {
+  for (const s of stageDefs) stages[s.key] = true;
+  syncStageUI(); refresh(2);
+});
+document.getElementById('btnNone').addEventListener('click', () => {
+  for (const s of stageDefs) stages[s.key] = false;
+  syncStageUI(); refresh(2);
+});
+
+function bindSlider(id, valId, stage, fmt, assign) {
+  const el = document.getElementById(id), lab = document.getElementById(valId);
+  el.addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    assign(v);
+    lab.textContent = fmt(v);
+    refresh(stage);
+  });
+}
+
+bindSlider('sliderBeta', 'valBeta', 0, v => v.toFixed(1) + '%', v => betaPct = v);
+bindSlider('sliderNoise', 'valNoise', 0, v => v.toFixed(2) + '%', v => noisePct = v);
+bindSlider('sliderStruct', 'valStruct', 0, v => v.toFixed(2) + '%', v => structPct = v);
+bindSlider('sliderMotion', 'valMotion', 0, v => v.toFixed(1) + ' vox', v => motionAmp = v);
+bindSlider('sliderDrift', 'valDrift', 0, v => v.toFixed(1) + '%', v => driftPct = v);
+bindSlider('sliderFWHM', 'valFWHM', 2, v => v.toFixed(1) + ' mm', v => fwhmMM = v);
+bindSlider('sliderHP', 'valHP', 2, v => v.toFixed(0) + ' s', v => hpCutoff = v);
+
+const sliderFrame = document.getElementById('sliderFrame');
+const valFrame = document.getElementById('valFrame');
+sliderFrame.addEventListener('input', (e) => {
+  frameShown = parseInt(e.target.value, 10);
+  valFrame.textContent = `${frameShown + 1} / ${NT}`;
+  renderImages();
+});
+
+let playing = false, lastTick = 0;
+const btnPlay = document.getElementById('btnPlay');
+function tick(ts) {
+  if (!playing) return;
+  if (ts - lastTick > 110) {
+    lastTick = ts;
+    frameShown = (frameShown + 1) % NT;
+    sliderFrame.value = String(frameShown);
+    valFrame.textContent = `${frameShown + 1} / ${NT}`;
+    renderImages();
+  }
+  requestAnimationFrame(tick);
+}
+btnPlay.addEventListener('click', () => {
+  playing = !playing;
+  btnPlay.innerHTML = playing ? '&#10073;&#10073; Pause' : '&#9654; Play Volumes';
+  if (playing) requestAnimationFrame(tick);
+});
+
+// --- Initial state: the worst case, so the stages have something to fix ---
+syncStageUI();
+recompute();
+</script>
+</body>
+</html>

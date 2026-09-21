@@ -1,0 +1,1123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whole-Brain Thresholding &amp; the Multiple Comparisons Problem</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --taskA: #ea580c;
+    --taskB: #0284c7;
+    --good: #16a34a;
+    --bad: #dc2626;
+    --fit-line: #a855f7;
+    --scope-bg: #090d16;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --taskA: #fb923c;
+      --taskB: #38bdf8;
+      --good: #4ade80;
+      --bad: #f87171;
+      --fit-line: #c084fc;
+      --scope-bg: #050811;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button:disabled { opacity: 0.5; cursor: progress; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  canvas.scope { background: var(--scope-bg); border-color: var(--scope-grid); }
+  .canvas-box { margin-bottom: 16px; position: relative; }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .stage-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--border);
+    background: rgba(148, 163, 184, 0.06);
+    border-radius: 6px;
+    padding: 7px 11px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .stage.on {
+    border-color: var(--good);
+    background: rgba(22, 163, 74, 0.12);
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .stage input { accent-color: var(--good); margin: 0; }
+  .arrow { color: var(--muted); font-size: 0.9rem; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stat-card { background: rgba(148, 163, 184, 0.08); border-radius: 6px; padding: 8px 12px; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+  .stat-val { font-size: 1.1rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+  .stat-val.good { color: var(--good); }
+  .stat-val.bad { color: var(--bad); }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .note { font-size: 0.86rem; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+  .note strong { color: var(--fg); }
+  .note a { color: var(--accent); }
+  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 30px; }
+</style></head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>Whole-Brain Thresholding &amp; the Multiple Comparisons Problem</h1>
+  <p class="sub">
+    A statistical map is not one test, it is thousands of them. This workbench runs a real voxelwise GLM over an entire slice, then thresholds the resulting <i>t</i>-map four different ways side by side and counts what each one gets right and wrong.
+    The cluster-extent threshold is <em>calibrated by Monte Carlo</em> against null data rather than assumed, and the audit at the bottom measures each method's family-wise error rate directly, by running the whole analysis on data with nothing in it.
+  </p>
+
+  <div class="panel">
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Truth:</span>
+      <button id="btnSignal" class="active">Three Real Activations</button>
+      <button id="btnNull" class="secondary">Pure Null (nothing is active)</button>
+      <button id="btnReseed" class="secondary" style="margin-left: auto;">New Realization</button>
+    </div>
+
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Three Real Activations:</strong> a strong broad focus, a moderate one, and a weak focal one. Watch which methods find which.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;"></span>
+    </div>
+
+    <div class="canvas-box">
+      <canvas id="cMaps" width="996" height="258"></canvas>
+      <div class="canvas-caption">The same <i>t</i>-map under four thresholds. <span style="color:#22c55e;font-weight:600;">Green outlines</span> are ground truth; <span style="color:#fb923c;font-weight:600;">orange</span> voxels survived and are real; <span style="color:#f87171;font-weight:600;">red</span> voxels survived and are false.</div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Voxels Tested (<i>m</i>)</div>
+        <div class="stat-val" id="dispM">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Degrees of Freedom</div>
+        <div class="stat-val" id="dispDF">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Smoothness (FWHM)</div>
+        <div class="stat-val" id="dispFWHM">6.0 mm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cluster Threshold</div>
+        <div class="stat-val" id="dispKCrit">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">True Blob Voxels</div>
+        <div class="stat-val" id="dispNTrue">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Calibration Status</div>
+        <div class="stat-val" id="dispCal" style="font-size: 0.9rem;">idle</div>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+      <div>
+        <label>True Effect Size: <span class="val-badge" id="valBeta">0.90%</span></label>
+        <input type="range" id="sliderBeta" min="0" max="2.5" value="0.9" step="0.05">
+      </div>
+      <div>
+        <label>Noise Smoothness (FWHM): <span class="val-badge" id="valSm">6.0 mm</span></label>
+        <input type="range" id="sliderSm" min="2" max="14" value="6" step="0.5">
+      </div>
+      <div>
+        <label>Uncorrected &alpha;: <span class="val-badge" id="valAlpha">0.001</span></label>
+        <input type="range" id="sliderAlpha" min="0" max="3" value="2" step="1">
+      </div>
+      <div>
+        <label>FDR <i>q</i>: <span class="val-badge" id="valQ">0.05</span></label>
+        <input type="range" id="sliderQ" min="0.01" max="0.25" value="0.05" step="0.01">
+      </div>
+      <div>
+        <label>Cluster-Defining Threshold: <span class="val-badge" id="valCDT">p &lt; 0.001</span></label>
+        <input type="range" id="sliderCDT" min="0" max="2" value="1" step="1">
+      </div>
+      <div>
+        <label>Noise Level (&sigma;): <span class="val-badge" id="valNoise">1.00%</span></label>
+        <input type="range" id="sliderNoise" min="0.3" max="2.5" value="1.0" step="0.05">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="canvas-box" style="margin-bottom:0;">
+      <canvas id="cPlots" class="scope" width="996" height="250"></canvas>
+      <div class="canvas-caption">Left: the Benjamini&ndash;Hochberg procedure, sorted <i>p</i>-values against the line <i>iq/m</i>. Right: the Monte Carlo null distribution of the largest cluster, which is where the cluster-extent threshold comes from.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="preset-bar" style="margin-bottom: 10px;">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Family-Wise Error Audit:</span>
+      <button id="btnAudit">Run 200 Null Analyses</button>
+      <span id="auditProgress" style="font-size: 0.8rem; color: var(--muted);"></span>
+    </div>
+    <p class="note" style="margin-top: 0;">
+      This re-runs the entire analysis 200 times on data with <strong>no activation anywhere</strong>, and reports how often each method reported at least one activation. That proportion is the family-wise error rate. A method that controls FWER at 0.05 should land near 5%; uncorrected thresholding will not come close.
+    </p>
+    <p class="note">
+      Read these numbers with their error bars. Two hundred runs puts a standard error of roughly 1.5 percentage points on each figure, so a method showing 3% and one showing 7% have not been distinguished, and you should not conclude that cluster inference beat Bonferroni because it came in a point lower. What the audit <em>can</em> settle, several times over, is the gap between the corrected methods and the uncorrected one, which is not a couple of points but an order of magnitude.
+    </p>
+    <div class="stats-grid" style="border-top: none; padding-top: 4px;">
+      <div class="stat-card">
+        <div class="stat-label">Uncorrected FWER</div>
+        <div class="stat-val bad" id="fwerUnc">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Bonferroni FWER</div>
+        <div class="stat-val good" id="fwerBon">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">FDR (BH) FWER</div>
+        <div class="stat-val" id="fwerFDR">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cluster-Extent FWER</div>
+        <div class="stat-val good" id="fwerClu">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Mean False Voxels, Uncorrected</div>
+        <div class="stat-val bad" id="fwerUncN">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nominal Target</div>
+        <div class="stat-val">5.0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;"><strong>Four ways to threshold a map, and what each one promises:</strong></p>
+    <p class="note">
+      1. <strong>Uncorrected thresholding</strong> applies a single-test threshold to every voxel independently. With a couple of thousand voxels in the search space and &alpha; = 0.001, you should expect a couple of false voxels in every map you produce, from pure noise, forever. Switch the truth to <strong>Pure Null</strong>, where nothing whatsoever is active, and look at the uncorrected panel: there is almost always something there, and with a little spatial smoothness it will look like a plausible blob in a plausible place. This is the logic of the <em>dead salmon</em> result of Bennett and colleagues, who ran a standard uncorrected analysis on a post-mortem Atlantic salmon and recovered a cluster of &ldquo;activation&rdquo; in its brain cavity. The salmon was not the point; the threshold was.
+    </p>
+    <p class="note">
+      2. <strong>Bonferroni correction</strong> divides &alpha; by the number of tests, which controls the family-wise error rate exactly. It is also the most conservative option available, and it assumes the tests are independent. Neighbouring voxels in an fMRI map are emphatically not independent: they share signal through smoothing and through the vasculature, so the effective number of independent tests is far smaller than the voxel count. Bonferroni therefore corrects for tests you did not really perform, and the price is paid in the weak focus, which it will usually miss entirely. Raise the noise smoothness slider and Bonferroni gets relatively worse, because the effective number of independent tests falls further while the correction stays the same.
+    </p>
+    <p class="note">
+      3. <strong>False Discovery Rate (Benjamini&ndash;Hochberg)</strong> changes the question. Instead of controlling the probability of <em>any</em> false positive, it controls the expected <em>proportion</em> of your declared activations that are false. Sort the <i>m</i> <i>p</i>-values ascending, find the largest <i>i</i> with <i>p</i><sub>(<i>i</i>)</sub> &le; <i>iq</i>/<i>m</i>, and reject everything up to it. The left-hand plot shows exactly that crossing. FDR is adaptive: when there is a lot of real signal the threshold relaxes, and when there is none it becomes almost as strict as Bonferroni. That is why its measured FWER in the audit below sits near the nominal level on null data while still being far more sensitive than Bonferroni when signal is present. It is a different guarantee, not a weaker version of the same one: accepting an FDR of 0.05 means accepting that about one in twenty of the voxels you report is wrong.
+    </p>
+    <p class="note">
+      4. <strong>Cluster-extent inference</strong> gives up on individual voxels. It applies a lenient cluster-defining threshold, then asks whether any resulting <em>blob</em> is bigger than blobs that arise by chance. The null distribution of the largest cluster is not something you can look up, because it depends on the smoothness of your data, so this demo estimates it by Monte Carlo: 200 analyses of pure noise at the current smoothness, the largest cluster recorded each time, and the 95th percentile taken as the threshold. The right-hand histogram is that distribution. Cluster inference is usually the most sensitive of the three valid methods for spatially extended effects, and it is the standard choice in the field, but note what it buys you and what it does not: a significant cluster means <em>something in this blob is real</em>, not <em>this voxel is real</em>. You cannot legitimately point at the peak.
+    </p>
+    <p class="note">
+      It also has a blind spot worth knowing about, and the three foci in this simulation are sized to expose it. Cluster inference matches uncorrected thresholding on the broad focus, detecting it about 89% of the time against Bonferroni's 62%, because extent is exactly what it rewards. On the tight focus it is the <em>worst</em> of all four methods, finding it around 5% of the time where FDR manages 24%, because a genuinely focal effect never assembles enough suprathreshold voxels to clear the extent threshold no matter how strong it is. The method that wins on one kind of signal loses on the other, so "which correction is best" has no answer independent of what you expect to find.
+    </p>
+    <p class="note">
+      5. <strong>Why the cluster-defining threshold matters so much.</strong> Drop the CDT to <i>p</i> &lt; 0.01 and watch the calibrated extent threshold jump, because lenient thresholds produce sprawling noise clusters. Eklund, Nichols and Knutsson showed in 2016 that the parametric random field theory approximations used by the major packages become badly anti-conservative at exactly this setting, with measured family-wise error rates reaching 70% where 5% was claimed, because the theory assumes a spatial autocorrelation shape that real data does not have. The Monte Carlo calibration used here does not make that assumption, which is the same reasoning behind the shift toward permutation-based inference.
+    </p>
+    <p class="note">
+      6. <strong>What this demo simplifies.</strong> One slice rather than a volume, so <i>m</i> is in the thousands instead of the hundreds of thousands, which makes Bonferroni look far kinder than it is in practice. The noise is stationary, with the same smoothness everywhere, whereas real data is smoother in some tissue than others, and the residual autocorrelation modelled in the <a href="glm_studio.html">GLM Studio</a> is absent here. Every one of those simplifications makes the corrections look better than they are, and the uncorrected map still fails.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; Multiple Comparisons Simulation</footer>
+</div>
+<script>
+// ============================================================================
+// Geometry and acquisition
+// ============================================================================
+const NX = 56, NY = 56, NV = NX * NY;
+const NT = 120, TR = 2.0, VOX_MM = 2.0;
+const RUN_SECONDS = NT * TR, BLOCK = 20.0;
+const NREG = 3;                    // task + linear drift + constant
+const DF = NT - NREG;
+
+let betaAmp = 0.90;                // true effect size, % signal change
+let noiseSD = 1.00;                // noise level, % signal change
+let noiseFWHM = 6.0;               // spatial smoothness of the noise, mm
+let alphaUnc = 0.001;
+let qFDR = 0.05;
+let cdtP = 0.001;
+let withSignal = true;
+
+const ALPHA_OPTS = [0.05, 0.01, 0.001, 0.0001];
+const CDT_OPTS = [0.01, 0.001, 0.0001];
+const FWER_ALPHA = 0.05;
+const CAL_RUNS = 200, AUDIT_RUNS = 200;
+
+const now = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+function randn() {
+  const u = Math.random(), v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u || 1e-9)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// ============================================================================
+// Student's t, exact via the regularized incomplete beta
+// ============================================================================
+function logGamma(x) {
+  const cof = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+               -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x, tmp = x + 5.5;
+  tmp -= (x + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) ser += cof[j] / ++y;
+  return -tmp + Math.log(2.5066282746310005 * ser / x);
+}
+function betacf(a, b, x) {
+  const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+  const qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c; h *= del;
+    if (Math.abs(del - 1.0) < EPS) break;
+  }
+  return h;
+}
+function betai(a, b, x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) +
+                      a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+  return 1 - bt * betacf(b, a, 1 - x) / b;
+}
+// Upper-tail p: P(T > t). Activation is directional, so every test here is one-sided.
+function tUpperP(t, df) {
+  if (!isFinite(t)) return t > 0 ? 0 : 1;
+  const two = betai(0.5 * df, 0.5, df / (df + t * t));
+  return t > 0 ? 0.5 * two : 1 - 0.5 * two;
+}
+const critCache = new Map();
+function tCritUpper(alpha, df) {
+  const key = alpha + '|' + df;
+  if (critCache.has(key)) return critCache.get(key);
+  let lo = -10, hi = 40;
+  for (let k = 0; k < 90; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (tUpperP(mid, df) > alpha) lo = mid; else hi = mid;
+  }
+  const v = 0.5 * (lo + hi);
+  critCache.set(key, v);
+  return v;
+}
+
+// ============================================================================
+// Brain mask and three activation foci of deliberately different strength
+// ============================================================================
+const mask = new Uint8Array(NV);
+const actW = new Float32Array(NV);
+const FOCI = [
+  { x: 17, y: 20, sig: 3.0, amp: 1.00, name: 'strong / broad' },
+  { x: 38, y: 25, sig: 2.1, amp: 0.72, name: 'moderate' },
+  { x: 27, y: 40, sig: 1.3, amp: 0.55, name: 'weak / focal' }
+];
+
+(function build() {
+  const cx = (NX - 1) / 2, cy = (NY - 1) / 2;
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      const i = y * NX + x;
+      mask[i] = (Math.hypot((x - cx) / 24, (y - cy) / 21) <= 1.0) ? 1 : 0;
+      if (!mask[i]) continue;
+      let w = 0;
+      for (const f of FOCI) {
+        const d2 = (x - f.x) ** 2 + (y - f.y) ** 2;
+        w = Math.max(w, f.amp * Math.exp(-d2 / (2 * f.sig * f.sig)));
+      }
+      // Hard-edged foci, so that "true positive" and "false positive" have no grey zone
+      actW[i] = w >= 0.25 ? w : 0;
+    }
+  }
+})();
+
+const maskIdx = [], trueIdx = [], nullIdx = [];
+for (let i = 0; i < NV; i++) {
+  if (!mask[i]) continue;
+  maskIdx.push(i);
+  if (actW[i] > 0) trueIdx.push(i); else nullIdx.push(i);
+}
+const M = maskIdx.length;
+
+const edgeMask = new Uint8Array(NV);
+for (let y = 1; y < NY - 1; y++) {
+  for (let x = 1; x < NX - 1; x++) {
+    const i = y * NX + x;
+    if (actW[i] === 0) continue;
+    if (!actW[i - 1] || !actW[i + 1] || !actW[i - NX] || !actW[i + NX]) edgeMask[i] = 1;
+  }
+}
+
+// ============================================================================
+// Design matrix: HRF-convolved blocks, linear drift, constant
+// ============================================================================
+const X = [new Float32Array(NT), new Float32Array(NT), new Float32Array(NT)];
+let XtXinv = null;
+
+(function buildDesign() {
+  function gammaPdf(t, a, b) {
+    let fact = 1;
+    for (let i = 1; i < a; i++) fact *= i;
+    return (Math.pow(t, a - 1) * Math.exp(-t / b)) / (fact * Math.pow(b, a));
+  }
+  const FDT = 0.1, NF = Math.round(RUN_SECONDS / FDT);
+  const hrfLen = Math.round(32 / FDT), hrf = new Float32Array(hrfLen);
+  for (let i = 0; i < hrfLen; i++) {
+    const t = i * FDT;
+    hrf[i] = gammaPdf(t, 6, 1) - (1 / 6) * gammaPdf(t, 16, 1);
+  }
+  const box = new Float32Array(NF), conv = new Float32Array(NF);
+  for (let i = 0; i < NF; i++) {
+    const t = i * FDT;
+    box[i] = (t >= 10 && ((t - 10) % (2 * BLOCK)) < BLOCK) ? 1 : 0;
+  }
+  let mx = 0;
+  for (let i = 0; i < NF; i++) {
+    let s = 0;
+    for (let j = 0; j < hrfLen; j++) if (i - j >= 0) s += box[i - j] * hrf[j] * FDT;
+    conv[i] = s;
+    if (s > mx) mx = s;
+  }
+  for (let t = 0; t < NT; t++) {
+    X[0][t] = conv[Math.min(NF - 1, Math.round(t * TR / FDT))] / (mx || 1);
+    X[1][t] = (t / (NT - 1)) - 0.5;
+    X[2][t] = 1;
+  }
+  const A = [];
+  for (let a = 0; a < NREG; a++) {
+    A.push(new Float64Array(2 * NREG));
+    for (let b = 0; b < NREG; b++) {
+      let s = 0;
+      for (let t = 0; t < NT; t++) s += X[a][t] * X[b][t];
+      A[a][b] = s;
+    }
+    A[a][NREG + a] = 1;
+  }
+  for (let i = 0; i < NREG; i++) {
+    let piv = i;
+    for (let k = i + 1; k < NREG; k++) if (Math.abs(A[k][i]) > Math.abs(A[piv][i])) piv = k;
+    const tmp = A[i]; A[i] = A[piv]; A[piv] = tmp;
+    const p = A[i][i];
+    for (let j = 0; j < 2 * NREG; j++) A[i][j] /= p;
+    for (let k = 0; k < NREG; k++) {
+      if (k === i) continue;
+      const f = A[k][i];
+      for (let j = 0; j < 2 * NREG; j++) A[k][j] -= f * A[i][j];
+    }
+  }
+  XtXinv = A.map(r => Array.from(r.slice(NREG)));
+})();
+
+// ============================================================================
+// Spatially correlated noise. The smoothness of the noise field is the single
+// most important quantity in this demo: it decides how many independent tests
+// you really ran, and therefore how wrong Bonferroni is.
+// ============================================================================
+const w1 = new Float32Array(NV), w2 = new Float32Array(NV), w3 = new Float32Array(NV);
+
+function gaussianBlur(src, dst, sigma, scratch) {
+  const rad = Math.max(1, Math.ceil(3 * sigma));
+  const ker = new Float32Array(2 * rad + 1);
+  let ksum = 0;
+  for (let k = -rad; k <= rad; k++) {
+    ker[k + rad] = Math.exp(-(k * k) / (2 * sigma * sigma));
+    ksum += ker[k + rad];
+  }
+  for (let k = 0; k < ker.length; k++) ker[k] /= ksum;
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      let a = 0, w = 0;
+      for (let k = -rad; k <= rad; k++) {
+        const xx = x + k;
+        if (xx < 0 || xx >= NX) continue;
+        a += src[y * NX + xx] * ker[k + rad]; w += ker[k + rad];
+      }
+      scratch[y * NX + x] = a / w;
+    }
+  }
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      let a = 0, w = 0;
+      for (let k = -rad; k <= rad; k++) {
+        const yy = y + k;
+        if (yy < 0 || yy >= NY) continue;
+        a += scratch[yy * NX + x] * ker[k + rad]; w += ker[k + rad];
+      }
+      dst[y * NX + x] = a / w;
+    }
+  }
+}
+
+// The blur shrinks the variance by a fixed factor for a given kernel, so measure it
+// once and rescale by a constant rather than renormalising each field, which would
+// quietly couple the voxels together.
+const scaleCache = new Map();
+function blurScaleFor(sigma) {
+  const key = sigma.toFixed(4);
+  if (scaleCache.has(key)) return scaleCache.get(key);
+  let acc = 0;
+  const REP = 8;
+  for (let r = 0; r < REP; r++) {
+    for (let i = 0; i < NV; i++) w1[i] = randn();
+    gaussianBlur(w1, w2, sigma, w3);
+    let m = 0, m2 = 0;
+    for (const i of maskIdx) { m += w2[i]; m2 += w2[i] * w2[i]; }
+    m /= M;
+    acc += Math.sqrt(Math.max(1e-12, m2 / M - m * m));
+  }
+  const v = 1 / (acc / REP);
+  scaleCache.set(key, v);
+  return v;
+}
+
+// ============================================================================
+// One whole analysis: synthesise a run, fit the GLM at every voxel, return the
+// t-map. Sufficient statistics are accumulated volume by volume, so the 4D data
+// never has to exist all at once.
+// ============================================================================
+const tMap = new Float32Array(NV);
+const accYY = new Float64Array(NV);
+const accXY = [new Float64Array(NV), new Float64Array(NV), new Float64Array(NV)];
+
+function generateTMap(signalOn) {
+  const sigma = noiseFWHM / (2.3548 * VOX_MM);
+  const scale = blurScaleFor(sigma) * noiseSD;
+  accYY.fill(0);
+  for (let a = 0; a < NREG; a++) accXY[a].fill(0);
+
+  for (let t = 0; t < NT; t++) {
+    for (let i = 0; i < NV; i++) w1[i] = randn();
+    gaussianBlur(w1, w2, sigma, w3);
+    const s = signalOn ? betaAmp * X[0][t] : 0;
+    const x0 = X[0][t], x1 = X[1][t], x2 = X[2][t];
+    for (let k = 0; k < M; k++) {
+      const i = maskIdx[k];
+      const y = s * actW[i] + scale * w2[i];
+      accYY[i] += y * y;
+      accXY[0][i] += x0 * y;
+      accXY[1][i] += x1 * y;
+      accXY[2][i] += x2 * y;
+    }
+  }
+
+  const i00 = XtXinv[0][0], i01 = XtXinv[0][1], i02 = XtXinv[0][2];
+  const i10 = XtXinv[1][0], i11 = XtXinv[1][1], i12 = XtXinv[1][2];
+  const i20 = XtXinv[2][0], i21 = XtXinv[2][1], i22 = XtXinv[2][2];
+  tMap.fill(0);
+  for (let k = 0; k < M; k++) {
+    const i = maskIdx[k];
+    const y0 = accXY[0][i], y1 = accXY[1][i], y2 = accXY[2][i];
+    const b0 = i00 * y0 + i01 * y1 + i02 * y2;
+    const b1 = i10 * y0 + i11 * y1 + i12 * y2;
+    const b2 = i20 * y0 + i21 * y1 + i22 * y2;
+    const rss = Math.max(1e-12, accYY[i] - (b0 * y0 + b1 * y1 + b2 * y2));
+    tMap[i] = b0 / Math.sqrt((rss / DF) * i00);
+  }
+  return tMap;
+}
+
+// ============================================================================
+// Connected components over the suprathreshold voxels (4-connected)
+// ============================================================================
+function clusterInfo(map, tThr) {
+  const lab = new Int32Array(NV);
+  const sizes = [0];
+  const stack = [];
+  let next = 0;
+  for (let k = 0; k < M; k++) {
+    const start = maskIdx[k];
+    if (lab[start] || map[start] < tThr) continue;
+    lab[start] = ++next;
+    let sz = 0;
+    stack.length = 0;
+    stack.push(start);
+    while (stack.length) {
+      const i = stack.pop();
+      sz++;
+      const x = i % NX, y = (i / NX) | 0;
+      if (x > 0) { const n = i - 1; if (!lab[n] && mask[n] && map[n] >= tThr) { lab[n] = next; stack.push(n); } }
+      if (x < NX - 1) { const n = i + 1; if (!lab[n] && mask[n] && map[n] >= tThr) { lab[n] = next; stack.push(n); } }
+      if (y > 0) { const n = i - NX; if (!lab[n] && mask[n] && map[n] >= tThr) { lab[n] = next; stack.push(n); } }
+      if (y < NY - 1) { const n = i + NX; if (!lab[n] && mask[n] && map[n] >= tThr) { lab[n] = next; stack.push(n); } }
+    }
+    sizes.push(sz);
+  }
+  let maxSize = 0;
+  for (let c = 1; c <= next; c++) if (sizes[c] > maxSize) maxSize = sizes[c];
+  return { lab, sizes, count: next, maxSize };
+}
+
+// Benjamini-Hochberg. Only voxels with p <= q can ever be rejected, since the most
+// generous rung of the ladder is iq/m at i = m, so the search starts there.
+function bhThreshold(map, q, df) {
+  const tQ = tCritUpper(q, df);
+  const cand = [];
+  for (let k = 0; k < M; k++) {
+    const v = map[maskIdx[k]];
+    if (v >= tQ) cand.push(v);
+  }
+  cand.sort((a, b) => b - a);
+  let tFDR = Infinity, nRej = 0;
+  for (let i = 0; i < cand.length; i++) {
+    if (tUpperP(cand[i], df) <= (i + 1) * q / M) { tFDR = cand[i]; nRej = i + 1; }
+  }
+  return { tFDR, nRej, cand };
+}
+
+// Smallest cluster size whose Monte Carlo exceedance probability is at or below alpha
+function extentThreshold(maxSizes, alpha) {
+  const K = maxSizes.length;
+  if (!K) return Infinity;
+  const s = maxSizes.slice().sort((a, b) => a - b);
+  const allowed = Math.floor(alpha * K);
+  return s[Math.max(0, K - allowed - 1)] + 1;
+}
+
+// ============================================================================
+// State
+// ============================================================================
+const observed = new Float32Array(NV);
+let calKey = null, kCrit = null, nullMaxSizes = [];
+let busy = false, lastResult = null, auditResult = null;
+
+const calibrationKey = () => `${cdtP}|${noiseFWHM}`;   // t is scale-free, so noise level does not enter
+
+function chunkRun(K, body, onProgress, onDone) {
+  let done = 0;
+  function step() {
+    const t0 = now();
+    while (done < K && now() - t0 < 22) { body(done); done++; }
+    if (onProgress) onProgress(done, K);
+    if (done < K) requestAnimationFrame(step); else if (onDone) onDone();
+  }
+  requestAnimationFrame(step);
+}
+
+function setCal(text) { document.getElementById('dispCal').textContent = text; }
+
+function calibrate(onDone) {
+  const key = calibrationKey();
+  if (calKey === key && kCrit !== null) { if (onDone) onDone(); return; }
+  if (busy) return;
+  busy = true;
+  const tCDT = tCritUpper(cdtP, DF);
+  const sizes = [];
+  setCal(`0 / ${CAL_RUNS}`);
+  chunkRun(CAL_RUNS,
+    () => { generateTMap(false); sizes.push(clusterInfo(tMap, tCDT).maxSize); },
+    (d, K) => setCal(`${d} / ${K}`),
+    () => {
+      nullMaxSizes = sizes;
+      kCrit = extentThreshold(sizes, FWER_ALPHA);
+      calKey = key;
+      busy = false;
+      setCal(`calibrated, ${CAL_RUNS} runs`);
+      render();
+      if (onDone) onDone();
+    });
+}
+
+// ============================================================================
+// Score each method against the ground truth
+// ============================================================================
+function evaluate() {
+  const tUnc = tCritUpper(alphaUnc, DF);
+  const tBon = tCritUpper(FWER_ALPHA / M, DF);
+  const tCDT = tCritUpper(cdtP, DF);
+  const bh = bhThreshold(observed, qFDR, DF);
+  const ci = clusterInfo(observed, tCDT);
+
+  const survivors = [];
+  const passFns = [
+    (i) => observed[i] >= tUnc,
+    (i) => observed[i] >= tBon,
+    (i) => observed[i] >= bh.tFDR,
+    (i) => ci.lab[i] > 0 && kCrit !== null && ci.sizes[ci.lab[i]] >= kCrit
+  ];
+  for (const fn of passFns) {
+    let n = 0, tp = 0, fp = 0;
+    const flags = new Uint8Array(NV);
+    for (let k = 0; k < M; k++) {
+      const i = maskIdx[k];
+      if (!fn(i)) continue;
+      flags[i] = 1; n++;
+      if (actW[i] > 0) tp++; else fp++;
+    }
+    survivors.push({ n, tp, fp, flags });
+  }
+  lastResult = { tUnc, tBon, tCDT, bh, ci, survivors };
+  return lastResult;
+}
+
+function refresh(regen) {
+  if (regen) { generateTMap(withSignal); observed.set(tMap); }
+  if (calibrationKey() !== calKey) {
+    kCrit = null;
+    render();
+    calibrate();
+  } else {
+    render();
+  }
+}
+
+// ============================================================================
+// Rendering
+// ============================================================================
+const cMaps = document.getElementById('cMaps'), ctxM = cMaps.getContext('2d');
+const cPlots = document.getElementById('cPlots'), ctxP = cPlots.getContext('2d');
+const offC = document.createElement('canvas');
+offC.width = NX; offC.height = NY;
+const offCtx = offC.getContext('2d');
+
+const PANEL = 176, GAP = 20, PAD = (996 - (5 * PANEL + 4 * GAP)) / 2, MAP_Y = 20;
+
+function paint(px, py, size, colorFn) {
+  const im = offCtx.createImageData(NX, NY);
+  for (let i = 0; i < NV; i++) {
+    const c = colorFn(i), o = i * 4;
+    im.data[o] = c[0]; im.data[o + 1] = c[1]; im.data[o + 2] = c[2]; im.data[o + 3] = 255;
+  }
+  offCtx.putImageData(im, 0, 0);
+  ctxM.imageSmoothingEnabled = false;
+  ctxM.drawImage(offC, px, py, size, size);
+}
+
+function hotColor(v) {
+  return [255 * Math.min(1, v * 3), 255 * Math.min(1, Math.max(0, v * 3 - 1)), 255 * Math.min(1, Math.max(0, v * 3 - 2))];
+}
+const BG = [10, 14, 24], BRAIN = [46, 56, 74], TRUTH = [34, 197, 94];
+const HIT = [251, 146, 60], MISS_FALSE = [248, 113, 113];
+
+function renderMaps() {
+  ctxM.clearRect(0, 0, cMaps.width, cMaps.height);
+  ctxM.fillStyle = '#050811';
+  ctxM.fillRect(0, 0, cMaps.width, cMaps.height);
+  const r = lastResult;
+  const nTrue = trueIdx.length;
+
+  let tMax = 4;
+  for (let k = 0; k < M; k++) { const v = Math.abs(observed[maskIdx[k]]); if (v > tMax) tMax = v; }
+
+  // Panel 0: the raw statistic map
+  paint(PAD, MAP_Y, PANEL, (i) => {
+    if (!mask[i]) return BG;
+    const t = observed[i];
+    if (t <= 0) return BRAIN;
+    return hotColor(Math.min(1, t / tMax));
+  });
+
+  const titles = [
+    't-map, unthresholded',
+    `Uncorrected p < ${alphaUnc}`,
+    'Bonferroni, FWER 0.05',
+    `FDR (BH), q = ${qFDR}`,
+    `Cluster, CDT p < ${cdtP}`
+  ];
+
+  for (let s = 0; s < 4; s++) {
+    const px = PAD + (s + 1) * (PANEL + GAP);
+    const flags = r ? r.survivors[s].flags : null;
+    paint(px, MAP_Y, PANEL, (i) => {
+      if (!mask[i]) return BG;
+      if (flags && flags[i]) return actW[i] > 0 ? HIT : MISS_FALSE;
+      if (edgeMask[i]) return TRUTH;
+      return BRAIN;
+    });
+  }
+
+  ctxM.font = 'bold 11px sans-serif';
+  ctxM.fillStyle = '#e2e8f0';
+  for (let s = 0; s < 5; s++) ctxM.fillText(titles[s], PAD + s * (PANEL + GAP), 13);
+
+  ctxM.font = '10px ui-monospace, monospace';
+  const y1 = MAP_Y + PANEL + 16, y2 = y1 + 15, y3 = y2 + 15;
+  ctxM.fillStyle = '#94a3b8';
+  ctxM.fillText(`max t = ${tMax.toFixed(2)}`, PAD, y1);
+  ctxM.fillText(`m = ${M} voxels`, PAD, y2);
+  ctxM.fillText(`df = ${DF}`, PAD, y3);
+
+  const thrLabels = r ? [
+    `t > ${r.tUnc.toFixed(2)}`,
+    `t > ${r.tBon.toFixed(2)}`,
+    isFinite(r.bh.tFDR) ? `t > ${r.bh.tFDR.toFixed(2)}` : 'rejects nothing',
+    kCrit === null ? 'calibrating...' : `t > ${r.tCDT.toFixed(2)}, k >= ${kCrit}`
+  ] : ['', '', '', ''];
+
+  for (let s = 0; s < 4; s++) {
+    const px = PAD + (s + 1) * (PANEL + GAP);
+    const sv = r ? r.survivors[s] : { n: 0, tp: 0, fp: 0 };
+    ctxM.fillStyle = '#94a3b8';
+    ctxM.fillText(thrLabels[s], px, y1);
+    ctxM.fillStyle = '#fb923c';
+    ctxM.fillText(`found ${sv.tp} of ${nTrue} real`, px, y2);
+    ctxM.fillStyle = sv.fp > 0 ? '#f87171' : '#4ade80';
+    ctxM.fillText(`${sv.fp} false voxel${sv.fp === 1 ? '' : 's'}`, px, y3);
+  }
+}
+
+function renderPlots() {
+  const w = cPlots.width, h = cPlots.height;
+  ctxP.clearRect(0, 0, w, h);
+  const r = lastResult;
+
+  // ---------------- Left: the Benjamini-Hochberg ladder ----------------
+  const L = { x0: 52, x1: 468, y0: 30, y1: h - 34 };
+  ctxP.fillStyle = '#e2e8f0';
+  ctxP.font = 'bold 11px sans-serif';
+  ctxP.fillText('Benjamini-Hochberg: sorted p vs. the line iq/m', L.x0, 18);
+
+  const cand = r ? r.bh.cand : [];
+  const K = Math.min(cand.length, 400);
+  if (K === 0) {
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.font = '11px sans-serif';
+    ctxP.fillText('No voxel reaches p <= q, so nothing is rejected.', L.x0, (L.y0 + L.y1) / 2);
+  } else {
+    const ps = [];
+    for (let i = 0; i < K; i++) ps.push(Math.max(1e-16, tUpperP(cand[i], DF)));
+    let lo = 0;
+    for (let i = 0; i < K; i++) lo = Math.min(lo, Math.log10(ps[i]));
+    lo = Math.max(-14, Math.min(lo, Math.log10(qFDR / M)) - 0.4);
+    const xOf = (i) => L.x0 + (i / Math.max(1, K - 1)) * (L.x1 - L.x0);
+    const yOf = (lp) => L.y0 + (lp / lo) * (L.y1 - L.y0);
+
+    ctxP.strokeStyle = '#1e293b';
+    ctxP.lineWidth = 1;
+    ctxP.beginPath();
+    for (let d = 0; d >= Math.ceil(lo); d -= 2) {
+      const y = yOf(d);
+      ctxP.moveTo(L.x0, y); ctxP.lineTo(L.x1, y);
+    }
+    ctxP.stroke();
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.font = '10px ui-monospace, monospace';
+    for (let d = 0; d >= Math.ceil(lo); d -= 2) ctxP.fillText('1e' + d, 12, yOf(d) + 3);
+
+    // The BH line
+    ctxP.strokeStyle = '#38bdf8';
+    ctxP.lineWidth = 1.8;
+    ctxP.beginPath();
+    for (let i = 0; i < K; i++) {
+      const y = yOf(Math.log10((i + 1) * qFDR / M));
+      if (i === 0) ctxP.moveTo(xOf(i), y); else ctxP.lineTo(xOf(i), y);
+    }
+    ctxP.stroke();
+
+    // The sorted p-values
+    ctxP.fillStyle = 'rgba(226,232,240,0.85)';
+    for (let i = 0; i < K; i++) {
+      ctxP.beginPath();
+      ctxP.arc(xOf(i), yOf(Math.log10(ps[i])), 1.7, 0, 2 * Math.PI);
+      ctxP.fill();
+    }
+
+    // Where the ladder is last satisfied
+    if (r.bh.nRej > 0 && r.bh.nRej <= K) {
+      const x = xOf(r.bh.nRej - 1);
+      ctxP.strokeStyle = '#4ade80';
+      ctxP.setLineDash([4, 3]);
+      ctxP.beginPath(); ctxP.moveTo(x, L.y0); ctxP.lineTo(x, L.y1); ctxP.stroke();
+      ctxP.setLineDash([]);
+      ctxP.fillStyle = '#4ade80';
+      ctxP.font = '10px ui-monospace, monospace';
+      ctxP.fillText(`reject ${r.bh.nRej}`, Math.min(x + 5, L.x1 - 62), L.y0 + 12);
+    }
+    ctxP.fillStyle = '#38bdf8';
+    ctxP.font = '10px ui-monospace, monospace';
+    ctxP.fillText('iq/m', L.x1 - 34, yOf(Math.log10(K * qFDR / M)) - 5);
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.fillText('rank i ->', L.x0, h - 12);
+  }
+
+  // ---------------- Right: the Monte Carlo null cluster distribution ----------------
+  const R = { x0: 560, x1: 966, y0: 30, y1: h - 34 };
+  ctxP.fillStyle = '#e2e8f0';
+  ctxP.font = 'bold 11px sans-serif';
+  ctxP.fillText('Null distribution of the largest cluster', R.x0, 18);
+
+  if (!nullMaxSizes.length) {
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.font = '11px sans-serif';
+    ctxP.fillText('Calibrating against null data...', R.x0, (R.y0 + R.y1) / 2);
+  } else {
+    let mx = 1;
+    for (const v of nullMaxSizes) if (v > mx) mx = v;
+    const hiEdge = Math.max(mx + 1, (kCrit || 0) + 1);
+    // Cluster sizes are integers, so never make a bin narrower than one voxel
+    const NB = Math.max(1, Math.min(26, Math.ceil(hiEdge)));
+    const bw = hiEdge / NB;
+    const bins = new Array(NB).fill(0);
+    for (const v of nullMaxSizes) bins[Math.min(NB - 1, Math.floor(v / bw))]++;
+    let bmax = 1;
+    for (const b of bins) if (b > bmax) bmax = b;
+
+    const xOf = (v) => R.x0 + (v / hiEdge) * (R.x1 - R.x0);
+    for (let b = 0; b < NB; b++) {
+      const x = xOf(b * bw), xw = Math.max(1, (R.x1 - R.x0) / NB - 1);
+      const bh2 = (bins[b] / bmax) * (R.y1 - R.y0);
+      ctxP.fillStyle = 'rgba(96,165,250,0.65)';
+      ctxP.fillRect(x, R.y1 - bh2, xw, bh2);
+    }
+    if (kCrit !== null && isFinite(kCrit)) {
+      const x = xOf(kCrit);
+      ctxP.strokeStyle = '#f87171';
+      ctxP.lineWidth = 2;
+      ctxP.setLineDash([5, 4]);
+      ctxP.beginPath(); ctxP.moveTo(x, R.y0); ctxP.lineTo(x, R.y1); ctxP.stroke();
+      ctxP.setLineDash([]);
+      ctxP.fillStyle = '#f87171';
+      ctxP.font = '10px ui-monospace, monospace';
+      ctxP.fillText(`k >= ${kCrit}`, Math.min(x + 5, R.x1 - 52), R.y0 + 12);
+      ctxP.fillText('(95th pct)', Math.min(x + 5, R.x1 - 52), R.y0 + 25);
+    }
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.font = '10px ui-monospace, monospace';
+    ctxP.fillText('0', R.x0, h - 12);
+    ctxP.fillText(String(Math.round(hiEdge)) + ' voxels', R.x1 - 60, h - 12);
+  }
+}
+
+function render() {
+  evaluate();
+  renderMaps();
+  renderPlots();
+  document.getElementById('dispM').textContent = String(M);
+  document.getElementById('dispDF').textContent = String(DF);
+  document.getElementById('dispFWHM').textContent = noiseFWHM.toFixed(1) + ' mm';
+  document.getElementById('dispKCrit').textContent = kCrit === null ? 'calibrating' : `k >= ${kCrit}`;
+  document.getElementById('dispNTrue').textContent = String(trueIdx.length);
+  const r = lastResult;
+  document.getElementById('bannerSub').textContent = r
+    ? `uncorrected t > ${r.tUnc.toFixed(2)} · Bonferroni t > ${r.tBon.toFixed(2)} · ${withSignal ? 'signal present' : 'null data'}`
+    : '';
+}
+
+// ============================================================================
+// Family-wise error audit: run the whole analysis on data containing nothing
+// ============================================================================
+function runAudit() {
+  if (busy) return;
+  if (calibrationKey() !== calKey || kCrit === null) { calibrate(() => runAudit()); return; }
+  busy = true;
+  const btn = document.getElementById('btnAudit');
+  const prog = document.getElementById('auditProgress');
+  btn.disabled = true;
+
+  const tUnc = tCritUpper(alphaUnc, DF);
+  const tBon = tCritUpper(FWER_ALPHA / M, DF);
+  const tCDT = tCritUpper(cdtP, DF);
+  let hU = 0, hB = 0, hF = 0, hC = 0, sumUncVox = 0;
+
+  chunkRun(AUDIT_RUNS, () => {
+    generateTMap(false);
+    let anyU = false, anyB = false, nU = 0;
+    for (let k = 0; k < M; k++) {
+      const v = tMap[maskIdx[k]];
+      if (v >= tUnc) { anyU = true; nU++; }
+      if (v >= tBon) anyB = true;
+    }
+    sumUncVox += nU;
+    if (anyU) hU++;
+    if (anyB) hB++;
+    if (bhThreshold(tMap, qFDR, DF).nRej > 0) hF++;
+    const ci = clusterInfo(tMap, tCDT);
+    if (ci.maxSize >= kCrit) hC++;
+  },
+  (d, K) => { prog.textContent = `${d} / ${K}`; },
+  () => {
+    const pct = (x) => (100 * x / AUDIT_RUNS).toFixed(1) + '%';
+    auditResult = { unc: hU / AUDIT_RUNS, bon: hB / AUDIT_RUNS, fdr: hF / AUDIT_RUNS, clu: hC / AUDIT_RUNS };
+    const put = (id, v) => {
+      const el = document.getElementById(id);
+      el.textContent = pct(v);
+      el.className = 'stat-val ' + (v > 0.12 ? 'bad' : 'good');
+    };
+    put('fwerUnc', hU); put('fwerBon', hB); put('fwerFDR', hF); put('fwerClu', hC);
+    document.getElementById('fwerUncN').textContent = (sumUncVox / AUDIT_RUNS).toFixed(1);
+    prog.textContent = `done, ${AUDIT_RUNS} runs`;
+    btn.disabled = false;
+    busy = false;
+    document.getElementById('bannerText').innerHTML =
+      `<strong>Audit complete:</strong> on ${AUDIT_RUNS} analyses of data with nothing in it, uncorrected thresholding reported an activation ${pct(hU)} of the time and found ${(sumUncVox / AUDIT_RUNS).toFixed(1)} false voxels per map on average. Bonferroni ${pct(hB)}, FDR ${pct(hF)}, cluster-extent ${pct(hC)}. The target is 5%.`;
+  });
+}
+
+// ============================================================================
+// Controls
+// ============================================================================
+let pending = null;
+function schedule(regen) {
+  if (pending) clearTimeout(pending);
+  const r = regen;
+  pending = setTimeout(() => { pending = null; refresh(r); }, 90);
+}
+
+function setTruth(on, btn) {
+  withSignal = on;
+  document.querySelectorAll('.preset-bar button').forEach(b => {
+    if (b.id === 'btnSignal' || b.id === 'btnNull') { b.classList.remove('active'); b.classList.add('secondary'); }
+  });
+  btn.classList.remove('secondary');
+  btn.classList.add('active');
+  document.getElementById('bannerText').innerHTML = on
+    ? '<strong>Three Real Activations:</strong> a strong broad focus, a moderate one, and a weak focal one. Watch which methods find which.'
+    : '<strong>Pure Null:</strong> the effect size is zero everywhere. Every coloured voxel you now see in the uncorrected panel is a false positive, and it will look exactly like a finding.';
+  refresh(true);
+}
+
+document.getElementById('btnSignal').addEventListener('click', (e) => setTruth(true, e.target));
+document.getElementById('btnNull').addEventListener('click', (e) => setTruth(false, e.target));
+document.getElementById('btnReseed').addEventListener('click', () => refresh(true));
+document.getElementById('btnAudit').addEventListener('click', runAudit);
+
+function bind(id, valId, regen, fmt, assign) {
+  const el = document.getElementById(id), lab = document.getElementById(valId);
+  el.addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    assign(v);
+    lab.textContent = fmt(v);
+    schedule(regen);
+  });
+}
+
+bind('sliderBeta', 'valBeta', true, v => v.toFixed(2) + '%', v => betaAmp = v);
+bind('sliderNoise', 'valNoise', true, v => v.toFixed(2) + '%', v => noiseSD = v);
+bind('sliderSm', 'valSm', true, v => v.toFixed(1) + ' mm', v => noiseFWHM = v);
+bind('sliderAlpha', 'valAlpha', false, v => String(ALPHA_OPTS[v]), v => alphaUnc = ALPHA_OPTS[v]);
+bind('sliderQ', 'valQ', false, v => v.toFixed(2), v => qFDR = v);
+bind('sliderCDT', 'valCDT', false, v => 'p < ' + CDT_OPTS[v], v => cdtP = CDT_OPTS[v]);
+
+// ============================================================================
+refresh(true);
+</script>
+</body>
+</html>

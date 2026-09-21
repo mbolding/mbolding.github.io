@@ -197,6 +197,7 @@
   <h1>fMRI GLM &amp; Convolution Studio</h1>
   <p class="sub">
     Construct cognitive paradigm timelines, convolve stimulus events with the canonical Hemodynamic Response Function (HRF) to build the <strong>Design Matrix</strong> (<i>X</i>), inject noise and drift, and solve the <strong>General Linear Model</strong> (<i>Y</i> = <i>X</i>&beta; + &epsilon;) in real time.
+    Colour the noise with physiological oscillations and AR(1) temporal autocorrelation, then switch the estimator to <strong>prewhitened GLM</strong> and audit the null false-positive rate to see exactly how much ordinary least squares over-states its own significance when the residuals are not independent.
   </p>
 
   <div class="panel">
@@ -228,6 +229,12 @@
       <div class="canvas-caption">Voxel Time Series <i>Y</i>(<i>t</i>) (Noisy Dots) &amp; Overlaid OLS Model Fit <span style="color:var(--fit-line);font-weight:600;"><i>Y&#770;</i> = <i>X</i>&beta;&#770; (Purple Line)</span></div>
     </div>
 
+    <!-- Canvas 3: Residual Power Spectrum -->
+    <div class="timeline-box" style="margin-top: 20px;">
+      <canvas id="cSpectrum" class="scope" width="996" height="210"></canvas>
+      <div class="canvas-caption">Power Spectrum of the Residuals Used for Inference (white) vs. the <span style="color:var(--taskA);font-weight:600;">Task A Regressor</span> (orange), showing where your signal sits relative to drift, respiration and the aliased cardiac peak</div>
+    </div>
+
     <!-- Statistical Readout Grid -->
     <div class="stats-grid">
       <div class="stat-card">
@@ -254,6 +261,14 @@
         <div class="stat-label">Variance Inflation (VIF)</div>
         <div class="stat-val" id="dispVIF">1.02</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">Residual AR(1) &rho;&#770;</div>
+        <div class="stat-val" id="dispRho">0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Null FPR @ &alpha; = 5%</div>
+        <div class="stat-val" id="dispAudit" style="font-size: 0.92rem;">not yet audited</div>
+      </div>
     </div>
 
     <!-- Contrast Selection Bar -->
@@ -265,6 +280,14 @@
       <div style="margin-left: auto; font-size: 0.82rem; color: var(--muted);">
         Model: <i>Y</i> = &beta;<sub>A</sub><i>X</i><sub>A</sub> + &beta;<sub>B</sub><i>X</i><sub>B</sub> + &beta;<sub>drift</sub><i>X</i><sub>drift</sub> + &beta;<sub>0</sub>
       </div>
+    </div>
+
+    <!-- Estimator / Noise Model Bar -->
+    <div class="contrast-bar">
+      <span style="font-size: 0.85rem; font-weight: 600;">Estimator:</span>
+      <button id="btnOLS" class="active">OLS (assumes white noise)</button>
+      <button id="btnGLS" class="secondary">Prewhitened GLM (AR(1))</button>
+      <button id="btnAudit" class="secondary" style="margin-left: auto;">Audit Null False-Positive Rate</button>
     </div>
 
     <!-- Sliders Grid -->
@@ -284,6 +307,14 @@
       <div>
         <label>Scanner Baseline Drift: <span class="val-badge" id="valDrift">1.5%</span></label>
         <input type="range" id="sliderDrift" min="0" max="4.0" value="1.5" step="0.1">
+      </div>
+      <div>
+        <label>Physiological Noise (&sigma;<sub>physio</sub>): <span class="val-badge" id="valPhysio">0.5%</span></label>
+        <input type="range" id="sliderPhysio" min="0" max="2.5" value="0.5" step="0.05">
+      </div>
+      <div>
+        <label>Temporal Autocorrelation (AR(1) &rho;): <span class="val-badge" id="valRho">0.35</span></label>
+        <input type="range" id="sliderRho" min="0" max="0.9" value="0.35" step="0.01">
       </div>
     </div>
   </div>
@@ -305,6 +336,15 @@
     <p class="note">
       4. <strong>Nuisance Regressors:</strong> Real MRI scans suffer from low-frequency hardware drifts and heating. By including a linear drift column in the design matrix <i>X</i>, the GLM separates baseline drifts from true task-related neural activations.
     </p>
+    <p class="note">
+      5. <strong>Physiological Noise &amp; Aliasing:</strong> Respiration (&asymp; 0.25 Hz) and the cardiac cycle (&asymp; 1.1 Hz) modulate the BOLD signal through chest-motion field shifts and pulsatile inflow. At a TR of 0.5 s the sampling rate is 2 Hz, so respiration is sampled properly but the cardiac term is <em>undersampled</em> and folds back to |1.1 &minus; 2.0| = 0.9 Hz. That aliased peak cannot be filtered out at its true frequency, because its true frequency was never in the data. Raising the physiological slider and watching the spectrum panel shows why longer TRs make this worse, and why cardiac and respiratory traces are recorded during scanning so they can be modelled as nuisance regressors (RETROICOR) rather than filtered blindly.
+    </p>
+    <p class="note">
+      6. <strong>Temporal Autocorrelation &amp; Prewhitening:</strong> BOLD noise is not independent from volume to volume: neighbouring time points are correlated, which an AR(1) process with coefficient &rho; captures reasonably well. OLS still gives unbiased &beta;&#770;, but its <em>standard errors</em> assume independence, so it divides by a variance that is too small and the <i>t</i>-statistic comes out inflated. The fix is to prewhiten, applying the transform <i>y</i>*[<i>i</i>] = <i>y</i>[<i>i</i>] &minus; &rho;&#770;<i>y</i>[<i>i</i>&minus;1] to both <i>Y</i> and every column of <i>X</i>, which restores white residuals and honest standard errors. Press <strong>Audit Null False-Positive Rate</strong> to measure this directly: the audit re-runs the current design 500 times with both task effects set to <em>zero</em> and counts how often each estimator claims <i>p</i> &lt; 0.05. A calibrated test finds 5%. Turn &rho; up and watch OLS drift far above that while the prewhitened GLM holds.
+    </p>
+    <p class="note">
+      7. <strong>Where this simulation stops:</strong> &rho;&#770; here is the lag-1 autocorrelation of the OLS residuals, which is biased slightly toward zero because the design has already been projected out of those residuals. Production packages (SPM's AR(1), FSL FILM) add bias corrections and pool the estimate across neighbouring voxels for stability. Push &rho; up past about 0.8 and run the audit: the prewhitened GLM improves enormously on OLS but no longer lands exactly on 5%, because it is whitening with a &rho;&#770; that is slightly too small. Prewhitening also only removes the autocorrelation it models: a strong periodic physiological component is <em>not</em> AR(1), so with the physiological slider high the audit will show residual inflation that no amount of whitening removes. That is a modelling problem, not an estimation problem.
+    </p>
   </div>
 
   <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; General Linear Model Simulation</footer>
@@ -313,32 +353,142 @@
 <script>
 // --- Simulation Constants & State ---
 const duration = 160; // Total seconds
-const dt = 0.5; // Sampling interval (sec)
+const dt = 0.5; // Sampling interval (sec) -- this is the TR
 const numPoints = Math.round(duration / dt); // 320 points
+const fs = 1 / dt; // Sampling rate 2 Hz, so the Nyquist limit is 1 Hz
 
 // Current Paradigm: arrays of length numPoints (0 or 1)
 let stimA = new Float32Array(numPoints);
 let stimB = new Float32Array(numPoints);
 
 // Model Parameters
-let trueBetaA = 2.0; // % BOLD change
-let trueBetaB = 1.0; // % BOLD change
-let noiseStd = 0.8;
+let trueBetaA = 2.0;  // % BOLD change
+let trueBetaB = 1.0;  // % BOLD change
+let noiseStd = 0.8;   // thermal (white) component, % units
+let physioAmp = 0.5;  // physiological oscillation amplitude, % units
+let arRho = 0.35;     // AR(1) coefficient colouring the thermal component
 let driftAmp = 1.5;
 let currentPreset = 'block';
 let currentContrast = [1, 0]; // Task A > Baseline
+let useWhitening = false;     // false = plain OLS, true = AR(1) prewhitened GLM
 
-// Stored Noise vector (persistent until changed/reseeded)
-let noiseVec = new Float32Array(numPoints);
-function generateNoise() {
+// Physiological source frequencies (Hz). Respiration sits below the Nyquist limit and
+// lands where it belongs. The cardiac term is undersampled at TR = 0.5 s, so it folds
+// back to |1.1 - 2.0| = 0.9 Hz: you cannot filter it out at its true frequency, because
+// its true frequency is not in the sampled data at all.
+const F_RESP = 0.25;
+const F_CARD = 1.10;
+function aliasOf(f) { return Math.abs(f - fs * Math.round(f / fs)); }
+const F_CARD_ALIAS = aliasOf(F_CARD);
+
+function randn() {
+  // Box-Muller transform
+  const u = Math.random(), v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u || 0.0001)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// Stored noise sources (persistent until reseeded)
+let whiteVec = new Float32Array(numPoints);  // i.i.d. innovations
+let physioVec = new Float32Array(numPoints); // unit-variance physiological oscillation
+
+function buildPhysio(target) {
+  // Random phases, so each realization catches a different point in the respiratory
+  // and cardiac cycles -- which is exactly what differs across runs and subjects.
+  const phR = Math.random() * 2 * Math.PI;
+  const phC = Math.random() * 2 * Math.PI;
+  let sum = 0, sum2 = 0;
   for (let i = 0; i < numPoints; i++) {
-    // Box-Muller transform
-    let u = Math.random(), v = Math.random();
-    let z = Math.sqrt(-2.0 * Math.log(u || 0.0001)) * Math.cos(2.0 * Math.PI * v);
-    noiseVec[i] = z;
+    const t = i * dt;
+    const v = Math.sin(2 * Math.PI * F_RESP * t + phR) + 0.6 * Math.sin(2 * Math.PI * F_CARD * t + phC);
+    target[i] = v;
+    sum += v; sum2 += v * v;
   }
+  // Normalize to zero mean and unit variance so the slider reads directly in % units
+  const mean = sum / numPoints;
+  const sd = Math.sqrt(Math.max(1e-9, sum2 / numPoints - mean * mean));
+  for (let i = 0; i < numPoints; i++) target[i] = (target[i] - mean) / sd;
+}
+
+function generateNoise() {
+  for (let i = 0; i < numPoints; i++) whiteVec[i] = randn();
+  buildPhysio(physioVec);
 }
 generateNoise();
+
+// Colour the thermal innovations with an AR(1) process, then add the physiological
+// oscillation on top. Using e[i] = rho*e[i-1] + sqrt(1 - rho^2)*z[i] keeps the marginal
+// variance at 1, so moving the rho slider changes the correlation structure of the noise
+// without changing how much noise there is.
+function composeNoise(white, physio, out) {
+  const s = Math.sqrt(Math.max(0, 1 - arRho * arRho));
+  let e = white[0];
+  out[0] = noiseStd * e + physioAmp * physio[0];
+  for (let i = 1; i < numPoints; i++) {
+    e = arRho * e + s * white[i];
+    out[i] = noiseStd * e + physioAmp * physio[i];
+  }
+  return out;
+}
+
+// --- Student's t distribution, exact via the regularized incomplete beta ---
+function logGamma(x) {
+  const cof = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+               -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x, tmp = x + 5.5;
+  tmp -= (x + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) ser += cof[j] / ++y;
+  return -tmp + Math.log(2.5066282746310005 * ser / x);
+}
+
+function betacf(a, b, x) {
+  const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+  const qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c; h *= del;
+    if (Math.abs(del - 1.0) < EPS) break;
+  }
+  return h;
+}
+
+function betai(a, b, x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) +
+                      a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+  return 1 - bt * betacf(b, a, 1 - x) / b;
+}
+
+// Two-tailed p-value for a t statistic, computed exactly rather than by a normal
+// approximation: the audit below compares tail probabilities where the difference counts.
+function tTwoTailedP(t, df) {
+  if (!isFinite(t)) return 0;
+  return betai(0.5 * df, 0.5, df / (df + t * t));
+}
+
+// Critical |t| for a two-tailed test at level alpha, found by bisecting the CDF.
+function tCritical(alpha, df) {
+  let lo = 0, hi = 40;
+  for (let k = 0; k < 80; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (tTwoTailedP(mid, df) > alpha) lo = mid; else hi = mid;
+  }
+  return 0.5 * (lo + hi);
+}
 
 // --- Canonical Double-Gamma HRF ---
 // Peak at 6s, undershoot at 16s
@@ -446,6 +596,7 @@ function setPreset(p) {
 // --- Ordinary Least Squares (OLS) Solver ---
 // Solves (X^T * X) * beta = X^T * Y for a 4-column matrix
 function solveOLS(X, Y) {
+  const N = Y.length;
   // Compute X^T * X (4x4) and X^T * Y (4x1)
   const XtX = [
     [0, 0, 0, 0],
@@ -455,7 +606,7 @@ function solveOLS(X, Y) {
   ];
   const XtY = [0, 0, 0, 0];
 
-  for (let i = 0; i < numPoints; i++) {
+  for (let i = 0; i < N; i++) {
     const x0 = X[0][i];
     const x1 = X[1][i];
     const x2 = X[2][i];
@@ -516,8 +667,82 @@ function solveOLS(X, Y) {
   return { beta_hat, XtX_inv };
 }
 
+// --- Prewhitening helpers ---
+// Cochrane-Orcutt transform: y*[i] = y[i] - rho*y[i-1], with the first sample scaled by
+// sqrt(1 - rho^2) rather than discarded. Applied to Y and to every column of X, this maps
+// an AR(1) error structure back onto white noise, which is the assumption OLS needs before
+// its standard errors mean anything.
+function prewhiten(vec, rho) {
+  const n = vec.length;
+  const out = new Float32Array(n);
+  out[0] = vec[0] * Math.sqrt(Math.max(0, 1 - rho * rho));
+  for (let i = 1; i < n; i++) out[i] = vec[i] - rho * vec[i - 1];
+  return out;
+}
+
+function residualsOf(X, Y, beta) {
+  const n = Y.length;
+  const r = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let p = 0;
+    for (let j = 0; j < X.length; j++) p += beta[j] * X[j][i];
+    r[i] = Y[i] - p;
+  }
+  return r;
+}
+
+function lag1Autocorr(r) {
+  const n = r.length;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) den += r[i] * r[i];
+  for (let i = 1; i < n; i++) num += r[i] * r[i - 1];
+  return den > 1e-12 ? num / den : 0;
+}
+
+// Fit the GLM, optionally prewhitening with an AR(1) coefficient estimated from the OLS
+// residuals. Returns the statistics plus the residual series actually used for inference,
+// which is what the spectrum panel plots.
+function fitGLM(X, Y, contrast, doWhiten) {
+  const nCol = X.length;
+  let fit = solveOLS(X, Y);
+  const rhoHat = lag1Autocorr(residualsOf(X, Y, fit.beta_hat));
+
+  let Xu = X, Yu = Y, rhoUsed = 0;
+  if (doWhiten) {
+    rhoUsed = Math.max(-0.95, Math.min(0.95, rhoHat));
+    Yu = prewhiten(Y, rhoUsed);
+    Xu = X.map(col => prewhiten(col, rhoUsed));
+    fit = solveOLS(Xu, Yu);
+  }
+
+  const resid = residualsOf(Xu, Yu, fit.beta_hat);
+  let rss = 0;
+  for (let i = 0; i < resid.length; i++) rss += resid[i] * resid[i];
+
+  const df = Y.length - nCol;
+  const sigma2 = rss / df;
+
+  const c = [contrast[0], contrast[1], 0, 0];
+  const cBeta = c[0] * fit.beta_hat[0] + c[1] * fit.beta_hat[1];
+
+  // var(c^T beta) = sigma^2 * (c^T (X^T X)^-1 c)
+  let c_cov_c = 0;
+  for (let i = 0; i < nCol; i++) {
+    for (let j = 0; j < nCol; j++) c_cov_c += c[i] * fit.XtX_inv[i][j] * c[j];
+  }
+  const se = Math.sqrt(Math.max(1e-12, sigma2 * c_cov_c));
+  const t = cBeta / se;
+
+  return {
+    beta_hat: fit.beta_hat, cBeta, se_contrast: se, t_stat: t,
+    p_val: tTwoTailedP(t, df), df, rhoHat, rhoUsed, resid
+  };
+}
+
 // --- Main Simulation Update ---
-let cachedRegA, cachedRegB, cachedVoxelData, cachedFitData, cachedStats;
+let cachedRegA, cachedRegB, cachedVoxelData, cachedFitData, cachedStats, cachedResid;
+let designCols = null;                          // shared with the false-positive audit
+const noiseBuf = new Float32Array(numPoints);
 
 function updateSimulation() {
   // 1. Convolve stimulus vectors with HRF
@@ -533,6 +758,7 @@ function updateSimulation() {
   }
 
   const X = [regA, regB, regDrift, regConst];
+  designCols = X;
 
   // 3. Collinearity metrics between regA and regB
   let sumA = 0, sumB = 0;
@@ -550,71 +776,88 @@ function updateSimulation() {
   const corr = (denA > 0 && denB > 0) ? (num / Math.sqrt(denA * denB)) : 0;
   const vif = (1.0 - corr * corr) > 0.001 ? (1.0 / (1.0 - corr * corr)) : 99.9;
 
-  // 4. Generate Synthetic Voxel Data Y(t)
+  // 4. Generate Synthetic Voxel Data Y(t) = baseline + task + drift + coloured noise
+  composeNoise(whiteVec, physioVec, noiseBuf);
   const Y = new Float32Array(numPoints);
   const baseline = 100.0;
   for (let i = 0; i < numPoints; i++) {
-    let signal = baseline
+    Y[i] = baseline
       + trueBetaA * regA[i]
       + trueBetaB * regB[i]
       + driftAmp * regDrift[i]
-      + noiseStd * noiseVec[i];
-    Y[i] = signal;
+      + noiseBuf[i];
   }
 
-  // 5. Fit OLS Model
-  const { beta_hat, XtX_inv } = solveOLS(X, Y);
+  // 5. Fit the model with the currently selected estimator
+  const res = fitGLM(X, Y, currentContrast, useWhitening);
+  const beta_hat = res.beta_hat;
 
-  // Compute fitted values and residuals
+  // The fitted series is always drawn against the original, unwhitened data: whitening
+  // changes how beta is estimated, not what beta means.
   const Y_fit = new Float32Array(numPoints);
-  let rss = 0;
   for (let i = 0; i < numPoints; i++) {
-    let y_pred = beta_hat[0] * regA[i] + beta_hat[1] * regB[i] + beta_hat[2] * regDrift[i] + beta_hat[3] * regConst[i];
-    Y_fit[i] = y_pred;
-    let res = Y[i] - y_pred;
-    rss += res * res;
+    Y_fit[i] = beta_hat[0] * regA[i] + beta_hat[1] * regB[i]
+             + beta_hat[2] * regDrift[i] + beta_hat[3] * regConst[i];
   }
-
-  const df = numPoints - 4;
-  const sigma2 = rss / df;
-
-  // Contrast Testing
-  const c = [currentContrast[0], currentContrast[1], 0, 0];
-  const cBeta = c[0] * beta_hat[0] + c[1] * beta_hat[1];
-
-  // var(c * beta) = sigma2 * (c^T * XtX_inv * c)
-  let c_cov_c = 0;
-  for (let i = 0; i < 4; i++) {
-    for (let j = 0; j < 4; j++) {
-      c_cov_c += c[i] * XtX_inv[i][j] * c[j];
-    }
-  }
-  const se_contrast = Math.sqrt(Math.max(1e-12, sigma2 * c_cov_c));
-  const t_stat = cBeta / se_contrast;
-
-  // Approximate p-value (normal approximation since df = 316)
-  const absT = Math.abs(t_stat);
-  let p_val = 2.0 * (1.0 - 0.5 * (1.0 + Math.sign(absT) * Math.sqrt(1.0 - Math.exp(-2.0 * absT * absT / Math.PI))));
 
   cachedRegA = regA;
   cachedRegB = regB;
   cachedVoxelData = Y;
   cachedFitData = Y_fit;
-  cachedStats = { beta_hat, cBeta, t_stat, p_val, corr, vif, se_contrast };
+  cachedResid = res.resid;
+  cachedStats = { beta_hat, cBeta: res.cBeta, t_stat: res.t_stat, p_val: res.p_val,
+                  corr, vif, se_contrast: res.se_contrast, rhoHat: res.rhoHat, df: res.df };
 
   // Update UI Readouts
   document.getElementById('dispBetaA').textContent = `${trueBetaA.toFixed(2)} → ${beta_hat[0].toFixed(2)}`;
   document.getElementById('dispBetaB').textContent = `${trueBetaB.toFixed(2)} → ${beta_hat[1].toFixed(2)}`;
-  document.getElementById('dispContrast').textContent = `${cBeta >= 0 ? '+' : ''}${cBeta.toFixed(2)} (SE: ${se_contrast.toFixed(2)})`;
-  document.getElementById('dispTstat').innerHTML = `<i>t</i> = ${t_stat.toFixed(2)}`;
-  document.getElementById('dispPval').innerHTML = p_val < 0.0001 ? '<i>p</i> &lt; 0.0001' : `<i>p</i> = ${p_val.toFixed(4)}`;
+  document.getElementById('dispContrast').textContent = `${res.cBeta >= 0 ? '+' : ''}${res.cBeta.toFixed(2)} (SE: ${res.se_contrast.toFixed(2)})`;
+  document.getElementById('dispTstat').innerHTML = `<i>t</i> = ${res.t_stat.toFixed(2)}`;
+  document.getElementById('dispPval').innerHTML = res.p_val < 0.0001 ? '<i>p</i> &lt; 0.0001' : `<i>p</i> = ${res.p_val.toFixed(4)}`;
   document.getElementById('dispVIF').textContent = vif >= 99 ? '> 99 (Severe)' : vif.toFixed(2);
+  document.getElementById('dispRho').textContent = res.rhoHat.toFixed(2) + (useWhitening ? ' (removed)' : ' (ignored)');
 
   const bannerSub = document.getElementById('bannerSub');
-  bannerSub.textContent = `VIF: ${vif.toFixed(2)} · Regressor Correlation r = ${corr.toFixed(2)}`;
+  bannerSub.textContent = `VIF: ${vif.toFixed(2)} · Regressor Correlation r = ${corr.toFixed(2)} · Estimator: ${useWhitening ? 'Prewhitened GLM' : 'OLS'}`;
 
   renderTimelineCanvas();
   renderVoxelCanvas();
+  renderSpectrumCanvas();
+}
+
+// --- Null false-positive audit ---
+// Re-runs the current design many times with both task effects switched off, and counts how
+// often each estimator declares significance at alpha = 0.05. A calibrated test finds 5%.
+// Anything above that is the price of a noise model that does not match the data.
+function runAudit() {
+  const K = 500, alpha = 0.05;
+  const df = numPoints - 4;
+  const tcrit = tCritical(alpha, df);
+  const X = designCols;
+  const w = new Float32Array(numPoints);
+  const ph = new Float32Array(numPoints);
+  const nz = new Float32Array(numPoints);
+  const Y = new Float32Array(numPoints);
+  let hitsOLS = 0, hitsGLS = 0;
+
+  for (let k = 0; k < K; k++) {
+    for (let i = 0; i < numPoints; i++) w[i] = randn();
+    buildPhysio(ph);
+    composeNoise(w, ph, nz);
+    for (let i = 0; i < numPoints; i++) {
+      Y[i] = 100.0 + driftAmp * X[2][i] + nz[i]; // no task effect whatsoever
+    }
+    if (Math.abs(fitGLM(X, Y, currentContrast, false).t_stat) > tcrit) hitsOLS++;
+    if (Math.abs(fitGLM(X, Y, currentContrast, true).t_stat) > tcrit) hitsGLS++;
+  }
+
+  const fprOLS = 100 * hitsOLS / K;
+  const fprGLS = 100 * hitsGLS / K;
+  const el = document.getElementById('dispAudit');
+  el.textContent = `OLS ${fprOLS.toFixed(1)}% · GLS ${fprGLS.toFixed(1)}%`;
+  el.style.color = fprOLS > 8 ? '#dc2626' : '';
+  document.getElementById('bannerText').innerHTML =
+    `<strong>Null audit (${K} runs, no task effect):</strong> plain OLS called ${fprOLS.toFixed(1)}% of pure-noise datasets significant; the AR(1)-prewhitened GLM called ${fprGLS.toFixed(1)}%. Both should be 5%.`;
 }
 
 // --- Canvases & Rendering ---
@@ -776,6 +1019,142 @@ function renderVoxelCanvas() {
   ctxVoxel.fillText('— GLM OLS Fit Y^ = Xβ^', padLeft + 180, padTop + 14);
 }
 
+// --- Residual Power Spectrum ---
+const cSpectrum = document.getElementById('cSpectrum');
+const ctxSpec = cSpectrum.getContext('2d');
+
+// Twiddle factors for a direct DFT: cos/sin of 2*pi*j/N for j = 0..N-1. Precomputing these
+// keeps the spectrum cheap enough to recompute on every slider move.
+const twCos = new Float64Array(numPoints), twSin = new Float64Array(numPoints);
+for (let j = 0; j < numPoints; j++) {
+  twCos[j] = Math.cos(2 * Math.PI * j / numPoints);
+  twSin[j] = Math.sin(2 * Math.PI * j / numPoints);
+}
+
+// One-sided periodogram of a mean-removed series. Bin k sits at frequency k*fs/N.
+function periodogram(series) {
+  const n = numPoints, nF = Math.floor(n / 2);
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += series[i];
+  mean /= n;
+  const out = new Float64Array(nF);
+  for (let k = 1; k <= nF; k++) {
+    let re = 0, im = 0;
+    for (let i = 0; i < n; i++) {
+      const v = series[i] - mean;
+      const idx = (k * i) % n;
+      re += v * twCos[idx];
+      im -= v * twSin[idx];
+    }
+    out[k - 1] = (re * re + im * im) / n;
+  }
+  return out;
+}
+
+function renderSpectrumCanvas() {
+  const w = cSpectrum.width, h = cSpectrum.height;
+  ctxSpec.clearRect(0, 0, w, h);
+
+  const padLeft = 46, padRight = 20, padTop = 22, padBottom = 28;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+  const nyq = fs / 2;
+
+  const specResid = periodogram(cachedResid);
+  const specTask = periodogram(cachedRegA);
+  const nF = specResid.length;
+
+  // Each spectrum is normalized to its own peak, so the panel compares the shape of the
+  // signal against the shape of the noise rather than their absolute scales.
+  const FLOOR = 1e-6;
+  function normLog(spec) {
+    let mx = 0;
+    for (let i = 0; i < spec.length; i++) if (spec[i] > mx) mx = spec[i];
+    if (mx <= 0) mx = 1;
+    const out = new Float64Array(spec.length);
+    for (let i = 0; i < spec.length; i++) {
+      out[i] = Math.log10(Math.max(spec[i] / mx, FLOOR)) / Math.log10(FLOOR); // 0 at peak, 1 at floor
+    }
+    return out;
+  }
+  const lr = normLog(specResid), lt = normLog(specTask);
+
+  const xOf = (f) => padLeft + (f / nyq) * plotW;
+  const yOf = (v) => padTop + v * plotH; // v = 0 at top (peak), 1 at bottom (floor)
+
+  // Drift band: everything below 0.02 Hz, which is what a high-pass filter removes
+  ctxSpec.fillStyle = 'rgba(148, 163, 184, 0.12)';
+  ctxSpec.fillRect(padLeft, padTop, xOf(0.02) - padLeft, plotH);
+
+  // Grid
+  ctxSpec.strokeStyle = '#1e293b';
+  ctxSpec.lineWidth = 1;
+  ctxSpec.beginPath();
+  for (let f = 0; f <= nyq + 1e-9; f += 0.1) {
+    const x = xOf(f);
+    ctxSpec.moveTo(x, padTop); ctxSpec.lineTo(x, padTop + plotH);
+  }
+  for (let d = 0; d <= 6; d++) {
+    const y = padTop + (d / 6) * plotH;
+    ctxSpec.moveTo(padLeft, y); ctxSpec.lineTo(padLeft + plotW, y);
+  }
+  ctxSpec.stroke();
+
+  // Physiological frequency markers
+  ctxSpec.setLineDash([4, 4]);
+  ctxSpec.lineWidth = 1.4;
+  const marks = [
+    { f: F_RESP, c: '#22d3ee', label: `respiration ${F_RESP.toFixed(2)} Hz` },
+    { f: F_CARD_ALIAS, c: '#f472b6', label: `cardiac alias ${F_CARD_ALIAS.toFixed(2)} Hz` }
+  ];
+  ctxSpec.font = '10px ui-monospace, monospace';
+  marks.forEach(m => {
+    const x = xOf(m.f);
+    ctxSpec.strokeStyle = m.c;
+    ctxSpec.beginPath();
+    ctxSpec.moveTo(x, padTop); ctxSpec.lineTo(x, padTop + plotH);
+    ctxSpec.stroke();
+    ctxSpec.fillStyle = m.c;
+    ctxSpec.fillText(m.label, Math.min(x + 4, w - 130), padTop + plotH - 6);
+  });
+  ctxSpec.setLineDash([]);
+
+  // Task regressor spectrum
+  ctxSpec.strokeStyle = '#fb923c';
+  ctxSpec.lineWidth = 2.0;
+  ctxSpec.beginPath();
+  for (let k = 0; k < nF; k++) {
+    const x = xOf((k + 1) * fs / numPoints), y = yOf(lt[k]);
+    if (k === 0) ctxSpec.moveTo(x, y); else ctxSpec.lineTo(x, y);
+  }
+  ctxSpec.stroke();
+
+  // Residual spectrum
+  ctxSpec.strokeStyle = 'rgba(226, 232, 240, 0.9)';
+  ctxSpec.lineWidth = 1.6;
+  ctxSpec.beginPath();
+  for (let k = 0; k < nF; k++) {
+    const x = xOf((k + 1) * fs / numPoints), y = yOf(lr[k]);
+    if (k === 0) ctxSpec.moveTo(x, y); else ctxSpec.lineTo(x, y);
+  }
+  ctxSpec.stroke();
+
+  // Axis labels
+  ctxSpec.fillStyle = '#94a3b8';
+  ctxSpec.font = '10px ui-monospace, monospace';
+  for (let f = 0; f <= nyq + 1e-9; f += 0.2) {
+    ctxSpec.fillText(f.toFixed(1), xOf(f) - 8, h - 9);
+  }
+  ctxSpec.fillText('Hz', padLeft + plotW - 10, h - 9);
+  ctxSpec.fillText('peak', 12, padTop + 8);
+  ctxSpec.fillText('floor', 12, padTop + plotH);
+  ctxSpec.font = 'bold 11px sans-serif';
+  ctxSpec.fillStyle = 'rgba(226, 232, 240, 0.9)';
+  ctxSpec.fillText(useWhitening ? '— whitened residuals' : '— residuals (not whitened)', padLeft + 10, padTop + 14);
+  ctxSpec.fillStyle = '#fb923c';
+  ctxSpec.fillText('— task regressor X_A', padLeft + 230, padTop + 14);
+}
+
 // --- Event Listeners ---
 document.getElementById('btnBlock').addEventListener('click', () => setPreset('block'));
 document.getElementById('btnJitter').addEventListener('click', () => setPreset('jitter'));
@@ -862,6 +1241,54 @@ cTimeline.addEventListener('click', (e) => {
   // Update preset buttons to custom
   document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
   document.getElementById('bannerText').innerHTML = '<strong>Custom Paradigm:</strong> Timeline manually edited. Click to toggle Task A blocks; Shift+Click to toggle Task B blocks.';
+  updateSimulation();
+});
+
+// Estimator Selection
+const btnOLS = document.getElementById('btnOLS');
+const btnGLS = document.getElementById('btnGLS');
+
+function setEstimator(whiten) {
+  useWhitening = whiten;
+  btnOLS.classList.toggle('active', !whiten);
+  btnOLS.classList.toggle('secondary', whiten);
+  btnGLS.classList.toggle('active', whiten);
+  btnGLS.classList.toggle('secondary', !whiten);
+  document.getElementById('bannerText').innerHTML = whiten
+    ? '<strong>Prewhitened GLM:</strong> rho is estimated from the OLS residuals and removed from Y and every column of X before refitting, so the standard errors stop assuming independence they do not have.'
+    : '<strong>Ordinary Least Squares:</strong> beta is unbiased, but the standard errors assume independent residuals. With rho above zero that assumption is false and every t-statistic below is too large.';
+  updateSimulation();
+}
+
+btnOLS.addEventListener('click', () => setEstimator(false));
+btnGLS.addEventListener('click', () => setEstimator(true));
+
+document.getElementById('btnAudit').addEventListener('click', (e) => {
+  const btn = e.target;
+  const prev = btn.textContent;
+  btn.textContent = 'Auditing 500 null runs…';
+  btn.disabled = true;
+  // Yield a frame so the button repaints before the synchronous audit blocks the thread
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    runAudit();
+    btn.textContent = prev;
+    btn.disabled = false;
+  }));
+});
+
+const sliderPhysio = document.getElementById('sliderPhysio');
+const valPhysio = document.getElementById('valPhysio');
+sliderPhysio.addEventListener('input', (e) => {
+  physioAmp = parseFloat(e.target.value);
+  valPhysio.textContent = physioAmp.toFixed(2) + '%';
+  updateSimulation();
+});
+
+const sliderRho = document.getElementById('sliderRho');
+const valRho = document.getElementById('valRho');
+sliderRho.addEventListener('input', (e) => {
+  arRho = parseFloat(e.target.value);
+  valRho.textContent = arRho.toFixed(2);
   updateSimulation();
 });
 
