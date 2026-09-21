@@ -294,3 +294,39 @@ This document catalogs the interactive simulations and educational tools develop
   * Post-stimulus latency scrubber ($-50\text{ ms}$ to $+450\text{ ms}$) with animated playback.
   * Synchronized view of dynamic EEG RDM vs. static fMRI regional RDMs (V1, LOC, FFA).
   * Anatomical brain schematic lighting up corresponding visual cortex structures as their representational pattern emerges.
+
+---
+
+## 9. Emerging Modalities (Week 13)
+
+### [COMPLETED] Optically Pumped Magnetometers (OPM) & Wearable MEG Studio
+* **Target File**: `nbl425/demos/opm_wearable_meg.html`
+* **Course Week**: Week 13 (Emerging Modalities)
+* **Core Concepts**:
+  * SERF (Spin-Exchange Relaxation-Free) optical pumping in $^{87}\text{Rb}$ vapor cells.
+  * Inverse square law ($B \propto 1/r^2$) standoff advantage: $4\text{ mm}$ scalp gap vs. $25-35\text{ mm}$ SQUID cryogenic dewar gap.
+  * Pediatric brain imaging: conformal flexible caps scaling to any head size vs. small head sitting 50+ mm away from adult SQUID helmets.
+  * Active triaxial field cancellation coils enabling head movement tolerance.
+* **Key Interaction**:
+  * SQUID vs. Wearable OPM toggle with animated head cross-section.
+  * Adult vs. Child cranial anatomy selector.
+  * Head movement tilt/nod simulator showing SQUID motion artifact disruption vs. OPM synchronized tracking.
+  * Real-time auditory M100 evoked field recording in femtoteslas (fT).
+
+---
+
+## 10. Future Directions & Big Data Connectomics (Week 14)
+
+### [COMPLETED] Brain-Wide Association Studies (BWAS) Power & Replication Simulator
+* **Target File**: `nbl425/demos/bwas_power_replication.html`
+* **Course Week**: Week 14 (Future & Final Projects)
+* **Core Concepts**:
+  * Big data population neuroimaging (UK Biobank, ABCD, HCP).
+  * Realistic modest brain-behavior effect sizes ($|r_{\text{true}}| \approx 0.05 - 0.15$).
+  * The Winner's Curse: severe effect size inflation in underpowered ($N = 25-50$) discovery cohorts.
+  * Replication crisis: failure of inflated discovery associations to replicate in independent samples.
+  * Sample size scaling ($N \ge 2,000$) required for honest effect sizes and $>80\%$ replication power.
+* **Key Interaction**:
+  * Sample size slider ($N = 20$ to $4,000$) and true effect slider ($r_{\text{true}} = 0.00$ to $0.30$).
+  * Split-half Discovery vs. Replication scatter plots with real-time Pearson $r$ and $p$-values.
+  * 1,000-study Monte Carlo engine generating histograms of statistically significant discoveries and true out-of-sample replication rates.

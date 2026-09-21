@@ -97,8 +97,10 @@ TYPE = {
  'neuroengineering/kalman_filters.html':'sim',
  'nbl425_games/index.html':'game',
  'mrs/129xe_hyperpolarized.html':'tool',
+ 'nbl425/demos/opm_wearable_meg.html':'sim',
  'criticality.html':'sim',
  'neuroengineering/sua_mua.html':'sim',
+ 'nbl425/demos/bwas_power_replication.html':'sim',
 }
 
 # Interactive pages on the site that no week page links, but that are plainly

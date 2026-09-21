@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain-Wide Association Studies (BWAS) Power &amp; Replication Simulator</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-disc: #3b82f6;
+    --c-rep: #10b981;
+    --c-fail: #ef4444;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  @media (max-width: 920px) {
+    .grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .scatter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 680px) {
+    .scatter-grid { grid-template-columns: 1fr; }
+  }
+
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+  @media (max-width: 680px) {
+    .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .m-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .m-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .m-val { font-size: 1.15rem; font-weight: 700; color: var(--fg); margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .m-sub { font-size: 0.68rem; color: var(--muted); }
+
+  .ctrl-group { margin-bottom: 14px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .action-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    width: 100%;
+    margin-top: 8px;
+    transition: all 0.15s ease;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { opacity: 0.9; color: #fff; }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week14/index.html">&larr; Back to Week 14</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>Brain-Wide Association Studies (BWAS) Power &amp; Replication Simulator</h1>
+  <p class="sub">
+    Big Data Neuroimaging &middot; Population Cohort Sizes, Modest Effect Sizes, The Winner's Curse &amp; Out-of-Sample Replication
+  </p>
+
+  <div class="banner">
+    <strong>The Statistical Reality of Connectomics:</strong> Landmark discoveries across thousands of brain MRI scans (UK Biobank, ABCD) revealed that true univariate brain-behavior associations (e.g. functional connectivity or cortical volume correlated with cognitive ability or personality traits) are modest: typically <span class="code-math">|r_{\text{true}}| \approx 0.05 - 0.15</span>. In small cohorts (<span class="code-math">N = 25-50</span>), statistical power is negligible (<span class="code-math">&lt; 10\%</span>). Consequently, only samples with severe chance noise spikes achieve <span class="code-math">p &lt; 0.05</span>, producing massively inflated published effect sizes (<span class="code-math">r_{\text{obs}} \approx 0.40-0.60</span>) that fail completely when tested in independent replication cohorts.
+  </div>
+
+  <div class="panel">
+    <div class="grid-layout">
+      <!-- Left: Scatter plots & Monte Carlo Histogram -->
+      <div>
+        <div class="scatter-grid">
+          <!-- Discovery Cohort -->
+          <div>
+            <div style="font-size:0.82rem;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;">
+              <span>Discovery Cohort</span>
+              <span id="lblDiscStat" style="color:var(--c-disc);">r = 0.00, p = 1.0</span>
+            </div>
+            <div class="canvas-box">
+              <canvas id="discCanvas" height="190"></canvas>
+            </div>
+          </div>
+
+          <!-- Replication Cohort -->
+          <div>
+            <div style="font-size:0.82rem;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;">
+              <span>Independent Replication Cohort</span>
+              <span id="lblRepStat" style="color:var(--c-rep);">r = 0.00, p = 1.0</span>
+            </div>
+            <div class="canvas-box">
+              <canvas id="repCanvas" height="190"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:0.85rem;font-weight:600;margin:12px 0 4px;display:flex;justify-content:space-between;">
+          <span>Monte Carlo Distribution of Significant Discoveries (1,000 Studies)</span>
+          <span style="font-size:0.75rem;color:var(--muted);">Dashed Line: True r</span>
+        </div>
+        <div class="canvas-box">
+          <canvas id="histCanvas" height="180"></canvas>
+        </div>
+
+        <!-- Metrics Strip -->
+        <div class="metrics-strip">
+          <div class="m-card">
+            <div class="m-lbl">Statistical Power</div>
+            <div class="m-val" id="metricPower">--</div>
+            <div class="m-sub">P(p &lt; 0.05)</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Discovered r&#770; (Mean)</div>
+            <div class="m-val" id="metricInflated">--</div>
+            <div class="m-sub">Winner's Curse</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Inflation Factor</div>
+            <div class="m-val" id="metricFactor">--</div>
+            <div class="m-sub">Observed / True r</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Replication Rate</div>
+            <div class="m-val" id="metricRepRate">--</div>
+            <div class="m-sub">Independent Cohort</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div>
+        <!-- Sample Size Slider -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Sample Size per Cohort (N)</span>
+            <span class="ctrl-val" id="nVal">35</span>
+          </div>
+          <input type="range" id="nSlider" min="20" max="3000" step="20" value="35">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>N = 25 (Historical)</span>
+            <span>N = 3,000 (Biobank)</span>
+          </div>
+        </div>
+
+        <!-- True Effect Size Slider -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>True Population Effect (r<sub>true</sub>)</span>
+            <span class="ctrl-val" id="rTrueVal">0.10</span>
+          </div>
+          <input type="range" id="rTrueSlider" min="0.0" max="0.30" step="0.02" value="0.10">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>0.00 (Pure Null)</span>
+            <span>0.30 (Unusually Large)</span>
+          </div>
+        </div>
+
+        <button class="action-btn btn-primary" id="btnResample">Resample Single Study Pair</button>
+        <button class="action-btn" id="btnAudit">Run 1,000-Study Monte Carlo Audit</button>
+
+        <!-- Information Box -->
+        <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
+          <strong>Interactive Takeaway:</strong>
+          <p style="margin:4px 0 0;color:var(--muted);">
+            Set <span class="code-math">N = 35</span> and run the Monte Carlo audit. Notice how the few studies that reach <span class="code-math">p &lt; 0.05</span> report <span class="code-math">r \approx 0.45</span> (a 4.5&times; inflation of the true <span class="code-math">r = 0.10</span> effect), and replication rate is under 15%. Now increase <span class="code-math">N \ge 2,000</span> to see inflation disappear and replication climb above 90%.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Statistical Principles of Brain-Wide Association Studies</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. Modest True Effect Sizes in Population Brains:</strong>
+        <p>Large-scale consortia (e.g. Human Connectome Project, Adolescent Brain Cognitive Development, UK Biobank) aggregating tens of thousands of participants established that univariate brain-behavior correlations rarely exceed <span class="code-math">|r| \approx 0.15</span>. Complex behavioral traits (intelligence, depression, executive function) are distributed across millions of synapses and distributed neural networks, meaning no single brain voxel or structural connection accounts for more than 1–2% of variance.</p>
+      </div>
+      <div>
+        <strong>2. The Mechanism of the Winner's Curse:</strong>
+        <p>When an underpowered study (<span class="code-math">N = 30</span>) searches for a small effect (<span class="code-math">r = 0.10</span>), statistical power is typically below 8%. For an observed estimate to clear the conventional two-tailed threshold of <span class="code-math">p &lt; 0.05</span>, it requires <span class="code-math">|r_{\text{obs}}| &gt; 0.33</span>. Thus, the only studies that get published are those where thermal noise, sampling variability, and chance alignment happen to align in the same direction, generating massive effect size inflation.</p>
+      </div>
+      <div>
+        <strong>3. The Replication Crisis &amp; Sample Size Scaling:</strong>
+        <p>When researchers attempt to replicate an inflated small-sample discovery in a new independent cohort, the chance noise disappears. The expected replication effect size regresses to the true population value (<span class="code-math">r \approx 0.10</span>). Because the replication cohort is also underpowered, it fails to achieve significance (<span class="code-math">p &gt; 0.05</span>) over 85% of the time, creating an apparent failure to replicate.</p>
+      </div>
+      <div>
+        <strong>4. Methodological Solutions for Modern Neuroimaging:</strong>
+        <ul>
+          <li><strong>Massive Sample Aggregation:</strong> Sample sizes of <span class="code-math">N \ge 2,000</span> ensure honest effect size estimation and &gt;80% replication power.</li>
+          <li><strong>Multivariate Machine Learning:</strong> Rather than isolating single edges, multivariate cross-validated ridge regression or support vector machines pool weak signals across whole connectomes, achieving predictive correlations of <span class="code-math">r \approx 0.40 - 0.60</span>.</li>
+          <li><strong>Pre-registration &amp; Out-of-Sample Validation:</strong> Mandating independent holdout test sets prevents circular feature selection (double-dipping).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // State
+  let N = 35;
+  let rTrue = 0.10;
+
+  // Current single-study sample data points
+  let discData = { x: [], y: [], r: 0, p: 1 };
+  let repData = { x: [], y: [], r: 0, p: 1 };
+
+  // Monte Carlo Audit Results
+  let mcSignificantR = [];
+  let mcPower = 0;
+  let mcMeanInflatedR = 0;
+  let mcInflationFactor = 0;
+  let mcReplicationRate = 0;
+
+  // DOM Elements
+  const discCanvas = document.getElementById('discCanvas');
+  const dCtx = discCanvas.getContext('2d');
+  const repCanvas = document.getElementById('repCanvas');
+  const rCtx = repCanvas.getContext('2d');
+  const histCanvas = document.getElementById('histCanvas');
+  const hCtx = histCanvas.getContext('2d');
+
+  const nSlider = document.getElementById('nSlider');
+  const nVal = document.getElementById('nVal');
+  const rTrueSlider = document.getElementById('rTrueSlider');
+  const rTrueVal = document.getElementById('rTrueVal');
+  const btnResample = document.getElementById('btnResample');
+  const btnAudit = document.getElementById('btnAudit');
+
+  const lblDiscStat = document.getElementById('lblDiscStat');
+  const lblRepStat = document.getElementById('lblRepStat');
+  const metricPower = document.getElementById('metricPower');
+  const metricInflated = document.getElementById('metricInflated');
+  const metricFactor = document.getElementById('metricFactor');
+  const metricRepRate = document.getElementById('metricRepRate');
+
+  // Generate bivariate normal sample with true correlation r
+  function sampleBivariate(numPts, r) {
+    const x = new Float64Array(numPts);
+    const y = new Float64Array(numPts);
+    const sqrtOneMinusR2 = Math.sqrt(Math.max(0, 1 - r * r));
+
+    for (let i = 0; i < numPts; i++) {
+      // Box-Muller standard normals
+      let u1 = 1 - Math.random();
+      let v1 = Math.random();
+      let z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * v1);
+
+      let u2 = 1 - Math.random();
+      let v2 = Math.random();
+      let z2 = Math.sqrt(-2.0 * Math.log(u2)) * Math.cos(2.0 * Math.PI * v2);
+
+      x[i] = z1;
+      y[i] = r * z1 + sqrtOneMinusR2 * z2;
+    }
+
+    // Compute sample Pearson r
+    let meanX = 0, meanY = 0;
+    for (let i = 0; i < numPts; i++) {
+      meanX += x[i];
+      meanY += y[i];
+    }
+    meanX /= numPts;
+    meanY /= numPts;
+
+    let num = 0, denX = 0, denY = 0;
+    for (let i = 0; i < numPts; i++) {
+      const dx = x[i] - meanX;
+      const dy = y[i] - meanY;
+      num += dx * dy;
+      denX += dx * dx;
+      denY += dy * dy;
+    }
+    const sampleR = (denX > 0 && denY > 0) ? (num / Math.sqrt(denX * denY)) : 0;
+
+    // Two-tailed p-value via Student's t approximation: t = r * sqrt(df / (1 - r^2))
+    const df = numPts - 2;
+    const tStat = Math.abs(sampleR) * Math.sqrt(df / Math.max(1e-6, 1 - sampleR * sampleR));
+    // Normal approximation for p-value
+    const pVal = 2 * (1 - normalCdf(tStat));
+
+    return { x, y, r: sampleR, p: pVal };
+  }
+
+  function normalCdf(x) {
+    // Abramowitz and Stegun approximation
+    const b1 = 0.319381530;
+    const b2 = -0.356563782;
+    const b3 = 1.781477937;
+    const b4 = -1.821255978;
+    const b5 = 1.330274429;
+    const p = 0.2316419;
+    const c = 0.39894228;
+
+    if (x >= 0.0) {
+      const t = 1.0 / (1.0 + p * x);
+      return 1.0 - c * Math.exp(-x * x / 2.0) * t * (t * (t * (t * (t * b5 + b4) + b3) + b2) + b1);
+    } else {
+      const t = 1.0 / (1.0 - p * x);
+      return c * Math.exp(-x * x / 2.0) * t * (t * (t * (t * (t * b5 + b4) + b3) + b2) + b1);
+    }
+  }
+
+  // Resample single pair of Discovery & Replication cohorts
+  function resampleSingleStudy() {
+    discData = sampleBivariate(N, rTrue);
+    repData = sampleBivariate(N, rTrue);
+
+    // Update labels
+    const discSig = (discData.p < 0.05);
+    const repSig = (repData.p < 0.05 && (discData.r * repData.r > 0)); // same direction
+
+    lblDiscStat.innerHTML = `r = ${discData.r.toFixed(2)} (${discSig ? '<strong style="color:#38bdf8;">p &lt; 0.05</strong>' : 'p = ' + discData.p.toFixed(2)})`;
+    lblRepStat.innerHTML = `r = ${repData.r.toFixed(2)} (${repSig ? '<strong style="color:#10b981;">Replicated!</strong>' : '<strong style="color:#ef4444;">Failed (p=' + repData.p.toFixed(2) + ')</strong>'})`;
+
+    renderScatter(discData, discCanvas, dCtx, '#38bdf8', 'Discovery');
+    renderScatter(repData, repCanvas, rCtx, repSig ? '#10b981' : '#ef4444', 'Replication');
+  }
+
+  // Monte Carlo 1,000 Study Audit
+  function runMonteCarloAudit() {
+    const NUM_SIMS = 1000;
+    mcSignificantR = [];
+    let numSignificant = 0;
+    let numReplicated = 0;
+
+    for (let i = 0; i < NUM_SIMS; i++) {
+      const disc = sampleBivariate(N, rTrue);
+      if (disc.p < 0.05) {
+        numSignificant++;
+        mcSignificantR.push(disc.r);
+
+        // Test in replication cohort
+        const rep = sampleBivariate(N, rTrue);
+        if (rep.p < 0.05 && (rep.r * disc.r > 0)) {
+          numReplicated++;
+        }
+      }
+    }
+
+    mcPower = (numSignificant / NUM_SIMS) * 100;
+    mcReplicationRate = (numSignificant > 0) ? (numReplicated / numSignificant) * 100 : 0;
+
+    let sumR = 0;
+    for (let r of mcSignificantR) sumR += Math.abs(r);
+    mcMeanInflatedR = (mcSignificantR.length > 0) ? (sumR / mcSignificantR.length) : 0;
+    mcInflationFactor = (rTrue > 0) ? (mcMeanInflatedR / rTrue) : 0;
+
+    // Update metrics
+    metricPower.innerText = `${mcPower.toFixed(1)}%`;
+    metricInflated.innerText = (mcSignificantR.length > 0) ? `r = ${mcMeanInflatedR.toFixed(2)}` : 'None';
+    metricFactor.innerText = (rTrue > 0 && mcSignificantR.length > 0) ? `${mcInflationFactor.toFixed(1)}\u00D7` : '--';
+    metricRepRate.innerText = `${mcReplicationRate.toFixed(1)}%`;
+
+    metricPower.style.color = (mcPower > 80) ? '#10b981' : (mcPower > 30) ? '#f59e0b' : '#ef4444';
+    metricFactor.style.color = (mcInflationFactor > 2.0) ? '#ef4444' : '#10b981';
+    metricRepRate.style.color = (mcReplicationRate > 80) ? '#10b981' : (mcReplicationRate > 40) ? '#f59e0b' : '#ef4444';
+
+    renderHistogram();
+  }
+
+  // Draw Scatter Plot
+  function renderScatter(data, canvasElem, context, color, label) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvasElem.parentElement.clientWidth;
+    const h = 190;
+    canvasElem.width = w * dpr;
+    canvasElem.height = h * dpr;
+    canvasElem.style.width = w + 'px';
+    canvasElem.style.height = h + 'px';
+
+    context.save();
+    context.scale(dpr, dpr);
+
+    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    context.fillRect(0, 0, w, h);
+
+    const pad = 24;
+    const plotW = w - 2 * pad;
+    const plotH = h - 2 * pad;
+
+    // Grid center lines
+    context.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(pad, pad + plotH / 2);
+    context.lineTo(pad + plotW, pad + plotH / 2);
+    context.moveTo(pad + plotW / 2, pad);
+    context.lineTo(pad + plotW / 2, pad + plotH);
+    context.stroke();
+
+    // Map z-scores [-3, 3] to canvas
+    const xMap = (val) => pad + ((val + 3) / 6) * plotW;
+    const yMap = (val) => pad + (1 - (val + 3) / 6) * plotH;
+
+    // Draw scatter points (limit to 120 points for smooth canvas rendering if N is huge)
+    const ptsToDraw = Math.min(data.x.length, 120);
+    context.fillStyle = color;
+    for (let i = 0; i < ptsToDraw; i++) {
+      const px = xMap(data.x[i]);
+      const py = yMap(data.y[i]);
+      if (px >= pad && px <= pad + plotW && py >= pad && py <= pad + plotH) {
+        context.beginPath();
+        context.arc(px, py, 2.5, 0, 2 * Math.PI);
+        context.fill();
+      }
+    }
+
+    // Draw OLS Regression Line
+    const x1 = -3.0;
+    const y1 = data.r * x1;
+    const x2 = 3.0;
+    const y2 = data.r * x2;
+
+    context.strokeStyle = color;
+    context.lineWidth = 2.0;
+    context.beginPath();
+    context.moveTo(xMap(x1), yMap(y1));
+    context.lineTo(xMap(x2), yMap(y2));
+    context.stroke();
+
+    context.restore();
+  }
+
+  // Draw Histogram of Statistically Significant Effect Sizes
+  function renderHistogram() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = histCanvas.parentElement.clientWidth;
+    const h = 180;
+    histCanvas.width = w * dpr;
+    histCanvas.height = h * dpr;
+    histCanvas.style.width = w + 'px';
+    histCanvas.style.height = h + 'px';
+
+    hCtx.save();
+    hCtx.scale(dpr, dpr);
+
+    hCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    hCtx.fillRect(0, 0, w, h);
+
+    const padL = 40;
+    const padR = 24;
+    const padT = 16;
+    const padB = 30;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+
+    // X axis runs from r = -0.2 to +0.8
+    const rMin = -0.2;
+    const rMax = 0.8;
+    const xMap = (r) => padL + ((r - rMin) / (rMax - rMin)) * plotW;
+
+    // Axes
+    hCtx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+    hCtx.lineWidth = 1;
+    hCtx.beginPath();
+    hCtx.moveTo(padL, padT + plotH);
+    hCtx.lineTo(padL + plotW, padT + plotH);
+    hCtx.stroke();
+
+    hCtx.font = '10px -apple-system, sans-serif';
+    hCtx.fillStyle = '#64748b';
+    hCtx.textAlign = 'center';
+
+    [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8].forEach(rVal => {
+      const x = xMap(rVal);
+      hCtx.fillText(rVal.toFixed(1), x, padT + plotH + 16);
+      hCtx.beginPath();
+      hCtx.moveTo(x, padT + plotH);
+      hCtx.lineTo(x, padT + plotH + 4);
+      hCtx.stroke();
+    });
+    hCtx.fillText('Observed Statistically Significant Effect Size (r\u0302)', padL + plotW / 2, padT + plotH + 28);
+
+    // Compute bins
+    const NUM_BINS = 25;
+    const binCounts = new Int32Array(NUM_BINS);
+    const binWidth = (rMax - rMin) / NUM_BINS;
+
+    for (let r of mcSignificantR) {
+      const bIdx = Math.floor((r - rMin) / binWidth);
+      if (bIdx >= 0 && bIdx < NUM_BINS) binCounts[bIdx]++;
+    }
+
+    let maxCount = 1;
+    for (let i = 0; i < NUM_BINS; i++) {
+      if (binCounts[i] > maxCount) maxCount = binCounts[i];
+    }
+
+    // Draw Bars
+    hCtx.fillStyle = '#38bdf8';
+    for (let i = 0; i < NUM_BINS; i++) {
+      if (binCounts[i] === 0) continue;
+      const barR = rMin + i * binWidth;
+      const x = xMap(barR);
+      const barH = (binCounts[i] / maxCount) * (plotH - 10);
+      const y = padT + plotH - barH;
+      const barW = (binWidth / (rMax - rMin)) * plotW - 1;
+
+      hCtx.fillRect(x, y, Math.max(1, barW), barH);
+    }
+
+    // Draw True r dashed vertical line
+    const xTrue = xMap(rTrue);
+    hCtx.strokeStyle = '#f43f5e';
+    hCtx.lineWidth = 2.0;
+    hCtx.setLineDash([4, 4]);
+    hCtx.beginPath();
+    hCtx.moveTo(xTrue, padT);
+    hCtx.lineTo(xTrue, padT + plotH);
+    hCtx.stroke();
+    hCtx.setLineDash([]);
+
+    hCtx.fillStyle = '#f43f5e';
+    hCtx.textAlign = 'center';
+    hCtx.fillText(`True r = ${rTrue.toFixed(2)}`, xTrue, padT + 12);
+
+    hCtx.restore();
+  }
+
+  // Sliders
+  nSlider.addEventListener('input', (e) => {
+    N = parseInt(e.target.value, 10);
+    nVal.innerText = N;
+    resampleSingleStudy();
+    runMonteCarloAudit();
+  });
+
+  rTrueSlider.addEventListener('input', (e) => {
+    rTrue = parseFloat(e.target.value);
+    rTrueVal.innerText = rTrue.toFixed(2);
+    resampleSingleStudy();
+    runMonteCarloAudit();
+  });
+
+  btnResample.addEventListener('click', resampleSingleStudy);
+  btnAudit.addEventListener('click', runMonteCarloAudit);
+
+  window.addEventListener('resize', () => {
+    resampleSingleStudy();
+    renderHistogram();
+  });
+
+  // Initial Run
+  resampleSingleStudy();
+  runMonteCarloAudit();
+})();
+</script>
+</body>
+</html>

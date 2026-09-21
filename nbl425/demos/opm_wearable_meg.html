@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optically Pumped Magnetometers (OPM) &amp; Wearable MEG Studio</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --canvas-bg: #070c18;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+    --c-squid: #38bdf8;
+    --c-opm: #f43f5e;
+    --c-dewar: #64748b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --canvas-bg: #050813;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+  .nav-top a { color: var(--accent); text-decoration: none; }
+  .nav-top a:hover { text-decoration: underline; }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 20px;
+  }
+  @media (max-width: 920px) {
+    .grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+  @media (max-width: 680px) {
+    .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .m-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .m-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .m-val { font-size: 1.15rem; font-weight: 700; color: var(--fg); margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .m-sub { font-size: 0.68rem; color: var(--muted); }
+
+  .ctrl-group { margin-bottom: 14px; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .ctrl-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+  .toggle-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .toggle-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+  .toggle-btn:hover { border-color: var(--accent); }
+  .toggle-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .action-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .legend-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.18);
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  @media (max-width: 768px) {
+    .theory-grid { grid-template-columns: 1fr; }
+  }
+  .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+  .code-math {
+    background: rgba(0,0,0,0.06);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-top">
+    <a href="../week13/index.html">&larr; Back to Week 13</a> &nbsp;&middot;&nbsp;
+    <a href="index.html">All Course Demos</a>
+  </div>
+
+  <h1>Optically Pumped Magnetometers (OPM) &amp; Wearable MEG Studio</h1>
+  <p class="sub">
+    Quantum Sensing &middot; SERF Magnetometry, Standoff Distance Scaling, Pediatric Neuroimaging &amp; Movement Tolerance
+  </p>
+
+  <div class="banner">
+    <strong>The Quantum Leap in MEG:</strong> Conventional Magnetoencephalography relies on Superconducting Quantum Interference Devices (SQUIDs) bathed in liquid helium at 4 Kelvin, requiring a rigid <span class="code-math">25-35\text{ mm}</span> vacuum dewar gap that keeps sensors distant from the brain. In contrast, <strong>Optically Pumped Magnetometers (OPMs)</strong> use laser-polarized rubidium-87 vapor cells operating in the Spin-Exchange Relaxation-Free (SERF) regime. Conforming directly to the scalp (<span class="code-math">\approx 4\text{ mm}</span> standoff), OPMs exploit the dipolar inverse square law (<span class="code-math">B \propto 1/r^2</span>) to capture 4–5&times; higher magnetic flux amplitudes, adapt conformally to children's heads, and tolerate natural head motion.
+  </div>
+
+  <div class="panel">
+    <div class="grid-layout">
+      <!-- Left: Canvases -->
+      <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Sensor Array &amp; Head Standoff Geometry</div>
+        <div class="canvas-box">
+          <canvas id="arrayCanvas" height="270"></canvas>
+          <div class="legend-bar">
+            <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div><span>Active Cortical Dipole</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-squid);"></div><span>Cryogenic SQUID Sensors</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-opm);"></div><span>Wearable OPM Sensors</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-dewar);"></div><span>Vacuum Thermal Dewar</span></div>
+          </div>
+        </div>
+
+        <div style="font-size:0.85rem;font-weight:600;margin:16px 0 6px;">Live Evoked Magnetic Flux Recording B(t)</div>
+        <div class="canvas-box">
+          <canvas id="waveCanvas" height="170"></canvas>
+        </div>
+
+        <!-- Metrics Strip -->
+        <div class="metrics-strip">
+          <div class="m-card">
+            <div class="m-lbl">Sensor-to-Scalp Gap</div>
+            <div class="m-val" id="metricGap">--</div>
+            <div class="m-sub">Physical Standoff</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Peak Magnetic Flux</div>
+            <div class="m-val" id="metricFlux">--</div>
+            <div class="m-sub">Dipolar Field Strength</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Point-Spread FWHM</div>
+            <div class="m-val" id="metricPsf">--</div>
+            <div class="m-sub">Spatial Resolution</div>
+          </div>
+          <div class="m-card">
+            <div class="m-lbl">Motion Robustness</div>
+            <div class="m-val" id="metricMotion">--</div>
+            <div class="m-sub">Synchronized Tracking</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div>
+        <!-- Modality Toggle -->
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>Sensor Technology</span></div>
+          <div class="toggle-btns">
+            <button class="toggle-btn" id="btnSquid">Cryogenic SQUID</button>
+            <button class="toggle-btn active" id="btnOpm">Wearable OPM</button>
+          </div>
+        </div>
+
+        <!-- Subject Anatomy Selector -->
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>Subject Anatomy</span></div>
+          <div class="toggle-btns">
+            <button class="toggle-btn active" id="btnAdult">Adult Head</button>
+            <button class="toggle-btn" id="btnChild">Child / Infant Head</button>
+          </div>
+        </div>
+
+        <!-- Head Movement Slider -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Natural Head Movement</span>
+            <span class="ctrl-val" id="motionVal">Still (0&deg;)</span>
+          </div>
+          <input type="range" id="motionSlider" min="0" max="18" step="1" value="0">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>Still (Clamped)</span>
+            <span>Natural Motion (&plusmn;18&deg;)</span>
+          </div>
+        </div>
+
+        <!-- Evoked Response Trigger -->
+        <button class="action-btn" id="btnTrigger">Trigger Auditory M100 Evoked Response</button>
+
+        <!-- Information Box -->
+        <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
+          <strong>Pediatric Standoff Insight:</strong>
+          <p style="margin:4px 0 0;color:var(--muted);">
+            Switch to <strong>Child / Infant Head</strong> and compare technologies: in a rigid adult SQUID helmet, a small head sits 50+ mm away from sensors, suffering catastrophic $1/r^2$ signal loss. An OPM cap conforms to any head size, maintaining a 4 mm gap and preserving full microvolt/femtotesla sensitivity.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Educational Theory Cards -->
+  <div class="panel">
+    <h3>Quantum Magnetometry &amp; Wearable Neuroimaging</h3>
+    <div class="theory-grid">
+      <div>
+        <strong>1. SERF Quantum Optical Pumping:</strong>
+        <p>In an Optically Pumped Magnetometer (OPM), a microscopic glass cell containing an alkali metal vapor (such as $^{87}\text{Rb}$) is heated to ~150&deg;C. Circularly polarized laser light pumps the outer valence electrons into a single spin-aligned quantum state. When a minute neuronal magnetic field passes through the vapor, the electron spins precess via the Larmor relation (<span class="code-math">\omega_L = \gamma B</span>). In the zero-field Spin-Exchange Relaxation-Free (SERF) regime, spin-exchange collision rates exceed the Larmor frequency, eliminating decoherence and achieving sensitivity below <span class="code-math">15\text{ fT}/\sqrt{\text{Hz}}</span> at room temperature.</p>
+      </div>
+      <div>
+        <strong>2. Standoff Distance &amp; Inverse Square Scaling:</strong>
+        <p>Because SQUIDs require liquid helium cooling at 4 Kelvin, they must reside within a vacuum-insulated cryogenic dewar, creating a fixed physical gap of <span class="code-math">20-35\text{ mm}</span> from the scalp. Since dipolar magnetic flux drops off quadratically with distance (<span class="code-math">B \propto 1/r^2</span>), reducing the standoff distance to <span class="code-math">4\text{ mm}</span> with scalp-mounted OPMs provides a **4- to 5-fold boost in signal amplitude** and substantially reduces spatial point-spread blurring.</p>
+      </div>
+      <div>
+        <strong>3. Pediatric Neuroimaging:</strong>
+        <p>Rigid SQUID helmets are engineered to fit adult heads (95th percentile). Young children and infants have smaller cranial dimensions, resulting in standoff gaps exceeding <span class="code-math">50-60\text{ mm}</span>. This attenuates pediatric magnetic fields by over 80%, rendering high-resolution pediatric MEG historically impractical. Lightweight 3D-printed OPM sensor caps scale conformally to any cranial circumference.</p>
+      </div>
+      <div>
+        <strong>4. Movement Tolerance &amp; Active Field Nulling:</strong>
+        <p>In a conventional SQUID dewar, head motion relative to fixed helmet sensors induces spatial misregistration and invalidates forward leadfield models. Because OPM sensors are rigidly anchored to a wearable cap, they move *synchronously with the head*. Active bi-planar electromagnetic coils null the static Earth magnetic field (<span class="code-math">\approx 50\text{ }\mu\text{T} \to &lt; 1\text{ nT}</span>) inside a magnetically shielded room, enabling natural head movement, speech, and ambulatory imaging.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // State
+  let modality = 'opm'; // 'squid' or 'opm'
+  let subjectAge = 'adult'; // 'adult' or 'child'
+  let motionAngleDeg = 0; // 0 to 18 deg
+  let isEvokedActive = false;
+  let evokedTimer = 0;
+
+  // Time series buffer for evoked response M100
+  const NUM_PTS = 200;
+  const timeWave = new Float64Array(NUM_PTS);
+
+  // DOM elements
+  const arrayCanvas = document.getElementById('arrayCanvas');
+  const aCtx = arrayCanvas.getContext('2d');
+  const waveCanvas = document.getElementById('waveCanvas');
+  const wCtx = waveCanvas.getContext('2d');
+
+  const btnSquid = document.getElementById('btnSquid');
+  const btnOpm = document.getElementById('btnOpm');
+  const btnAdult = document.getElementById('btnAdult');
+  const btnChild = document.getElementById('btnChild');
+  const motionSlider = document.getElementById('motionSlider');
+  const motionVal = document.getElementById('motionVal');
+  const btnTrigger = document.getElementById('btnTrigger');
+
+  const metricGap = document.getElementById('metricGap');
+  const metricFlux = document.getElementById('metricFlux');
+  const metricPsf = document.getElementById('metricPsf');
+  const metricMotion = document.getElementById('metricMotion');
+
+  // Animation Loop
+  function tick() {
+    if (isEvokedActive) {
+      evokedTimer++;
+      if (evokedTimer > 180) {
+        isEvokedActive = false;
+        evokedTimer = 0;
+      }
+    }
+
+    computeWaveform();
+    renderArray();
+    renderWave();
+    requestAnimationFrame(tick);
+  }
+
+  // Calculate evoked field M100 wave
+  function computeWaveform() {
+    // Determine standoff distance and gain
+    // Scalp-to-cortex is ~12 mm (adult) or ~8 mm (child)
+    const cortexToScalp = (subjectAge === 'adult') ? 12 : 8;
+    const scalpToSensor = (modality === 'opm') ? 4 : (subjectAge === 'adult' ? 28 : 55);
+    const totalR = cortexToScalp + scalpToSensor;
+
+    // Inverse square law gain relative to 40 mm baseline
+    const distGain = Math.pow(40 / totalR, 2.0);
+
+    // Motion penalty if SQUID: head motion creates sensor mismatch & baseline shifts
+    let motionNoise = 0;
+    if (modality === 'squid' && motionAngleDeg > 1) {
+      motionNoise = (motionAngleDeg / 18) * 120 * (Math.random() - 0.5);
+    }
+
+    for (let i = 0; i < NUM_PTS; i++) {
+      const tMs = (i - 40) * 1.5; // -60 to 240 ms
+      let sig = 0;
+
+      if (isEvokedActive && tMs > 0) {
+        // M100 auditory/sensory biphasic evoked component
+        const m100 = 85 * Math.sin((tMs / 100) * Math.PI) * Math.exp(-Math.pow((tMs - 100) / 45, 2));
+        sig = m100 * distGain;
+      }
+
+      // Sensor noise
+      const baseNoise = (modality === 'opm' ? 12 : 8) * (Math.random() - 0.5);
+      timeWave[i] = sig + baseNoise + motionNoise;
+    }
+
+    // Update Metrics
+    metricGap.innerText = `${scalpToSensor} mm`;
+    const peakAmp = Math.round(85 * distGain);
+    metricFlux.innerText = `${peakAmp} fT`;
+    const psfMm = Math.round(totalR * 1.2);
+    metricPsf.innerText = `${psfMm} mm`;
+
+    if (modality === 'opm') {
+      metricMotion.innerText = 'Synchronous';
+      metricMotion.style.color = '#10b981';
+      metricFlux.style.color = '#f43f5e';
+    } else {
+      metricMotion.innerText = (motionAngleDeg > 2) ? 'Severe Artifact' : 'Clamped Only';
+      metricMotion.style.color = (motionAngleDeg > 2) ? '#ef4444' : 'var(--fg)';
+      metricFlux.style.color = (subjectAge === 'child') ? '#ef4444' : 'var(--fg)';
+    }
+  }
+
+  // Draw Head Cross-Section & Sensor Array
+  function renderArray() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = arrayCanvas.parentElement.clientWidth;
+    const h = 270;
+    arrayCanvas.width = w * dpr;
+    arrayCanvas.height = h * dpr;
+    arrayCanvas.style.width = w + 'px';
+    arrayCanvas.style.height = h + 'px';
+
+    aCtx.save();
+    aCtx.scale(dpr, dpr);
+
+    aCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    aCtx.fillRect(0, 0, w, h);
+
+    const cx = w * 0.5;
+    const cy = h * 0.62;
+
+    // Head Radius (Adult = 75 px, Child = 50 px)
+    const headR = (subjectAge === 'adult') ? 72 : 50;
+
+    // Apply head tilt if moving
+    const rad = (motionAngleDeg * Math.PI) / 180;
+
+    // 1. If SQUID, draw rigid stationary dewar helmet FIRST (fixed in space)
+    if (modality === 'squid') {
+      const dewarInnerR = 100; // Fixed adult-sized helmet cavity
+      const dewarOuterR = 118;
+
+      aCtx.fillStyle = 'rgba(100, 116, 139, 0.15)';
+      aCtx.beginPath();
+      aCtx.arc(cx, cy, dewarOuterR, -Math.PI * 0.88, -Math.PI * 0.12);
+      aCtx.arc(cx, cy, dewarInnerR, -Math.PI * 0.12, -Math.PI * 0.88, true);
+      aCtx.closePath();
+      aCtx.fill();
+      aCtx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      aCtx.lineWidth = 1.5;
+      aCtx.stroke();
+
+      // SQUID Sensors embedded in outer dewar layer
+      const numSensors = 11;
+      for (let s = 0; s < numSensors; s++) {
+        const theta = -Math.PI * 0.82 + (s / (numSensors - 1)) * Math.PI * 0.64;
+        const sx = cx + dewarOuterR * Math.cos(theta);
+        const sy = cy + dewarOuterR * Math.sin(theta);
+
+        aCtx.beginPath();
+        aCtx.arc(sx, sy, 4.5, 0, 2 * Math.PI);
+        aCtx.fillStyle = '#38bdf8';
+        aCtx.fill();
+        aCtx.strokeStyle = '#fff';
+        aCtx.lineWidth = 1;
+        aCtx.stroke();
+      }
+
+      aCtx.font = '10px -apple-system, sans-serif';
+      aCtx.fillStyle = '#64748b';
+      aCtx.textAlign = 'center';
+      aCtx.fillText('Rigid Liquid-He Dewar Vacuum (Fixed in Space)', cx, cy - dewarOuterR - 10);
+    }
+
+    // 2. Draw Head (Rotates if movement is active)
+    aCtx.save();
+    aCtx.translate(cx, cy);
+    aCtx.rotate(rad);
+
+    // Brain Gray Matter
+    aCtx.beginPath();
+    aCtx.arc(0, 0, headR * 0.82, 0, 2 * Math.PI);
+    aCtx.fillStyle = 'rgba(244, 63, 94, 0.18)';
+    aCtx.fill();
+    aCtx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+    aCtx.lineWidth = 1.5;
+    aCtx.stroke();
+
+    // Active Cortical Dipole (in auditory / temporal cortex)
+    const dipX = headR * 0.72 * Math.cos(-Math.PI * 0.35);
+    const dipY = headR * 0.72 * Math.sin(-Math.PI * 0.35);
+
+    aCtx.beginPath();
+    aCtx.arc(dipX, dipY, 5.5, 0, 2 * Math.PI);
+    aCtx.fillStyle = '#fbbf24';
+    aCtx.fill();
+    aCtx.strokeStyle = '#fff';
+    aCtx.lineWidth = 1.5;
+    aCtx.stroke();
+
+    if (isEvokedActive) {
+      aCtx.beginPath();
+      aCtx.arc(dipX, dipY, 12, 0, 2 * Math.PI);
+      aCtx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+      aCtx.lineWidth = 1.5;
+      aCtx.stroke();
+    }
+
+    // Scalp Surface
+    aCtx.beginPath();
+    aCtx.arc(0, 0, headR, 0, 2 * Math.PI);
+    aCtx.fillStyle = 'rgba(251, 191, 36, 0.08)';
+    aCtx.fill();
+    aCtx.strokeStyle = '#94a3b8';
+    aCtx.lineWidth = 2.0;
+    aCtx.stroke();
+
+    // Nose pointer to show orientation
+    aCtx.beginPath();
+    aCtx.moveTo(headR * 0.95, -headR * 0.2);
+    aCtx.lineTo(headR + 14, 0);
+    aCtx.lineTo(headR * 0.95, headR * 0.2);
+    aCtx.strokeStyle = '#94a3b8';
+    aCtx.lineWidth = 2;
+    aCtx.stroke();
+
+    // 3. If OPM, draw conformal cap + sensors directly on scalp (moves WITH head)
+    if (modality === 'opm') {
+      const opmGap = 4; // mm
+      const opmR = headR + opmGap + 4;
+      const numSensors = 11;
+
+      // Flexible cap strap
+      aCtx.beginPath();
+      aCtx.arc(0, 0, headR + opmGap, -Math.PI * 0.85, -Math.PI * 0.15);
+      aCtx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+      aCtx.lineWidth = 3;
+      aCtx.stroke();
+
+      for (let s = 0; s < numSensors; s++) {
+        const theta = -Math.PI * 0.82 + (s / (numSensors - 1)) * Math.PI * 0.64;
+        const ox = opmR * Math.cos(theta);
+        const oy = opmR * Math.sin(theta);
+
+        // OPM miniature sensor box
+        aCtx.beginPath();
+        aCtx.arc(ox, oy, 5, 0, 2 * Math.PI);
+        aCtx.fillStyle = '#f43f5e';
+        aCtx.fill();
+        aCtx.strokeStyle = '#fff';
+        aCtx.lineWidth = 1.5;
+        aCtx.stroke();
+      }
+
+      aCtx.font = '10px -apple-system, sans-serif';
+      aCtx.fillStyle = '#f43f5e';
+      aCtx.textAlign = 'center';
+      aCtx.fillText('Conformal Wearable Cap (Moves with Head)', 0, -headR - 18);
+    }
+
+    aCtx.restore(); // restore head rotation
+
+    aCtx.restore();
+  }
+
+  // Draw Live Waveform
+  function renderWave() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = waveCanvas.parentElement.clientWidth;
+    const h = 170;
+    waveCanvas.width = w * dpr;
+    waveCanvas.height = h * dpr;
+    waveCanvas.style.width = w + 'px';
+    waveCanvas.style.height = h + 'px';
+
+    wCtx.save();
+    wCtx.scale(dpr, dpr);
+
+    wCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    wCtx.fillRect(0, 0, w, h);
+
+    const padL = 45;
+    const padR = 20;
+    const plotW = w - padL - padR;
+    const midY = h * 0.52;
+
+    // Grid
+    wCtx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+    wCtx.lineWidth = 1;
+    wCtx.beginPath();
+    wCtx.moveTo(padL, midY);
+    wCtx.lineTo(padL + plotW, midY);
+    wCtx.stroke();
+
+    // Stimulus trigger line at t = 0
+    const x0 = padL + (40 / NUM_PTS) * plotW;
+    wCtx.beginPath();
+    wCtx.setLineDash([4, 4]);
+    wCtx.moveTo(x0, 15);
+    wCtx.lineTo(x0, h - 25);
+    wCtx.stroke();
+    wCtx.setLineDash([]);
+
+    wCtx.font = '10px -apple-system, sans-serif';
+    wCtx.fillStyle = '#64748b';
+    wCtx.textAlign = 'center';
+    wCtx.fillText('Stimulus (0 ms)', x0, h - 10);
+    wCtx.fillText('M100 (100 ms)', x0 + (67 / NUM_PTS) * plotW, h - 10);
+
+    wCtx.textAlign = 'right';
+    wCtx.fillText('+200 fT', padL - 6, midY - 45);
+    wCtx.fillText('0 fT', padL - 6, midY + 3);
+    wCtx.fillText('-200 fT', padL - 6, midY + 45);
+
+    // Draw Waveform
+    wCtx.strokeStyle = (modality === 'opm') ? '#f43f5e' : '#38bdf8';
+    wCtx.lineWidth = 2.0;
+    wCtx.beginPath();
+
+    for (let i = 0; i < NUM_PTS; i++) {
+      const x = padL + (i / (NUM_PTS - 1)) * plotW;
+      const y = midY - (timeWave[i] / 250) * 55;
+      if (i === 0) wCtx.moveTo(x, y);
+      else wCtx.lineTo(x, y);
+    }
+    wCtx.stroke();
+
+    wCtx.restore();
+  }
+
+  // Controls
+  btnSquid.addEventListener('click', () => {
+    modality = 'squid';
+    btnSquid.classList.add('active');
+    btnOpm.classList.remove('active');
+  });
+
+  btnOpm.addEventListener('click', () => {
+    modality = 'opm';
+    btnOpm.classList.add('active');
+    btnSquid.classList.remove('active');
+  });
+
+  btnAdult.addEventListener('click', () => {
+    subjectAge = 'adult';
+    btnAdult.classList.add('active');
+    btnChild.classList.remove('active');
+  });
+
+  btnChild.addEventListener('click', () => {
+    subjectAge = 'child';
+    btnChild.classList.add('active');
+    btnAdult.classList.remove('active');
+  });
+
+  motionSlider.addEventListener('input', (e) => {
+    motionAngleDeg = parseInt(e.target.value, 10);
+    motionVal.innerText = `${motionAngleDeg}\u00B0`;
+  });
+
+  btnTrigger.addEventListener('click', () => {
+    isEvokedActive = true;
+    evokedTimer = 0;
+  });
+
+  // Start Animation
+  tick();
+})();
+</script>
+</body>
+</html>
