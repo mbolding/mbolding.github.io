@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spike-Timing-Dependent Plasticity</title>
+    <meta name="description"
+        content="Interactive spike-timing-dependent plasticity: set the interval between a pre- and post-synaptic spike, run a pairing protocol, and watch the synaptic weight move along the STDP learning window.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="plasticity.css">
+    <script src="plasticity.js"></script>
+    <script>NPLib.applyStoredTheme();</script>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <div class="navlinks">
+                <a href="index.html" class="nav-link">&larr; Neural plasticity</a>
+                <a href="hebbian_learning.html" class="nav-link">Hebbian assemblies</a>
+                <a href="leaky_integrate_fire.html" class="nav-link">LIF neuron</a>
+            </div>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Neural plasticity &middot; learning rules</p>
+            <h1>Spike-Timing-Dependent Plasticity</h1>
+            <p class="subtitle">Hebb said &ldquo;fire together, wire together&rdquo;, but he did not say in which
+                order. STDP is the experimental answer: a synapse reads the sign of the interval between the
+                pre-synaptic spike and the post-synaptic one, potentiating when the input helped cause the output and
+                depressing when it arrived too late to have mattered.</p>
+        </header>
+
+        <div class="status" id="status" role="status" aria-live="polite">
+            Set &Delta;t, then run the pairing protocol.
+        </div>
+
+        <div class="figs side">
+            <div class="panel">
+                <h3>Pairing</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="dt"><span>&Delta;t = t<sub>post</sub> &minus; t<sub>pre</sub></span>
+                            <b id="dtVal">+10 ms</b></label>
+                        <input type="range" id="dt" min="-100" max="100" value="10" step="1">
+                        <span class="hint">Positive: the input spike arrives before the cell fires, so it could have
+                            contributed. Negative: it arrives after, too late to be a cause.</span>
+                    </div>
+                    <div class="control">
+                        <label for="pairs"><span>Pairings</span><b id="pairsVal">60</b></label>
+                        <input type="range" id="pairs" min="5" max="120" value="60" step="5">
+                        <span class="hint">Bi &amp; Poo paired 60 times at 1 Hz.</span>
+                    </div>
+                    <div class="control">
+                        <label for="rate"><span>Pairing frequency</span><b id="rateVal">1.0 Hz</b></label>
+                        <input type="range" id="rate" min="2" max="100" value="10" step="1">
+                        <span class="hint">Above about 10 Hz the real synapse stops obeying the pair-based rule
+                            entirely; see the note below.</span>
+                    </div>
+                    <div class="control">
+                        <label for="w0"><span>Starting weight w<sub>0</sub></span><b id="w0Val">0.50</b></label>
+                        <input type="range" id="w0" min="0" max="100" value="50" step="1">
+                        <span class="hint">Where the synapse starts, between 0 and w<sub>max</sub> = 1. Start near
+                            a bound and half the window has nowhere to go.</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top:20px">Learning window</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="aPlus"><span>A<sub>+</sub> potentiation amplitude</span>
+                            <b id="aPlusVal">0.008</b></label>
+                        <input type="range" id="aPlus" min="0" max="60" value="8" step="1">
+                        <span class="hint">Weight change from a perfectly coincident pair, in units of
+                            w<sub>max</sub>.</span>
+                    </div>
+                    <div class="control">
+                        <label for="tauPlus"><span>&tau;<sub>+</sub> potentiation constant</span>
+                            <b id="tauPlusVal">17 ms</b></label>
+                        <input type="range" id="tauPlus" min="2" max="60" value="17" step="1">
+                        <span class="hint">How far into the past a spike still counts as a cause. Measured at
+                            roughly 17 ms in hippocampal culture.</span>
+                    </div>
+                    <div class="control">
+                        <label for="aMinus"><span>A<sub>&minus;</sub> depression amplitude</span>
+                            <b id="aMinusVal">0.005</b></label>
+                        <input type="range" id="aMinus" min="0" max="60" value="5" step="1">
+                        <span class="hint">The depression branch is shallower than the potentiation branch but
+                            roughly twice as wide.</span>
+                    </div>
+                    <div class="control">
+                        <label for="tauMinus"><span>&tau;<sub>&minus;</sub> depression constant</span>
+                            <b id="tauMinusVal">34 ms</b></label>
+                        <input type="range" id="tauMinus" min="2" max="80" value="34" step="1">
+                        <span class="hint">Together with A<sub>&minus;</sub> this sets the depression area, and so
+                            the stability of the synapse under uncorrelated firing.</span>
+                    </div>
+                    <div class="control">
+                        <label for="rule"><span>Weight dependence</span></label>
+                        <select id="rule">
+                            <option value="additive" selected>Additive (hard bounds)</option>
+                            <option value="multiplicative">Multiplicative (soft bounds)</option>
+                        </select>
+                        <span class="hint">Additive: every pairing moves w by the same amount until it hits a bound.
+                            Multiplicative: potentiation shrinks as w approaches w<sub>max</sub>.</span>
+                    </div>
+                    <div class="control">
+                        <label for="speed"><span>Playback speed</span><b id="speedVal">20&times;</b></label>
+                        <input type="range" id="speed" min="1" max="60" value="20" step="1">
+                        <span class="hint">Display only. The protocol itself still runs at the pairing frequency
+                            above.</span>
+                    </div>
+                </div>
+
+                <div class="toolbar" style="margin-top:18px;margin-bottom:0">
+                    <button type="button" class="primary" id="runBtn">Run protocol</button>
+                    <button type="button" id="oneBtn">Single pair</button>
+                    <button type="button" id="resetBtn">Reset</button>
+                    <button type="button" id="sweepBtn">Sweep &Delta;t</button>
+                </div>
+            </div>
+
+            <div>
+                <div class="figs two-even">
+                    <div class="fig">
+                        <canvas id="windowCanvas" aria-label="STDP learning window: weight change against the
+                            pre-post spike interval"></canvas>
+                        <p class="cap">The window for a <em>single</em> pairing. The marker sits at the &Delta;t you
+                            have selected; the vertical bar is the resulting &Delta;w.</p>
+                        <div class="legend">
+                            <span><i class="dot" style="background:var(--c-ltp)"></i>LTP (&Delta;t &gt; 0)</span>
+                            <span><i class="dot" style="background:var(--c-ltd)"></i>LTD (&Delta;t &lt; 0)</span>
+                        </div>
+                    </div>
+
+                    <div class="fig">
+                        <canvas id="sweepCanvas" aria-label="Net weight change after the full protocol, against the
+                            pre-post spike interval"></canvas>
+                        <p class="cap">Net change after the <em>whole</em> protocol, one run per &Delta;t. This is the
+                            plot an experimenter actually measures. Press <em>Sweep &Delta;t</em> to fill it.</p>
+                        <div class="legend">
+                            <span><i class="dot" style="background:var(--c-theory)"></i>final w &minus;
+                                w<sub>0</sub></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fig">
+                    <canvas id="rasterCanvas" aria-label="Spike raster of the pairing protocol"></canvas>
+                    <p class="cap">The protocol as the synapse sees it: a pre-synaptic spike and a post-synaptic
+                        spike, &Delta;t apart, repeated at the pairing frequency.</p>
+                    <div class="legend">
+                        <span><i class="tick" style="background:var(--c-pre)"></i>pre-synaptic</span>
+                        <span><i class="tick" style="background:var(--c-post)"></i>post-synaptic</span>
+                    </div>
+                </div>
+
+                <div class="fig">
+                    <canvas id="weightCanvas" aria-label="Synaptic weight against pairing number"></canvas>
+                    <p class="cap">Weight against pairing number. Additive STDP walks in a straight line until it
+                        hits a bound; the multiplicative rule bends over as it approaches one.</p>
+                    <div class="readouts">
+                        <div class="readout"><span>weight w</span><b id="wOut">0.50</b></div>
+                        <div class="readout"><span>&Delta;w per pairing</span><b id="dwOut">+0.0044</b></div>
+                        <div class="readout"><span>pairing</span><b id="kOut">0 / 60</b></div>
+                        <div class="readout"><span>net change</span><b id="netOut">+0.000</b></div>
+                        <div class="readout"><span>window integral</span><b id="intOut">&minus;0.034</b></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="note">
+            <h2>What the figure is doing</h2>
+            <p>One synapse, one number: the weight <code>w</code>, bounded between 0 and 1. Every time the
+                pre-synaptic cell and the post-synaptic cell both spike, the synapse measures the interval
+                <code>&Delta;t = t<sub>post</sub> &minus; t<sub>pre</sub></code> and changes its weight by</p>
+            <p class="eq">&Delta;w = +A<sub>+</sub>&middot;exp(&minus;&Delta;t / &tau;<sub>+</sub>) for &Delta;t &gt; 0
+                &nbsp;&nbsp;&nbsp; &Delta;w = &minus;A<sub>&minus;</sub>&middot;exp(&Delta;t / &tau;<sub>&minus;</sub>)
+                for &Delta;t &lt; 0</p>
+            <p>Both branches decay away from &Delta;t = 0, so only near-coincident spikes change anything. The sign
+                flips at zero, and that discontinuity is the whole point: the synapse is not detecting correlation,
+                it is detecting <em>order</em>. An input that arrives a few milliseconds before the cell fires is
+                evidence that the input helped cause the spike, and it is rewarded. The same input arriving a few
+                milliseconds after the cell has already fired cannot have contributed, and it is punished.</p>
+
+            <h2>Things worth doing with it</h2>
+            <ul>
+                <li><strong>Reverse the order.</strong> Run the protocol at &Delta;t = +10 ms, reset, then run it at
+                    &minus;10 ms. Same two cells, same number of spikes, same firing rates: opposite outcome. No
+                    rate-based learning rule can produce that.</li>
+                <li><strong>Find the dead zone.</strong> Push &Delta;t out past 100 ms and the weight barely moves.
+                    The window is tens of milliseconds wide because that is the timescale over which the biochemical
+                    traces left by each spike are still detectable, and the NMDA receptor is the canonical
+                    candidate: it needs glutamate (the pre-synaptic spike) <em>and</em> depolarisation to expel its
+                    Mg<sup>2+</sup> block (the back-propagating post-synaptic spike), and it only counts them as
+                    coincident if they land within its own time constant.</li>
+                <li><strong>Watch the bounds.</strong> Switch between additive and multiplicative and run the same
+                    protocol. Additive STDP drives every synapse to 0 or to w<sub>max</sub> and produces a bimodal
+                    weight distribution; the multiplicative rule settles at intermediate values. Which one the real
+                    synapse uses is still argued about, and the argument matters because it decides whether a
+                    population of synapses can hold a graded memory at all.</li>
+                <li><strong>Check the stability condition.</strong> The <em>window integral</em>
+                    A<sub>+</sub>&tau;<sub>+</sub> &minus; A<sub>&minus;</sub>&tau;<sub>&minus;</sub> is the average
+                    weight change per spike pair when pre and post fire independently, with &Delta;t uniformly
+                    distributed. The measured values make it negative, which is what keeps uncorrelated input from
+                    potentiating a cell to saturation. Drag A<sub>&minus;</sub> down until the integral turns
+                    positive and you have built a runaway synapse.</li>
+                <li><strong>Sweep.</strong> The sweep panel re-runs the whole protocol at every &Delta;t and plots the
+                    net change, which is the figure from Bi &amp; Poo (1998) that put STDP on the map. Under the
+                    additive rule it is just the single-pair window multiplied by the number of pairings, until the
+                    bounds clip it. Under the multiplicative rule it is visibly flattened at the top.</li>
+            </ul>
+
+            <h2>Where the model stops being true</h2>
+            <p>This is the <em>pair-based</em> rule, and it is a first approximation that is known to fail in
+                specific, well-documented ways.</p>
+            <ul>
+                <li>It assumes every pre-post pair contributes independently. Real synapses do not add up pairs
+                    linearly: in a burst, the later spikes count for less. Triplet and suppression models were built
+                    to fix exactly this.</li>
+                <li>It has no rate dependence, so it cannot reproduce the classic result that the same pairing
+                    protocol gives depression at low frequency and potentiation above roughly 10 Hz. Turn the
+                    pairing frequency up here and nothing qualitative changes, which is the model telling you where
+                    its edge is.</li>
+                <li>It has no dendritic location, no voltage dependence and no neuromodulation. The measured window
+                    changes shape with distance from the soma, and dopamine or acetylcholine can invert its sign
+                    outright, which is how a purely local rule ends up serving a global goal.</li>
+                <li>The weight is a bare number. It stands in for a receptor count, a release probability and a spine
+                    volume, all of which have their own dynamics and their own time constants for consolidation.</li>
+            </ul>
+        </div>
+
+        <div class="related">
+            Related
+            <div class="links">
+                <a href="hebbian_learning.html">Hebbian cell assemblies</a>
+                <a href="leaky_integrate_fire.html">Stochastic LIF neuron</a>
+                <a href="../neuroengineering/neuromorphic.html">Neuromorphic engineering</a>
+                <a href="../index.html">Site index</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            NPLib.wireThemeToggle();
+
+            /* ------------------------------------------------------ parameters */
+
+            var P = {
+                dt: 10, pairs: 60, rate: 1.0, w0: 0.5,
+                aPlus: 0.008, tauPlus: 17, aMinus: 0.005, tauMinus: 34,
+                rule: 'additive', speed: 20
+            };
+
+            var W_MAX = 1;
+
+            /* ---------------------------------------------------------- state */
+
+            var w = P.w0;
+            var k = 0;                 /* pairings delivered */
+            var simT = 0;              /* protocol time, ms */
+            var events = [];           /* {t, kind} spike marks for the raster */
+            var wHistory = [[0, P.w0]];
+            var sweep = null;          /* [[dt, netChange], ...] once computed */
+            var nextPairIndex = 0;
+
+            /* ------------------------------------------------------- the rule */
+
+            /* Single-pair weight change at interval dt, ignoring bounds. */
+            function rawDw(dt) {
+                if (dt === 0) { return 0; }   /* simultaneous: neither order, no change */
+                return dt > 0
+                    ? P.aPlus * Math.exp(-dt / P.tauPlus)
+                    : -P.aMinus * Math.exp(dt / P.tauMinus);
+            }
+
+            /* Weight change actually applied, given the current weight and the
+               chosen weight dependence. */
+            function appliedDw(dt, weight) {
+                var raw = rawDw(dt);
+                if (P.rule === 'multiplicative') {
+                    /* Soft bounds: potentiation is scaled by the room left above,
+                       depression by the weight available to lose. Neither branch
+                       can push w outside [0, W_MAX]. */
+                    return raw > 0 ? raw * (W_MAX - weight) : raw * weight;
+                }
+                return raw;
+            }
+
+            function applyPair(dt) {
+                w = NPLib.clamp(w + appliedDw(dt, w), 0, W_MAX);
+                k += 1;
+                wHistory.push([k, w]);
+            }
+
+            /* Mean change per spike pair for independent pre and post firing:
+               the integral of the window over all dt. Negative keeps
+               uncorrelated activity from running away. */
+            function windowIntegral() {
+                return P.aPlus * P.tauPlus - P.aMinus * P.tauMinus;
+            }
+
+            /* Runs a whole protocol from scratch without animating, for the
+               sweep. Kept separate from the live state on purpose. */
+            function runSilently(dt) {
+                var ww = P.w0;
+                for (var i = 0; i < P.pairs; i++) {
+                    var raw = rawDw(dt);
+                    var d = P.rule === 'multiplicative'
+                        ? (raw > 0 ? raw * (W_MAX - ww) : raw * ww)
+                        : raw;
+                    ww = NPLib.clamp(ww + d, 0, W_MAX);
+                }
+                return ww - P.w0;
+            }
+
+            /* ------------------------------------------------------- protocol */
+
+            /* Pairing n puts the pre spike at n/rate seconds and the post spike
+               dt later, so a negative dt really does place post first. */
+            function pairTime(n) { return n * (1000 / P.rate); }
+
+            function scheduleThrough(t) {
+                while (nextPairIndex < P.pairs) {
+                    var base = pairTime(nextPairIndex);
+                    var tPre = base;
+                    var tPost = base + P.dt;
+                    var settled = Math.max(tPre, tPost);
+                    if (settled > t) { break; }
+                    events.push({ t: tPre, kind: 'pre' });
+                    events.push({ t: tPost, kind: 'post' });
+                    applyPair(P.dt);
+                    nextPairIndex += 1;
+                }
+                /* the raster only ever shows a few seconds of history */
+                var cutoff = t - rasterSpan() * 1.2;
+                while (events.length && events[0].t < cutoff) { events.shift(); }
+            }
+
+            function rasterSpan() {
+                /* show about five pairings, with a floor so fast protocols stay legible */
+                return Math.max(400, 5000 / P.rate);
+            }
+
+            var loop = new NPLib.Loop(function (dtSec) {
+                simT += dtSec * 1000 * P.speed;
+                scheduleThrough(simT);
+                if (nextPairIndex >= P.pairs) {
+                    /* let the last spike clear the right-hand edge, then stop */
+                    if (simT > pairTime(P.pairs - 1) + Math.abs(P.dt) + rasterSpan() * 0.35) {
+                        loop.stop();
+                        runBtn.textContent = 'Run protocol';
+                        runBtn.classList.remove('on');
+                        setStatus();
+                    }
+                }
+                draw();
+            });
+
+            function reset() {
+                loop.stop();
+                runBtn.textContent = 'Run protocol';
+                runBtn.classList.remove('on');
+                w = P.w0;
+                k = 0;
+                simT = 0;
+                nextPairIndex = 0;
+                events = [];
+                wHistory = [[0, P.w0]];
+                setStatus();
+                draw();
+            }
+
+            /* ---------------------------------------------------------- canvas */
+
+            /* fitCanvas calls its onResize during construction, so draw() has to
+               survive being called before the later canvases exist. */
+            var ready = false;
+            function redraw() { if (ready) { draw(); } }
+
+            var win = NPLib.fitCanvas(document.getElementById('windowCanvas'), 0.72, redraw);
+            var swp = NPLib.fitCanvas(document.getElementById('sweepCanvas'), 0.72, redraw);
+            var ras = NPLib.fitCanvas(document.getElementById('rasterCanvas'), 0.16, redraw);
+            var wgt = NPLib.fitCanvas(document.getElementById('weightCanvas'), 0.26, redraw);
+            ready = true;
+
+            function drawWindow() {
+                var th = NPLib.theme();
+                var ctx = win.ctx;
+                NPLib.clear(ctx, win.w, win.h);
+
+                var box = { x: 54, y: 26, w: win.w - 70, h: win.h - 62 };
+                var span = 100;
+                var amp = Math.max(P.aPlus, P.aMinus, 0.005) * 1.15;
+
+                /* the window itself, sampled either side of the discontinuity */
+                var ltp = [], ltd = [], i, x;
+                for (i = -span; i <= -0.5; i += 0.5) { ltd.push([i, rawDw(i)]); }
+                for (i = 0.5; i <= span; i += 0.5) { ltp.push([i, rawDw(i)]); }
+
+                var cur = rawDw(P.dt);
+                var p = NPLib.plot(ctx, box, {
+                    xmin: -span, xmax: span, ymin: -amp, ymax: amp,
+                    xTicks: [-100, -50, 0, 50, 100],
+                    yTicks: [-amp, -amp / 2, 0, amp / 2, amp],
+                    tickLabelsX: true,
+                    xZero: true,
+                    bands: [
+                        { x0: -span, x1: 0, color: th.ltd },
+                        { x0: 0, x1: span, color: th.ltp }
+                    ],
+                    series: [
+                        { pts: ltd, color: th.ltd, width: 2 },
+                        { pts: ltp, color: th.ltp, width: 2 }
+                    ],
+                    xlabel: 'Δt (ms)',
+                    ylabel: 'Δw'
+                });
+
+                /* y scale, written out rather than tick-labelled: the numbers
+                   are small and the reader only needs the extremes */
+                ctx.save();
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.fillStyle = th.muted;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('+' + amp.toFixed(3), box.x - 5, p.sy(amp));
+                ctx.fillText('0', box.x - 5, p.sy(0));
+                ctx.fillText('−' + amp.toFixed(3), box.x - 5, p.sy(-amp));
+                ctx.restore();
+
+                /* the selected pairing */
+                x = p.sx(P.dt);
+                ctx.save();
+                ctx.strokeStyle = th.fg;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 3]);
+                ctx.beginPath();
+                ctx.moveTo(x, box.y);
+                ctx.lineTo(x, box.y + box.h);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.beginPath();
+                ctx.moveTo(x, p.sy(0));
+                ctx.lineTo(x, p.sy(NPLib.clamp(cur, -amp, amp)));
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = cur >= 0 ? th.ltp : th.ltd;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(x, p.sy(NPLib.clamp(cur, -amp, amp)), 4.5, 0, Math.PI * 2);
+                ctx.fillStyle = cur >= 0 ? th.ltp : th.ltd;
+                ctx.fill();
+                ctx.strokeStyle = th.canvasBg;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.restore();
+
+                /* which half is which, above the frame so nothing is hidden */
+                ctx.save();
+                ctx.font = '600 10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = th.ltd;
+                ctx.textAlign = 'left';
+                ctx.fillText('post before pre · LTD', box.x, box.y - 6);
+                ctx.fillStyle = th.ltp;
+                ctx.textAlign = 'right';
+                ctx.fillText('pre before post · LTP', box.x + box.w, box.y - 6);
+                ctx.restore();
+            }
+
+            function drawSweep() {
+                var th = NPLib.theme();
+                var ctx = swp.ctx;
+                NPLib.clear(ctx, swp.w, swp.h);
+
+                var box = { x: 54, y: 26, w: swp.w - 70, h: swp.h - 62 };
+                var lim = 0.55;
+                var i;
+                if (sweep) {
+                    lim = 0.02;
+                    for (i = 0; i < sweep.length; i++) {
+                        lim = Math.max(lim, Math.abs(sweep[i][1]));
+                    }
+                    lim *= 1.2;
+                }
+
+                /* split at the discontinuity, or the two branches get joined by
+                   a vertical line that is not part of the result */
+                var series = [];
+                if (sweep) {
+                    var neg = [], pos = [];
+                    for (i = 0; i < sweep.length; i++) {
+                        if (sweep[i][0] < 0) { neg.push(sweep[i]); }
+                        else if (sweep[i][0] > 0) { pos.push(sweep[i]); }
+                    }
+                    series.push({ pts: neg, color: th.theory, width: 2 });
+                    series.push({ pts: pos, color: th.theory, width: 2 });
+                }
+
+                var p = NPLib.plot(ctx, box, {
+                    xmin: -100, xmax: 100, ymin: -lim, ymax: lim,
+                    xTicks: [-100, -50, 0, 50, 100],
+                    yTicks: [-lim, -lim / 2, 0, lim / 2, lim],
+                    tickLabelsX: true,
+                    xZero: true,
+                    bands: [
+                        { x0: -100, x1: 0, color: th.ltd },
+                        { x0: 0, x1: 100, color: th.ltp }
+                    ],
+                    series: series,
+                    xlabel: 'Δt (ms)',
+                    ylabel: 'net Δw'
+                });
+
+                ctx.save();
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.fillStyle = th.muted;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('+' + lim.toFixed(2), box.x - 5, p.sy(lim));
+                ctx.fillText('0', box.x - 5, p.sy(0));
+                ctx.fillText('−' + lim.toFixed(2), box.x - 5, p.sy(-lim));
+
+                if (!sweep) {
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = th.muted;
+                    ctx.font = '12px Inter, sans-serif';
+                    ctx.fillText('press “Sweep Δt”', box.x + box.w / 2, box.y + box.h / 2);
+                } else {
+                    /* mark where the live protocol sits */
+                    var here = null;
+                    for (i = 0; i < sweep.length; i++) {
+                        if (Math.abs(sweep[i][0] - P.dt) < 1.5) { here = sweep[i]; break; }
+                    }
+                    if (here) {
+                        ctx.beginPath();
+                        ctx.arc(p.sx(here[0]), p.sy(NPLib.clamp(here[1], -lim, lim)), 4.5, 0, Math.PI * 2);
+                        ctx.fillStyle = here[1] >= 0 ? th.ltp : th.ltd;
+                        ctx.fill();
+                        ctx.strokeStyle = th.canvasBg;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+
+            function drawRaster() {
+                var th = NPLib.theme();
+                var ctx = ras.ctx;
+                NPLib.clear(ctx, ras.w, ras.h);
+
+                var box = { x: 52, y: 10, w: ras.w - 68, h: ras.h - 26 };
+                var span = rasterSpan();
+                var xmax = Math.max(simT, span);
+                var xmin = xmax - span;
+
+                var pre = [], post = [], i;
+                for (i = 0; i < events.length; i++) {
+                    if (events[i].kind === 'pre') { pre.push(events[i].t); }
+                    else { post.push(events[i].t); }
+                }
+
+                ctx.save();
+                ctx.strokeStyle = th.border;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w, box.h);
+                ctx.restore();
+
+                NPLib.raster(ctx, box, [
+                    { times: pre, color: th.pre, width: 2 },
+                    { times: post, color: th.post, width: 2 }
+                ], { xmin: xmin, xmax: xmax });
+
+                ctx.save();
+                ctx.font = '600 10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.fillStyle = th.pre;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('pre', box.x - 6, box.y + box.h * 0.25);
+                ctx.fillStyle = th.post;
+                ctx.fillText('post', box.x - 6, box.y + box.h * 0.75);
+
+                ctx.fillStyle = th.muted;
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                ctx.fillText((xmax / 1000).toFixed(1) + ' s', box.x + box.w, box.y + box.h + 4);
+                ctx.restore();
+            }
+
+            function drawWeight() {
+                var th = NPLib.theme();
+                var ctx = wgt.ctx;
+                NPLib.clear(ctx, wgt.w, wgt.h);
+
+                var box = { x: 52, y: 12, w: wgt.w - 68, h: wgt.h - 44 };
+
+                /* whole-numbered pairing ticks */
+                var stepK = Math.max(1, Math.round(P.pairs / 4));
+                var xTicks = [], t;
+                for (t = 0; t <= P.pairs; t += stepK) { xTicks.push(t); }
+
+                var p = NPLib.plot(ctx, box, {
+                    xmin: 0, xmax: Math.max(P.pairs, 1), ymin: 0, ymax: W_MAX,
+                    xTicks: xTicks,
+                    yTicks: [0, 0.25, 0.5, 0.75, 1],
+                    tickLabelsX: true,
+                    hlines: [{ y: P.w0, color: th.muted, label: 'w0' }],
+                    series: [{ pts: wHistory, color: th.accent, width: 2.2 }],
+                    xlabel: 'pairing number'
+                });
+
+                ctx.save();
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.fillStyle = th.muted;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('1.0', box.x - 5, p.sy(1));
+                ctx.fillText('0.0', box.x - 5, p.sy(0));
+
+                if (wHistory.length > 1) {
+                    var last = wHistory[wHistory.length - 1];
+                    ctx.beginPath();
+                    ctx.arc(p.sx(last[0]), p.sy(last[1]), 3.5, 0, Math.PI * 2);
+                    ctx.fillStyle = th.accent;
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            function draw() {
+                drawWindow();
+                drawSweep();
+                drawRaster();
+                drawWeight();
+                readouts();
+            }
+
+            function readouts() {
+                var dw = appliedDw(P.dt, w);
+                NPLib.set('wOut', w.toFixed(3));
+                NPLib.set('dwOut', (dw >= 0 ? '+' : '−') + Math.abs(dw).toFixed(4));
+                NPLib.set('kOut', k + ' / ' + P.pairs);
+                var net = w - P.w0;
+                NPLib.set('netOut', (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(3));
+                var wi = windowIntegral();
+                NPLib.set('intOut', (wi >= 0 ? '+' : '−') + Math.abs(wi).toFixed(3));
+            }
+
+            function setStatus(msg) {
+                var el = document.getElementById('status');
+                if (msg) { el.textContent = msg; return; }
+                if (k === 0) {
+                    el.textContent = 'Ready. \u0394t = ' + (P.dt >= 0 ? '+' : '−') + Math.abs(P.dt) +
+                        ' ms, so a completed protocol should ' +
+                        (rawDw(P.dt) >= 0 ? 'potentiate' : 'depress') + ' this synapse.';
+                } else if (k >= P.pairs) {
+                    var net = w - P.w0;
+                    el.textContent = P.pairs + ' pairings at \u0394t = ' + (P.dt >= 0 ? '+' : '−') +
+                        Math.abs(P.dt) + ' ms: w went from ' + P.w0.toFixed(2) + ' to ' + w.toFixed(3) +
+                        ' (' + (net >= 0 ? '+' : '−') + Math.abs(net).toFixed(3) + ', ' +
+                        (net >= 0 ? 'LTP' : 'LTD') + ').' +
+                        (w === 0 || w === W_MAX ? ' The weight is against its bound.' : '');
+                } else {
+                    el.textContent = 'Pairing ' + k + ' of ' + P.pairs + ', w = ' + w.toFixed(3) + '.';
+                }
+            }
+
+            /* --------------------------------------------------------- controls */
+
+            /* Every control writes straight into P and then says what that
+               invalidates: the protocol so far (reset), or the sweep as well. */
+            function onProtocolChange() {
+                if (loop.running) { draw(); } else { reset(); }
+            }
+
+            function onWindowChange() {
+                sweep = null;           /* the old sweep was run with other parameters */
+                onProtocolChange();
+            }
+
+            function param(id, opts) {
+                opts = opts || {};
+                var after = opts.after || onProtocolChange;
+                NPLib.bind(id, {
+                    scale: opts.scale,
+                    fmt: opts.fmt,
+                    on: function (v) { P[id] = v; after(); }
+                });
+            }
+
+            param('dt', { fmt: function (v) { return (v >= 0 ? '+' : '−') + Math.abs(v) + ' ms'; } });
+            param('pairs', { fmt: function (v) { return String(v); } });
+            param('rate', {
+                scale: function (v) { return v / 10; },
+                fmt: function (v) { return v.toFixed(1) + ' Hz'; }
+            });
+            param('w0', {
+                scale: function (v) { return v / 100; },
+                fmt: function (v) { return v.toFixed(2); }
+            });
+            param('aPlus', {
+                scale: function (v) { return v / 1000; },
+                fmt: function (v) { return v.toFixed(3); },
+                after: onWindowChange
+            });
+            param('tauPlus', { fmt: function (v) { return v + ' ms'; }, after: onWindowChange });
+            param('aMinus', {
+                scale: function (v) { return v / 1000; },
+                fmt: function (v) { return v.toFixed(3); },
+                after: onWindowChange
+            });
+            param('tauMinus', { fmt: function (v) { return v + ' ms'; }, after: onWindowChange });
+            param('rule', { after: onWindowChange });
+            param('speed', { fmt: function (v) { return v + '×'; }, after: function () { } });
+
+            var runBtn = NPLib.on('runBtn', function () {
+                if (loop.running) {
+                    loop.stop();
+                    runBtn.textContent = 'Resume';
+                    runBtn.classList.remove('on');
+                    return;
+                }
+                if (k >= P.pairs) { reset(); }
+                if (NPLib.reducedMotion()) {
+                    /* no animation wanted: deliver the whole protocol at once */
+                    simT = pairTime(P.pairs - 1) + Math.abs(P.dt) + 1;
+                    scheduleThrough(simT);
+                    draw();
+                    setStatus();
+                    return;
+                }
+                runBtn.textContent = 'Pause';
+                runBtn.classList.add('on');
+                loop.start();
+            });
+
+            NPLib.on('oneBtn', function () {
+                if (loop.running) { return; }
+                if (k >= P.pairs) { reset(); }
+                nextPairIndex = Math.max(nextPairIndex, k);
+                var base = pairTime(nextPairIndex);
+                events.push({ t: base, kind: 'pre' });
+                events.push({ t: base + P.dt, kind: 'post' });
+                applyPair(P.dt);
+                nextPairIndex += 1;
+                simT = Math.max(simT, base + Math.abs(P.dt) + rasterSpan() * 0.3);
+                draw();
+                setStatus();
+            });
+
+            NPLib.on('resetBtn', function () { sweep = null; reset(); });
+
+            NPLib.on('sweepBtn', function () {
+                var pts = [];
+                for (var d = -100; d <= 100; d += 1) {
+                    pts.push([d, runSilently(d)]);
+                }
+                sweep = pts;
+                draw();
+                setStatus('Swept ' + pts.length + ' values of \u0394t, ' + P.pairs +
+                    ' pairings each. The dip and the peak are the two halves of the learning window, ' +
+                    'accumulated.');
+            });
+
+            /* Dragging on the window panel sets dt. */
+            (function () {
+                var c = document.getElementById('windowCanvas');
+                var tip = NPLib.tooltip(c);
+                var dragging = false;
+
+                function pick(e) {
+                    var p = NPLib.pointer(c, e);
+                    var box = { x: 52, w: win.w - 68 };
+                    var frac = (p.x - box.x) / box.w;
+                    var d = Math.round(NPLib.clamp(frac, 0, 1) * 200 - 100);
+                    var el = document.getElementById('dt');
+                    el.value = d;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    return { p: p, d: d };
+                }
+
+                c.addEventListener('pointerdown', function (e) {
+                    dragging = true;
+                    c.setPointerCapture(e.pointerId);
+                    var r = pick(e);
+                    tip.show(r.p.x, r.p.y, '\u0394t = ' + r.d + ' ms\n\u0394w = ' + rawDw(r.d).toFixed(4));
+                });
+                c.addEventListener('pointermove', function (e) {
+                    var p = NPLib.pointer(c, e);
+                    if (dragging) {
+                        var r = pick(e);
+                        tip.show(r.p.x, r.p.y, '\u0394t = ' + r.d + ' ms\n\u0394w = ' + rawDw(r.d).toFixed(4));
+                    } else {
+                        var box = { x: 52, w: win.w - 68 };
+                        var frac = (p.x - box.x) / box.w;
+                        if (frac < 0 || frac > 1) { tip.hide(); return; }
+                        var d = Math.round(frac * 200 - 100);
+                        tip.show(p.x, p.y, '\u0394t = ' + d + ' ms\n\u0394w = ' + rawDw(d).toFixed(4));
+                    }
+                });
+                c.addEventListener('pointerup', function () { dragging = false; });
+                c.addEventListener('pointerleave', function () { dragging = false; tip.hide(); });
+            }());
+
+            NPLib.onThemeChange(draw);
+
+            reset();
+        }());
+    </script>
+</body>
+
+</html>

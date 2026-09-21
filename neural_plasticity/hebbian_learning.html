@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hebbian Cell Assemblies</title>
+    <meta name="description"
+        content="Interactive Hebbian learning: train two overlapping input patterns into a recurrent network, watch the weight matrix split into cell assemblies, then recall a whole assembly from a partial cue.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="plasticity.css">
+    <script src="plasticity.js"></script>
+    <script>NPLib.applyStoredTheme();</script>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <div class="navlinks">
+                <a href="index.html" class="nav-link">&larr; Neural plasticity</a>
+                <a href="stdp.html" class="nav-link">STDP</a>
+                <a href="leaky_integrate_fire.html" class="nav-link">LIF neuron</a>
+            </div>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Neural plasticity &middot; learning rules</p>
+            <h1>Hebbian Cell Assemblies</h1>
+            <p class="subtitle">&ldquo;Neurons that fire together wire together&rdquo; is the slogan. The claim
+                underneath it is the interesting part: if a rule that only ever looks at two cells at a time is
+                applied over and over, a group of cells that keeps being co-activated will end up wired into a unit
+                that can be reawakened by any fragment of itself. Train two patterns here and watch the weight
+                matrix separate into blocks.</p>
+        </header>
+
+        <div class="status" id="status" role="status" aria-live="polite">
+            Untrained network. Every synapse starts weak and roughly equal.
+        </div>
+
+        <div class="figs side">
+            <div class="panel">
+                <h3>Protocol</h3>
+                <div class="toolbar" style="margin-bottom:16px">
+                    <button type="button" class="primary" id="trainABtn">Train A</button>
+                    <button type="button" class="primary" id="trainBBtn">Train B</button>
+                </div>
+                <div class="toolbar" style="margin-bottom:16px">
+                    <button type="button" id="autoBtn">Auto-train</button>
+                    <button type="button" id="resetBtn">Reset</button>
+                </div>
+                <div class="toolbar" style="margin-bottom:0">
+                    <button type="button" id="probeABtn">Probe A</button>
+                    <button type="button" id="probeBBtn">Probe B</button>
+                </div>
+
+                <h3 style="margin-top:22px">Network</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="size"><span>Assembly size</span><b id="sizeVal">4 cells</b></label>
+                        <input type="range" id="size" min="2" max="5" value="4" step="1">
+                        <span class="hint">Pattern A takes the first cells of the ring, pattern B the next. The rest
+                            are never driven and act as a control.</span>
+                    </div>
+                    <div class="control">
+                        <label for="theta"><span>&theta; firing threshold</span><b id="thetaVal">0.60</b></label>
+                        <input type="range" id="theta" min="10" max="200" value="60" step="5">
+                        <span class="hint">Total synaptic input a cell needs before it fires.</span>
+                    </div>
+                    <div class="control">
+                        <label for="reliab"><span>Input reliability</span><b id="reliabVal">90%</b></label>
+                        <input type="range" id="reliab" min="40" max="100" value="90" step="5">
+                        <span class="hint">Chance each member of the pattern is actually driven on a given trial.
+                            Real input is never clean.</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top:22px">Learning rule</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="eta"><span>&eta; learning rate</span><b id="etaVal">0.10</b></label>
+                        <input type="range" id="eta" min="1" max="40" value="10" step="1">
+                    </div>
+                    <div class="control">
+                        <label for="rho"><span>&rho; depression threshold</span><b id="rhoVal">0.50</b></label>
+                        <input type="range" id="rho" min="0" max="100" value="50" step="5">
+                        <span class="hint">Set it to 0 and the rule becomes pure &ldquo;fire together, wire
+                            together&rdquo;, with no way to ever weaken anything.</span>
+                    </div>
+                    <div class="control">
+                        <label for="scaling"><span>Homeostasis</span></label>
+                        <div class="checkrow">
+                            <label for="scaling"><input type="checkbox" id="scaling"> Synaptic scaling</label>
+                        </div>
+                        <span class="hint">Hold each cell's total incoming weight constant, so synapses have to
+                            compete for a fixed budget instead of all saturating.</span>
+                    </div>
+                    <div class="control">
+                        <label for="cue"><span>Cue size for probing</span><b id="cueVal">2 cells</b></label>
+                        <input type="range" id="cue" min="1" max="5" value="2" step="1">
+                        <span class="hint">How much of the pattern the probe supplies. The rest has to be filled in
+                            by the network.</span>
+                    </div>
+                    <div class="control">
+                        <label for="speed"><span>Auto-train speed</span><b id="speedVal">6 trials/s</b></label>
+                        <input type="range" id="speed" min="1" max="20" value="6" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="figs two-even">
+                    <div class="fig">
+                        <canvas id="netCanvas"
+                            aria-label="Recurrent network: cells on a ring, connections drawn by weight"></canvas>
+                        <p class="cap">The network. Line weight is synaptic strength; only connections above a
+                            quarter of maximum are drawn. Hover a cell for its inputs.</p>
+                        <div class="legend">
+                            <span><i class="dot" style="background:var(--c-pre)"></i>assembly A</span>
+                            <span><i class="dot" style="background:var(--c-post)"></i>assembly B</span>
+                            <span><i class="dot" style="background:var(--c-neuron)"></i>undriven</span>
+                            <span><i style="background:var(--c-ltp)"></i>strengthened</span>
+                        </div>
+                    </div>
+
+                    <div class="fig">
+                        <canvas id="matCanvas"
+                            aria-label="Weight matrix, source cell on the horizontal axis and target cell on the vertical"></canvas>
+                        <p class="cap">The same synapses as a matrix: row <em>i</em>, column <em>j</em> is the weight
+                            from cell <em>j</em> onto cell <em>i</em>. Hover a cell for the value.</p>
+                        <div class="legend">
+                            <span><i class="dot" style="background:var(--c-ltp)"></i>strong</span>
+                            <span><i class="dot"
+                                    style="background:var(--canvas-bg);border:1px solid var(--border)"></i>weak</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fig">
+                    <canvas id="histCanvas"
+                        aria-label="Mean synaptic weight within and between the two assemblies, against training trial"></canvas>
+                    <p class="cap">Mean weight within A, within B, and between the two, trial by trial. The gap that
+                        opens between the curves <em>is</em> the assembly.</p>
+                    <div class="legend">
+                        <span><i style="background:var(--c-pre)"></i>within A</span>
+                        <span><i style="background:var(--c-post)"></i>within B</span>
+                        <span><i style="background:var(--c-ltd)"></i>A &harr; B</span>
+                    </div>
+                    <div class="readouts">
+                        <div class="readout"><span>trials</span><b id="trialOut">0</b></div>
+                        <div class="readout"><span>within A</span><b id="waOut">0.20</b></div>
+                        <div class="readout"><span>within B</span><b id="wbOut">0.20</b></div>
+                        <div class="readout"><span>A &harr; B</span><b id="wxOut">0.20</b></div>
+                        <div class="readout"><span>last recall</span><b id="recallOut">&mdash;</b></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="note">
+            <h2>What the figure is doing</h2>
+            <p>Twelve cells, all-to-all recurrently connected, each synapse a single number
+                <code>W<sub>ij</sub></code> between 0 and 1: the strength of the connection from cell <em>j</em> onto
+                cell <em>i</em>. A cell fires when the weighted sum of its active inputs, plus whatever external drive
+                it is getting, reaches the threshold &theta;.</p>
+            <p>A <em>trial</em> drives one pattern, A or B, and then applies the learning rule to every synapse whose
+                pre-synaptic cell fired:</p>
+            <p class="eq">&Delta;W<sub>ij</sub> = &eta; &middot; x<sub>j</sub> &middot; (x<sub>i</sub> &minus;
+                &rho;)</p>
+            <p>Read it from the synapse's point of view. Nothing happens unless the pre-synaptic cell fired
+                (<code>x<sub>j</sub> = 1</code>): plasticity is homosynaptic, a silent input is not punished for what
+                the rest of the network did. Given that it fired, the synapse is strengthened if the post-synaptic
+                cell also fired and weakened if it did not. &rho; sets where that changeover sits, and so how much
+                depression the rule produces for each unit of potentiation.</p>
+            <p>That asymmetry is what makes the rule usable. Set &rho; = 0 and the rule becomes pure potentiation:
+                it can add but never subtract. The within-assembly weights still climb to the ceiling, so the matrix
+                still looks like it has blocks &mdash; but the connections <em>out</em> of each assembly are never
+                weakened, and they sit at their starting value of 0.2. Four of those firing at once is 0.8, which is
+                over threshold. Probe it and the cue recruits A, then A ignites B, then B ignites everything else,
+                and the recall readout reports the entire rest of the network as an intrusion. A network that cannot
+                weaken a synapse can store exactly one thing: all of it.</p>
+
+            <h2>Things worth doing with it</h2>
+            <ul>
+                <li><strong>Train A alone, twenty times.</strong> Watch the top-left block of the matrix fill in while
+                    the cells of A stop driving anything outside A. The network has not been told that A is a group.
+                    It has only ever applied a two-cell rule.</li>
+                <li><strong>Then train B.</strong> The second block appears and the off-diagonal blocks empty out.
+                    The <em>A &harr; B</em> curve falling away from the other two is the moment the two patterns
+                    become separately addressable.</li>
+                <li><strong>Probe.</strong> Press <em>Probe A</em> on the untrained network and nothing happens: two
+                    cells firing cannot push a third over threshold. Train, then probe again, and the cue recruits
+                    the whole assembly. That is pattern completion, and it is the payoff Hebb was after &mdash; a
+                    memory that can be addressed by its contents rather than by its address.</li>
+                <li><strong>Break it.</strong> Push &theta; up and the cue can no longer recruit anything; pull it
+                    down and everything fires at once, including B, which the recall readout reports as an
+                    intrusion. A useful assembly lives in the window between those two failures, and nothing in the
+                    learning rule guarantees the network lands in it.</li>
+                <li><strong>Turn on synaptic scaling.</strong> Each cell's incoming weights are renormalised to a
+                    fixed total after every trial, so a synapse can only gain at its neighbours' expense. The weights
+                    stop saturating and settle at graded values instead, and the matrix keeps its block structure
+                    without ever pinning anything to 1.</li>
+                <li><strong>Lower the input reliability.</strong> The patterns are delivered with cells missing, so
+                    the rule sees a different subset each trial. The assembly still forms, because what it is
+                    extracting is the statistics of the input rather than any single presentation.</li>
+            </ul>
+
+            <h2>Where the model stops being true</h2>
+            <ul>
+                <li>The cells are binary and update in lockstep. Real assemblies are defined by spike timing, and the
+                    order of firing carries information this model throws away &mdash; which is exactly what the
+                    <a href="stdp.html">STDP figure</a> is for.</li>
+                <li>Every cell here is excitatory. A real recurrent network this densely and strongly connected would
+                    seize; cortex holds itself just below that point with inhibition that is tuned as carefully as
+                    the excitation, and the interneurons doing it are plastic too.</li>
+                <li>Weights are bounded by fiat. In biology the ceiling comes from the number of receptors a spine can
+                    hold and the volume it can grow to, and the floor comes from silent synapses being pruned
+                    outright, which is a structural change rather than a change in one number.</li>
+                <li>Learning is instantaneous and permanent. Real potentiation has an early phase that decays within
+                    an hour or two, and only some of it is consolidated into a lasting change by protein synthesis.
+                    Nothing here forgets.</li>
+            </ul>
+        </div>
+
+        <div class="related">
+            Related
+            <div class="links">
+                <a href="stdp.html">Spike-timing-dependent plasticity</a>
+                <a href="leaky_integrate_fire.html">Stochastic LIF neuron</a>
+                <a href="../criticality.html">Self-organised criticality</a>
+                <a href="../index.html">Site index</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            NPLib.wireThemeToggle();
+
+            var N = 12;
+            var W_MAX = 1;
+            var W_INIT = 0.2;
+            var PROBE_STEPS = 8;
+
+            var P = {
+                size: 4, theta: 0.60, reliab: 0.90,
+                eta: 0.10, rho: 0.50, scaling: false, cue: 2, speed: 6
+            };
+
+            /* --------------------------------------------------------- state */
+
+            var W = [];          /* W[i][j]: weight from j onto i */
+            var rowBudget = [];  /* incoming total each cell is scaled back to */
+            var x = [];          /* current binary activity */
+            var glow = [];       /* decaying activity, for the drawing only */
+            var trials = 0;
+            var history = { a: [], b: [], x: [] };
+            var lastRecall = null;
+
+            function inA(i) { return i < P.size; }
+            function inB(i) { return i >= P.size && i < 2 * P.size; }
+            function patternOf(name) {
+                var p = [], i;
+                for (i = 0; i < N; i++) {
+                    if (name === 'A' ? inA(i) : inB(i)) { p.push(i); }
+                }
+                return p;
+            }
+
+            function init() {
+                var i, j;
+                W = [];
+                rowBudget = [];
+                for (i = 0; i < N; i++) {
+                    W[i] = [];
+                    var sum = 0;
+                    for (j = 0; j < N; j++) {
+                        /* no autapses: a cell exciting itself would complete any
+                           pattern on its own and the demo would prove nothing */
+                        W[i][j] = i === j ? 0 : W_INIT + (Math.random() - 0.5) * 0.06;
+                        sum += W[i][j];
+                    }
+                    rowBudget[i] = sum;
+                }
+                x = new Array(N).fill(0);
+                glow = new Array(N).fill(0);
+                trials = 0;
+                history = { a: [], b: [], x: [] };
+                lastRecall = null;
+                record();
+            }
+
+            /* -------------------------------------------------- the mechanics */
+
+            /* One synchronous update. drive[] is the external input. */
+            function settle(drive) {
+                var next = new Array(N), i, j, h;
+                for (i = 0; i < N; i++) {
+                    h = drive[i];
+                    for (j = 0; j < N; j++) { h += W[i][j] * x[j]; }
+                    next[i] = h >= P.theta ? 1 : 0;
+                }
+                x = next;
+                for (i = 0; i < N; i++) { if (x[i]) { glow[i] = 1; } }
+                return x;
+            }
+
+            /* Homosynaptic Hebbian rule with a depression threshold: a synapse
+               only changes if its pre-synaptic cell fired. */
+            function learn() {
+                var i, j, d;
+                for (j = 0; j < N; j++) {
+                    if (!x[j]) { continue; }
+                    for (i = 0; i < N; i++) {
+                        if (i === j) { continue; }
+                        d = P.eta * (x[i] - P.rho);
+                        W[i][j] = NPLib.clamp(W[i][j] + d, 0, W_MAX);
+                    }
+                }
+                if (P.scaling) { scale(); }
+            }
+
+            /* Synaptic scaling: renormalise each cell's incoming weights back to
+               the budget it started with, so potentiation at one synapse costs
+               the others. Multiplicative, so it preserves relative strengths. */
+            function scale() {
+                var i, j, sum, f;
+                for (i = 0; i < N; i++) {
+                    sum = 0;
+                    for (j = 0; j < N; j++) { sum += W[i][j]; }
+                    if (sum <= 1e-9) { continue; }
+                    f = rowBudget[i] / sum;
+                    for (j = 0; j < N; j++) {
+                        W[i][j] = NPLib.clamp(W[i][j] * f, 0, W_MAX);
+                    }
+                }
+            }
+
+            function trial(name) {
+                var pattern = patternOf(name);
+                var drive = new Array(N).fill(0), k;
+                for (k = 0; k < pattern.length; k++) {
+                    /* the input is not perfectly reliable */
+                    if (Math.random() < P.reliab) { drive[pattern[k]] = 1.2; }
+                }
+                x = new Array(N).fill(0);
+                settle(drive);
+                learn();
+                trials += 1;
+                record();
+            }
+
+            /* Drive part of a pattern, let the recurrence run with learning off,
+               and see how much of the pattern comes back. */
+            function probe(name) {
+                var pattern = patternOf(name);
+                var other = patternOf(name === 'A' ? 'B' : 'A');
+                var drive = new Array(N).fill(0), k;
+                var nCue = Math.min(P.cue, pattern.length);
+                for (k = 0; k < nCue; k++) { drive[pattern[k]] = 1.2; }
+
+                x = new Array(N).fill(0);
+                for (k = 0; k < PROBE_STEPS; k++) { settle(drive); }
+
+                var hit = 0, intruders = 0;
+                for (k = 0; k < pattern.length; k++) { if (x[pattern[k]]) { hit++; } }
+                for (k = 0; k < other.length; k++) { if (x[other[k]]) { intruders++; } }
+                for (k = 2 * P.size; k < N; k++) { if (x[k]) { intruders++; } }
+
+                lastRecall = {
+                    name: name, hit: hit, of: pattern.length,
+                    cue: nCue, intruders: intruders
+                };
+                return lastRecall;
+            }
+
+            /* ------------------------------------------------------ statistics */
+
+            /* Mean weight over the synapses joining two sets, skipping the
+               diagonal when the sets are the same. */
+            function meanW(from, to) {
+                var sum = 0, n = 0, a, b;
+                for (a = 0; a < to.length; a++) {
+                    for (b = 0; b < from.length; b++) {
+                        if (to[a] === from[b]) { continue; }
+                        sum += W[to[a]][from[b]];
+                        n++;
+                    }
+                }
+                return n ? sum / n : 0;
+            }
+
+            function record() {
+                var A = patternOf('A'), B = patternOf('B');
+                var wa = meanW(A, A), wb = meanW(B, B);
+                var wx = (meanW(A, B) + meanW(B, A)) / 2;
+                history.a.push([trials, wa]);
+                history.b.push([trials, wb]);
+                history.x.push([trials, wx]);
+                if (history.a.length > 4000) {
+                    history.a.shift(); history.b.shift(); history.x.shift();
+                }
+                return { wa: wa, wb: wb, wx: wx };
+            }
+
+            /* --------------------------------------------------------- layout */
+
+            function nodePos(i, w, h) {
+                var r = Math.min(w, h) * 0.37;
+                var ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+                return { x: w / 2 + Math.cos(ang) * r, y: h / 2 + Math.sin(ang) * r };
+            }
+
+            function nodeColor(i, th) {
+                if (inA(i)) { return th.pre; }
+                if (inB(i)) { return th.post; }
+                return th.neuron;
+            }
+
+            /* --------------------------------------------------------- drawing */
+
+            var ready = false;
+            function redraw() { if (ready) { draw(); } }
+
+            var net = NPLib.fitCanvas(document.getElementById('netCanvas'), 0.88, redraw);
+            var mat = NPLib.fitCanvas(document.getElementById('matCanvas'), 0.88, redraw);
+            var his = NPLib.fitCanvas(document.getElementById('histCanvas'), 0.24, redraw);
+            ready = true;
+
+            function drawNet() {
+                var th = NPLib.theme();
+                var ctx = net.ctx;
+                var w = net.w, h = net.h;
+                NPLib.clear(ctx, w, h);
+
+                var i, j, pi, pj;
+
+                /* connections, weak ones omitted so the ring stays readable */
+                for (i = 0; i < N; i++) {
+                    for (j = 0; j < N; j++) {
+                        if (i === j || W[i][j] < 0.25) { continue; }
+                        pi = nodePos(i, w, h);
+                        pj = nodePos(j, w, h);
+                        var t = (W[i][j] - 0.25) / (W_MAX - 0.25);
+
+                        /* bow each direction to one side so j->i and i->j are
+                           distinguishable rather than drawn on top of each other */
+                        var mx = (pi.x + pj.x) / 2, my = (pi.y + pj.y) / 2;
+                        var dx = pi.x - pj.x, dy = pi.y - pj.y;
+                        var len = Math.hypot(dx, dy) || 1;
+                        var cx = mx - (dy / len) * len * 0.08;
+                        var cy = my + (dx / len) * len * 0.08;
+
+                        ctx.save();
+                        ctx.strokeStyle = NPLib.mix(th.border, th.ltp, t);
+                        ctx.globalAlpha = 0.35 + t * 0.6;
+                        ctx.lineWidth = 0.8 + t * 3.4;
+                        ctx.beginPath();
+                        ctx.moveTo(pj.x, pj.y);
+                        ctx.quadraticCurveTo(cx, cy, pi.x, pi.y);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+
+                /* cells */
+                for (i = 0; i < N; i++) {
+                    pi = nodePos(i, w, h);
+                    var base = nodeColor(i, th);
+                    var r = Math.min(w, h) * 0.045;
+
+                    if (glow[i] > 0.02) {
+                        var g = ctx.createRadialGradient(pi.x, pi.y, 0, pi.x, pi.y, r * 3);
+                        g.addColorStop(0, NPLib.alpha(th.ltp, glow[i] * 0.55));
+                        g.addColorStop(1, NPLib.alpha(th.ltp, 0));
+                        ctx.fillStyle = g;
+                        ctx.beginPath();
+                        ctx.arc(pi.x, pi.y, r * 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(pi.x, pi.y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = x[i] ? th.ltp : base;
+                    ctx.fill();
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = th.canvasBg;
+                    ctx.stroke();
+
+                    ctx.fillStyle = th.canvasBg;
+                    ctx.font = '600 10px "IBM Plex Mono", ui-monospace, monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(String(i), pi.x, pi.y);
+                }
+
+                /* which arc is which pattern */
+                ctx.font = '600 11px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                labelArc(ctx, 0, P.size - 1, 'A', th.pre, w, h);
+                labelArc(ctx, P.size, 2 * P.size - 1, 'B', th.post, w, h);
+            }
+
+            function labelArc(ctx, i0, i1, text, color, w, h) {
+                var mid = (i0 + i1) / 2;
+                var ang = (mid / N) * Math.PI * 2 - Math.PI / 2;
+                var r = Math.min(w, h) * 0.37 + Math.min(w, h) * 0.105;
+                ctx.fillStyle = color;
+                ctx.fillText(text, w / 2 + Math.cos(ang) * r, h / 2 + Math.sin(ang) * r);
+            }
+
+            var matGeom = { x: 34, y: 26, cell: 10 };
+
+            function drawMat() {
+                var th = NPLib.theme();
+                var ctx = mat.ctx;
+                NPLib.clear(ctx, mat.w, mat.h);
+
+                var pad = 34;
+                var avail = Math.min(mat.w - pad - 12, mat.h - pad - 14);
+                var cell = Math.floor(avail / N);
+                var x0 = pad, y0 = 26;
+                matGeom = { x: x0, y: y0, cell: cell };
+
+                var i, j;
+                for (i = 0; i < N; i++) {
+                    for (j = 0; j < N; j++) {
+                        var cx = x0 + j * cell, cy = y0 + i * cell;
+                        if (i === j) {
+                            ctx.fillStyle = th.panel2;
+                        } else {
+                            ctx.fillStyle = NPLib.mix(th.canvasBg, th.ltp, W[i][j] / W_MAX);
+                        }
+                        ctx.fillRect(cx, cy, cell - 1, cell - 1);
+                    }
+                }
+
+                /* assembly brackets along both axes */
+                function bracket(a, b, color, vertical) {
+                    ctx.save();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    if (vertical) {
+                        ctx.moveTo(x0 - 6, y0 + a * cell);
+                        ctx.lineTo(x0 - 6, y0 + (b + 1) * cell - 1);
+                    } else {
+                        ctx.moveTo(x0 + a * cell, y0 - 6);
+                        ctx.lineTo(x0 + (b + 1) * cell - 1, y0 - 6);
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                bracket(0, P.size - 1, th.pre, true);
+                bracket(P.size, 2 * P.size - 1, th.post, true);
+                bracket(0, P.size - 1, th.pre, false);
+                bracket(P.size, 2 * P.size - 1, th.post, false);
+
+                ctx.fillStyle = th.muted;
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('from j', x0 + (N * cell) / 2, y0 - 12);
+                ctx.save();
+                ctx.translate(x0 - 20, y0 + (N * cell) / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.textBaseline = 'middle';
+                ctx.fillText('onto i', 0, 0);
+                ctx.restore();
+
+                /* colour key */
+                var kx = x0, ky = y0 + N * cell + 10, kw = N * cell, kh = 7;
+                for (i = 0; i < kw; i++) {
+                    ctx.fillStyle = NPLib.mix(th.canvasBg, th.ltp, i / kw);
+                    ctx.fillRect(kx + i, ky, 1, kh);
+                }
+                ctx.strokeStyle = th.border;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(kx + 0.5, ky + 0.5, kw, kh);
+                ctx.fillStyle = th.muted;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText('0', kx, ky + kh + 3);
+                ctx.textAlign = 'right';
+                ctx.fillText('1', kx + kw, ky + kh + 3);
+            }
+
+            function drawHist() {
+                var th = NPLib.theme();
+                var ctx = his.ctx;
+                NPLib.clear(ctx, his.w, his.h);
+
+                var box = { x: 46, y: 12, w: his.w - 62, h: his.h - 46 };
+                var xmax = Math.max(20, trials);
+
+                /* whole-numbered trial ticks: a gridline at 3.75 trials is a lie */
+                var stepT = Math.max(1, Math.round(xmax / 4));
+                var xTicks = [], t;
+                for (t = 0; t <= xmax; t += stepT) { xTicks.push(t); }
+
+                var p = NPLib.plot(ctx, box, {
+                    xmin: 0, xmax: xmax, ymin: 0, ymax: W_MAX,
+                    xTicks: xTicks,
+                    yTicks: [0, 0.25, 0.5, 0.75, 1],
+                    tickLabelsX: true,
+                    hlines: [{ y: W_INIT, color: th.muted, label: 'start' }],
+                    series: [
+                        { pts: history.x, color: th.ltd, width: 2 },
+                        { pts: history.a, color: th.pre, width: 2 },
+                        { pts: history.b, color: th.post, width: 2 }
+                    ],
+                    xlabel: 'trial'
+                });
+
+                ctx.save();
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.fillStyle = th.muted;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('1.0', box.x - 5, p.sy(1));
+                ctx.fillText('0.0', box.x - 5, p.sy(0));
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText('mean w', box.x + 4, box.y + 3);
+                ctx.restore();
+            }
+
+            function draw() {
+                drawNet();
+                drawMat();
+                drawHist();
+                readouts();
+            }
+
+            function readouts() {
+                var A = patternOf('A'), B = patternOf('B');
+                NPLib.set('trialOut', String(trials));
+                NPLib.set('waOut', meanW(A, A).toFixed(2));
+                NPLib.set('wbOut', meanW(B, B).toFixed(2));
+                NPLib.set('wxOut', ((meanW(A, B) + meanW(B, A)) / 2).toFixed(2));
+                NPLib.set('recallOut', lastRecall
+                    ? lastRecall.hit + '/' + lastRecall.of + (lastRecall.intruders ? ' +' + lastRecall.intruders : '')
+                    : '—');
+            }
+
+            function setStatus(msg) { NPLib.set('status', msg); }
+
+            function statusAfterTrial() {
+                var A = patternOf('A'), B = patternOf('B');
+                var wa = meanW(A, A), wx = (meanW(A, B) + meanW(B, A)) / 2;
+                if (trials === 0) {
+                    setStatus('Untrained network. Every synapse starts weak and roughly equal.');
+                } else {
+                    setStatus('Trial ' + trials + '. Mean weight within A is ' + wa.toFixed(2) +
+                        ', between A and B ' + wx.toFixed(2) +
+                        (wa - wx > 0.25 ? '. The matrix has split into blocks; probe it.' : '.'));
+                }
+            }
+
+            function statusAfterProbe(r) {
+                var frac = r.hit + ' of ' + r.of;
+                var msg = 'Probed ' + r.name + ' with ' + r.cue + ' cell' + (r.cue === 1 ? '' : 's') +
+                    ': ' + frac + ' recovered';
+                if (r.intruders) {
+                    msg += ', plus ' + r.intruders + ' cell' + (r.intruders === 1 ? '' : 's') +
+                        ' that should have stayed silent. The assembly is not cleanly separated.';
+                } else if (r.hit === r.of) {
+                    msg += ', nothing else. The cue recruited the whole assembly and only the assembly.';
+                } else if (r.hit <= r.cue) {
+                    msg += '. The cue did not spread: these synapses are still too weak to push a silent cell ' +
+                        'over threshold.';
+                } else {
+                    msg += '. Partial completion.';
+                }
+                setStatus(msg);
+            }
+
+            /* ------------------------------------------------------- animation */
+
+            var pending = 0;
+            var nextName = 'A';
+
+            var loop = new NPLib.Loop(function (dtSec) {
+                var i;
+                for (i = 0; i < N; i++) { glow[i] = Math.max(0, glow[i] - dtSec * 2.2); }
+
+                if (auto) {
+                    pending += dtSec * P.speed;
+                    while (pending >= 1) {
+                        pending -= 1;
+                        trial(nextName);
+                        nextName = nextName === 'A' ? 'B' : 'A';
+                    }
+                    statusAfterTrial();
+                }
+
+                draw();
+
+                /* nothing left to animate once the glow has faded */
+                if (!auto) {
+                    var alive = false;
+                    for (i = 0; i < N; i++) { if (glow[i] > 0.02) { alive = true; break; } }
+                    if (!alive) { loop.stop(); draw(); }
+                }
+            });
+
+            var auto = false;
+
+            function kick() {
+                if (NPLib.reducedMotion()) {
+                    for (var i = 0; i < N; i++) { glow[i] = 0; }
+                    draw();
+                    return;
+                }
+                loop.start();
+            }
+
+            /* --------------------------------------------------------- controls */
+
+            function param(id, opts) {
+                opts = opts || {};
+                NPLib.bind(id, {
+                    scale: opts.scale,
+                    fmt: opts.fmt,
+                    on: function (v) { P[id] = v; if (opts.after) { opts.after(v); } draw(); }
+                });
+            }
+
+            param('size', {
+                fmt: function (v) { return v + ' cells'; },
+                after: function (v) {
+                    /* the cue can never ask for more cells than the pattern has */
+                    var cueEl = document.getElementById('cue');
+                    cueEl.max = String(v);
+                    if (parseInt(cueEl.value, 10) > v) {
+                        cueEl.value = String(v);
+                        cueEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    reset();
+                }
+            });
+            param('theta', { scale: function (v) { return v / 100; }, fmt: function (v) { return v.toFixed(2); } });
+            param('reliab', {
+                scale: function (v) { return v / 100; },
+                fmt: function (v) { return Math.round(v * 100) + '%'; }
+            });
+            param('eta', { scale: function (v) { return v / 100; }, fmt: function (v) { return v.toFixed(2); } });
+            param('rho', { scale: function (v) { return v / 100; }, fmt: function (v) { return v.toFixed(2); } });
+            param('scaling', { after: function (v) { if (v) { scale(); } } });
+            param('cue', { fmt: function (v) { return v + ' cell' + (v === 1 ? '' : 's'); } });
+            param('speed', { fmt: function (v) { return v + ' trials/s'; } });
+
+            function reset() {
+                auto = false;
+                autoBtn.textContent = 'Auto-train';
+                autoBtn.classList.remove('on');
+                loop.stop();
+                init();
+                setStatus('Untrained network. Every synapse starts weak and roughly equal.');
+                draw();
+            }
+
+            NPLib.on('trainABtn', function () { trial('A'); statusAfterTrial(); kick(); });
+            NPLib.on('trainBBtn', function () { trial('B'); statusAfterTrial(); kick(); });
+            NPLib.on('probeABtn', function () { statusAfterProbe(probe('A')); kick(); });
+            NPLib.on('probeBBtn', function () { statusAfterProbe(probe('B')); kick(); });
+            NPLib.on('resetBtn', reset);
+
+            var autoBtn = NPLib.on('autoBtn', function () {
+                auto = !auto;
+                autoBtn.textContent = auto ? 'Stop' : 'Auto-train';
+                autoBtn.classList.toggle('on', auto);
+                if (auto) { pending = 0; loop.start(); }
+            });
+
+            /* ---------------------------------------------------------- hover */
+
+            (function () {
+                var c = document.getElementById('netCanvas');
+                var tip = NPLib.tooltip(c);
+                c.addEventListener('pointermove', function (e) {
+                    var p = NPLib.pointer(c, e);
+                    var r = Math.min(net.w, net.h) * 0.045 + 5;
+                    for (var i = 0; i < N; i++) {
+                        var q = nodePos(i, net.w, net.h);
+                        if (Math.hypot(q.x - p.x, q.y - p.y) <= r) {
+                            var inSum = 0, j;
+                            for (j = 0; j < N; j++) { inSum += W[i][j]; }
+                            tip.show(p.x, p.y,
+                                'cell ' + i + '  ' + (inA(i) ? 'assembly A' : inB(i) ? 'assembly B' : 'undriven') +
+                                '\ntotal input weight ' + inSum.toFixed(2) +
+                                '\n' + (x[i] ? 'firing' : 'silent'));
+                            return;
+                        }
+                    }
+                    tip.hide();
+                });
+                c.addEventListener('pointerleave', function () { tip.hide(); });
+            }());
+
+            (function () {
+                var c = document.getElementById('matCanvas');
+                var tip = NPLib.tooltip(c);
+                c.addEventListener('pointermove', function (e) {
+                    var p = NPLib.pointer(c, e);
+                    var j = Math.floor((p.x - matGeom.x) / matGeom.cell);
+                    var i = Math.floor((p.y - matGeom.y) / matGeom.cell);
+                    if (i < 0 || j < 0 || i >= N || j >= N) { tip.hide(); return; }
+                    tip.show(p.x, p.y, i === j
+                        ? 'cell ' + i + ' has no synapse onto itself'
+                        : 'from ' + j + ' onto ' + i + '\nw = ' + W[i][j].toFixed(3));
+                });
+                c.addEventListener('pointerleave', function () { tip.hide(); });
+            }());
+
+            NPLib.onThemeChange(draw);
+
+            init();
+            draw();
+        }());
+    </script>
+</body>
+
+</html>
