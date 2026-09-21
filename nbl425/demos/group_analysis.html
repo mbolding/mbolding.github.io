@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group-Level fMRI Inference: Fixed vs. Random Effects</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --card: #fff;
+    --border: #ddd;
+    --taskA: #ea580c;
+    --taskB: #0284c7;
+    --good: #16a34a;
+    --bad: #dc2626;
+    --fit-line: #a855f7;
+    --scope-bg: #090d16;
+    --scope-grid: #1e293b;
+    --banner-bg: #eff6ff;
+    --banner-border: #bfdbfe;
+    --banner-text: #1e40af;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220;
+      --fg: #e5e9f0;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --card: #131b2c;
+      --border: #26324a;
+      --taskA: #fb923c;
+      --taskB: #38bdf8;
+      --good: #4ade80;
+      --bad: #f87171;
+      --fit-line: #c084fc;
+      --scope-bg: #050811;
+      --scope-grid: #1e293b;
+      --banner-bg: #172554;
+      --banner-border: #1e3a8a;
+      --banner-text: #93c5fd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; line-height: 1.45; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.88; }
+  button:disabled { opacity: 0.5; cursor: progress; }
+  button.secondary {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  canvas.scope { background: var(--scope-bg); border-color: var(--scope-grid); }
+  .canvas-box { margin-bottom: 16px; position: relative; }
+  .canvas-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  .banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    color: var(--banner-text);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .stage-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--border);
+    background: rgba(148, 163, 184, 0.06);
+    border-radius: 6px;
+    padding: 7px 11px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .stage.on {
+    border-color: var(--good);
+    background: rgba(22, 163, 74, 0.12);
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .stage input { accent-color: var(--good); margin: 0; }
+  .arrow { color: var(--muted); font-size: 0.9rem; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .stat-card { background: rgba(148, 163, 184, 0.08); border-radius: 6px; padding: 8px 12px; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+  .stat-val { font-size: 1.1rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+  .stat-val.good { color: var(--good); }
+  .stat-val.bad { color: var(--bad); }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
+  .val-badge { font-weight: 600; color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .note { font-size: 0.86rem; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+  .note strong { color: var(--fg); }
+  .note a { color: var(--accent); }
+  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 30px; }
+</style></head>
+<body>
+<div class="wrap">
+  <p style="margin-bottom: 1rem;"><a href="../index.html" style="color: var(--muted); text-decoration: none; font-size: 0.88rem;">&larr; Back to Course Home</a></p>
+  <h1>Group-Level Inference: Fixed vs. Random Effects</h1>
+  <p class="sub">
+    A single-subject <i>t</i>-map answers a question about one person. Saying anything about <em>people</em> requires a second level, and the choice you make there decides whether your result generalises or only describes the sixteen volunteers who happened to walk into your scanner.
+    This workbench simulates a group study end to end, runs both analyses on the same data, and then measures how often each one is wrong.
+  </p>
+
+  <div class="panel">
+    <div class="preset-bar">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Scenario:</span>
+      <button id="btnTypical" class="active">Typical Study</button>
+      <button id="btnHetero" class="secondary">Highly Variable Subjects</button>
+      <button id="btnHomo" class="secondary">Homogeneous Subjects</button>
+      <button id="btnResample" class="secondary" style="margin-left: auto;">Draw New Sample</button>
+    </div>
+
+    <div class="banner" id="banner">
+      <span id="bannerText"><strong>Typical Study:</strong> a real group effect, with the usual amount of person-to-person variation around it.</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;"></span>
+    </div>
+
+    <div class="canvas-box">
+      <canvas id="cForest" class="scope" width="996" height="380"></canvas>
+      <div class="canvas-caption">Each row is one participant's first-level estimate &beta;&#770;<sub><i>i</i></sub> with its 95% within-subject interval. The two summary rows show what each second-level analysis concludes from exactly the same numbers.</div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Random Effects <i>t</i></div>
+        <div class="stat-val good" id="dispTRfx">0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Random Effects <i>p</i></div>
+        <div class="stat-val good" id="dispPRfx">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Fixed Effects <i>t</i></div>
+        <div class="stat-val bad" id="dispTFfx">0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Fixed Effects <i>p</i></div>
+        <div class="stat-val bad" id="dispPFfx">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Between-Subject SD (&sigma;<sub>b</sub>)</div>
+        <div class="stat-val" id="dispSigB">0.00%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Within-Subject SE (&sigma;<sub>w</sub>)</div>
+        <div class="stat-val" id="dispSigW">0.00%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Between-Subject Share</div>
+        <div class="stat-val" id="dispShare">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Power at This <i>N</i></div>
+        <div class="stat-val" id="dispPower">0%</div>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+      <div>
+        <label>Participants (<i>N</i>): <span class="val-badge" id="valN">16</span></label>
+        <input type="range" id="sliderN" min="4" max="40" value="16" step="1">
+      </div>
+      <div>
+        <label>True Group Effect (&beta;<sub>g</sub>): <span class="val-badge" id="valBeta">0.25%</span></label>
+        <input type="range" id="sliderBeta" min="0" max="0.8" value="0.25" step="0.01">
+      </div>
+      <div>
+        <label>Between-Subject SD (&sigma;<sub>b</sub>): <span class="val-badge" id="valSigB">0.28%</span></label>
+        <input type="range" id="sliderSigB" min="0" max="0.8" value="0.28" step="0.01">
+      </div>
+      <div>
+        <label>Scan Duration per Subject: <span class="val-badge" id="valScan">6 min</span></label>
+        <input type="range" id="sliderScan" min="2" max="24" value="6" step="1">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="canvas-box" style="margin-bottom:0;">
+      <canvas id="cPower" class="scope" width="996" height="270"></canvas>
+      <div class="canvas-caption">Monte Carlo power of the random-effects test against <i>N</i>, at the current scan duration and at half and double that duration. The vertical marker is your current <i>N</i>; the horizontal line is 80% power.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="preset-bar" style="margin-bottom: 10px;">
+      <span style="font-size: 0.85rem; font-weight: 600; margin-right: 4px;">Validity Audit:</span>
+      <button id="btnAudit">Run 2000 Studies With No Group Effect</button>
+      <span id="auditProgress" style="font-size: 0.8rem; color: var(--muted);"></span>
+    </div>
+    <p class="note" style="margin-top: 0;">
+      This sets the true group effect to <strong>exactly zero</strong> while leaving the between-subject variability alone, then runs 2000 complete studies, each with a freshly recruited sample. It reports how often each analysis declared a population-level effect at <i>p</i> &lt; 0.05. The random-effects test should land near 5%. Watch what the fixed-effects test does, and then note how routinely its answer gets reported as though it were about people.
+    </p>
+    <div class="stats-grid" style="border-top: none; padding-top: 4px;">
+      <div class="stat-card">
+        <div class="stat-label">Random Effects False Positives</div>
+        <div class="stat-val good" id="fprRfx">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Fixed Effects False Positives</div>
+        <div class="stat-val bad" id="fprFfx">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nominal Target</div>
+        <div class="stat-val">5.0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Median Fixed-Effects |<i>t</i>|</div>
+        <div class="stat-val bad" id="medTFfx">&mdash;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="note" style="margin-top: 0;"><strong>The two levels, and the question each one answers:</strong></p>
+    <p class="note">
+      1. <strong>The first level</strong> fits the GLM inside each participant's own time series and returns one number per voxel per person, &beta;&#770;<sub><i>i</i></sub>, along with the standard error attached to it. That standard error reflects scanner noise, physiology and how long you scanned: it is a statement about how precisely you measured <em>that person</em>. It says nothing at all about how much people differ from each other, and mistaking the one for the other is the entire subject of this demo.
+    </p>
+    <p class="note">
+      2. <strong>Fixed-effects analysis</strong> pools every participant's data as though it came from one enormous subject, weighting each estimate by its precision. Its standard error reflects total scanning time across the whole study, so with sixteen people it is about four times smaller than any individual's. The catch is what it is a statistic <em>about</em>. Fixed effects answers: <em>in this particular set of participants, averaged together, is the effect non-zero?</em> That is a legitimate question, and occasionally the one you want, in a single-case study or a pilot. It is not the question anyone writing a paper thinks they are asking.
+    </p>
+    <p class="note">
+      It is worth being precise about how big the error is, because the usual telling exaggerates it. The true variance of the pooled mean is &sigma;<sub>b</sub><sup>2</sup>/<i>N</i> + &sigma;<sub>w</sub><sup>2</sup>/<i>N</i>, while fixed effects only counts the second term, so its <i>t</i> is too large by a factor of &radic;(1 + &sigma;<sub>b</sub><sup>2</sup>/&sigma;<sub>w</sub><sup>2</sup>). In the default scenario here that factor is about 1.7, which is not a dramatic-looking number and is exactly why the mistake survives peer review. Run the audit and you will see what a factor of 1.7 does to a tail probability: the false-positive rate goes from the claimed 5% to roughly 28%. The visible giveaway is not the <i>t</i> but the degrees of freedom, which fixed effects reports in the thousands because it is counting scan volumes, when the number that actually constrains a claim about people is <i>N</i> &minus; 1.
+    </p>
+    <p class="note">
+      3. <strong>Random-effects analysis</strong> (the summary-statistics approach used by SPM and FSL) throws away almost everything and runs a one-sample <i>t</i>-test on the <i>N</i> values of &beta;&#770;<sub><i>i</i></sub>. Because the spread of those numbers already contains both sources of variation, the test automatically accounts for the fact that a new sample of people would give different numbers. Its degrees of freedom are <i>N</i> &minus; 1, not the tens of thousands that fixed effects claims, and that is the honest price of a population claim. Run the audit: with no group effect at all, random effects sits at its nominal 5% and fixed effects does not, because it is confidently measuring the mean of the particular sixteen people you happened to recruit.
+    </p>
+    <p class="note">
+      4. <strong>Why scanning longer stops helping.</strong> The variance of &beta;&#770;<sub><i>i</i></sub> is &sigma;<sub>b</sub><sup>2</sup> + &sigma;<sub>w</sub><sup>2</sup>, and only the second term falls when you scan for longer, as &sigma;<sub>w</sub> &prop; 1/&radic;<i>T</i>. The <strong>Between-Subject Share</strong> readout is &sigma;<sub>b</sub><sup>2</sup> / (&sigma;<sub>b</sub><sup>2</sup> + &sigma;<sub>w</sub><sup>2</sup>): the fraction of your group-level variance that more scanner time cannot touch. Once it passes about two-thirds, doubling every session buys you almost nothing, and the three power curves collapse onto each other. Recruiting is then the only lever you have, because group-level precision improves as &radic;<i>N</i> no matter what. Push &sigma;<sub>b</sub> to zero and the opposite happens: the curves separate sharply and scanning longer becomes the efficient move.
+    </p>
+    <p class="note">
+      5. <strong>What summary statistics assumes.</strong> Collapsing each participant to a single number is exactly right when the design is balanced and the first-level standard errors are similar, which is why it survives as the default. When they are not, for instance when one participant moved so much that half their run was censored, the one-sample test weights that person equally with everyone else. Proper mixed-effects tools (FSL's FLAME, SPM's ReML) carry each first-level variance up to the second level instead. Widen the within-subject spread in this simulation and compare the two summary rows in the forest plot: the fixed-effects estimate moves toward the precisely-measured participants while the random-effects estimate does not.
+    </p>
+    <p class="note">
+      6. <strong>What this leaves out.</strong> One voxel, not a whole brain, so nothing here corrects for searching across space; that is the job of the <a href="whole_brain_inference.html">Whole-Brain Thresholding demo</a>, and in a real group analysis you need both corrections at once. The simulation also assumes every participant is drawn from one population with one variance, and assumes their first-level estimates are unbiased, which quietly presumes that registration to a common template worked. Each participant's &beta;&#770;<sub><i>i</i></sub> here is a draw from the model rather than the output of an actual time-series fit: the <a href="glm_studio.html">GLM Studio</a> shows where that number comes from.
+    </p>
+  </div>
+
+  <footer>NBL 425/625 &middot; Methods in Human Neuroimaging &middot; Group-Level Inference Simulation</footer>
+</div>
+<script>
+// ============================================================================
+// Study parameters
+// ============================================================================
+let N = 16;             // participants
+let betaG = 0.25;       // true group-mean effect, % signal change
+let sigB = 0.28;        // between-subject SD of the true effect, % signal change
+let scanMin = 6;        // minutes of task scanning per participant
+
+const SE_REF = 0.20;    // first-level standard error at the reference duration
+const SCAN_REF = 6;     // minutes
+const VOLS_PER_MIN = 30;// TR = 2 s
+const ALPHA = 0.05;
+const POWER_REPS = 500, AUDIT_REPS = 2000;
+
+// Within-subject standard error shrinks as 1/sqrt(scanning time). This is the only
+// term that more scanner time can touch.
+const seWithin = () => SE_REF * Math.sqrt(SCAN_REF / scanMin);
+const dfFixed = () => N * Math.max(4, Math.round(scanMin * VOLS_PER_MIN) - 3);
+
+function randn() {
+  const u = Math.random(), v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u || 1e-9)) * Math.cos(2.0 * Math.PI * v);
+}
+// Participants differ in how precisely they were measured: motion, drowsiness, physiology.
+// The multiplier is uniform on [0.7, 1.4], so the effective within-subject variance is
+// E[U^2] = (a^2 + ab + b^2)/3 times the nominal one, which the variance accounting below
+// has to use rather than the nominal value.
+const HET_A = 0.70, HET_B = 1.40;
+const HET_M2 = (HET_A * HET_A + HET_A * HET_B + HET_B * HET_B) / 3;
+const hetDraw = () => HET_A + (HET_B - HET_A) * Math.random();
+
+// Effective within-subject SD entering the group-level variance
+const seWithinEff = () => Math.sqrt(HET_M2) * SE_REF * Math.sqrt(SCAN_REF / scanMin);
+
+// ============================================================================
+// Student's t, exact via the regularized incomplete beta
+// ============================================================================
+function logGamma(x) {
+  const cof = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+               -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x, tmp = x + 5.5;
+  tmp -= (x + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) ser += cof[j] / ++y;
+  return -tmp + Math.log(2.5066282746310005 * ser / x);
+}
+function betacf(a, b, x) {
+  const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+  const qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c; h *= del;
+    if (Math.abs(del - 1.0) < EPS) break;
+  }
+  return h;
+}
+function betai(a, b, x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) +
+                      a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+  return 1 - bt * betacf(b, a, 1 - x) / b;
+}
+function tTwoTailedP(t, df) {
+  if (!isFinite(t)) return 0;
+  return betai(0.5 * df, 0.5, df / (df + t * t));
+}
+const critCache = new Map();
+function tCrit(alpha, df) {
+  const key = alpha + '|' + df;
+  if (critCache.has(key)) return critCache.get(key);
+  let lo = 0, hi = 60;
+  for (let k = 0; k < 90; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (tTwoTailedP(mid, df) > alpha) lo = mid; else hi = mid;
+  }
+  const v = 0.5 * (lo + hi);
+  critCache.set(key, v);
+  return v;
+}
+
+// ============================================================================
+// Draw a study. Each participant has a true effect of their own, drawn around the
+// group mean, and we then measure that effect with finite precision. Those are two
+// genuinely different sources of variance, and the whole demo turns on the difference.
+// ============================================================================
+let subjects = [];
+
+function drawSample() {
+  const sw = seWithin();
+  subjects = [];
+  for (let i = 0; i < N; i++) {
+    const trueEffect = betaG + sigB * randn();
+    const se = sw * hetDraw();
+    subjects.push({ trueEffect, se, beta: trueEffect + se * randn() });
+  }
+}
+
+// One-sample t-test on the N first-level estimates: the summary-statistics
+// random-effects analysis that SPM and FSL perform by default.
+function randomEffects(betas) {
+  const n = betas.length;
+  let s = 0;
+  for (const b of betas) s += b;
+  const mean = s / n;
+  let ss = 0;
+  for (const b of betas) ss += (b - mean) * (b - mean);
+  const sd = Math.sqrt(ss / Math.max(1, n - 1));
+  const sem = sd / Math.sqrt(n);
+  const t = sem > 1e-12 ? mean / sem : 0;
+  return { mean, sd, sem, t, df: n - 1, p: tTwoTailedP(t, n - 1) };
+}
+
+// Precision-weighted pooling of every scan as though it came from one huge subject.
+// The standard error here reflects scanner noise only, never person-to-person variation.
+function fixedEffects(subs) {
+  let sw = 0, swb = 0;
+  for (const s of subs) {
+    const w = 1 / (s.se * s.se);
+    sw += w; swb += w * s.beta;
+  }
+  const mean = swb / sw;
+  const se = Math.sqrt(1 / sw);
+  const df = dfFixed();
+  const t = mean / se;
+  return { mean, se, t, df, p: tTwoTailedP(t, df) };
+}
+
+// ============================================================================
+// Monte Carlo power for the random-effects test
+// ============================================================================
+function powerAt(n, bg, sb, sw, reps) {
+  const tc = tCrit(ALPHA, n - 1);
+  let hits = 0;
+  for (let r = 0; r < reps; r++) {
+    let s = 0, s2 = 0;
+    for (let i = 0; i < n; i++) {
+      const b = bg + sb * randn() + sw * hetDraw() * randn();
+      s += b; s2 += b * b;
+    }
+    const m = s / n;
+    const sd = Math.sqrt(Math.max(1e-12, (s2 - n * m * m) / (n - 1)));
+    if (Math.abs(m / (sd / Math.sqrt(n))) > tc) hits++;
+  }
+  return hits / reps;
+}
+
+const N_GRID = [];
+for (let n = 4; n <= 40; n += 2) N_GRID.push(n);
+
+function powerCurve(sw, reps) {
+  return N_GRID.map(n => powerAt(n, betaG, sigB, sw, reps));
+}
+
+// ============================================================================
+// Rendering
+// ============================================================================
+const cF = document.getElementById('cForest'), ctxF = cF.getContext('2d');
+const cP = document.getElementById('cPower'), ctxP = cP.getContext('2d');
+let rfx = null, ffx = null, curves = null, powerNow = 0;
+
+function renderForest() {
+  const w = cF.width, h = cF.height;
+  ctxF.clearRect(0, 0, w, h);
+  const padL = 124, padR = 28, axisY = h - 30;
+  const plotW = w - padL - padR;
+  const yTop = 32;
+
+  // Horizontal range covers every interval drawn, plus zero and the truth
+  let lo = Math.min(0, betaG), hi = Math.max(0, betaG);
+  for (const s of subjects) {
+    lo = Math.min(lo, s.beta - 1.96 * s.se);
+    hi = Math.max(hi, s.beta + 1.96 * s.se);
+  }
+  const pad = 0.08 * (hi - lo || 1);
+  lo -= pad; hi += pad;
+  const xOf = (v) => padL + ((v - lo) / (hi - lo)) * plotW;
+
+  const rowH = Math.min(18, 250 / Math.max(1, N));
+  const blockH = rowH * N;
+  const sumY = yTop + blockH + 22;
+
+  // Reference lines
+  ctxF.strokeStyle = 'rgba(148,163,184,0.55)';
+  ctxF.lineWidth = 1.4;
+  ctxF.beginPath(); ctxF.moveTo(xOf(0), yTop - 6); ctxF.lineTo(xOf(0), axisY); ctxF.stroke();
+  ctxF.strokeStyle = '#4ade80';
+  ctxF.setLineDash([5, 4]);
+  ctxF.beginPath(); ctxF.moveTo(xOf(betaG), yTop - 6); ctxF.lineTo(xOf(betaG), axisY); ctxF.stroke();
+  ctxF.setLineDash([]);
+
+  ctxF.font = 'bold 11px sans-serif';
+  ctxF.fillStyle = '#4ade80';
+  ctxF.fillText('true βg = ' + betaG.toFixed(2) + '%', xOf(betaG) + 5, yTop - 12);
+  ctxF.fillStyle = '#94a3b8';
+  ctxF.fillText('no effect', xOf(0) - 58, yTop - 12);
+
+  // One row per participant
+  for (let i = 0; i < N; i++) {
+    const s = subjects[i];
+    const y = yTop + (i + 0.5) * rowH;
+    ctxF.strokeStyle = 'rgba(56,189,248,0.55)';
+    ctxF.lineWidth = 1.2;
+    ctxF.beginPath();
+    ctxF.moveTo(xOf(s.beta - 1.96 * s.se), y);
+    ctxF.lineTo(xOf(s.beta + 1.96 * s.se), y);
+    ctxF.stroke();
+    ctxF.fillStyle = '#38bdf8';
+    ctxF.beginPath();
+    ctxF.arc(xOf(s.beta), y, Math.min(3.2, rowH * 0.28), 0, 2 * Math.PI);
+    ctxF.fill();
+    if (rowH >= 12) {
+      ctxF.fillStyle = '#64748b';
+      ctxF.font = '10px ui-monospace, monospace';
+      ctxF.fillText('S' + String(i + 1).padStart(2, '0'), 12, y + 3);
+    }
+  }
+  if (rowH < 12) {
+    ctxF.fillStyle = '#64748b';
+    ctxF.font = '10px ui-monospace, monospace';
+    ctxF.fillText(N + ' participants', 12, yTop + blockH / 2);
+  }
+
+  // Summary rows
+  function summaryRow(y, label, mean, half, color, detail) {
+    ctxF.strokeStyle = color;
+    ctxF.lineWidth = 2.4;
+    ctxF.beginPath();
+    ctxF.moveTo(xOf(mean - half), y); ctxF.lineTo(xOf(mean + half), y);
+    ctxF.stroke();
+    for (const e of [mean - half, mean + half]) {
+      ctxF.beginPath(); ctxF.moveTo(xOf(e), y - 5); ctxF.lineTo(xOf(e), y + 5); ctxF.stroke();
+    }
+    const cx = xOf(mean);
+    ctxF.fillStyle = color;
+    ctxF.beginPath();
+    ctxF.moveTo(cx, y - 6); ctxF.lineTo(cx + 6, y); ctxF.lineTo(cx, y + 6); ctxF.lineTo(cx - 6, y);
+    ctxF.closePath(); ctxF.fill();
+    ctxF.font = 'bold 11px sans-serif';
+    ctxF.fillText(label, 12, y + 4);
+    ctxF.font = '10px ui-monospace, monospace';
+    ctxF.fillText(detail, Math.min(cx + 14, cF.width - 210), y - 10);
+  }
+
+  if (rfx && ffx) {
+    const hr = tCrit(ALPHA, rfx.df) * rfx.sem;
+    const hf = tCrit(ALPHA, ffx.df) * ffx.se;
+    summaryRow(sumY, 'Random effects', rfx.mean, hr, '#4ade80',
+      `t(${rfx.df}) = ${rfx.t.toFixed(2)}, p = ${fmtP(rfx.p)}`);
+    summaryRow(sumY + 26, 'Fixed effects', ffx.mean, hf, '#f87171',
+      `t(${ffx.df}) = ${ffx.t.toFixed(2)}, p = ${fmtP(ffx.p)}`);
+  }
+
+  // Axis
+  ctxF.strokeStyle = '#1e293b';
+  ctxF.lineWidth = 1;
+  ctxF.beginPath(); ctxF.moveTo(padL, axisY); ctxF.lineTo(padL + plotW, axisY); ctxF.stroke();
+  ctxF.fillStyle = '#94a3b8';
+  ctxF.font = '10px ui-monospace, monospace';
+  const step = niceStep(hi - lo);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    const x = xOf(v);
+    ctxF.beginPath(); ctxF.moveTo(x, axisY); ctxF.lineTo(x, axisY + 4); ctxF.stroke();
+    ctxF.fillText(v.toFixed(2), x - 12, axisY + 16);
+  }
+  ctxF.fillText('effect size (% signal change)', padL, 16);
+}
+
+function niceStep(range) {
+  const raw = range / 6;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+}
+
+function fmtP(p) {
+  if (p < 1e-15) return '< 1e-15';
+  if (p < 0.0001) return p.toExponential(1);
+  return p.toFixed(4);
+}
+
+function renderPower() {
+  const w = cP.width, h = cP.height;
+  ctxP.clearRect(0, 0, w, h);
+  const padL = 56, padR = 158, padT = 30, padB = 34;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const xOf = (n) => padL + ((n - N_GRID[0]) / (N_GRID[N_GRID.length - 1] - N_GRID[0])) * plotW;
+  const yOf = (p) => padT + (1 - p) * plotH;
+
+  ctxP.strokeStyle = '#1e293b';
+  ctxP.lineWidth = 1;
+  ctxP.beginPath();
+  for (let p = 0; p <= 1.001; p += 0.2) { ctxP.moveTo(padL, yOf(p)); ctxP.lineTo(padL + plotW, yOf(p)); }
+  for (const n of N_GRID) if (n % 8 === 0) { ctxP.moveTo(xOf(n), padT); ctxP.lineTo(xOf(n), padT + plotH); }
+  ctxP.stroke();
+
+  ctxP.fillStyle = '#94a3b8';
+  ctxP.font = '10px ui-monospace, monospace';
+  for (let p = 0; p <= 1.001; p += 0.2) ctxP.fillText((100 * p).toFixed(0) + '%', 18, yOf(p) + 3);
+  for (const n of N_GRID) if (n % 8 === 0) ctxP.fillText(String(n), xOf(n) - 6, h - 12);
+  ctxP.fillText('participants (N)', padL + plotW / 2 - 40, h - 12);
+
+  // 80% reference
+  ctxP.strokeStyle = 'rgba(74,222,128,0.6)';
+  ctxP.setLineDash([5, 4]);
+  ctxP.beginPath(); ctxP.moveTo(padL, yOf(0.8)); ctxP.lineTo(padL + plotW, yOf(0.8)); ctxP.stroke();
+  ctxP.setLineDash([]);
+
+  if (curves) {
+    const defs = [
+      { key: 'half', color: '#64748b', width: 1.6, label: `${(scanMin / 2).toFixed(0)} min/subject` },
+      { key: 'now', color: '#38bdf8', width: 2.6, label: `${scanMin} min/subject` },
+      { key: 'double', color: '#c084fc', width: 1.6, label: `${scanMin * 2} min/subject` }
+    ];
+    for (const d of defs) {
+      ctxP.strokeStyle = d.color;
+      ctxP.lineWidth = d.width;
+      ctxP.beginPath();
+      curves[d.key].forEach((p, i) => {
+        const x = xOf(N_GRID[i]), y = yOf(p);
+        if (i === 0) ctxP.moveTo(x, y); else ctxP.lineTo(x, y);
+      });
+      ctxP.stroke();
+    }
+    ctxP.font = 'bold 11px sans-serif';
+    defs.forEach((d, i) => {
+      ctxP.fillStyle = d.color;
+      ctxP.fillText('— ' + d.label, padL + plotW + 14, padT + 16 + i * 18);
+    });
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.font = '10px ui-monospace, monospace';
+    ctxP.fillText('between-subject', padL + plotW + 14, padT + 84);
+    ctxP.fillText('share of variance:', padL + plotW + 14, padT + 97);
+    const swE = seWithinEff();
+    const share = sigB * sigB / (sigB * sigB + swE * swE);
+    ctxP.fillStyle = share > 0.66 ? '#f87171' : '#4ade80';
+    ctxP.font = 'bold 13px ui-monospace, monospace';
+    ctxP.fillText((100 * share).toFixed(0) + '%', padL + plotW + 14, padT + 116);
+    ctxP.fillStyle = '#94a3b8';
+    ctxP.font = '9px sans-serif';
+    ctxP.fillText(share > 0.66 ? 'scanning longer' : 'scanning longer', padL + plotW + 14, padT + 134);
+    ctxP.fillText(share > 0.66 ? 'will not help' : 'still helps', padL + plotW + 14, padT + 145);
+  }
+
+  // Current N
+  ctxP.strokeStyle = '#fb923c';
+  ctxP.lineWidth = 1.6;
+  ctxP.setLineDash([4, 3]);
+  ctxP.beginPath(); ctxP.moveTo(xOf(N), padT); ctxP.lineTo(xOf(N), padT + plotH); ctxP.stroke();
+  ctxP.setLineDash([]);
+  ctxP.fillStyle = '#fb923c';
+  ctxP.font = 'bold 11px sans-serif';
+  ctxP.fillText(`N = ${N}`, Math.min(xOf(N) + 5, padL + plotW - 40), padT + 12);
+  ctxP.fillStyle = '#e2e8f0';
+  ctxP.fillText('Random-effects power vs. sample size', padL, 18);
+}
+
+// ============================================================================
+// Update cycle
+// ============================================================================
+function recompute(resample) {
+  if (resample) drawSample();
+  const betas = subjects.map(s => s.beta);
+  rfx = randomEffects(betas);
+  ffx = fixedEffects(subjects);
+
+  const sw = seWithin();
+  curves = {
+    half: powerCurve(sw * Math.SQRT2, POWER_REPS),        // half the scan time
+    now: powerCurve(sw, POWER_REPS),
+    double: powerCurve(sw / Math.SQRT2, POWER_REPS)       // double the scan time
+  };
+  powerNow = powerAt(N, betaG, sigB, sw, 1500);
+
+  renderForest();
+  renderPower();
+
+  const swEff = seWithinEff();
+  const share = sigB * sigB / (sigB * sigB + swEff * swEff);
+  const set = (id, v, cls) => {
+    const el = document.getElementById(id);
+    el.textContent = v;
+    if (cls) el.className = 'stat-val ' + cls;
+  };
+  set('dispTRfx', rfx.t.toFixed(2));
+  set('dispPRfx', fmtP(rfx.p), rfx.p < 0.05 ? 'good' : '');
+  set('dispTFfx', ffx.t.toFixed(2));
+  set('dispPFfx', fmtP(ffx.p), 'bad');
+  set('dispSigB', sigB.toFixed(2) + '%');
+  set('dispSigW', swEff.toFixed(2) + '%');
+  set('dispShare', (100 * share).toFixed(0) + '%', share > 0.66 ? 'bad' : '');
+  set('dispPower', (100 * powerNow).toFixed(0) + '%', powerNow >= 0.8 ? 'good' : 'bad');
+  document.getElementById('bannerSub').textContent =
+    `df: random effects ${rfx.df}, fixed effects ${ffx.df} · within-subject SE ${swEff.toFixed(2)}%`;
+}
+
+// ============================================================================
+// Validity audit: many complete studies drawn with no group effect at all
+// ============================================================================
+function runAudit() {
+  const btn = document.getElementById('btnAudit');
+  const prog = document.getElementById('auditProgress');
+  btn.disabled = true;
+  prog.textContent = 'running...';
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const sw = seWithin();
+    const tcR = tCrit(ALPHA, N - 1);
+    const dff = dfFixed();
+    const tcF = tCrit(ALPHA, dff);
+    let hR = 0, hF = 0;
+    const tFabs = [];
+
+    for (let r = 0; r < AUDIT_REPS; r++) {
+      let s = 0, s2 = 0, wsum = 0, wbsum = 0;
+      for (let i = 0; i < N; i++) {
+        const se = sw * hetDraw();
+        const b = sigB * randn() + se * randn();     // true group effect is exactly zero
+        s += b; s2 += b * b;
+        const wt = 1 / (se * se);
+        wsum += wt; wbsum += wt * b;
+      }
+      const m = s / N;
+      const sd = Math.sqrt(Math.max(1e-12, (s2 - N * m * m) / (N - 1)));
+      if (Math.abs(m / (sd / Math.sqrt(N))) > tcR) hR++;
+      const tF = (wbsum / wsum) / Math.sqrt(1 / wsum);
+      tFabs.push(Math.abs(tF));
+      if (Math.abs(tF) > tcF) hF++;
+    }
+    tFabs.sort((a, b) => a - b);
+
+    const pr = 100 * hR / AUDIT_REPS, pf = 100 * hF / AUDIT_REPS;
+    document.getElementById('fprRfx').textContent = pr.toFixed(1) + '%';
+    document.getElementById('fprFfx').textContent = pf.toFixed(1) + '%';
+    document.getElementById('fprRfx').className = 'stat-val ' + (pr > 9 ? 'bad' : 'good');
+    document.getElementById('fprFfx').className = 'stat-val ' + (pf > 9 ? 'bad' : 'good');
+    document.getElementById('medTFfx').textContent = tFabs[Math.floor(AUDIT_REPS / 2)].toFixed(2);
+    prog.textContent = `done, ${AUDIT_REPS} studies`;
+    btn.disabled = false;
+    document.getElementById('bannerText').innerHTML =
+      `<strong>Audit complete:</strong> across ${AUDIT_REPS} studies with <em>no</em> group effect, the random-effects test claimed one ${pr.toFixed(1)}% of the time and the fixed-effects test claimed one ${pf.toFixed(1)}% of the time. Both were given the same data. Only one of them was answering a question about people.`;
+  }));
+}
+
+// ============================================================================
+// Controls
+// ============================================================================
+let pending = null;
+function schedule(resample) {
+  if (pending) clearTimeout(pending);
+  pending = setTimeout(() => { pending = null; recompute(resample); }, 100);
+}
+
+const PRESETS = {
+  typical: { sigB: 0.28, beta: 0.25, scan: 6, n: 16,
+    text: '<strong>Typical Study:</strong> a real group effect, with the usual amount of person-to-person variation around it.' },
+  hetero: { sigB: 0.60, beta: 0.25, scan: 6, n: 16,
+    text: '<strong>Highly Variable Subjects:</strong> people differ a lot in how strongly they respond. Between-subject variance now dominates, so the three power curves collapse together and only recruiting moves them.' },
+  homo: { sigB: 0.05, beta: 0.25, scan: 6, n: 16,
+    text: '<strong>Homogeneous Subjects:</strong> everyone responds nearly identically. Measurement noise is now the binding constraint, the power curves separate, and fixed and random effects finally start to agree.' }
+};
+
+function applyPreset(key, btn) {
+  const p = PRESETS[key];
+  sigB = p.sigB; betaG = p.beta; scanMin = p.scan; N = p.n;
+  document.getElementById('sliderSigB').value = String(sigB);
+  document.getElementById('sliderBeta').value = String(betaG);
+  document.getElementById('sliderScan').value = String(scanMin);
+  document.getElementById('sliderN').value = String(N);
+  document.getElementById('valSigB').textContent = sigB.toFixed(2) + '%';
+  document.getElementById('valBeta').textContent = betaG.toFixed(2) + '%';
+  document.getElementById('valScan').textContent = scanMin + ' min';
+  document.getElementById('valN').textContent = String(N);
+  document.querySelectorAll('.preset-bar button').forEach(b => {
+    if (b.id === 'btnTypical' || b.id === 'btnHetero' || b.id === 'btnHomo') {
+      b.classList.remove('active'); b.classList.add('secondary');
+    }
+  });
+  btn.classList.remove('secondary');
+  btn.classList.add('active');
+  document.getElementById('bannerText').innerHTML = p.text;
+  recompute(true);
+}
+
+document.getElementById('btnTypical').addEventListener('click', (e) => applyPreset('typical', e.target));
+document.getElementById('btnHetero').addEventListener('click', (e) => applyPreset('hetero', e.target));
+document.getElementById('btnHomo').addEventListener('click', (e) => applyPreset('homo', e.target));
+document.getElementById('btnResample').addEventListener('click', () => recompute(true));
+document.getElementById('btnAudit').addEventListener('click', runAudit);
+
+function bind(id, valId, fmt, assign) {
+  const el = document.getElementById(id), lab = document.getElementById(valId);
+  el.addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    assign(v);
+    lab.textContent = fmt(v);
+    schedule(true);
+  });
+}
+bind('sliderN', 'valN', v => String(v), v => N = Math.round(v));
+bind('sliderBeta', 'valBeta', v => v.toFixed(2) + '%', v => betaG = v);
+bind('sliderSigB', 'valSigB', v => v.toFixed(2) + '%', v => sigB = v);
+bind('sliderScan', 'valScan', v => v.toFixed(0) + ' min', v => scanMin = Math.round(v));
+
+// ============================================================================
+recompute(true);
+</script>
+</body>
+</html>
