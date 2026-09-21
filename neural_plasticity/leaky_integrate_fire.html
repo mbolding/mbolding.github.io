@@ -5,1109 +5,920 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stochastic LIF Neuron</title>
+    <meta name="description"
+        content="Interactive stochastic leaky integrate-and-fire neuron: membrane potential, spike raster, firing rate and the f-I curve, with every parameter explained and a self-test of the statistics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Source+Sans+Pro:wght@400;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #fffff8;
-            --bg-secondary: #fffff8;
-            --bg-tertiary: #f7f7f0;
-            --text-primary: #111;
-            --text-secondary: #555;
-            --text-muted: #888;
-            --accent: #a00;
-            --border-color: #ccc;
-            --axis-color: #333;
-            --grid-color: rgba(0, 0, 0, 0.06);
-            --membrane-color: #1a1a1a;
-            --threshold-color: #a00;
-            --spike-color: #111;
-            --rate-color: #555;
-        }
-
-        .dark {
-            --bg-primary: #151515;
-            --bg-secondary: #151515;
-            --bg-tertiary: #1e1e1e;
-            --text-primary: #d4d4d4;
-            --text-secondary: #999;
-            --text-muted: #666;
-            --accent: #c45;
-            --border-color: #333;
-            --axis-color: #888;
-            --grid-color: rgba(255, 255, 255, 0.05);
-            --membrane-color: #d4d4d4;
-            --threshold-color: #c45;
-            --spike-color: #d4d4d4;
-            --rate-color: #888;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Crimson Pro', Georgia, serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.6;
-            font-size: 18px;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        header {
-            margin-bottom: 2rem;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem;
-        }
-
-        h1 {
-            font-size: 2rem;
-            font-weight: 400;
-            letter-spacing: -0.5px;
-            color: var(--text-primary);
-        }
-
-        .subtitle {
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-style: italic;
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
-        }
-
-        @media (min-width: 900px) {
-            .main-grid {
-                grid-template-columns: 260px 1fr;
-                gap: 3rem;
-            }
-        }
-
-        .sidebar {
-            font-family: 'Source Sans Pro', -apple-system, sans-serif;
-            font-size: 0.9rem;
-        }
-
-        .section-title {
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-muted);
-            margin-bottom: 1.25rem;
-            font-weight: 400;
-        }
-
-        .param-group {
-            margin-bottom: 1.25rem;
-        }
-
-        .param-label {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 6px;
-        }
-
-        .param-name {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        .param-value {
-            font-family: 'Source Sans Pro', sans-serif;
-            font-size: 0.85rem;
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 2px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: var(--border-color);
-            border-radius: 0;
-            cursor: pointer;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 12px;
-            height: 12px;
-            background: var(--text-primary);
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.15s ease;
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 12px;
-            height: 12px;
-            background: var(--text-primary);
-            border-radius: 50%;
-            cursor: pointer;
-            border: none;
-        }
-
-        .controls-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 1.5rem;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 10px 14px;
-            font-family: 'Source Sans Pro', sans-serif;
-            font-size: 0.85rem;
-            border: 1px solid var(--border-color);
-            border-radius: 2px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        .btn:hover {
-            background: var(--text-primary);
-            color: var(--bg-primary);
-        }
-
-        .btn-primary {
-            background: var(--text-primary);
-            color: var(--bg-primary);
-            border-color: var(--text-primary);
-        }
-
-        .btn-primary:hover {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        .equation-box {
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-style: italic;
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
-            text-align: center;
-        }
-
-        .visualization-area {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .canvas-section {
-            position: relative;
-        }
-
-        .canvas-title {
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-
-        canvas {
-            width: 100%;
-            height: 150px;
-            display: block;
-        }
-
-        .canvas-annotation {
-            position: absolute;
-            right: 0;
-            top: 0;
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-style: italic;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .stats-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .stat-item {
-            text-align: left;
-        }
-
-        .stat-value {
-            font-family: 'Source Sans Pro', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            line-height: 1.2;
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 0.75rem;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .legend-line {
-            width: 20px;
-            height: 2px;
-        }
-
-        .legend-line.dashed {
-            background: repeating-linear-gradient(to right,
-                    var(--threshold-color) 0,
-                    var(--threshold-color) 4px,
-                    transparent 4px,
-                    transparent 8px);
-        }
-
-        @media (max-width: 600px) {
-            .container {
-                padding: 20px 15px;
-            }
-
-            h1 {
-                font-size: 1.5rem;
-            }
-
-            canvas {
-                height: 120px;
-            }
-
-            .stats-row {
-                gap: 1rem;
-            }
-        }
-
-        /* Tufte-style sidenote for mobile */
-        .marginnote {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-style: italic;
-            margin-top: 1rem;
-        }
-
-        .test-results {
-            margin-top: 1.5rem;
-            padding: 1rem;
-            background: var(--bg-tertiary);
-            border-left: 3px solid var(--accent);
-            font-family: 'Source Sans Pro', sans-serif;
-            font-size: 0.85rem;
-        }
-
-        .test-results h3 {
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-size: 1rem;
-            font-weight: 400;
-            margin-bottom: 0.75rem;
-            color: var(--text-primary);
-        }
-
-        .test-case {
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .test-case:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-
-        .test-case-title {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .test-pass {
-            color: #2a7;
-        }
-
-        .test-fail {
-            color: var(--accent);
-        }
-
-        .test-detail {
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            margin-top: 0.25rem;
-        }
-
-        .test-formula {
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-style: italic;
-            background: var(--bg-primary);
-            padding: 0.5rem;
-            margin: 0.5rem 0;
-            border-radius: 2px;
-        }
-    </style>
+    <link rel="stylesheet" href="plasticity.css">
+    <script src="plasticity.js"></script>
+    <script>NPLib.applyStoredTheme();</script>
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>Stochastic Leaky Integrate-and-Fire Model</h1>
-            <p class="subtitle">τ dV/dt = −(V − V<sub>rest</sub>) + RI + σξ(t)</p>
+    <div class="wrap">
+        <div class="topbar">
+            <div class="navlinks">
+                <a href="index.html" class="nav-link">&larr; Neural plasticity</a>
+                <a href="hebbian_learning.html" class="nav-link">Hebbian assemblies</a>
+                <a href="stdp.html" class="nav-link">STDP</a>
+            </div>
+            <button class="theme-toggle" type="button">Dark</button>
+        </div>
+
+        <header class="page">
+            <p class="kicker">Neural plasticity &middot; single-cell dynamics</p>
+            <h1>Stochastic Leaky Integrate-and-Fire</h1>
+            <p class="subtitle eqline">&tau; dV/dt = &minus;(V &minus; V<sub>rest</sub>) + RI +
+                &sigma;&radic;(2&tau;)&thinsp;&xi;(t)</p>
         </header>
-        <!-- TODO: Add a section that explains the different parameters and what they do. -->
-        <!-- TODO: Add text that explains the simulation and what it does. -->
-        <div class="main-grid">
-            <aside class="sidebar">
-                <div class="section-title">Parameters</div>
 
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">τ membrane time constant</span>
-                        <span class="param-value" id="tauVal">20 ms</span>
+        <div class="status" id="status" role="status" aria-live="polite">
+            Press Start. The cell integrates its input current and fires whenever the membrane reaches threshold.
+        </div>
+
+        <div class="figs side">
+            <div class="panel">
+                <h3>Cell</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="tau"><span>&tau; membrane time constant</span><b id="tauVal">20 ms</b></label>
+                        <input type="range" id="tau" min="5" max="50" value="20" step="1">
+                        <span class="hint">How fast the membrane forgets. Sets both the charging speed and how long
+                            two inputs can be apart and still add up.</span>
                     </div>
-                    <input type="range" id="tau" min="5" max="50" value="20" step="1">
-                </div>
-
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">V<sub>thresh</sub> threshold</span>
-                        <span class="param-value" id="threshVal">−55 mV</span>
+                    <div class="control">
+                        <label for="rest"><span>V<sub>rest</sub> resting potential</span>
+                            <b id="restVal">&minus;70 mV</b></label>
+                        <input type="range" id="rest" min="-80" max="-60" value="-70" step="1">
+                        <span class="hint">Where the membrane sits with no input, and where it is put back after a
+                            spike.</span>
                     </div>
-                    <input type="range" id="threshold" min="-65" max="-40" value="-55" step="1">
-                </div>
-
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">V<sub>rest</sub> resting potential</span>
-                        <span class="param-value" id="restVal">−70 mV</span>
+                    <div class="control">
+                        <label for="threshold"><span>V<sub>thresh</sub> threshold</span>
+                            <b id="thresholdVal">&minus;55 mV</b></label>
+                        <input type="range" id="threshold" min="-65" max="-40" value="-55" step="1">
+                        <span class="hint">Reaching it emits a spike. The model has no spike shape: the upstroke is
+                            drawn in, not computed.</span>
                     </div>
-                    <input type="range" id="rest" min="-80" max="-60" value="-70" step="1">
-                </div>
-
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">I input current</span>
-                        <span class="param-value" id="currentVal">15 pA</span>
+                    <div class="control">
+                        <label for="resistance"><span>R membrane resistance</span>
+                            <b id="resistanceVal">100 M&Omega;</b></label>
+                        <input type="range" id="resistance" min="20" max="500" value="100" step="10">
+                        <span class="hint">Converts input current into voltage. A high-resistance cell is easier to
+                            drive.</span>
                     </div>
-                    <input type="range" id="current" min="0" max="40" value="15" step="0.5">
-                </div>
-
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">σ noise amplitude</span>
-                        <span class="param-value" id="noiseVal">5 mV</span>
+                    <div class="control">
+                        <label for="refractory"><span>t<sub>ref</sub> refractory period</span>
+                            <b id="refractoryVal">2.0 ms</b></label>
+                        <input type="range" id="refractory" min="0" max="100" value="20" step="1">
+                        <span class="hint">Dead time after a spike. This, and nothing else, is what caps the firing
+                            rate at 1/t<sub>ref</sub>.</span>
                     </div>
-                    <input type="range" id="noise" min="0" max="15" value="5" step="0.5">
                 </div>
 
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">R membrane resistance</span>
-                        <span class="param-value" id="resistanceVal">1 MΩ</span>
+                <h3 style="margin-top:22px">Input</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="current"><span>I injected current</span><b id="currentVal">250 pA</b></label>
+                        <input type="range" id="current" min="0" max="500" value="250" step="5">
+                        <span class="hint">Steady current, as in a patch-clamp step.</span>
                     </div>
-                    <input type="range" id="resistance" min="0.5" max="3" value="1" step="0.1">
-                </div>
-
-                <div class="param-group">
-                    <div class="param-label">
-                        <span class="param-name">ISI window</span>
-                        <span class="param-value" id="isiWindowVal">5 s</span>
+                    <div class="control">
+                        <label for="noise"><span>&sigma; noise amplitude</span><b id="noiseVal">5.0 mV</b></label>
+                        <input type="range" id="noise" min="0" max="150" value="50" step="1">
+                        <span class="hint">Standard deviation of the membrane fluctuation at rest, standing in for
+                            thousands of unresolved synaptic inputs.</span>
                     </div>
-                    <input type="range" id="isiWindow" min="1" max="30" value="5" step="1">
                 </div>
 
-                <div class="controls-row">
-                    <button class="btn btn-primary" id="toggleBtn">Start</button>
-                    <button class="btn" id="resetBtn">Reset</button>
-                </div>
-                <div class="controls-row">
-                    <button class="btn" id="defaultsBtn">Restore Defaults</button>
-                </div>
-                <div class="controls-row">
-                    <button class="btn" id="testCvBtn">Test CV Calculation</button>
-                </div>
-
-                <div class="equation-box">
-                    V(t+dt) = V + (dt/τ)[−(V−V<sub>rest</sub>) + RI] + σ√(dt/τ) · N(0,1)
-                </div>
-            </aside>
-
-            <main class="visualization-area">
-                <div class="canvas-section">
-                    <div class="canvas-title">Membrane Potential</div>
-                    <span class="canvas-annotation">mV</span>
-                    <canvas id="membraneCanvas"></canvas>
-                </div>
-
-                <div class="canvas-section">
-                    <div class="canvas-title">Spike Events</div>
-                    <canvas id="rasterCanvas"></canvas>
-                </div>
-
-                <div class="canvas-section">
-                    <div class="canvas-title">Instantaneous Firing Rate</div>
-                    <span class="canvas-annotation">Hz</span>
-                    <canvas id="rateCanvas"></canvas>
-                </div>
-
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-line" style="background: var(--membrane-color)"></div>
-                        <span>Membrane V</span>
+                <h3 style="margin-top:22px">Measurement</h3>
+                <div class="controls stack">
+                    <div class="control">
+                        <label for="isiWindow"><span>ISI window</span><b id="isiWindowVal">5 s</b></label>
+                        <input type="range" id="isiWindow" min="1" max="30" value="5" step="1">
+                        <span class="hint">How far back the mean ISI and CV look. A short window tracks changes; a
+                            long one gives a steadier estimate.</span>
                     </div>
-                    <div class="legend-item">
-                        <div class="legend-line dashed"></div>
-                        <span>Threshold</span>
+                    <div class="control">
+                        <label for="speed"><span>Simulation speed</span><b id="speedVal">20 ms/frame</b></label>
+                        <input type="range" id="speed" min="2" max="120" value="40" step="2">
+                        <span class="hint">Milliseconds of model time per animation frame. The physics does not
+                            change, only how fast you watch it.</span>
                     </div>
-                    <div class="legend-item">
-                        <div class="legend-line" style="background: var(--spike-color); height: 10px; width: 2px;">
+                </div>
+
+                <div class="toolbar" style="margin-top:18px;margin-bottom:0">
+                    <button type="button" class="primary" id="toggleBtn">Start</button>
+                    <button type="button" id="resetBtn">Reset</button>
+                    <button type="button" id="defaultsBtn">Defaults</button>
+                    <button type="button" id="testBtn">Self-test</button>
+                </div>
+            </div>
+
+            <div>
+                <div class="fig">
+                    <canvas id="membraneCanvas" aria-label="Membrane potential against time"></canvas>
+                    <p class="cap">Membrane potential. The dashed line is threshold; the vertical strokes are spikes,
+                        drawn in at the moment the threshold is crossed.</p>
+                    <div class="legend">
+                        <span><i style="background:var(--c-membrane)"></i>membrane V</span>
+                        <span style="color:var(--c-thresh)"><i class="dash"></i><span
+                                style="color:var(--muted)">threshold</span></span>
+                        <span><i style="background:var(--c-theory)"></i>steady state V<sub>rest</sub>+RI</span>
+                    </div>
+                </div>
+
+                <div class="fig">
+                    <canvas id="rasterCanvas" aria-label="Spike raster"></canvas>
+                    <p class="cap">The same spikes with the voltage thrown away, which is all a downstream cell
+                        gets.</p>
+                </div>
+
+                <div class="figs two-even">
+                    <div class="fig">
+                        <canvas id="rateCanvas" aria-label="Instantaneous firing rate against time"></canvas>
+                        <p class="cap">Firing rate, counted in a one-second sliding window.</p>
+                    </div>
+                    <div class="fig">
+                        <canvas id="fiCanvas"
+                            aria-label="Firing rate against injected current, measured and predicted"></canvas>
+                        <p class="cap">The f&ndash;I curve. The line is the noiseless prediction; the dots are
+                            measured, one per second of model time. Move the current slider to fill it in.</p>
+                        <div class="legend">
+                            <span><i style="background:var(--c-theory)"></i>predicted</span>
+                            <span><i class="dot" style="background:var(--c-rate)"></i>measured</span>
                         </div>
-                        <span>Spike</span>
                     </div>
                 </div>
 
-                <div class="stats-row">
-                    <div class="stat-item">
-                        <div class="stat-value" id="spikeCount">0</div>
-                        <div class="stat-label">Total Spikes</div>
+                <div class="fig">
+                    <div class="readouts" style="border-top:none;margin-top:0;padding-top:0">
+                        <div class="readout"><span>spikes</span><b id="spikeCount">0</b></div>
+                        <div class="readout"><span>rate (Hz)</span><b id="firingRate">0.0</b></div>
+                        <div class="readout"><span>predicted (Hz)</span><b id="predRate">49.2</b></div>
+                        <div class="readout"><span>mean ISI (ms)</span><b id="meanISI">&mdash;</b></div>
+                        <div class="readout"><span>CV of ISI</span><b id="cvISI">&mdash;</b></div>
+                        <div class="readout"><span>model time</span><b id="simTime">0.0 s</b></div>
                     </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="firingRate">0.0</div>
-                        <div class="stat-label">Firing Rate (Hz)</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="meanISI">—</div>
-                        <div class="stat-label">Mean ISI (ms)</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="cvISI">—</div>
-                        <div class="stat-label">CV of ISI</div>
-                    </div>
+                    <p class="cap">The coefficient of variation of the interval distribution measures how irregular
+                        the spiking is. CV near 0 is clock-like; CV near 1 is Poisson-like, which is roughly what
+                        cortical cells do in vivo.</p>
                 </div>
 
-                <p class="marginnote">
-                    The coefficient of variation (CV) measures spike timing variability.
-                    A CV near 1 indicates Poisson-like stochastic firing; CV near 0 indicates regular, clock-like
-                    firing.
-                </p>
+                <div id="testResults" class="selftest" style="display:none"></div>
+            </div>
+        </div>
 
-                <div id="testResults" class="test-results" style="display: none;"></div>
-            </main>
+        <div class="note">
+            <h2>What the simulation is doing</h2>
+            <p>The leaky integrate-and-fire neuron is the smallest model that still behaves like a neuron. It throws
+                away the ion channels and keeps two facts: a patch of membrane is a leaky capacitor, and there is a
+                voltage at which the cell emits a spike and starts again. Everything on this page follows from
+                those two sentences.</p>
+            <p>Between spikes the membrane obeys</p>
+            <p class="eq">&tau; dV/dt = &minus;(V &minus; V<sub>rest</sub>) + R&thinsp;I(t)</p>
+            <p>The first term is the leak, always pulling V back towards rest at a rate set by &tau;. The second is
+                the input, pushing it away. With a constant current the two balance at
+                <code>V<sub>&infin;</sub> = V<sub>rest</sub> + RI</code>, drawn on the membrane trace as a horizontal
+                line. If that asymptote is <em>below</em> threshold the noiseless cell never fires, however long you
+                wait; if it is above, the cell fires regularly. The current at which the asymptote exactly touches
+                threshold is the <em>rheobase</em>, and it is the knee in the f&ndash;I curve.</p>
+            <p>Spiking is imposed rather than derived. When V reaches V<sub>thresh</sub> the simulation records a
+                spike, resets V to V<sub>rest</sub>, and holds it there for the refractory period
+                t<sub>ref</sub>. The upstroke drawn on the trace is decoration: the model has no spike shape, and
+                that is a deliberate trade. What it buys is that the interval between spikes can be written down
+                exactly,</p>
+            <p class="eq">T = t<sub>ref</sub> + &tau;&thinsp;ln[ RI / (RI &minus; (V<sub>thresh</sub> &minus;
+                V<sub>rest</sub>)) ]&nbsp;&nbsp;&nbsp;f = 1000 / T&nbsp;Hz</p>
+            <p>which is the curve plotted in the f&ndash;I panel, and is what the <em>predicted</em> readout
+                reports.</p>
+
+            <h3>The stochastic part</h3>
+            <p>A real cortical neuron is never given a clean current step. It sits in a barrage of thousands of
+                synaptic inputs that the experiment cannot resolve individually, and their sum looks like noise.
+                This model adds that as a Gaussian term, making the membrane an Ornstein&ndash;Uhlenbeck process:</p>
+            <p class="eq">V &larr; V + (dt/&tau;)[&minus;(V &minus; V<sub>rest</sub>) + RI] +
+                &sigma;&thinsp;&radic;(2dt/&tau;)&thinsp;N(0,1)</p>
+            <p>The &radic;(2dt/&tau;) factor is what makes &sigma; mean something: with it, the membrane at rest
+                has a standard deviation of exactly &sigma; whatever timestep or time constant you choose. Noise
+                changes the behaviour qualitatively, not just cosmetically. Set the current <em>below</em> rheobase,
+                so the prediction is zero, and then raise &sigma;: the cell starts firing anyway, driven entirely by
+                fluctuations that occasionally carry it over threshold. The measured dots lift off the predicted
+                curve near the knee, and the CV climbs towards 1. This is the fluctuation-driven regime, and it is
+                the one cortex appears to operate in.</p>
+
+            <h3>Parameters</h3>
+            <table class="paramdoc">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Range</th>
+                        <th>What it does</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="sym">&tau;</td>
+                        <td class="typ">5&ndash;50 ms</td>
+                        <td>
+                            <p>Membrane time constant, R&thinsp;C. Sets how quickly V approaches its asymptote, and
+                                therefore how long ago an input can have arrived and still contribute. Short &tau;
+                                makes a coincidence detector, long &tau; an integrator. Cortical pyramidal cells sit
+                                around 10&ndash;30 ms.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">V<sub>rest</sub></td>
+                        <td class="typ">&minus;80 to &minus;60 mV</td>
+                        <td>
+                            <p>Resting potential, set by the balance of leak conductances. Also the reset potential
+                                here, so raising it both makes the cell easier to drive and shortens the climb back
+                                after each spike.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">V<sub>thresh</sub></td>
+                        <td class="typ">&minus;65 to &minus;40 mV</td>
+                        <td>
+                            <p>Spike threshold. Only the distance V<sub>thresh</sub> &minus; V<sub>rest</sub>
+                                matters for the firing rate, so moving either one has the same effect.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">R</td>
+                        <td class="typ">20&ndash;500 M&Omega;</td>
+                        <td>
+                            <p>Input resistance. Turns picoamps into millivolts: R&thinsp;I in mV is
+                                R[M&Omega;]&thinsp;&times;&thinsp;I[pA]&thinsp;/&thinsp;1000. Small cells have high
+                                input resistance and are driven by less current.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">t<sub>ref</sub></td>
+                        <td class="typ">0&ndash;10 ms</td>
+                        <td>
+                            <p>Absolute refractory period. Sets the ceiling on firing rate, 1/t<sub>ref</sub>, which
+                                is the flat part at the right of the f&ndash;I curve. At t<sub>ref</sub> = 0 the
+                                curve has no ceiling at all.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">I</td>
+                        <td class="typ">0&ndash;500 pA</td>
+                        <td>
+                            <p>Injected current. Rheobase, the current at which firing begins without noise, is
+                                (V<sub>thresh</sub> &minus; V<sub>rest</sub>)&thinsp;&times;&thinsp;1000/R and is
+                                marked on the f&ndash;I panel.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">&sigma;</td>
+                        <td class="typ">0&ndash;15 mV</td>
+                        <td>
+                            <p>Standard deviation of the membrane fluctuation at rest. Zero gives the textbook
+                                deterministic LIF, where the measured rate should land exactly on the prediction.
+                                Raising it lets the cell fire below rheobase and makes the intervals irregular.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">ISI window</td>
+                        <td class="typ">1&ndash;30 s</td>
+                        <td>
+                            <p>How much recent history the mean ISI and CV are computed over. It affects the
+                                measurement, not the cell. Short windows are noisy estimates; long ones lag behind
+                                a parameter change.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="sym">speed</td>
+                        <td class="typ">2&ndash;120 ms/frame</td>
+                        <td>
+                            <p>Model milliseconds simulated per animation frame. Purely how fast you watch; the
+                                integration timestep is fixed at 0.5 ms.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Things worth doing with it</h3>
+            <ul>
+                <li><strong>Turn the noise off.</strong> With &sigma; = 0 the spiking becomes perfectly regular, the
+                    CV drops to 0, and the measured rate should sit on the predicted one. That agreement is a check
+                    on the integration, not a result; press <em>Self-test</em> for the same check done
+                    arithmetically.</li>
+                <li><strong>Find the rheobase.</strong> Lower the current until the predicted rate reads zero. The
+                    noiseless cell is silent. Now raise &sigma; and watch it fire anyway, irregularly, with a CV
+                    near 1. Nothing about the cell changed.</li>
+                <li><strong>Saturate it.</strong> Drive the current to the top. The f&ndash;I curve flattens at
+                    1/t<sub>ref</sub>, and the CV collapses because a cell spending most of its time refractory has
+                    almost no freedom in when to fire.</li>
+                <li><strong>Sweep the current slowly</strong> and let the measured dots accumulate. Below rheobase
+                    they sit above the prediction, because noise can only add spikes where the prediction says
+                    zero; well above rheobase they converge onto it.</li>
+            </ul>
+
+            <h3>Where the model stops being true</h3>
+            <ul>
+                <li>Threshold is a fixed number. In real cells it drifts with recent activity and depends on how
+                    fast the membrane is rising, which is why the exponential and adaptive-exponential variants
+                    exist.</li>
+                <li>There is no adaptation. A real pyramidal cell given a long current step fires quickly and then
+                    slows down, over hundreds of milliseconds, through calcium-dependent potassium currents. This
+                    cell fires at the same rate forever.</li>
+                <li>The cell is a point. No dendrites, so no distinction between an input at the soma and one two
+                    hundred microns out on a branch, and no dendritic spike to back-propagate &mdash; which is the
+                    signal the <a href="stdp.html">STDP</a> rule depends on.</li>
+                <li>The noise is white and additive. Real synaptic bombardment is correlated in time, and it arrives
+                    as conductance rather than current, which lowers the input resistance as it grows. Here R is
+                    whatever the slider says, however much noise there is.</li>
+            </ul>
+        </div>
+
+        <div class="related">
+            Related
+            <div class="links">
+                <a href="stdp.html">Spike-timing-dependent plasticity</a>
+                <a href="hebbian_learning.html">Hebbian cell assemblies</a>
+                <a href="../neuroengineering/neuromorphic.html">Neuromorphic engineering</a>
+                <a href="../nbl425/interactive.html">NBL 425 interactive demos</a>
+                <a href="../index.html">Site index</a>
+            </div>
         </div>
     </div>
 
     <script>
-        // Dark mode detection
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.classList.add('dark');
-        }
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-            document.documentElement.classList.toggle('dark', event.matches);
-        });
+        (function () {
+            'use strict';
 
-        // Canvas setup
-        const membraneCanvas = document.getElementById('membraneCanvas');
-        const rasterCanvas = document.getElementById('rasterCanvas');
-        const rateCanvas = document.getElementById('rateCanvas');
+            NPLib.wireThemeToggle();
 
-        const membraneCtx = membraneCanvas.getContext('2d');
-        const rasterCtx = rasterCanvas.getContext('2d');
-        const rateCtx = rateCanvas.getContext('2d');
+            var DT = 0.5;              /* integration timestep, ms */
+            var DISPLAY = 1000;        /* width of the scrolling panels, ms */
+            var V_TOP = -30;           /* top of the voltage axis, mV */
+            var V_BOTTOM = -85;
 
-        function getColors() {
-            const isDark = document.documentElement.classList.contains('dark');
-            return {
-                bg: isDark ? '#151515' : '#fffff8',
-                axis: isDark ? '#888' : '#333',
-                grid: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
-                membrane: isDark ? '#d4d4d4' : '#1a1a1a',
-                threshold: isDark ? '#c45' : '#a00',
-                spike: isDark ? '#d4d4d4' : '#111',
-                rate: isDark ? '#888' : '#555',
-                text: isDark ? '#666' : '#888'
+            var defaults = {
+                tau: 20, rest: -70, threshold: -55, resistance: 100,
+                refractory: 2, current: 250, noise: 5, isiWindow: 5, speed: 40
             };
-        }
+            var P = Object.assign({}, defaults);
 
-        function resizeCanvases() {
-            const dpr = window.devicePixelRatio || 1;
-            [membraneCanvas, rasterCanvas, rateCanvas].forEach(canvas => {
-                const rect = canvas.getBoundingClientRect();
-                canvas.width = rect.width * dpr;
-                canvas.height = rect.height * dpr;
-                const ctx = canvas.getContext('2d');
-                ctx.scale(dpr, dpr);
-            });
-        }
+            /* ---------------------------------------------------------- state */
 
-        resizeCanvases();
-        window.addEventListener('resize', resizeCanvases);
+            var time = 0;              /* model time, ms */
+            var V = P.rest;
+            var refractoryUntil = -1;
+            var totalSpikes = 0;
 
-        // Simulation parameters
-        const defaultParams = {
-            tau: 20,
-            threshold: -55,
-            rest: -70,
-            current: 15,
-            noise: 5,
-            resistance: 1,
-            isiWindow: 5
-        };
+            var membrane = new NPLib.Trace(Math.ceil(DISPLAY / DT) + 4);
+            var rateTrace = new NPLib.Trace(Math.ceil(DISPLAY / DT) + 4);
+            var shown = [];            /* spike times inside the display window */
+            var perSecond = [];        /* spike times in the last 1000 ms */
+            var windowed = [];         /* spike times inside the ISI window */
+            var fiPoints = [];         /* [current, measured Hz] */
+            var lastFiMark = 0;
+            var fiMarkCurrent = P.current;
 
-        const params = { ...defaultParams };
+            /* ---------------------------------------------------- the equations */
 
-        const dt = 0.5; // ms
-        const displayWindow = 2000; // ms
-        let time = 0;
-        let V = params.rest;
-        let running = false;
-        let animationId = null;
+            /* R in MOhm times I in pA is microvolts; the model works in mV. */
+            function drive() { return P.resistance * P.current / 1000; }
 
-        // Data storage
-        let membraneData = [];
-        let spikeTimes = [];
-        let rateHistory = [];
-        const maxDataPoints = Math.ceil(displayWindow / dt);
-
-        // Parameter controls
-        const paramInputs = {
-            tau: document.getElementById('tau'),
-            threshold: document.getElementById('threshold'),
-            rest: document.getElementById('rest'),
-            current: document.getElementById('current'),
-            noise: document.getElementById('noise'),
-            resistance: document.getElementById('resistance'),
-            isiWindow: document.getElementById('isiWindow')
-        };
-
-        const paramDisplays = {
-            tau: document.getElementById('tauVal'),
-            threshold: document.getElementById('threshVal'),
-            rest: document.getElementById('restVal'),
-            current: document.getElementById('currentVal'),
-            noise: document.getElementById('noiseVal'),
-            resistance: document.getElementById('resistanceVal'),
-            isiWindow: document.getElementById('isiWindowVal')
-        };
-
-        const units = {
-            tau: ' ms',
-            threshold: ' mV',
-            rest: ' mV',
-            current: ' pA',
-            noise: ' mV',
-            resistance: ' MΩ',
-            isiWindow: ' s'
-        };
-
-        function formatValue(key, val) {
-            if (key === 'threshold' || key === 'rest') {
-                return '−' + Math.abs(val) + units[key];
-            }
-            return val + units[key];
-        }
-
-        Object.keys(paramInputs).forEach(key => {
-            paramInputs[key].addEventListener('input', () => {
-                params[key] = parseFloat(paramInputs[key].value);
-                paramDisplays[key].textContent = formatValue(key, params[key]);
-            });
-        });
-
-        // Control buttons
-        const toggleBtn = document.getElementById('toggleBtn');
-        const resetBtn = document.getElementById('resetBtn');
-
-        toggleBtn.addEventListener('click', () => {
-            running = !running;
-            toggleBtn.textContent = running ? 'Pause' : 'Start';
-            toggleBtn.classList.toggle('btn-primary', !running);
-            if (running) simulate();
-        });
-
-        resetBtn.addEventListener('click', () => {
-            running = false;
-            toggleBtn.textContent = 'Start';
-            toggleBtn.classList.add('btn-primary');
-            time = 0;
-            V = params.rest;
-            membraneData = [];
-            spikeTimes = [];
-            rateHistory = [];
-            if (animationId) cancelAnimationFrame(animationId);
-            updateStats();
-            clearCanvases();
-        });
-
-        const defaultsBtn = document.getElementById('defaultsBtn');
-        defaultsBtn.addEventListener('click', () => {
-            Object.keys(defaultParams).forEach(key => {
-                params[key] = defaultParams[key];
-                paramInputs[key].value = defaultParams[key];
-                paramDisplays[key].textContent = formatValue(key, defaultParams[key]);
-            });
-
-            running = false;
-            toggleBtn.textContent = 'Start';
-            toggleBtn.classList.add('btn-primary');
-            time = 0;
-            V = params.rest;
-            membraneData = [];
-            spikeTimes = [];
-            rateHistory = [];
-            if (animationId) cancelAnimationFrame(animationId);
-            updateStats();
-            clearCanvases();
-        });
-
-        // Gaussian random number (Box-Muller)
-        function randn() {
-            let u = 0, v = 0;
-            while (u === 0) u = Math.random();
-            while (v === 0) v = Math.random();
-            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-        }
-
-        // sLIF simulation step
-        function step() {
-            const dV = (dt / params.tau) * (-(V - params.rest) + params.resistance * params.current);
-            const noise = params.noise * Math.sqrt(dt / params.tau) * randn();
-            V += dV + noise;
-
-            let spiked = false;
-            if (V >= params.threshold) {
-                spikeTimes.push(time);
-                V = params.rest;
-                spiked = true;
+            function rheobase() {
+                return (P.threshold - P.rest) * 1000 / P.resistance;
             }
 
-            membraneData.push({ time, V, spiked });
-            if (membraneData.length > maxDataPoints) {
-                membraneData.shift();
+            /* Noiseless interval and rate. Undefined below rheobase, where the
+               membrane asymptote never reaches threshold. */
+            function predictedRate(currentPa) {
+                var ri = P.resistance * currentPa / 1000;
+                var gap = P.threshold - P.rest;
+                if (ri <= gap) { return 0; }
+                var T = P.refractory + P.tau * Math.log(ri / (ri - gap));
+                return T > 0 ? 1000 / T : 0;
             }
 
-            const recentSpikes = spikeTimes.filter(t => t > time - 1000);
-            const rate = recentSpikes.length;
-            rateHistory.push({ time, rate });
-            if (rateHistory.length > maxDataPoints) {
-                rateHistory.shift();
-            }
+            function step() {
+                var spiked = false;
 
-            time += dt;
-        }
-
-        function simulate() {
-            if (!running) return;
-
-            for (let i = 0; i < 10; i++) {
-                step();
-            }
-
-            draw();
-            updateStats();
-            animationId = requestAnimationFrame(simulate);
-        }
-
-        function clearCanvases() {
-            const colors = getColors();
-            [
-                { canvas: membraneCanvas, ctx: membraneCtx },
-                { canvas: rasterCanvas, ctx: rasterCtx },
-                { canvas: rateCanvas, ctx: rateCtx }
-            ].forEach(({ canvas, ctx }) => {
-                const rect = canvas.getBoundingClientRect();
-                ctx.fillStyle = colors.bg;
-                ctx.fillRect(0, 0, rect.width, rect.height);
-            });
-        }
-
-        function draw() {
-            const colors = getColors();
-            const membraneRect = membraneCanvas.getBoundingClientRect();
-            const rasterRect = rasterCanvas.getBoundingClientRect();
-            const rateRect = rateCanvas.getBoundingClientRect();
-
-            // Clear
-            membraneCtx.fillStyle = colors.bg;
-            membraneCtx.fillRect(0, 0, membraneRect.width, membraneRect.height);
-
-            rasterCtx.fillStyle = colors.bg;
-            rasterCtx.fillRect(0, 0, rasterRect.width, rasterRect.height);
-
-            rateCtx.fillStyle = colors.bg;
-            rateCtx.fillRect(0, 0, rateRect.width, rateRect.height);
-
-            if (membraneData.length < 2) return;
-
-            const startTime = Math.max(0, time - displayWindow);
-            const padding = { left: 40, right: 15, top: 15, bottom: 20 };
-
-            drawMembranePotential(membraneCtx, membraneRect, padding, startTime, colors);
-            drawRaster(rasterCtx, rasterRect, padding, startTime, colors);
-            drawFiringRate(rateCtx, rateRect, padding, startTime, colors);
-        }
-
-        function drawAxis(ctx, rect, padding, yMin, yMax, colors) {
-            const w = rect.width - padding.left - padding.right;
-            const h = rect.height - padding.top - padding.bottom;
-
-            // Y axis line (Tufte style: just a range frame)
-            ctx.strokeStyle = colors.axis;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(padding.left, padding.top);
-            ctx.lineTo(padding.left, rect.height - padding.bottom);
-            ctx.stroke();
-
-            // Y-axis labels (minimal)
-            ctx.fillStyle = colors.text;
-            ctx.font = '11px Source Sans Pro, sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(yMax.toFixed(0), padding.left - 6, padding.top + 4);
-            ctx.fillText(yMin.toFixed(0), padding.left - 6, rect.height - padding.bottom + 4);
-        }
-
-        function drawMembranePotential(ctx, rect, padding, startTime, colors) {
-            const w = rect.width - padding.left - padding.right;
-            const h = rect.height - padding.top - padding.bottom;
-            const yMin = -80, yMax = -30;
-
-            drawAxis(ctx, rect, padding, yMin, yMax, colors);
-
-            // Threshold line (dashed)
-            const threshY = padding.top + h * (1 - (params.threshold - yMin) / (yMax - yMin));
-            ctx.strokeStyle = colors.threshold;
-            ctx.setLineDash([4, 4]);
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(padding.left, threshY);
-            ctx.lineTo(rect.width - padding.right, threshY);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Membrane potential trace
-            ctx.strokeStyle = colors.membrane;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-
-            let first = true;
-            membraneData.forEach(point => {
-                const x = padding.left + ((point.time - startTime) / displayWindow) * w;
-                const y = padding.top + h * (1 - (point.V - yMin) / (yMax - yMin));
-
-                if (first) {
-                    ctx.moveTo(x, y);
-                    first = false;
+                if (time < refractoryUntil) {
+                    V = P.rest;                       /* held at reset */
                 } else {
-                    ctx.lineTo(x, y);
+                    var dV = (DT / P.tau) * (-(V - P.rest) + drive());
+                    /* sqrt(2 dt / tau) keeps sigma the stationary standard
+                       deviation, independent of dt and tau */
+                    var noise = P.noise * Math.sqrt(2 * DT / P.tau) * NPLib.gauss();
+                    V += dV + noise;
+
+                    if (V >= P.threshold) {
+                        totalSpikes += 1;
+                        shown.push(time);
+                        perSecond.push(time);
+                        windowed.push(time);
+                        V = P.rest;
+                        refractoryUntil = time + P.refractory;
+                        spiked = true;
+                    }
                 }
-            });
-            ctx.stroke();
-        }
 
-        function drawRaster(ctx, rect, padding, startTime, colors) {
-            const w = rect.width - padding.left - padding.right;
-            const h = rect.height - padding.top - padding.bottom;
+                membrane.push(time, V);
 
-            // Baseline
-            ctx.strokeStyle = colors.axis;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(padding.left, rect.height / 2);
-            ctx.lineTo(rect.width - padding.right, rect.height / 2);
-            ctx.stroke();
+                /* Prune the three spike buffers from the front. Each is sorted,
+                   so this is amortised O(1) rather than the O(n) filter it
+                   replaces, and nothing grows without bound. */
+                var cutShown = time - DISPLAY;
+                while (shown.length && shown[0] < cutShown) { shown.shift(); }
+                while (perSecond.length && perSecond[0] < time - 1000) { perSecond.shift(); }
+                var cutIsi = time - P.isiWindow * 1000;
+                while (windowed.length && windowed[0] < cutIsi) { windowed.shift(); }
 
-            // Spike ticks
-            ctx.strokeStyle = colors.spike;
-            ctx.lineWidth = 1.5;
+                rateTrace.push(time, perSecond.length);
+                time += DT;
+                return spiked;
+            }
 
-            const recentSpikes = spikeTimes.filter(t => t >= startTime && t <= time);
-            recentSpikes.forEach(spikeTime => {
-                const x = padding.left + ((spikeTime - startTime) / displayWindow) * w;
+            /* One measured f-I point per second of model time, provided the
+               current has not moved during that second. */
+            function maybeMarkFI() {
+                if (P.current !== fiMarkCurrent) {
+                    fiMarkCurrent = P.current;
+                    lastFiMark = time;
+                    return;
+                }
+                if (time - lastFiMark < 1000) { return; }
+                lastFiMark = time;
+                var hz = perSecond.length;
+                var i;
+                for (i = 0; i < fiPoints.length; i++) {
+                    if (fiPoints[i][0] === P.current) {
+                        /* running mean, so revisiting a current refines it */
+                        fiPoints[i][1] = (fiPoints[i][1] * fiPoints[i][2] + hz) / (fiPoints[i][2] + 1);
+                        fiPoints[i][2] += 1;
+                        return;
+                    }
+                }
+                fiPoints.push([P.current, hz, 1]);
+                if (fiPoints.length > 200) { fiPoints.shift(); }
+            }
+
+            /* --------------------------------------------------------- canvases */
+
+            var ready = false;
+            function redraw() { if (ready) { draw(); } }
+
+            var mem = NPLib.fitCanvas(document.getElementById('membraneCanvas'), 0.22, redraw);
+            var ras = NPLib.fitCanvas(document.getElementById('rasterCanvas'), 0.10, redraw);
+            var rat = NPLib.fitCanvas(document.getElementById('rateCanvas'), 0.52, redraw);
+            var fic = NPLib.fitCanvas(document.getElementById('fiCanvas'), 0.52, redraw);
+            ready = true;
+
+            function windowStart() { return Math.max(0, time - DISPLAY); }
+
+            function drawMembrane() {
+                var th = NPLib.theme();
+                var ctx = mem.ctx;
+                NPLib.clear(ctx, mem.w, mem.h);
+
+                var box = { x: 46, y: 12, w: mem.w - 62, h: mem.h - 40 };
+                var t0 = windowStart();
+                var ss = P.rest + drive();
+
+                var hlines = [{ y: P.threshold, color: th.thresh, label: 'V thresh' }];
+                if (ss > V_BOTTOM && ss < V_TOP) {
+                    hlines.push({
+                        y: ss, color: th.theory, dash: [2, 5],
+                        label: 'V rest + RI = ' + ss.toFixed(0)
+                    });
+                }
+
+                var p = NPLib.plot(ctx, box, {
+                    xmin: t0, xmax: t0 + DISPLAY, ymin: V_BOTTOM, ymax: V_TOP,
+                    yTicks: [-80, -70, -60, -50, -40],
+                    tickLabelsY: true,
+                    hlines: hlines,
+                    series: [{ pts: membrane.pts, color: th.membrane, width: 1.5 }],
+                    ylabel: 'V (mV)'
+                });
+
+                /* the spike the model does not compute, drawn in */
+                ctx.save();
                 ctx.beginPath();
-                ctx.moveTo(x, rect.height / 2 - 15);
-                ctx.lineTo(x, rect.height / 2 + 15);
-                ctx.stroke();
-            });
-        }
+                ctx.rect(box.x, box.y, box.w, box.h);
+                ctx.clip();
+                ctx.strokeStyle = th.membrane;
+                ctx.lineWidth = 1.5;
+                for (var i = 0; i < shown.length; i++) {
+                    var sx = p.sx(shown[i]);
+                    ctx.beginPath();
+                    ctx.moveTo(sx, p.sy(P.threshold));
+                    ctx.lineTo(sx, p.sy(V_TOP - 2));
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
 
-        function drawFiringRate(ctx, rect, padding, startTime, colors) {
-            const w = rect.width - padding.left - padding.right;
-            const h = rect.height - padding.top - padding.bottom;
-            const yMin = 0, yMax = 60;
+            function drawRaster() {
+                var th = NPLib.theme();
+                var ctx = ras.ctx;
+                NPLib.clear(ctx, ras.w, ras.h);
 
-            drawAxis(ctx, rect, padding, yMin, yMax, colors);
+                var box = { x: 46, y: 8, w: ras.w - 62, h: ras.h - 26 };
+                var t0 = windowStart();
 
-            if (rateHistory.length < 2) return;
+                ctx.save();
+                ctx.strokeStyle = th.border;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w, box.h);
+                ctx.restore();
 
-            // Rate area fill (subtle)
-            ctx.fillStyle = colors.grid;
-            ctx.beginPath();
-            let first = true;
-            const baseY = rect.height - padding.bottom;
+                NPLib.raster(ctx, box, [{ times: shown, color: th.fg, width: 1.5 }],
+                    { xmin: t0, xmax: t0 + DISPLAY });
 
-            rateHistory.forEach(point => {
-                const x = padding.left + ((point.time - startTime) / displayWindow) * w;
-                const y = padding.top + h * (1 - Math.min(point.rate, yMax) / yMax);
+                ctx.save();
+                ctx.fillStyle = th.muted;
+                ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                ctx.fillText((time / 1000).toFixed(1) + ' s', box.x + box.w, box.y + box.h + 4);
+                ctx.textAlign = 'left';
+                ctx.fillText(((t0) / 1000).toFixed(1) + ' s', box.x, box.y + box.h + 4);
+                ctx.restore();
+            }
 
-                if (first) {
-                    ctx.moveTo(x, baseY);
-                    ctx.lineTo(x, y);
-                    first = false;
+            function drawRate() {
+                var th = NPLib.theme();
+                var ctx = rat.ctx;
+                NPLib.clear(ctx, rat.w, rat.h);
+
+                var box = { x: 46, y: 14, w: rat.w - 62, h: rat.h - 44 };
+                var t0 = windowStart();
+
+                /* headroom that follows the data instead of clipping it */
+                var peak = 20, i;
+                for (i = 0; i < rateTrace.pts.length; i++) {
+                    if (rateTrace.pts[i][1] > peak) { peak = rateTrace.pts[i][1]; }
+                }
+                var yMax = Math.ceil((peak * 1.25) / 20) * 20;
+
+                var p = NPLib.plot(ctx, box, {
+                    xmin: t0, xmax: t0 + DISPLAY, ymin: 0, ymax: yMax,
+                    yTicks: [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax],
+                    tickLabelsY: true,
+                    series: [{ pts: rateTrace.pts, color: th.rate, width: 1.8 }],
+                    ylabel: 'rate (Hz)',
+                    xlabel: 'time'
+                });
+
+                var pred = predictedRate(P.current);
+                if (pred > 0 && pred < yMax) {
+                    ctx.save();
+                    ctx.strokeStyle = th.theory;
+                    ctx.setLineDash([3, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(box.x, p.sy(pred));
+                    ctx.lineTo(box.x + box.w, p.sy(pred));
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            function drawFI() {
+                var th = NPLib.theme();
+                var ctx = fic.ctx;
+                NPLib.clear(ctx, fic.w, fic.h);
+
+                var box = { x: 46, y: 14, w: fic.w - 62, h: fic.h - 44 };
+                var iMax = 500;
+
+                var curve = [], i, hz, peak = 20;
+                for (i = 0; i <= iMax; i += 5) {
+                    hz = predictedRate(i);
+                    curve.push([i, hz]);
+                    if (hz > peak) { peak = hz; }
+                }
+                for (i = 0; i < fiPoints.length; i++) {
+                    if (fiPoints[i][1] > peak) { peak = fiPoints[i][1]; }
+                }
+                /* round to a hundred so the quarter-ticks stay whole numbers */
+                var yMax = Math.ceil((peak * 1.2) / 100) * 100;
+
+                var measured = [];
+                for (i = 0; i < fiPoints.length; i++) {
+                    measured.push([fiPoints[i][0], fiPoints[i][1]]);
+                }
+
+                var rb = rheobase();
+                var marks = [];
+                if (rb > 0 && rb < iMax) {
+                    marks.push({ x: rb, color: th.thresh, label: 'rheo' });
+                }
+                marks.push({ x: P.current, color: th.muted, dash: [2, 4] });
+
+                var p = NPLib.plot(ctx, box, {
+                    xmin: 0, xmax: iMax, ymin: 0, ymax: yMax,
+                    xTicks: [0, 125, 250, 375, 500],
+                    yTicks: [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax],
+                    tickLabels: true,
+                    marks: marks,
+                    series: [{ pts: curve, color: th.theory, width: 2 }],
+                    points: [{ pts: measured, color: th.rate, r: 2.6 }],
+                    xlabel: 'I (pA)',
+                    ylabel: 'f (Hz)'
+                });
+
+                /* the cell's current operating point */
+                var live = perSecond.length;
+                if (time > 1000 && live <= yMax) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(p.sx(P.current), p.sy(live), 4, 0, Math.PI * 2);
+                    ctx.fillStyle = th.accent;
+                    ctx.fill();
+                    ctx.strokeStyle = th.canvasBg;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            function draw() {
+                drawMembrane();
+                drawRaster();
+                drawRate();
+                drawFI();
+                stats();
+            }
+
+            /* ------------------------------------------------------- statistics */
+
+            function isiStats() {
+                return NPLib.stats(NPLib.diff(windowed));
+            }
+
+            function stats() {
+                NPLib.set('spikeCount', String(totalSpikes));
+                NPLib.set('firingRate', time > 0 ? (totalSpikes / (time / 1000)).toFixed(1) : '0.0');
+                NPLib.set('predRate', predictedRate(P.current).toFixed(1));
+                NPLib.set('simTime', (time / 1000).toFixed(1) + ' s');
+
+                var s = isiStats();
+                if (s.n >= 1 && isFinite(s.mean)) {
+                    NPLib.set('meanISI', s.mean.toFixed(1));
+                    NPLib.set('cvISI', isFinite(s.cv) ? s.cv.toFixed(2) : '—');
                 } else {
-                    ctx.lineTo(x, y);
+                    NPLib.set('meanISI', '—');
+                    NPLib.set('cvISI', '—');
                 }
-            });
+            }
 
-            const lastPoint = rateHistory[rateHistory.length - 1];
-            const lastX = padding.left + ((lastPoint.time - startTime) / displayWindow) * w;
-            ctx.lineTo(lastX, baseY);
-            ctx.closePath();
-            ctx.fill();
+            function setStatus(msg) { NPLib.set('status', msg); }
 
-            // Rate line
-            ctx.strokeStyle = colors.rate;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            first = true;
-            rateHistory.forEach(point => {
-                const x = padding.left + ((point.time - startTime) / displayWindow) * w;
-                const y = padding.top + h * (1 - Math.min(point.rate, yMax) / yMax);
-                if (first) {
-                    ctx.moveTo(x, y);
-                    first = false;
+            function describe() {
+                var pred = predictedRate(P.current);
+                var ss = P.rest + drive();
+                if (pred > 0) {
+                    setStatus('V settles towards ' + ss.toFixed(1) + ' mV, above the ' + P.threshold +
+                        ' mV threshold, so the cell fires regularly at about ' + pred.toFixed(1) +
+                        ' Hz before noise is taken into account.');
                 } else {
-                    ctx.lineTo(x, y);
+                    setStatus('V settles towards ' + ss.toFixed(1) + ' mV, below the ' + P.threshold +
+                        ' mV threshold: without noise this cell never fires. Rheobase is ' +
+                        rheobase().toFixed(0) + ' pA. Raise σ and it will fire anyway.');
                 }
-            });
-            ctx.stroke();
-        }
-
-        function updateStats() {
-            document.getElementById('spikeCount').textContent = spikeTimes.length;
-
-            const rate = time > 0 ? (spikeTimes.length / (time / 1000)).toFixed(1) : '0.0';
-            document.getElementById('firingRate').textContent = rate;
-
-            // Use windowed ISI calculation
-            const windowMs = params.isiWindow * 1000; // Convert seconds to ms
-            const windowStart = time - windowMs;
-
-            // Get spikes within the window (need one spike before window for first ISI)
-            const windowedSpikes = spikeTimes.filter(t => t >= windowStart);
-
-            // Calculate ISIs only for spikes within the window
-            // We need at least 2 spikes in the window to compute ISI
-            if (windowedSpikes.length >= 2) {
-                const isis = [];
-                for (let i = 1; i < windowedSpikes.length; i++) {
-                    isis.push(windowedSpikes[i] - windowedSpikes[i - 1]);
-                }
-
-                const n = isis.length;
-                const meanISI = isis.reduce((a, b) => a + b, 0) / n;
-                const variance = isis.reduce((sum, isi) => sum + Math.pow(isi - meanISI, 2), 0) / n;
-                const stdISI = Math.sqrt(variance);
-                const cv = stdISI / meanISI;
-
-                document.getElementById('meanISI').textContent = meanISI.toFixed(1);
-                document.getElementById('cvISI').textContent = cv.toFixed(2);
-            } else {
-                document.getElementById('meanISI').textContent = '—';
-                document.getElementById('cvISI').textContent = '—';
-            }
-        }
-
-        // CV Calculation Test Suite
-        const testCvBtn = document.getElementById('testCvBtn');
-        const testResultsDiv = document.getElementById('testResults');
-
-        function calculateCV(isiArray) {
-            if (isiArray.length < 2) return null;
-
-            const n = isiArray.length;
-            const mean = isiArray.reduce((a, b) => a + b, 0) / n;
-            const variance = isiArray.reduce((sum, isi) => sum + Math.pow(isi - mean, 2), 0) / n;
-            const std = Math.sqrt(variance);
-            const cv = std / mean;
-
-            return { mean, variance, std, cv, n };
-        }
-
-        function runCVTests() {
-            const tests = [];
-
-            // Test 1: Constant ISI (CV should be 0)
-            const constantISI = [100, 100, 100, 100, 100];
-            const result1 = calculateCV(constantISI);
-            tests.push({
-                name: 'Constant ISI (all 100ms)',
-                data: constantISI,
-                result: result1,
-                expectedCV: 0,
-                pass: Math.abs(result1.cv - 0) < 0.0001
-            });
-
-            // Test 2: Known values - easy to verify manually
-            // ISI = [10, 20, 30] → mean = 20, deviations = [-10, 0, 10]
-            // variance = (100 + 0 + 100) / 3 = 66.67, std = 8.165, CV = 8.165/20 = 0.408
-            const simpleISI = [10, 20, 30];
-            const result2 = calculateCV(simpleISI);
-            const expectedCV2 = Math.sqrt(200 / 3) / 20; // ≈ 0.4082
-            tests.push({
-                name: 'Simple ISI [10, 20, 30]',
-                data: simpleISI,
-                result: result2,
-                expectedCV: expectedCV2,
-                pass: Math.abs(result2.cv - expectedCV2) < 0.0001
-            });
-
-            // Test 3: Two values
-            // ISI = [50, 150] → mean = 100, deviations = [-50, 50]
-            // variance = (2500 + 2500) / 2 = 2500, std = 50, CV = 50/100 = 0.5
-            const twoISI = [50, 150];
-            const result3 = calculateCV(twoISI);
-            tests.push({
-                name: 'Two ISI [50, 150]',
-                data: twoISI,
-                result: result3,
-                expectedCV: 0.5,
-                pass: Math.abs(result3.cv - 0.5) < 0.0001
-            });
-
-            // Test 4: Poisson-like (CV ≈ 1)
-            // For exponential distribution, CV = 1
-            // Simulate with varied intervals
-            const poissonLike = [50, 120, 30, 200, 80, 150, 40, 180, 60, 90];
-            const result4 = calculateCV(poissonLike);
-            tests.push({
-                name: 'Variable ISI (checking calculation)',
-                data: poissonLike,
-                result: result4,
-                expectedCV: null, // Just display, don't check
-                pass: true
-            });
-
-            // Test 5: Compare with current simulation data (using windowed spikes)
-            let simTest = null;
-            const windowMs = params.isiWindow * 1000;
-            const windowStart = time - windowMs;
-            const windowedSpikes = spikeTimes.filter(t => t >= windowStart);
-
-            if (windowedSpikes.length >= 3) {
-                const simISI = [];
-                for (let i = 1; i < windowedSpikes.length; i++) {
-                    simISI.push(windowedSpikes[i] - windowedSpikes[i - 1]);
-                }
-                const resultSim = calculateCV(simISI);
-                const displayedCV = parseFloat(document.getElementById('cvISI').textContent);
-                simTest = {
-                    name: `Current Simulation (${params.isiWindow}s window)`,
-                    data: simISI.length > 10 ? `[${simISI.slice(0, 5).map(x => x.toFixed(1)).join(', ')}, ... ${simISI.length} ISIs]` : simISI.map(x => x.toFixed(1)),
-                    result: resultSim,
-                    displayedCV: displayedCV,
-                    windowInfo: `${windowedSpikes.length} spikes in window`,
-                    pass: Math.abs(resultSim.cv - displayedCV) < 0.01
-                };
             }
 
-            // Render results
-            let html = '<h3>CV Calculation Test Results</h3>';
-            html += '<div class="test-formula">CV = σ / μ where σ = √(Σ(x−μ)²/n) and μ = Σx/n</div>';
+            /* --------------------------------------------------------- the loop */
 
-            tests.forEach(test => {
-                const statusClass = test.pass ? 'test-pass' : 'test-fail';
-                const statusText = test.pass ? '✓ PASS' : '✗ FAIL';
-
-                html += `<div class="test-case">
-                    <div class="test-case-title">${test.name} <span class="${statusClass}">${statusText}</span></div>
-                    <div class="test-detail">
-                        Data: [${Array.isArray(test.data) ? test.data.join(', ') : test.data}]<br>
-                        n = ${test.result.n},
-                        Mean = ${test.result.mean.toFixed(4)},
-                        Variance = ${test.result.variance.toFixed(4)},
-                        Std = ${test.result.std.toFixed(4)}<br>
-                        <strong>Calculated CV = ${test.result.cv.toFixed(6)}</strong>
-                        ${test.expectedCV !== null ? `<br>Expected CV = ${test.expectedCV.toFixed(6)}` : ''}
-                    </div>
-                </div>`;
+            var loop = new NPLib.Loop(function () {
+                var steps = Math.max(1, Math.round(P.speed / DT));
+                for (var i = 0; i < steps; i++) { step(); }
+                maybeMarkFI();
+                draw();
             });
 
-            if (simTest) {
-                const statusClass = simTest.pass ? 'test-pass' : 'test-fail';
-                const statusText = simTest.pass ? '✓ PASS' : '✗ FAIL';
+            var toggleBtn = document.getElementById('toggleBtn');
 
-                html += `<div class="test-case">
-                    <div class="test-case-title">${simTest.name} <span class="${statusClass}">${statusText}</span></div>
-                    <div class="test-detail">
-                        ${simTest.windowInfo}<br>
-                        ISI values: ${Array.isArray(simTest.data) ? '[' + simTest.data.join(', ') + ']' : simTest.data}<br>
-                        n = ${simTest.result.n},
-                        Mean = ${simTest.result.mean.toFixed(4)} ms,
-                        Std = ${simTest.result.std.toFixed(4)} ms<br>
-                        <strong>Calculated CV = ${simTest.result.cv.toFixed(6)}</strong><br>
-                        Displayed CV = ${simTest.displayedCV.toFixed(6)}
-                        ${!simTest.pass ? '<br><span class="test-fail">Mismatch detected!</span>' : ''}
-                    </div>
-                </div>`;
-            } else {
-                html += `<div class="test-case">
-                    <div class="test-case-title">Current Simulation Data</div>
-                    <div class="test-detail">Run the simulation to generate at least 3 spikes within the ${params.isiWindow}s window to test against live data.</div>
-                </div>`;
+            function setRunning(on) {
+                if (on) {
+                    loop.start();
+                    toggleBtn.textContent = 'Pause';
+                    toggleBtn.classList.remove('primary');
+                    toggleBtn.classList.add('on');
+                } else {
+                    loop.stop();
+                    toggleBtn.textContent = 'Start';
+                    toggleBtn.classList.add('primary');
+                    toggleBtn.classList.remove('on');
+                }
             }
 
-            testResultsDiv.innerHTML = html;
-            testResultsDiv.style.display = 'block';
-        }
+            function reset(keepFI) {
+                setRunning(false);
+                time = 0;
+                V = P.rest;
+                refractoryUntil = -1;
+                totalSpikes = 0;
+                membrane.clear();
+                rateTrace.clear();
+                shown = [];
+                perSecond = [];
+                windowed = [];
+                if (!keepFI) { fiPoints = []; }
+                lastFiMark = 0;
+                fiMarkCurrent = P.current;
+                describe();
+                draw();
+            }
 
-        testCvBtn.addEventListener('click', runCVTests);
+            /* --------------------------------------------------------- controls */
 
-        // Initial render
-        clearCanvases();
+            function param(id, opts) {
+                opts = opts || {};
+                NPLib.bind(id, {
+                    scale: opts.scale,
+                    fmt: opts.fmt,
+                    on: function (v) {
+                        P[id] = v;
+                        if (opts.after) { opts.after(v); }
+                        describe();
+                        if (!loop.running) { draw(); }
+                    }
+                });
+            }
+
+            var mv = function (v) { return (v < 0 ? '−' : '') + Math.abs(v) + ' mV'; };
+
+            param('tau', { fmt: function (v) { return v + ' ms'; } });
+            param('rest', {
+                fmt: mv,
+                after: function (v) { if (!loop.running) { V = v; } }
+            });
+            param('threshold', { fmt: mv });
+            param('resistance', { fmt: function (v) { return v + ' MΩ'; } });
+            param('refractory', {
+                scale: function (v) { return v / 10; },
+                fmt: function (v) { return v.toFixed(1) + ' ms'; }
+            });
+            param('current', { fmt: function (v) { return v + ' pA'; } });
+            param('noise', {
+                scale: function (v) { return v / 10; },
+                fmt: function (v) { return v.toFixed(1) + ' mV'; }
+            });
+            param('isiWindow', { fmt: function (v) { return v + ' s'; } });
+            param('speed', { fmt: function (v) { return v + ' ms/frame'; } });
+
+            toggleBtn.addEventListener('click', function () { setRunning(!loop.running); });
+
+            NPLib.on('resetBtn', function () { reset(false); });
+
+            NPLib.on('defaultsBtn', function () {
+                Object.keys(defaults).forEach(function (k) {
+                    var el = document.getElementById(k);
+                    if (!el) { return; }
+                    /* sliders hold the raw integer, which is ten times the value
+                       for the two that carry one decimal place */
+                    var raw = (k === 'refractory' || k === 'noise') ? defaults[k] * 10 : defaults[k];
+                    el.value = String(raw);
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                });
+                reset(false);
+            });
+
+            /* ------------------------------------------------------- self-test */
+
+            var testPanel = document.getElementById('testResults');
+
+            function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
+
+            function runTests() {
+                var cases = [];
+
+                /* 1. Constant intervals: CV is exactly zero. */
+                var c1 = NPLib.stats([100, 100, 100, 100, 100]);
+                cases.push({
+                    name: 'CV of a constant interval train',
+                    detail: 'ISI = [100 × 5] → mean ' + c1.mean.toFixed(4) +
+                        ', sd ' + c1.sd.toFixed(4) + ', CV ' + c1.cv.toFixed(6) + ' (expected 0)',
+                    pass: approx(c1.cv, 0, 1e-9)
+                });
+
+                /* 2. Hand-computable case: mean 20, population sd sqrt(200/3). */
+                var c2 = NPLib.stats([10, 20, 30]);
+                var want2 = Math.sqrt(200 / 3) / 20;
+                cases.push({
+                    name: 'CV of [10, 20, 30]',
+                    detail: 'mean ' + c2.mean.toFixed(4) + ', sd ' + c2.sd.toFixed(4) +
+                        ', CV ' + c2.cv.toFixed(6) + ' (expected ' + want2.toFixed(6) + ')',
+                    pass: approx(c2.cv, want2, 1e-9)
+                });
+
+                /* 3. Two intervals: sd is half the difference. */
+                var c3 = NPLib.stats([50, 150]);
+                cases.push({
+                    name: 'CV of [50, 150]',
+                    detail: 'mean ' + c3.mean.toFixed(4) + ', sd ' + c3.sd.toFixed(4) +
+                        ', CV ' + c3.cv.toFixed(6) + ' (expected 0.500000)',
+                    pass: approx(c3.cv, 0.5, 1e-9)
+                });
+
+                /* 4. Spike times to intervals. */
+                var d4 = NPLib.diff([0, 25, 75, 100]);
+                cases.push({
+                    name: 'Spike times → intervals',
+                    detail: '[0, 25, 75, 100] → [' + d4.join(', ') + '] (expected [25, 50, 25])',
+                    pass: d4.length === 3 && d4[0] === 25 && d4[1] === 50 && d4[2] === 25
+                });
+
+                /* 5. The f-I formula, computed by hand at the defaults:
+                      RI = 100 * 250 / 1000 = 25 mV, gap = 15 mV,
+                      T = 2 + 20 ln(25/10) = 20.3288 ms, f = 49.192 Hz. */
+                var saved = { r: P.resistance, i: P.current, t: P.tau, th: P.threshold, re: P.rest, rf: P.refractory };
+                P.resistance = 100; P.current = 250; P.tau = 20;
+                P.threshold = -55; P.rest = -70; P.refractory = 2;
+                var got5 = predictedRate(250);
+                var want5 = 1000 / (2 + 20 * Math.log(25 / 10));
+                cases.push({
+                    name: 'f–I formula at the default parameters',
+                    detail: 'RI = 25 mV, V gap = 15 mV → predicted ' + got5.toFixed(4) +
+                        ' Hz (expected ' + want5.toFixed(4) + ')',
+                    pass: approx(got5, want5, 1e-9)
+                });
+
+                /* 6. Below rheobase the noiseless rate must be exactly zero. */
+                var got6 = predictedRate(rheobase() - 1);
+                cases.push({
+                    name: 'Silence below rheobase',
+                    detail: 'rheobase ' + rheobase().toFixed(1) + ' pA; predicted rate 1 pA below it is ' +
+                        got6.toFixed(4) + ' Hz (expected 0)',
+                    pass: got6 === 0
+                });
+
+                /* 7. Refractory period caps the rate. */
+                P.refractory = 5;
+                var got7 = predictedRate(100000);
+                cases.push({
+                    name: 'Rate ceiling is 1/t_ref',
+                    detail: 'with t_ref = 5 ms and enormous current, predicted ' + got7.toFixed(2) +
+                        ' Hz (expected ≤ 200)',
+                    pass: got7 <= 200 + 1e-9
+                });
+
+                P.resistance = saved.r; P.current = saved.i; P.tau = saved.t;
+                P.threshold = saved.th; P.rest = saved.re; P.refractory = saved.rf;
+
+                /* 8. The live readout must agree with a fresh computation. */
+                var s = isiStats();
+                if (s.n >= 2 && isFinite(s.cv)) {
+                    var displayed = parseFloat(document.getElementById('cvISI').textContent);
+                    cases.push({
+                        name: 'Displayed CV matches the ISI data',
+                        detail: s.n + ' intervals in the ' + P.isiWindow + ' s window; recomputed CV ' +
+                            s.cv.toFixed(6) + ', displayed ' + displayed.toFixed(6),
+                        pass: approx(s.cv, displayed, 0.005)
+                    });
+                } else {
+                    cases.push({
+                        name: 'Displayed CV matches the ISI data',
+                        detail: 'Not enough spikes yet. Run the simulation until there are at least three in the ' +
+                            P.isiWindow + ' s window, then test again.',
+                        skip: true
+                    });
+                }
+
+                var passed = 0, run = 0, html = '';
+                html += '<h3>Self-test</h3>';
+                html += '<p class="detail" style="margin-bottom:10px">CV = &sigma;/&mu; with &sigma; = ' +
+                    '&radic;(&Sigma;(x&minus;&mu;)&sup2;/n); f = 1000/(t_ref + &tau; ln[RI/(RI&minus;&Delta;V)]).</p>';
+                cases.forEach(function (c) {
+                    var tag;
+                    if (c.skip) {
+                        tag = '<span class="detail">skipped</span>';
+                    } else {
+                        run += 1;
+                        if (c.pass) { passed += 1; }
+                        tag = c.pass ? '<span class="pass">PASS</span>' : '<span class="fail">FAIL</span>';
+                    }
+                    html += '<div class="case"><div class="name">' + c.name + ' ' + tag +
+                        '</div><div class="detail">' + c.detail + '</div></div>';
+                });
+                html = html.replace('<h3>Self-test</h3>',
+                    '<h3>Self-test &mdash; ' + passed + ' of ' + run + ' passed</h3>');
+
+                testPanel.innerHTML = html;
+                testPanel.style.display = 'block';
+                setStatus('Self-test: ' + passed + ' of ' + run + ' checks passed.');
+            }
+
+            NPLib.on('testBtn', runTests);
+
+            NPLib.onThemeChange(draw);
+
+            reset(false);
+        }());
     </script>
 </body>
 
