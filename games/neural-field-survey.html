@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Neural Field Survey — Minesweeper</title>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../archive.css">
 <style>
   :root {
     --bg: #fffff8;
@@ -27,6 +28,28 @@
     --cell-size: 34px;
   }
 
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12120f;
+      --ink: #ece9df;
+      --ink-light: #a09a8c;
+      --ink-faint: #5d584d;
+      --ink-whisper: #2a2720;
+      --accent: #e0695c;
+      --safe: #12120f;
+      --revealed: #1c1a15;
+      --flagged-bg: #2a1d18;
+      --n1: #7da2d6;
+      --n2: #5cb98a;
+      --n3: #e0695c;
+      --n4: #a97fc0;
+      --n5: #c98a52;
+      --n6: #4fc4c4;
+      --n7: #ece9df;
+      --n8: #a09a8c;
+    }
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
@@ -34,15 +57,25 @@
     color: var(--ink);
     font-family: 'EB Garamond', Georgia, serif;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    padding: 40px 20px 60px;
     -webkit-font-smoothing: antialiased;
   }
 
   .container {
     max-width: 620px;
     width: 100%;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  .cell {
+    /* A long press otherwise raises the iOS selection callout and eats the
+       gesture before the page sees it. */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+  }
+
+  .cell.pressing:not(.revealed) {
+    opacity: 0.6;
   }
 
   /* — Header — */
@@ -284,8 +317,14 @@
   }
 </style>
 </head>
-<body>
-   <!-- TODO: add me to games index-->
+<body class="ar-touch ar-motion ar-nozoom">
+<nav class="ar-bar">
+  <a href="../archive.html">&larr; Archive</a>
+  <span class="ar-here">Neural Field Survey</span>
+  <span class="ar-spacer"></span>
+  <a href="../index.html">Commonplace Book</a>
+</nav>
+
 <div class="container">
 
   <h1>Neural Field Survey</h1>
@@ -346,6 +385,17 @@ let rows, cols, totalMines;
 let timerInterval = null;
 let seconds = 0;
 let flagCount = 0;
+
+const LONG_PRESS_MS = 400;
+let press = null;
+let suppressNextClick = false;
+
+function cancelPress() {
+  if (!press) return;
+  clearTimeout(press.timer);
+  if (press.el) press.el.classList.remove('pressing');
+  press = null;
+}
 
 const gridEl = document.getElementById('grid');
 const mineCountEl = document.getElementById('mineCount');
@@ -440,6 +490,9 @@ function checkWin() {
 }
 
 function handleClick(r, c) {
+  // Set by a long press that has just flagged this cell; the synthetic click
+  // that follows the touch must not then reveal it.
+  if (suppressNextClick) { suppressNextClick = false; return; }
   if (gameOver || gameWon) return;
   if (flagged[r][c]) return;
   if (revealed[r][c]) return;
@@ -550,6 +603,10 @@ function render(triggerR, triggerC) {
         cell.classList.add('flagged');
       }
 
+      // Mouse keeps click / right-click / middle-click / double-click. Touch
+      // had none of those: no contextmenu, no middle button, and a dblclick
+      // that browsers fire unreliably after a tap. It gets tap to reveal and
+      // press-and-hold to flag instead.
       cell.addEventListener('click', (e) => {
         if (e.detail === 1) handleClick(r, c);
       });
@@ -561,6 +618,33 @@ function render(triggerR, triggerC) {
         if (e.button === 1) { e.preventDefault(); handleChord(r, c); }
       });
       cell.addEventListener('dblclick', () => handleChord(r, c));
+
+      cell.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        cell.classList.add('pressing');
+        press = { r, c, fired: false, el: cell };
+        press.timer = setTimeout(() => {
+          if (!press) return;
+          press.fired = true;
+          cell.classList.remove('pressing');
+          handleRightClick(r, c);
+          if (navigator.vibrate) navigator.vibrate(30);
+        }, LONG_PRESS_MS);
+      });
+      cell.addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'mouse') return;
+        // The long press already flagged it, so the tap that follows must
+        // not also reveal it.
+        if (press && press.fired) e.preventDefault();
+        const fired = press && press.fired;
+        cancelPress();
+        if (fired) {
+          e.stopPropagation();
+          suppressNextClick = true;
+        }
+      });
+      cell.addEventListener('pointercancel', cancelPress);
+      cell.addEventListener('pointerleave', cancelPress);
 
       gridEl.appendChild(cell);
     }

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Archive — Mbolding Git Pages</title>
+    <meta name="description" content="Personal projects, adventures and older experiments.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -16,56 +17,79 @@
             --accent-color: #ff3300;
             --grid-gap: 24px;
             --card-bg: #f5f5f5;
-            --card-hover: #e0e0e0;
+            --card-fg-on-accent: #ffffff;
+            --rule: #eeeeee;
+            --control-border: #e0e0e0;
+            --date-color: #999999;
+            --date-rule: rgba(17, 17, 17, 0.08);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg-color: #0e0e11;
+                --text-color: #ededed;
+                --secondary-text: #9a9aa2;
+                --accent-color: #ff5c33;
+                --card-bg: #17171b;
+                --card-fg-on-accent: #16120f;
+                --rule: #2b2b33;
+                --control-border: #2b2b33;
+                --date-color: #6f6f7a;
+                --date-rule: rgba(237, 237, 237, 0.12);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
             margin: 0;
             padding: 0;
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.4;
+            color: var(--text-color);
+            background-color: var(--bg-color);
             -webkit-font-smoothing: antialiased;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 60px 40px;
+            padding: 60px 40px 96px;
         }
 
         header {
-            margin-bottom: 80px;
-            border-bottom: 4px solid var(--text-color);
+            margin-bottom: 40px;
             padding-bottom: 20px;
+            border-bottom: 4px solid var(--text-color);
         }
 
         h1 {
-            font-size: 64px;
+            margin: 0 0 16px;
+            font-size: clamp(2.4rem, 9vw, 4rem);
             font-weight: 800;
-            margin: 0 0 16px 0;
             letter-spacing: -2px;
             text-transform: uppercase;
         }
 
         .bio {
-            font-size: 24px;
-            font-weight: 300;
-            color: var(--secondary-text);
             max-width: 800px;
             margin: 0;
+            color: var(--secondary-text);
+            font-size: clamp(1.1rem, 3vw, 1.5rem);
+            font-weight: 300;
         }
 
         .back-link {
             display: inline-block;
             margin-bottom: 20px;
             color: var(--secondary-text);
-            text-decoration: none;
-            font-size: 14px;
+            font-size: 0.85rem;
             font-weight: 600;
-            text-transform: uppercase;
             letter-spacing: 1px;
+            text-transform: uppercase;
+            text-decoration: none;
         }
 
         .back-link:hover {
@@ -73,16 +97,70 @@
         }
 
         h2 {
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 60px 0 20px 0;
-            color: var(--secondary-text);
-            border-top: 1px solid #eee;
+            margin: 60px 0 20px;
             padding-top: 20px;
+            color: var(--secondary-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-top: 1px solid var(--rule);
         }
 
+        /* --- toolbar, matching the one on the main index ------------------- */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 32px;
+        }
+
+        .toolbar-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar-label {
+            color: var(--secondary-text);
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .toolbar button {
+            padding: 7px 12px;
+            color: var(--secondary-text);
+            font-family: inherit;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            background: none;
+            border: 1px solid var(--control-border);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .toolbar button:hover {
+            color: var(--text-color);
+            border-color: var(--text-color);
+        }
+
+        .toolbar button[aria-pressed="true"] {
+            color: var(--bg-color);
+            background-color: var(--text-color);
+            border-color: var(--text-color);
+        }
+
+        .toolbar button:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+
+        /* --- cards ---------------------------------------------------------- */
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -90,15 +168,16 @@
         }
 
         .card {
-            background-color: var(--card-bg);
-            padding: 32px;
-            text-decoration: none;
-            color: var(--text-color);
-            transition: all 0.2s ease;
+            position: relative;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             min-height: 120px;
+            padding: 32px;
+            color: var(--text-color);
+            text-decoration: none;
+            background-color: var(--card-bg);
+            transition: all 0.2s ease;
         }
 
         .card:hover {
@@ -107,39 +186,56 @@
         }
 
         .card:hover .card-title,
-        .card:hover .card-meta {
-            color: #ffffff;
+        .card:hover .card-meta,
+        .card:hover .card-date {
+            color: var(--card-fg-on-accent);
+        }
+
+        .card:hover .card-date {
+            border-top-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .card:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 3px;
         }
 
         .card-title {
-            font-size: 20px;
+            margin: 0 0 8px;
+            font-size: 1.25rem;
             font-weight: 600;
-            margin: 0 0 8px 0;
             letter-spacing: -0.5px;
         }
 
         .card-meta {
-            font-size: 12px;
-            color: var(--secondary-text);
-            font-weight: 400;
             margin-top: auto;
+            color: var(--secondary-text);
+            font-size: 0.75rem;
+            font-weight: 400;
+        }
+
+        .card-date {
+            display: block;
+            margin-top: 12px;
+            padding-top: 10px;
+            color: var(--date-color);
+            font-size: 0.7rem;
+            font-weight: 400;
+            letter-spacing: 0.3px;
+            border-top: 1px solid var(--date-rule);
         }
 
         @media (max-width: 768px) {
             .container {
-                padding: 40px 20px;
-            }
-
-            h1 {
-                font-size: 42px;
-            }
-
-            .bio {
-                font-size: 18px;
+                padding: 40px 20px 72px;
             }
 
             .grid {
                 grid-template-columns: 1fr;
+            }
+
+            .toolbar {
+                gap: 12px 20px;
             }
         }
     </style>
@@ -147,51 +243,71 @@
 
 <body>
     <div class="container">
-        <a href="index.html" class="back-link">← Back to Main</a>
+        <a href="index.html" class="back-link">&larr; Back to Main</a>
         <header>
             <h1>Archive</h1>
             <p class="bio">Personal projects, adventures, and older experiments.</p>
         </header>
 
+        <div class="toolbar" id="toolbar" hidden>
+            <div class="toolbar-group" role="group" aria-label="Sort order">
+                <span class="toolbar-label">Sort</span>
+                <button type="button" data-sort="curated" aria-pressed="true">Curated</button>
+                <button type="button" data-sort="newest" aria-pressed="false">Newest</button>
+                <button type="button" data-sort="oldest" aria-pressed="false">Oldest</button>
+                <button type="button" data-sort="az" aria-pressed="false">A&ndash;Z</button>
+            </div>
+            <div class="toolbar-group" role="group" aria-label="Which date to use">
+                <span class="toolbar-label">By date</span>
+                <button type="button" data-basis="updated" aria-pressed="true">Last updated</button>
+                <button type="button" data-basis="added" aria-pressed="false">Added</button>
+            </div>
+        </div>
+
         <section>
-            <h2>Writing & Presentations</h2>
+            <h2>Writing &amp; Nostalgia</h2>
             <div class="grid">
-                <a href="weblog/index.html" class="card">
+                <a href="weblog/index.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">Weblog</span>
-                    <span class="card-meta">Nostalgia Archive</span>
+                    <span class="card-meta">December 1999, preserved in its natural habitat</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="writing/index.html" class="card">
-                    <span class="card-title">Writing</span>
-                    <span class="card-meta">Essays & Articles</span>
+                <a href="writing/index.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Writing Timers</span>
+                    <span class="card-meta">A sprint timer for drafting, and a plain countdown</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-
             </div>
         </section>
 
         <section>
-            <h2>Adventure Reports</h2>
+            <h2>Trail Checklists</h2>
             <div class="grid">
-                <a href="toys/seabase.html" class="card">
-                    <span class="card-title">Seabase</span>
-                    <span class="card-meta">Florida Keys Adventure</span>
+                <a href="toys/seabase.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Sea Base</span>
+                    <span class="card-meta">Twelve habits from the Florida Keys, for the other fifty weeks</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/philmont.html" class="card">
+                <a href="toys/philmont.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">Philmont</span>
-                    <span class="card-meta">New Mexico Trek</span>
+                    <span class="card-meta">The same, from the New Mexico trek</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
             </div>
         </section>
 
         <section>
-            <h2>Nature & Botany</h2>
+            <h2>Nature &amp; Botany</h2>
             <div class="grid">
-                <a href="plants/index.html" class="card">
-                    <span class="card-title">Plants</span>
-                    <span class="card-meta">Botany Project</span>
+                <a href="plants/index.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Cat-Safe Plant Picker</span>
+                    <span class="card-meta">Six houseplants that are hard to kill, and where to buy them</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="plants/moss-key.html" class="card">
+                <a href="plants/moss-key.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">Moss Identification Key</span>
-                    <span class="card-meta">Birmingham, AL Moss Guide</span>
+                    <span class="card-meta">A dichotomous key for the mosses around Birmingham, AL</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
             </div>
         </section>
@@ -199,11 +315,11 @@
         <section>
             <h2>UI Experiments</h2>
             <div class="grid">
-                <a href="desk/os.html" class="card">
+                <a href="desk/os.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">System 7 Desktop</span>
-                    <span class="card-meta">Retro UI Experiment</span>
+                    <span class="card-meta">Windows, menus and a trash can, in a browser tab</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-
             </div>
         </section>
 
@@ -218,53 +334,177 @@
         </section>
 
         <section>
-            <h2>Games, Toys & Puzzles</h2>
+            <h2>Games, Toys &amp; Puzzles</h2>
             <div class="grid">
-                <a href="games/bouldering.html" class="card">
+                <a href="games/chasm.html" class="card is-new" data-added="2026-09-20" data-updated="2026-09-20">
+                    <span class="card-new">New</span>
+                    <span class="card-title">Chasm</span>
+                    <span class="card-meta">A cavern flyer written to the Atari 2600's hardware limits</span>
+                    <time class="card-date" datetime="2026-09-20">Added Sep 20, 2026</time>
+                </a>
+                <a href="games/bouldering.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">Bouldering</span>
-                    <span class="card-meta">Interactive Climbing Game</span>
+                    <span class="card-meta">Move one limb at a time and watch the stamina go</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="games/bikepacking.html" class="card">
+                <a href="games/bikepacking.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">Bikepacking</span>
-                    <span class="card-meta">Web Game</span>
+                    <span class="card-meta">A hundred kilometres on whatever you decided to carry</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="nbl425_games/index.html" class="card">
-                    <span class="card-title">NBL425 Course Games</span>
-                    <span class="card-meta">Applied Learning</span>
+                <a href="nbl425_games/index.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Imaging Card Games</span>
+                    <span class="card-meta">Four decks &mdash; EEG, MEG, MRI, PET &mdash; and a set to collect</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/minesweeper2.html" class="card">
+                <a href="toys/minesweeper2.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">Minesweeper</span>
-                    <span class="card-meta">Classic Puzzle</span>
+                    <span class="card-meta">The classic. Tap to reveal, hold to flag</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/hex_with_pieces2.html" class="card">
-                    <span class="card-title">Hex</span>
-                    <span class="card-meta">Strategy Game</span>
+                <a href="toys/hex_with_pieces2.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Hex Board Sandbox</span>
+                    <span class="card-meta">A blank hex grid for working a position out by hand</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/five_game2.html" class="card">
-                    <span class="card-title">Five Game</span>
-                    <span class="card-meta">Strategy Game</span>
+                <a href="toys/five_game2.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Breakthrough Five</span>
+                    <span class="card-meta">Break through to the far rank, and still be there next turn</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/100doors.html" class="card">
+                <a href="toys/100doors.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
                     <span class="card-title">100 Doors Puzzle</span>
-                    <span class="card-meta">Logic Visualization</span>
+                    <span class="card-meta">Step the passes and watch the perfect squares survive</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/wizard2.html" class="card">
-                    <span class="card-title">Wizard</span>
-                    <span class="card-meta">RPG Adventure</span>
+                <a href="toys/explore4.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Frontier Expedition</span>
+                    <span class="card-meta">Cross the map on dwindling rations and reach the pass</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-                <a href="toys/explore4.html" class="card">
-                    <span class="card-title">Explore</span>
-                    <span class="card-meta">Exploration Game</span>
+                <a href="toys/vance_magic.html" class="card" data-added="2026-03-21" data-updated="2026-09-20">
+                    <span class="card-title">Vancian Wizard Duel</span>
+                    <span class="card-meta">Ten spells out of the Dying Earth, and a die of fate</span>
+                    <time class="card-date" datetime="2026-09-20">Updated Sep 20, 2026</time>
                 </a>
-
-                <a href="toys/vance_magic.html" class="card">
-                    <span class="card-title">Vance's Magic</span>
-                    <span class="card-meta">Interactive Trick</span>
+                <a href="toys/wizard2.html" class="card" data-added="2026-03-21" data-updated="2026-03-21">
+                    <span class="card-title">Wizard Duel</span>
+                    <span class="card-meta">The same fight with status effects and health bars</span>
+                    <time class="card-date" datetime="2026-03-21">Added Mar 21, 2026</time>
+                </a>
+                <a href="games/neural-field-survey.html" class="card" data-added="2026-03-21"
+                    data-updated="2026-03-21">
+                    <span class="card-title">Neural Field Survey</span>
+                    <span class="card-meta">Minesweeper, rethemed as an electrode array</span>
+                    <time class="card-date" datetime="2026-03-21">Added Mar 21, 2026</time>
                 </a>
             </div>
         </section>
-
     </div>
+
+    <script>
+        (function () {
+            // Same sorting the main index uses, so the two behave alike and a
+            // preference set on one carries to the other.
+            var toolbar = document.getElementById('toolbar');
+            var grids = Array.prototype.slice.call(document.querySelectorAll('.grid'));
+            if (!toolbar || !grids.length) return;
+
+            var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            var STORAGE_KEY = 'commonplace-card-sort';
+            var state = { sort: 'curated', basis: 'updated' };
+
+            try {
+                var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+                if (saved && saved.sort) state.sort = saved.sort;
+                if (saved && saved.basis) state.basis = saved.basis;
+            } catch (e) { /* private mode, blocked storage */ }
+
+            var cards = [];
+            grids.forEach(function (grid) {
+                Array.prototype.slice.call(grid.children).forEach(function (card, i) {
+                    cards.push({
+                        el: card,
+                        grid: grid,
+                        order: i,
+                        added: card.getAttribute('data-added') || '',
+                        updated: card.getAttribute('data-updated') || '',
+                        title: (card.querySelector('.card-title') || {}).textContent || ''
+                    });
+                });
+            });
+
+            function pretty(iso) {
+                var p = iso.split('-');
+                return MONTHS[Number(p[1]) - 1] + ' ' + Number(p[2]) + ', ' + p[0];
+            }
+
+            function stamp(card) {
+                // "Added" until a page is revised, "Updated" after; the Added
+                // view always shows the original date.
+                var useUpdated = state.basis === 'updated' && card.updated !== card.added;
+                var iso = useUpdated ? card.updated : card.added;
+                var el = card.el.querySelector('.card-date');
+                if (!el || !iso) return;
+                el.setAttribute('datetime', iso);
+                el.textContent = (useUpdated ? 'Updated ' : 'Added ') + pretty(iso);
+            }
+
+            function keyDate(card) {
+                return state.basis === 'added' ? card.added : card.updated;
+            }
+
+            function render() {
+                cards.forEach(stamp);
+
+                grids.forEach(function (grid) {
+                    var items = cards.filter(function (c) { return c.grid === grid; });
+
+                    items.sort(function (a, b) {
+                        if (state.sort === 'az') {
+                            return a.title.localeCompare(b.title);
+                        }
+                        if (state.sort === 'newest' || state.sort === 'oldest') {
+                            var da = keyDate(a), db = keyDate(b);
+                            if (da !== db) {
+                                return state.sort === 'newest'
+                                    ? (da < db ? 1 : -1)
+                                    : (da < db ? -1 : 1);
+                            }
+                        }
+                        return a.order - b.order;
+                    });
+
+                    var frag = document.createDocumentFragment();
+                    items.forEach(function (c) { frag.appendChild(c.el); });
+                    grid.appendChild(frag);
+                });
+
+                Array.prototype.slice.call(toolbar.querySelectorAll('button')).forEach(function (btn) {
+                    var on = btn.dataset.sort === state.sort || btn.dataset.basis === state.basis;
+                    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                } catch (e) { /* nothing to persist to */ }
+            }
+
+            toolbar.addEventListener('click', function (e) {
+                var btn = e.target.closest('button');
+                if (!btn) return;
+                if (btn.dataset.sort) state.sort = btn.dataset.sort;
+                if (btn.dataset.basis) state.basis = btn.dataset.basis;
+                render();
+            });
+
+            // Revealed only once the script is running, so it is never a row
+            // of dead buttons for anyone without JavaScript.
+            toolbar.hidden = false;
+            render();
+        }());
+    </script>
 </body>
 
 </html>

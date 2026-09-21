@@ -1,224 +1,443 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Writing Timer</title>
+    <title>Writing Sprint</title>
+    <meta name="description" content="A sprint timer for drafting: sessions, a quote between rounds, no ticking.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Merriweather:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Merriweather:wght@300;400;700&display=swap');
+        :root {
+            --page-bg: #f4ecd8;
+            --rule-line: #e0d5b3;
+            --panel: #ffffff;
+            --ink: #3a3a3a;
+            --ink-soft: #7f7565;
+            --display: #2c3e50;
+            --btn: #34495e;
+            --btn-hover: #2c3e50;
+            --btn-fg: #ffffff;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --page-bg: #15140f;
+                --rule-line: #24221a;
+                --panel: #1f1d17;
+                --ink: #e8e2d4;
+                --ink-soft: #a49a86;
+                --display: #9ec5e8;
+                --btn: #5b7f9e;
+                --btn-hover: #6f93b2;
+                --btn-fg: #10161c;
+                --shadow: rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
 
         body {
-            font-family: 'Merriweather', serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            background-color: #f4ecd8;
-            color: #3a3a3a;
+            font-family: 'Merriweather', Georgia, serif;
+            color: var(--ink);
+            /* Ruled paper, drawn on the body so it keeps going when the page
+               scrolls instead of ending at the first viewport. */
+            background-color: var(--page-bg);
+            background-image: repeating-linear-gradient(var(--page-bg),
+                    var(--page-bg) 31px,
+                    var(--rule-line) 31px,
+                    var(--rule-line) 32px);
         }
+
+        main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 46px);
+            padding: 32px 20px 64px;
+        }
+
         .container {
+            width: 100%;
+            max-width: 440px;
+            padding: 2rem 1.75rem;
             text-align: center;
-            background-color: #fff;
-            padding: 2rem;
+            background-color: var(--panel);
             border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            max-width: 90%;
-            width: 400px;
+            box-shadow: 0 0 20px var(--shadow);
         }
+
         h1 {
-            font-family: 'Special Elite', cursive;
-            margin-top: 0;
-            font-size: 2rem;
-            color: #4a4a4a;
+            margin: 0;
+            color: var(--ink);
+            font-family: 'Special Elite', 'Courier New', monospace;
+            font-size: 1.8rem;
+            font-weight: 400;
         }
+
+        .lede {
+            margin: 6px 0 0;
+            color: var(--ink-soft);
+            font-size: 0.85rem;
+        }
+
         #timer {
-            font-family: 'Special Elite', cursive;
-            font-size: 3.5rem;
-            margin: 1rem 0;
-            color: #2c3e50;
+            margin: 1rem 0 0.25rem;
+            color: var(--display);
+            font-family: 'Special Elite', 'Courier New', monospace;
+            font-size: clamp(2.8rem, 16vw, 3.5rem);
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
         }
-        input, button {
-            font-family: 'Merriweather', serif;
-            font-size: 1rem;
+
+        #status {
+            min-height: 1.4em;
+            margin: 0 0 1.25rem;
+            color: var(--ink-soft);
+            font-size: 0.9rem;
+        }
+
+        .field {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 1.25rem;
+        }
+
+        input[type="number"] {
+            width: 84px;
             padding: 0.5rem;
-            margin: 0.5rem;
-            border: 1px solid #bdc3c7;
+            color: inherit;
+            font: inherit;
+            text-align: center;
+            background-color: var(--page-bg);
+            border: 1px solid var(--ink-soft);
             border-radius: 5px;
         }
-        input {
-            width: 60px;
-            text-align: center;
+
+        .buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
         }
+
         button {
-            background-color: #34495e;
-            color: white;
+            flex: 1 1 130px;
+            padding: 0.75rem 1rem;
+            color: var(--btn-fg);
+            font: inherit;
+            font-size: 1rem;
+            background-color: var(--btn);
             border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
-            padding: 0.5rem 1rem;
+            transition: background-color 0.2s ease;
         }
+
         button:hover {
-            background-color: #2c3e50;
+            background-color: var(--btn-hover);
         }
-        button:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
+
+        .secondary {
+            color: var(--btn);
+            background-color: transparent;
+            border: 1px solid var(--btn);
         }
+
+        .secondary:hover {
+            color: var(--btn-fg);
+            background-color: var(--btn);
+        }
+
+        #sessions {
+            margin-top: 1.25rem;
+            color: var(--ink-soft);
+            font-size: 0.85rem;
+        }
+
         #quote {
-            font-style: italic;
             margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--rule-line);
+            color: var(--ink-soft);
             font-size: 0.9rem;
-            color: #7f8c8d;
+            font-style: italic;
+            line-height: 1.6;
         }
-        #paper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                #f4ecd8,
-                #f4ecd8 31px,
-                #e0d5b3 31px,
-                #e0d5b3 32px
-            );
-            z-index: -1;
-            opacity: 0.5;
+
+        #quote .who {
+            display: block;
+            margin-top: 6px;
+            font-style: normal;
+            font-size: 0.8rem;
+        }
+
+        .sound-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 1rem;
+            color: var(--ink-soft);
+            font-size: 0.85rem;
+            cursor: pointer;
         }
     </style>
 </head>
-<body>
-    <div id="paper"></div>
-    <div class="container">
-        <h1>Writer's Timer</h1>
-        <div id="timer">25:00</div>
-        <input type="number" id="minutes" min="1" max="60" value="25" placeholder="Minutes">
-        <button id="start">Start Writing</button>
-        <button id="reset">Reset</button>
-        <div id="quote">"The first draft is just you telling yourself the story." - Terry Pratchett</div>
-    </div>
+
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Writing Sprint</span>
+        <span class="ar-spacer"></span>
+        <a href="index.html">Writing</a>
+    </nav>
+
+    <main>
+        <div class="container">
+            <h1>Writing Sprint</h1>
+            <p class="lede">Draft until the bell. Edit afterwards.</p>
+
+            <div id="timer" role="timer" aria-live="off">25:00</div>
+            <p id="status" role="status" aria-live="polite">Ready when you are.</p>
+
+            <div class="field">
+                <input type="number" id="minutes" min="1" max="180" step="1" value="25"
+                    aria-label="Length of the sprint in minutes">
+                <label for="minutes">minutes</label>
+            </div>
+
+            <div class="buttons">
+                <button type="button" id="primary">Start writing</button>
+                <button type="button" id="reset" class="secondary">Reset</button>
+            </div>
+
+            <label class="sound-toggle">
+                <input type="checkbox" id="sound" checked>
+                Chime at the end
+            </label>
+
+            <p id="sessions">No sprints finished yet.</p>
+
+            <blockquote id="quote"></blockquote>
+        </div>
+    </main>
 
     <script>
-        const timerDisplay = document.getElementById('timer');
-        const minutesInput = document.getElementById('minutes');
-        const startButton = document.getElementById('start');
-        const resetButton = document.getElementById('reset');
-        const quoteElement = document.getElementById('quote');
+        (function () {
+            var display = document.getElementById('timer');
+            var status = document.getElementById('status');
+            var minutesInput = document.getElementById('minutes');
+            var primary = document.getElementById('primary');
+            var resetBtn = document.getElementById('reset');
+            var soundToggle = document.getElementById('sound');
+            var sessionsEl = document.getElementById('sessions');
+            var quoteEl = document.getElementById('quote');
 
-        let timer;
-        let timeLeft;
-        let audioContext;
-        let tickingSound;
-        let alarmSound;
+            var DEFAULT_TITLE = document.title;
+            var START_LABEL = 'Start writing';
 
-        const quotes = [
-            'The first draft is just you telling yourself the story. - Terry Pratchett',
-            'You can always edit a bad page. You can\'t edit a blank page. - Jodi Picoult',
-            'The secret of getting ahead is getting started. - Mark Twain',
-            'You don\'t start out writing good stuff. You start out writing crap and thinking it\'s good stuff, and then gradually you get better at it. - Octavia E. Butler',
-            'If you don\'t have time to read, you don\'t have the time (or the tools) to write. Simple as that. - Stephen King'
-        ];
+            var QUOTES = [
+                ['The first draft is just you telling yourself the story.', 'Terry Pratchett'],
+                ['You can always edit a bad page. You can’t edit a blank page.', 'Jodi Picoult'],
+                ['The secret of getting ahead is getting started.', 'Mark Twain'],
+                ['You don’t start out writing good stuff. You start out writing crap and thinking it’s good stuff, and then gradually you get better at it.', 'Octavia E. Butler'],
+                ['If you don’t have time to read, you don’t have the time (or the tools) to write.', 'Stephen King'],
+                ['Write drunk, edit sober is terrible advice. Write badly, edit later is the real thing.', 'attributed, often'],
+                ['A word after a word after a word is power.', 'Margaret Atwood']
+            ];
+            var lastQuote = -1;
 
-        function changeQuote() {
-            const randomIndex = Math.floor(Math.random() * quotes.length);
-            quoteElement.textContent = quotes[randomIndex];
-        }
-
-        function initAudio() {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // Create ticking sound
-            tickingSound = audioContext.createOscillator();
-            tickingSound.type = 'sine';
-            tickingSound.frequency.setValueAtTime(800, audioContext.currentTime);
-            
-            const tickGain = audioContext.createGain();
-            tickGain.gain.setValueAtTime(0, audioContext.currentTime);
-            
-            tickingSound.connect(tickGain);
-            tickGain.connect(audioContext.destination);
-            
-            tickingSound.start();
-
-            // Create alarm sound
-            alarmSound = audioContext.createOscillator();
-            alarmSound.type = 'square';
-            alarmSound.frequency.setValueAtTime(440, audioContext.currentTime);
-            
-            const alarmGain = audioContext.createGain();
-            alarmGain.gain.setValueAtTime(0, audioContext.currentTime);
-            
-            alarmSound.connect(alarmGain);
-            alarmGain.connect(audioContext.destination);
-            
-            alarmSound.start();
-
-            // Function to play ticking sound
-            window.playTick = function() {
-                tickGain.gain.setValueAtTime(0.1, audioContext.currentTime);
-                tickGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
-            };
-
-            // Function to play alarm sound
-            window.playAlarm = function() {
-                alarmGain.gain.setValueAtTime(0.3, audioContext.currentTime);
-                alarmGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1);
-
-                alarmSound.frequency.setValueAtTime(440, audioContext.currentTime);
-                alarmSound.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.2);
-                alarmSound.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.4);
-            };
-        }
-
-        function updateTimerDisplay(seconds) {
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = seconds % 60;
-            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        }
-
-        function startTimer() {
-            if (!audioContext) {
-                initAudio();
+            function newQuote() {
+                if (QUOTES.length < 2) { lastQuote = 0; }
+                else {
+                    var i;
+                    do { i = Math.floor(Math.random() * QUOTES.length); }
+                    while (i === lastQuote);
+                    lastQuote = i;
+                }
+                var q = QUOTES[lastQuote];
+                quoteEl.textContent = '“' + q[0] + '”';
+                var who = document.createElement('span');
+                who.className = 'who';
+                who.textContent = '— ' + q[1];
+                quoteEl.appendChild(who);
             }
 
-            const duration = minutesInput.value * 60;
-            timeLeft = duration;
-            updateTimerDisplay(timeLeft);
+            // Sprints finished, kept across reloads where storage allows.
+            var finished = 0;
+            try {
+                finished = parseInt(localStorage.getItem('writing-sprints') || '0', 10) || 0;
+            } catch (e) { /* private window; the count just starts at zero */ }
 
-            startButton.disabled = true;
-            minutesInput.disabled = true;
+            function paintSessions() {
+                sessionsEl.textContent = finished === 0
+                    ? 'No sprints finished yet.'
+                    : finished + (finished === 1 ? ' sprint finished.' : ' sprints finished.');
+            }
 
-            timer = setInterval(() => {
-                timeLeft--;
-                updateTimerDisplay(timeLeft);
-                playTick();
+            // A deadline rather than a tick count: a throttled or suspended
+            // background tab stops delivering timers, so anything that counts
+            // down by one each second loses however long the tab was away.
+            var deadline = 0;
+            var paused = 0;
+            var running = false;
+            var frame = null;
 
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    playAlarm();
-                    alert('Time is up! Great job on your writing session.');
-                    resetTimer();
-                    changeQuote();
+            function plannedSeconds() {
+                var m = parseInt(minutesInput.value, 10);
+                if (!isFinite(m) || m < 1) m = 1;
+                if (m > 180) m = 180;
+                return m * 60;
+            }
+
+            function format(ms) {
+                var total = Math.max(0, Math.ceil(ms / 1000));
+                var m = Math.floor(total / 60);
+                var s = total % 60;
+                return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            }
+
+            function paint(ms) {
+                var t = format(ms);
+                display.textContent = t;
+                document.title = running ? t + ' — ' + DEFAULT_TITLE : DEFAULT_TITLE;
+            }
+
+            var ctx = null;
+
+            function audio() {
+                if (!soundToggle.checked) return null;
+                try {
+                    if (!ctx) {
+                        var AC = window.AudioContext || window.webkitAudioContext;
+                        if (!AC) return null;
+                        ctx = new AC();
+                    }
+                    if (ctx.state === 'suspended') ctx.resume();
+                    return ctx;
+                } catch (e) {
+                    return null;
                 }
-            }, 1000);
-        }
+            }
 
-        function resetTimer() {
-            clearInterval(timer);
-            startButton.disabled = false;
-            minutesInput.disabled = false;
-            updateTimerDisplay(minutesInput.value * 60);
-        }
+            function chime(freq, seconds, sweepTo) {
+                var c = audio();
+                if (!c) return;
+                var osc = c.createOscillator();
+                var gain = c.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, c.currentTime);
+                if (sweepTo) {
+                    osc.frequency.exponentialRampToValueAtTime(sweepTo, c.currentTime + seconds * 0.6);
+                }
+                gain.gain.setValueAtTime(0.0001, c.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.3, c.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + seconds);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start();
+                osc.stop(c.currentTime + seconds + 0.02);
+            }
 
-        startButton.addEventListener('click', startTimer);
-        resetButton.addEventListener('click', resetTimer);
-        minutesInput.addEventListener('input', () => {
-            updateTimerDisplay(minutesInput.value * 60);
-        });
+            function tick() {
+                var left = deadline - Date.now();
+                if (left <= 0) { finish(); return; }
+                paint(left);
+                frame = setTimeout(tick, 200);
+            }
 
-        // Initial quote
-        changeQuote();
+            function finish() {
+                running = false;
+                clearTimeout(frame);
+                frame = null;
+                paint(0);
+                primary.textContent = START_LABEL;
+                minutesInput.disabled = false;
+                // No alert(): a modal steals focus from whatever you were
+                // writing in, which is exactly the wrong moment for that.
+                status.textContent = 'Time. Good session — go and stretch.';
+                document.title = 'Done — ' + DEFAULT_TITLE;
+                chime(440, 1.2, 880);
+
+                finished += 1;
+                try {
+                    localStorage.setItem('writing-sprints', String(finished));
+                } catch (e) { /* nothing to persist to */ }
+                paintSessions();
+                newQuote();
+            }
+
+            function start(ms) {
+                deadline = Date.now() + ms;
+                running = true;
+                primary.textContent = 'Pause';
+                minutesInput.disabled = true;
+                status.textContent = 'Writing. Keep going.';
+                chime(520, 0.12);
+                paint(ms);
+                clearTimeout(frame);
+                frame = setTimeout(tick, 200);
+            }
+
+            function pause() {
+                paused = Math.max(0, deadline - Date.now());
+                running = false;
+                clearTimeout(frame);
+                frame = null;
+                primary.textContent = 'Resume';
+                status.textContent = 'Paused at ' + format(paused) + '.';
+                paint(paused);
+            }
+
+            function reset() {
+                running = false;
+                paused = 0;
+                clearTimeout(frame);
+                frame = null;
+                primary.textContent = START_LABEL;
+                minutesInput.disabled = false;
+                status.textContent = 'Ready when you are.';
+                paint(plannedSeconds() * 1000);
+            }
+
+            primary.addEventListener('click', function () {
+                if (running) {
+                    pause();
+                } else if (paused > 0) {
+                    var left = paused;
+                    paused = 0;
+                    start(left);
+                } else {
+                    start(plannedSeconds() * 1000);
+                }
+            });
+
+            resetBtn.addEventListener('click', reset);
+
+            minutesInput.addEventListener('input', function () {
+                if (!running && paused === 0) paint(plannedSeconds() * 1000);
+            });
+
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden && running) tick();
+            });
+
+            newQuote();
+            paintSessions();
+            paint(plannedSeconds() * 1000);
+        }());
     </script>
 </body>
+
 </html>

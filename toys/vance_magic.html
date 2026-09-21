@@ -1,167 +1,523 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vancian Wizard Duel</title>
+    <meta name="description" content="A hot-seat duel fought with spells out of Jack Vance's Dying Earth.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
     <style>
+        :root {
+            --bg: #f4f2ee;
+            --panel: #ffffff;
+            --panel-2: #f5f3ef;
+            --fg: #1d1b16;
+            --muted: #6d6659;
+            --rule: #e2ded5;
+            --accent: #7b3fa0;
+            --accent-soft: #efe4f6;
+            --hp: #c0392b;
+            --mp: #2c6fbb;
+            --shadow: rgba(0, 0, 0, 0.08);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0f0e13;
+                --panel: #191720;
+                --panel-2: #211e2a;
+                --fg: #ece9f2;
+                --muted: #9d95ab;
+                --rule: #2e2a38;
+                --accent: #c08ae0;
+                --accent-soft: #2b1f36;
+                --hp: #e8695c;
+                --mp: #6fa8e8;
+                --shadow: rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #f0f0f0;
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            color: var(--fg);
+            background-color: var(--bg);
+            -webkit-font-smoothing: antialiased;
         }
-        .game-container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            max-width: 800px;
-            width: 100%;
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 28px 16px 64px;
         }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: clamp(1.6rem, 6vw, 2.2rem);
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .lede {
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .turn-banner {
+            margin: 0 0 20px;
+            padding: 10px 14px;
+            color: var(--accent);
+            font-weight: 600;
+            background-color: var(--accent-soft);
+            border-left: 4px solid var(--accent);
+        }
+
+        .duel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
         .wizard {
-            margin-bottom: 20px;
+            padding: 20px;
+            background-color: var(--panel);
+            border: 1px solid var(--rule);
+            box-shadow: 0 2px 6px var(--shadow);
+            transition: border-color 0.2s ease;
         }
+
+        .wizard.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-soft), 0 2px 6px var(--shadow);
+        }
+
+        .wizard h2 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 0 0 14px;
+            font-size: 1.1rem;
+        }
+
+        .tag {
+            padding: 3px 8px;
+            color: var(--bg);
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background-color: var(--accent);
+        }
+
+        .wizard:not(.active) .tag {
+            visibility: hidden;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+
+        .stat .label {
+            flex: none;
+            width: 24px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .track {
+            flex: 1;
+            height: 10px;
+            background-color: var(--panel-2);
+            border: 1px solid var(--rule);
+            overflow: hidden;
+        }
+
+        .fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .fill.hp {
+            background-color: var(--hp);
+        }
+
+        .fill.mp {
+            background-color: var(--mp);
+        }
+
+        .stat .value {
+            flex: none;
+            width: 46px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
         .spells {
             display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 16px;
         }
+
         .spells button {
-            padding: 5px 10px;
-            flex-grow: 1;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            color: var(--fg);
+            font: inherit;
+            font-size: 0.85rem;
+            text-align: left;
+            background-color: var(--panel-2);
+            border: 1px solid var(--rule);
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
         }
-        #gameLog {
-            margin-top: 20px;
-            max-height: 200px;
+
+        .spells button:hover:not(:disabled) {
+            background-color: var(--accent-soft);
+            border-color: var(--accent);
+        }
+
+        .spells button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .spells .cost {
+            flex: none;
+            color: var(--mp);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .log-wrap {
+            margin-top: 24px;
+        }
+
+        .log-wrap h2 {
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        #log {
+            max-height: 240px;
+            padding: 14px 16px;
             overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            background-color: var(--panel);
+            border: 1px solid var(--rule);
+        }
+
+        #log p {
+            margin: 0 0 6px;
+        }
+
+        #log p:last-child {
+            margin-bottom: 0;
+        }
+
+        #log .roll {
+            color: var(--muted);
+        }
+
+        #log .win {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .actions {
+            margin-top: 18px;
+        }
+
+        .actions button {
+            padding: 11px 20px;
+            color: var(--bg);
+            font: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            background-color: var(--fg);
+            border: none;
+            cursor: pointer;
+        }
+
+        .actions button:hover {
+            background-color: var(--accent);
+        }
+
+        .note {
+            margin-top: 24px;
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.6;
         }
     </style>
 </head>
-<body>
-    <div class="game-container">
+
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Vancian Wizard Duel</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
+    <main data-ar-focus>
         <h1>Vancian Wizard Duel</h1>
-        <div class="wizard" id="wizard1">
-            <h2>Wizard 1</h2>
-            <p>Health: <span id="health1">20</span></p>
-            <p>Mana: <span id="mana1">10</span></p>
-            <div class="spells" id="spells1"></div>
+        <p class="lede">Two magicians, one bench, ten spells out of the Dying Earth.</p>
+        <p class="turn-banner" id="turn" role="status" aria-live="polite">The duel begins. Wizard 1 acts first.</p>
+
+        <div class="duel">
+            <section class="wizard" id="w1">
+                <h2>Wizard 1 <span class="tag">To act</span></h2>
+                <div class="stat">
+                    <span class="label">HP</span>
+                    <span class="track"><span class="fill hp" id="hpBar1"></span></span>
+                    <span class="value" id="hp1">20/20</span>
+                </div>
+                <div class="stat">
+                    <span class="label">MP</span>
+                    <span class="track"><span class="fill mp" id="mpBar1"></span></span>
+                    <span class="value" id="mp1">10/10</span>
+                </div>
+                <div class="spells" id="spells1"></div>
+            </section>
+
+            <section class="wizard" id="w2">
+                <h2>Wizard 2 <span class="tag">To act</span></h2>
+                <div class="stat">
+                    <span class="label">HP</span>
+                    <span class="track"><span class="fill hp" id="hpBar2"></span></span>
+                    <span class="value" id="hp2">20/20</span>
+                </div>
+                <div class="stat">
+                    <span class="label">MP</span>
+                    <span class="track"><span class="fill mp" id="mpBar2"></span></span>
+                    <span class="value" id="mp2">10/10</span>
+                </div>
+                <div class="spells" id="spells2"></div>
+            </section>
         </div>
-        <div class="wizard" id="wizard2">
-            <h2>Wizard 2</h2>
-            <p>Health: <span id="health2">20</span></p>
-            <p>Mana: <span id="mana2">10</span></p>
-            <div class="spells" id="spells2"></div>
+
+        <div class="log-wrap">
+            <h2>The duel so far</h2>
+            <div id="log" role="log" aria-live="polite" tabindex="0"></div>
         </div>
-        <div id="gameLog"></div>
-    </div>
+
+        <div class="actions">
+            <button type="button" id="restart">New duel</button>
+        </div>
+
+        <p class="note">Every casting is checked against a six-sided die: four or better and the
+            spell takes hold, otherwise the syllables come apart and the mana is spent regardless.
+            A wizard recovers one mana at the end of their own turn.</p>
+    </main>
 
     <script>
-        const spells = [
-            { name: 'Felojun\'s Second Hypnotic Spell', manaCost: 3, effect: (caster, target) => dealDamage(target, 4) },
-            { name: 'Phandaal\'s Gyrator of Healing', manaCost: 2, effect: (caster, target) => heal(caster, 3) },
-            { name: 'The Excellent Prismatic Spray', manaCost: 2, effect: (caster, target) => { shield[caster - 1] = true; log(`Wizard ${caster} is shielded from the next spell.`); } },
-            { name: 'Spell of the Macroid Toe', manaCost: 3, effect: (caster, target) => { dealDamage(target, 2); heal(caster, 2); } },
-            { name: 'Call to the Violent Cloud', manaCost: 4, effect: (caster, target) => dealDamage(target, Math.floor(Math.random() * 6) + 1) },
-            { name: 'Thasdrubel\'s Laganetic Transfer', manaCost: 0, effect: (caster, target) => { mana[caster - 1] += 3; log(`Wizard ${caster} gains 3 mana.`); } },
-            { name: 'The Spell of Forlorn Encystment', manaCost: 5, effect: (caster, target) => dealDamage(target, 6) },
-            { name: 'Azvan\'s Vade Mecum of Planar Travel', manaCost: 4, effect: (caster, target) => { const damage = Math.floor(Math.random() * 3) + 1; dealDamage(target, damage); heal(caster, damage); } },
-            { name: 'The Cascading Luminescence', manaCost: 1, effect: (caster, target) => dealDamage(target, 2) },
-            { name: 'Turjan\'s Spell of Instant Transposition', manaCost: 3, effect: (caster, target) => { dealDamage(target, 3); mana[target - 1] = Math.max(0, mana[target - 1] - 2); log(`Wizard ${target} loses 2 mana.`); } }
-        ];
+        (function () {
+            var MAX_HP = 20;
+            var MAX_MP = 10;
 
-        let currentTurn = 1;
-        let health = [20, 20];
-        let mana = [10, 10];
-        let shield = [false, false];
+            var SPELLS = [
+                { name: "Felojun's Second Hypnotic Spell", cost: 3, cast: function (c, t) { damage(t, 4); } },
+                { name: "Phandaal's Gyrator of Healing", cost: 2, cast: function (c) { heal(c, 3); } },
+                {
+                    name: 'The Excellent Prismatic Spray', cost: 2, cast: function (c) {
+                        shield[c] = true;
+                        log(who(c) + ' is wrapped in darting motes of colour.');
+                    }
+                },
+                { name: 'Spell of the Macroid Toe', cost: 3, cast: function (c, t) { damage(t, 2); heal(c, 2); } },
+                {
+                    name: 'Call to the Violent Cloud', cost: 4, cast: function (c, t) {
+                        damage(t, 1 + Math.floor(Math.random() * 6));
+                    }
+                },
+                {
+                    name: "Thasdrubel's Laganetic Transfer", cost: 0, cast: function (c) {
+                        var before = mana[c];
+                        mana[c] = Math.min(MAX_MP, mana[c] + 3);
+                        log(who(c) + ' draws ' + (mana[c] - before) + ' mana out of the air.');
+                    }
+                },
+                { name: 'The Spell of Forlorn Encystment', cost: 5, cast: function (c, t) { damage(t, 6); } },
+                {
+                    name: "Azvan's Vade Mecum of Planar Travel", cost: 4, cast: function (c, t) {
+                        var d = 1 + Math.floor(Math.random() * 3);
+                        damage(t, d);
+                        heal(c, d);
+                    }
+                },
+                { name: 'The Cascading Luminescence', cost: 1, cast: function (c, t) { damage(t, 2); } },
+                {
+                    name: "Turjan's Spell of Instant Transposition", cost: 3, cast: function (c, t) {
+                        damage(t, 3);
+                        var before = mana[t];
+                        mana[t] = Math.max(0, mana[t] - 2);
+                        if (mana[t] !== before) {
+                            log(who(t) + ' loses ' + (before - mana[t]) + ' mana.');
+                        }
+                    }
+                }
+            ];
 
-        function initializeGame() {
-            for (let i = 1; i <= 2; i++) {
-                const spellContainer = document.getElementById(`spells${i}`);
-                spells.forEach(spell => {
-                    const button = document.createElement('button');
-                    button.textContent = `${spell.name} (${spell.manaCost})`;
-                    button.onclick = () => castSpell(i, spell);
-                    spellContainer.appendChild(button);
-                });
+            // Wizards are indexed 0 and 1 throughout. The original mixed
+            // 1-based wizard numbers with 0-based array access on every line,
+            // which is where its off-by-ones lived.
+            var health, mana, shield, turn, over;
+            var logEl = document.getElementById('log');
+            var turnEl = document.getElementById('turn');
+            var buttons = [[], []];
+
+            function who(i) { return 'Wizard ' + (i + 1); }
+
+            function log(text, cls) {
+                var p = document.createElement('p');
+                if (cls) p.className = cls;
+                p.textContent = text;
+                logEl.appendChild(p);
+                logEl.scrollTop = logEl.scrollHeight;
             }
-            log('The duel of arcane mastery begins! Wizard 1 takes the first action.');
-        }
 
-        function castSpell(wizard, spell) {
-            if (wizard !== currentTurn) {
-                log(`Patience! It is not yet time for Wizard ${wizard} to act.`);
-                return;
+            function damage(target, amount) {
+                if (shield[target]) {
+                    shield[target] = false;
+                    log('The prismatic motes about ' + who(target) + ' flare and swallow the spell.');
+                    return;
+                }
+                health[target] = Math.max(0, health[target] - amount);
+                log(who(target) + ' reels: ' + amount + ' points of vital essence stripped away.');
             }
 
-            if (mana[wizard - 1] < spell.manaCost) {
-                log(`Alas! Wizard ${wizard}'s mana is insufficient to invoke ${spell.name}!`);
-                return;
+            function heal(wizard, amount) {
+                var before = health[wizard];
+                health[wizard] = Math.min(MAX_HP, health[wizard] + amount);
+                var got = health[wizard] - before;
+                log(got > 0
+                    ? who(wizard) + ' is knit back together by ' + got + ' points.'
+                    : who(wizard) + ' is already whole; the warmth goes nowhere.');
             }
 
-            mana[wizard - 1] -= spell.manaCost;
+            function render() {
+                for (var i = 0; i < 2; i++) {
+                    document.getElementById('hp' + (i + 1)).textContent = health[i] + '/' + MAX_HP;
+                    document.getElementById('mp' + (i + 1)).textContent = mana[i] + '/' + MAX_MP;
+                    document.getElementById('hpBar' + (i + 1)).style.width =
+                        (health[i] / MAX_HP * 100) + '%';
+                    document.getElementById('mpBar' + (i + 1)).style.width =
+                        (mana[i] / MAX_MP * 100) + '%';
+                    document.getElementById('w' + (i + 1))
+                        .classList.toggle('active', !over && turn === i);
 
-            const roll = Math.floor(Math.random() * 6) + 1;
-            const success = roll >= 4;
+                    // Only the wizard whose turn it is has live buttons, so a
+                    // misclick on the other bench is impossible rather than
+                    // merely scolded in the log.
+                    for (var s = 0; s < SPELLS.length; s++) {
+                        var btn = buttons[i][s];
+                        var affordable = mana[i] >= SPELLS[s].cost;
+                        btn.disabled = over || turn !== i || !affordable;
+                        btn.title = affordable ? '' : 'Not enough mana';
+                    }
+                }
 
-            log(`Wizard ${wizard} intones the syllables of ${spell.name}. The die of fate shows: ${roll} (${success ? 'The spell manifests!' : 'The magic fizzles...'})`);
-
-            if (success) {
-                spell.effect(wizard, 3 - wizard);
-            }
-
-            currentTurn = 3 - currentTurn; // Switch turns (1 -> 2, 2 -> 1)
-            updateStats();
-            
-            // Replenish 1 mana at the end of the turn
-            mana[wizard - 1] = Math.min(mana[wizard - 1] + 1, 10);
-        }
-
-        function dealDamage(target, amount) {
-            if (shield[target - 1]) {
-                log(`The magical barrier surrounding Wizard ${target} shimmers and absorbs the spell!`);
-                shield[target - 1] = false;
-            } else {
-                health[target - 1] -= amount;
-                log(`Wizard ${target} reels as ${amount} points of vital essence are stripped away.`);
-                if (health[target - 1] <= 0) {
-                    log(`Wizard ${target} collapses, defeated! Wizard ${3 - target} stands triumphant!`);
-                    disableSpells();
+                if (!over) {
+                    turnEl.textContent = who(turn) + ' to act.';
                 }
             }
-        }
 
-        function heal(wizard, amount) {
-            health[wizard - 1] = Math.min(health[wizard - 1] + amount, 20);
-            log(`A warm glow envelops Wizard ${wizard}, restoring ${amount} points of vitality.`);
-        }
+            function cast(wizard, spell) {
+                if (over || turn !== wizard) return;
+                if (mana[wizard] < spell.cost) return;
 
-        function updateStats() {
-            for (let i = 1; i <= 2; i++) {
-                document.getElementById(`health${i}`).textContent = Math.max(health[i-1], 0);
-                document.getElementById(`mana${i}`).textContent = mana[i-1];
+                var target = 1 - wizard;
+                mana[wizard] -= spell.cost;
+
+                var roll = 1 + Math.floor(Math.random() * 6);
+                var ok = roll >= 4;
+                log(who(wizard) + ' intones ' + spell.name + '. The die of fate shows ' + roll +
+                    ': ' + (ok ? 'the spell manifests.' : 'the magic fizzles.'), 'roll');
+
+                if (ok) spell.cast(wizard, target);
+
+                if (health[target] <= 0) {
+                    over = true;
+                    log(who(target) + ' collapses. ' + who(wizard) + ' stands triumphant.', 'win');
+                    turnEl.textContent = who(wizard) + ' wins the duel.';
+                    render();
+                    return;
+                }
+
+                // Regeneration lands before the repaint, not after it. The
+                // old order incremented mana once the display had already been
+                // written, so the number on screen was always a turn behind.
+                mana[wizard] = Math.min(MAX_MP, mana[wizard] + 1);
+
+                turn = target;
+                render();
             }
-        }
 
-        function log(message) {
-            const gameLog = document.getElementById('gameLog');
-            gameLog.innerHTML += message + '<br>';
-            gameLog.scrollTop = gameLog.scrollHeight;
-        }
+            function build() {
+                for (var i = 0; i < 2; i++) {
+                    var holder = document.getElementById('spells' + (i + 1));
+                    holder.innerHTML = '';
+                    buttons[i] = [];
+                    SPELLS.forEach(function (spell, s) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        var label = document.createElement('span');
+                        label.textContent = spell.name;
+                        var cost = document.createElement('span');
+                        cost.className = 'cost';
+                        cost.textContent = spell.cost + ' MP';
+                        btn.appendChild(label);
+                        btn.appendChild(cost);
+                        btn.addEventListener('click', cast.bind(null, i, spell));
+                        holder.appendChild(btn);
+                        buttons[i][s] = btn;
+                    });
+                }
+            }
 
-        function disableSpells() {
-            const buttons = document.querySelectorAll('.spells button');
-            buttons.forEach(button => button.disabled = true);
-        }
+            function reset() {
+                health = [MAX_HP, MAX_HP];
+                mana = [MAX_MP, MAX_MP];
+                shield = [false, false];
+                turn = 0;
+                over = false;
+                logEl.innerHTML = '';
+                log('The duel of arcane mastery begins. Wizard 1 acts first.');
+                render();
+            }
 
-        initializeGame();
+            document.getElementById('restart').addEventListener('click', reset);
+
+            build();
+            reset();
+        }());
     </script>
 </body>
+
 </html>
-
-

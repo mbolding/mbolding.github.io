@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bikepacking Adventure</title>
+    <link rel="stylesheet" href="../archive.css">
     <style>
         body {
             margin: 0;
@@ -11,23 +12,86 @@
             background-color: #1a1a1a;
             color: #fff;
             font-family: 'Courier New', Courier, monospace;
+            /* Column so the back bar stacks above the board rather than
+               becoming a flex sibling beside it. */
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
+            justify-content: center;
+            min-height: 100vh;
             overflow: hidden;
         }
 
         #game-container {
             position: relative;
+            /* The canvas keeps its 800x600 coordinate space; CSS scales the
+               whole board down to fit. Previously it was a hard 800px inside
+               an overflow-hidden body, so a phone simply got the left-hand
+               two thirds of the game with the HUD off-screen. */
             width: 800px;
-            height: 600px;
+            max-width: 100%;
+            aspect-ratio: 4 / 3;
+            height: auto;
+            max-height: calc(100vh - 46px);
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             background-color: #87CEEB; /* Sky blue */
         }
 
         canvas {
             display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        /* --- on-screen riding controls ---------------------------------
+           The game read ArrowRight and ArrowLeft and nothing else, so on a
+           device with no keyboard there was no way to turn the pedals. */
+        #touch-controls {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 12px;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            padding: 0 12px;
+            pointer-events: none;
+        }
+
+        #touch-controls.hidden {
+            display: none;
+        }
+
+        #touch-controls button {
+            flex: 1 1 0;
+            max-width: 180px;
+            padding: 16px 0;
+            color: #fff;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background-color: rgba(0, 0, 0, 0.55);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            pointer-events: auto;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #touch-controls button.engaged {
+            color: #1a1a1a;
+            background-color: #FFD700;
+        }
+
+        #pack-warning {
+            min-height: 1.4em;
+            margin: 8px 0 0;
+            color: #ff8080;
+            font-size: 0.95em;
         }
 
         /* UI Overlays */
@@ -188,7 +252,14 @@
 
     </style>
 </head>
-<body>
+<body class="ar-touch ar-motion ar-nozoom">
+<nav class="ar-bar">
+    <a href="../archive.html">&larr; Archive</a>
+    <span class="ar-here">Bikepacking</span>
+    <span class="ar-spacer"></span>
+    <a href="../index.html">Commonplace Book</a>
+</nav>
+
 
 <div id="game-container">
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -230,6 +301,7 @@
             </div>
 
             <button id="start-btn">Hit the Trail</button>
+            <p id="pack-warning" role="status" aria-live="polite"></p>
         </div>
 
         <!-- Game Over / Victory Screen -->
@@ -238,6 +310,11 @@
             <p id="end-message">You ran out of energy.</p>
             <p id="end-stats">Distance: 45km | Weight: 25kg</p>
             <button id="restart-btn">Try Again</button>
+        </div>
+
+        <div id="touch-controls" class="hidden">
+            <button type="button" id="btn-brake" aria-label="Brake">Brake</button>
+            <button type="button" id="btn-pedal" aria-label="Pedal">Pedal</button>
         </div>
 
     </div>
@@ -387,10 +464,14 @@
     }
 
     function startGame() {
-        if(state.totalWeight === BASE_WEIGHT) {
-            alert("You need to pack something! You won't make it without water.");
+        const warning = document.getElementById('pack-warning');
+        if (state.totalWeight === BASE_WEIGHT) {
+            // Was an alert(), which blocks the page and has to be dismissed
+            // before you can go back and pack anything.
+            warning.textContent = "You need to pack something \u2014 you won't get far without water.";
             return;
         }
+        warning.textContent = '';
 
         // Generate flat inventory array for consumables
         state.inventory = [];
@@ -434,6 +515,16 @@
         state.screen = newScreen;
         Object.keys(screens).forEach(k => screens[k].classList.add('hidden'));
         screens[newScreen].classList.remove('hidden');
+
+        const pedals = document.getElementById('touch-controls');
+        pedals.classList.toggle('hidden', newScreen !== 'play');
+        if (newScreen !== 'play') {
+            // Leaving the road releases whatever was being held.
+            state.keys.ArrowRight = false;
+            state.keys.ArrowLeft = false;
+            document.getElementById('btn-pedal').classList.remove('engaged');
+            document.getElementById('btn-brake').classList.remove('engaged');
+        }
     }
 
     // --- Input Handling ---
@@ -443,15 +534,47 @@
 
         window.addEventListener('keydown', (e) => {
             if (state.keys.hasOwnProperty(e.code)) {
+                // Otherwise the arrow keys scroll the page while you ride.
+                e.preventDefault();
                 state.keys[e.code] = true;
             }
         });
 
         window.addEventListener('keyup', (e) => {
             if (state.keys.hasOwnProperty(e.code)) {
+                e.preventDefault();
                 state.keys[e.code] = false;
             }
         });
+
+        // The on-screen pedals. Held down, exactly like the arrow keys they
+        // stand in for, so a phone can ride the same way a keyboard does.
+        function holdButton(id, code) {
+            const btn = document.getElementById(id);
+
+            const press = (e) => {
+                e.preventDefault();
+                state.keys[code] = true;
+                btn.classList.add('engaged');
+                try { btn.setPointerCapture(e.pointerId); } catch (err) { /* uncaptured is fine */ }
+            };
+            const release = (e) => {
+                if (e) e.preventDefault();
+                state.keys[code] = false;
+                btn.classList.remove('engaged');
+            };
+
+            btn.addEventListener('pointerdown', press);
+            btn.addEventListener('pointerup', release);
+            btn.addEventListener('pointercancel', release);
+            btn.addEventListener('pointerleave', release);
+            // A finger sliding off the button, or the tab losing focus
+            // mid-climb, must not leave the pedals stuck down.
+            window.addEventListener('blur', () => release());
+        }
+
+        holdButton('btn-pedal', 'ArrowRight');
+        holdButton('btn-brake', 'ArrowLeft');
     }
 
     // --- Game Logic ---

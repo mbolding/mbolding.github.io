@@ -5,25 +5,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>100 Doors Puzzle — Visualization</title>
+    <meta name="description" content="Step through the hundred-doors puzzle one pass at a time and watch the perfect squares survive.">
 
-    <!-- Swiss Design Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
 
     <style>
-        /* Swiss Design Color Palette */
         :root {
             --bg-color: #ffffff;
             --text-color: #111111;
             --secondary-text: #666666;
             --accent-red: #ff3300;
             --card-bg: #f5f5f5;
+            --rule: #eeeeee;
             --door-open: #16a34a;
             --door-closed: #dc2626;
+            --door-touch: #facc15;
             --grid-gap: 8px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg-color: #0e0e11;
+                --text-color: #ededed;
+                --secondary-text: #9a9aa2;
+                --accent-red: #ff5c33;
+                --card-bg: #17171b;
+                --rule: #2b2b33;
+                --door-open: #22c55e;
+                --door-closed: #ef4444;
+                --door-touch: #fbbf24;
+            }
         }
 
         * {
@@ -34,56 +50,53 @@
 
         body {
             font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
             line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Container and Layout */
         .container {
             max-width: 1000px;
             margin: 0 auto;
-            padding: 60px 40px;
+            padding: 48px 24px 80px;
         }
 
-        /* Header Styling */
         header {
-            margin-bottom: 60px;
-            border-bottom: 4px solid var(--text-color);
+            margin-bottom: 40px;
             padding-bottom: 24px;
+            border-bottom: 4px solid var(--text-color);
         }
 
         h1 {
-            font-size: 48px;
+            margin: 0 0 12px;
+            font-size: clamp(2rem, 8vw, 3rem);
             font-weight: 800;
-            margin: 0 0 12px 0;
             letter-spacing: -1.5px;
             text-transform: uppercase;
         }
 
         .subtitle {
-            font-size: 18px;
-            font-weight: 300;
+            margin: 0;
             color: var(--secondary-text);
-            margin: 0 0 32px 0;
+            font-size: 1.1rem;
+            font-weight: 300;
         }
 
-        /* Problem Description */
         .description {
-            background: var(--card-bg);
-            padding: 32px;
-            margin-bottom: 40px;
             max-width: 800px;
+            margin-bottom: 32px;
+            padding: 32px;
+            background: var(--card-bg);
         }
 
         .description h2 {
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
             margin-bottom: 16px;
             color: var(--secondary-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
         .description p {
@@ -91,28 +104,119 @@
             line-height: 1.8;
         }
 
+        .description p:last-child {
+            margin-bottom: 0;
+        }
+
         .description strong {
             font-weight: 600;
             color: var(--text-color);
         }
 
-        /* Door Visualization */
+        details.answer summary {
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        details.answer[open] summary {
+            margin-bottom: 12px;
+        }
+
+        /* --- controls ------------------------------------------------------ */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 16px;
+            margin-bottom: 24px;
+            padding: 20px;
+            background: var(--card-bg);
+        }
+
+        .controls button {
+            padding: 10px 18px;
+            color: var(--text-color);
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            background: none;
+            border: 1px solid var(--secondary-text);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .controls button:hover:not(:disabled) {
+            color: var(--bg-color);
+            background-color: var(--text-color);
+            border-color: var(--text-color);
+        }
+
+        .controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .controls .primary {
+            color: var(--bg-color);
+            background-color: var(--text-color);
+            border-color: var(--text-color);
+        }
+
+        .controls .primary:hover:not(:disabled) {
+            background-color: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+
+        .speed {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+            color: var(--secondary-text);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .speed input {
+            width: 120px;
+            accent-color: var(--accent-red);
+        }
+
+        /* --- readout ------------------------------------------------------- */
+        .readout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 32px;
+            margin-bottom: 20px;
+            font-family: 'IBM Plex Mono', ui-monospace, monospace;
+            font-size: 0.9rem;
+        }
+
+        .readout b {
+            color: var(--accent-red);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* --- doors --------------------------------------------------------- */
         .doors-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
             gap: var(--grid-gap);
-            margin-bottom: 40px;
+            margin-bottom: 32px;
             padding: 32px;
             background: var(--card-bg);
         }
 
-        /* Individual Door Styling */
         .door {
+            position: relative;
             aspect-ratio: 1 / 2;
             border: 2px solid var(--text-color);
-            transition: background-color 0.3s ease;
-            cursor: pointer;
-            position: relative;
+            transition: background-color 0.2s ease, transform 0.2s ease;
         }
 
         .door.closed {
@@ -123,22 +227,23 @@
             background-color: var(--door-open);
         }
 
-        /* Door hover effect */
-        .door:hover {
-            transform: scale(1.05);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        /* The door the walker is touching on this pass. Without it the
+           animation is a wall of colour with no visible rule behind it. */
+        .door.touched {
+            background-color: var(--door-touch);
+            transform: scale(1.12);
         }
 
-        /* Legend Section */
         .legend {
             display: flex;
-            gap: 32px;
+            flex-wrap: wrap;
+            gap: 20px 32px;
             justify-content: center;
-            margin-bottom: 40px;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 12px;
-            text-transform: uppercase;
+            margin-bottom: 32px;
+            font-family: 'IBM Plex Mono', ui-monospace, monospace;
+            font-size: 0.75rem;
             letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
         .legend-item {
@@ -161,169 +266,262 @@
             background-color: var(--door-open);
         }
 
-        /* Footer Info */
-        .info {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 12px;
-            color: var(--secondary-text);
-            text-align: center;
-            margin-top: 60px;
-            padding-top: 24px;
-            border-top: 1px solid #eee;
+        .legend-box.touched {
+            background-color: var(--door-touch);
         }
 
-        /* Responsive Design */
+        .info {
+            margin-top: 48px;
+            padding-top: 24px;
+            color: var(--secondary-text);
+            font-family: 'IBM Plex Mono', ui-monospace, monospace;
+            font-size: 0.75rem;
+            text-align: center;
+            border-top: 1px solid var(--rule);
+        }
+
         @media (max-width: 600px) {
             .container {
-                padding: 40px 24px;
-            }
-
-            h1 {
-                font-size: 32px;
+                padding: 32px 16px 64px;
             }
 
             .doors-container {
-                grid-template-columns: repeat(auto-fill, minmax(24px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(22px, 1fr));
                 gap: 6px;
+                padding: 16px;
+            }
+
+            .description {
                 padding: 20px;
+            }
+
+            .speed {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .speed input {
+                flex: 1;
+                width: auto;
             }
         }
     </style>
 </head>
 
-<body>
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">100 Doors</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
     <div class="container">
-        <!-- Header Section -->
         <header>
             <h1>100 Doors</h1>
-            <p class="subtitle">A Classic Computer Science Puzzle</p>
+            <p class="subtitle">A classic computer science puzzle</p>
         </header>
 
-        <!-- Problem Description -->
         <div class="description">
-            <h2>The Problem</h2>
-            <p>
-                There are <strong>100 doors</strong> in a hallway, all initially closed.
-            </p>
-            <p>
-                A person walks through the hallway <strong>100 times</strong>. On the first pass,
-                they toggle every door (1, 2, 3, ..., 100). On the second pass, they toggle every
-                second door (2, 4, 6, ..., 100). On the third pass, every third door (3, 6, 9, ...),
-                and so on.
-            </p>
-            <p>
-                <strong>Question:</strong> After all 100 passes, which doors remain open?
-            </p>
-            <p>
-                <strong>Answer:</strong> Only the <em>perfect squares</em> (1, 4, 9, 16, 25, 36, 49, 64, 81, 100)
-                remain open, because perfect squares have an odd number of divisors.
-            </p>
+            <h2>The problem</h2>
+            <p>There are <strong>100 doors</strong> in a hallway, all initially closed.</p>
+            <p>A person walks through the hallway <strong>100 times</strong>. On the first pass they
+                toggle every door (1, 2, 3, &hellip;, 100). On the second pass, every second door
+                (2, 4, 6, &hellip;). On the third, every third door. And so on.</p>
+            <p><strong>Question:</strong> after all 100 passes, which doors are still open?</p>
+            <details class="answer">
+                <summary>Show the answer</summary>
+                <p>Only the <em>perfect squares</em>: 1, 4, 9, 16, 25, 36, 49, 64, 81 and 100.</p>
+                <p>Door <em>n</em> is toggled once for each of its divisors, so it ends open exactly
+                    when it has an odd number of them. Divisors normally come in pairs
+                    (<em>d</em> and <em>n/d</em>), which is even &mdash; unless <em>n</em> is a
+                    perfect square, where the square root pairs with itself and goes uncounted twice.</p>
+            </details>
         </div>
 
-        <!-- Legend -->
+        <div class="controls">
+            <button type="button" id="play" class="primary">Play</button>
+            <button type="button" id="step">Step</button>
+            <button type="button" id="reset">Reset</button>
+            <button type="button" id="finish">Skip to end</button>
+            <label class="speed">
+                Speed
+                <input type="range" id="speed" min="0" max="6" step="1" value="3"
+                    aria-label="Playback speed">
+                <span id="speed-label">100ms</span>
+            </label>
+        </div>
+
+        <div class="readout">
+            <span>Pass <b id="pass-counter">0</b> of 100</span>
+            <span>Open <b id="open-counter">0</b></span>
+            <span>Toggled this pass <b id="touch-counter">0</b></span>
+        </div>
+
         <div class="legend">
             <div class="legend-item">
-                <div class="legend-box closed"></div>
-                <span>Closed</span>
+                <div class="legend-box closed"></div><span>Closed</span>
             </div>
             <div class="legend-item">
-                <div class="legend-box open"></div>
-                <span>Open</span>
+                <div class="legend-box open"></div><span>Open</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box touched"></div><span>Toggled on this pass</span>
             </div>
         </div>
 
-        <!-- Pass Counter -->
-        <div
-            style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; margin-bottom: 20px; color: var(--accent-red);">
-            <span id="pass-counter">Pass 1 of 100</span>
-        </div>
+        <div id="doors-container" class="doors-container" role="list"
+            aria-label="One hundred doors"></div>
 
-        <!-- Doors Visualization Container -->
-        <div id="doors-container" class="doors-container"></div>
+        <p class="ar-sr" role="status" aria-live="polite" id="live"></p>
 
-        <!-- Footer Info -->
-        <div class="info">
-            Animation speed: 100ms per pass
-        </div>
+        <div class="info">Door <em>n</em> is toggled on every pass that divides it.</div>
     </div>
 
     <script>
-        // ============================================================
-        // 100 DOORS PUZZLE SIMULATION
-        // ============================================================
+        (function () {
+            var TOTAL = 100;
+            var container = document.getElementById('doors-container');
+            var passEl = document.getElementById('pass-counter');
+            var openEl = document.getElementById('open-counter');
+            var touchEl = document.getElementById('touch-counter');
+            var liveEl = document.getElementById('live');
 
-        /**
-         * State array: tracks whether each door is open (true) or closed (false)
-         * Index 0 = Door 1, Index 99 = Door 100
-         */
-        const doors = new Array(100).fill(false);
+            var playBtn = document.getElementById('play');
+            var stepBtn = document.getElementById('step');
+            var resetBtn = document.getElementById('reset');
+            var finishBtn = document.getElementById('finish');
+            var speedInput = document.getElementById('speed');
+            var speedLabel = document.getElementById('speed-label');
 
-        /**
-         * Create and render all 100 door elements in the DOM
-         */
-        function initializeDoors() {
-            const container = document.getElementById('doors-container');
+            var DELAYS = [1000, 500, 250, 100, 50, 20, 8];
 
-            // Create 100 door divs
-            for (let i = 0; i < 100; i++) {
-                const doorElement = document.createElement('div');
-                doorElement.className = 'door closed';
-                doorElement.title = `Door ${i + 1}: Closed`;
-                doorElement.dataset.doorNumber = i + 1;
-                container.appendChild(doorElement);
-            }
-        }
+            var doors = new Array(TOTAL).fill(false);
+            var elements = [];
+            var pass = 0;
+            var playing = false;
+            var timer = null;
 
-        /**
-         * Recursive function to simulate each pass through the hallway
-         * @param {number} pass - Current pass number (1-100)
-         * 
-         * On pass N, toggle every Nth door:
-         *   - Pass 1: toggle doors 1, 2, 3, ..., 100
-         *   - Pass 2: toggle doors 2, 4, 6, ..., 100
-         *   - Pass 3: toggle doors 3, 6, 9, ..., 100
-         *   - etc.
-         */
-        function runPass(pass) {
-            // Base case: all 100 passes complete
-            if (pass > 100) {
-                document.getElementById('pass-counter').textContent = 'Complete!';
-                return;
-            }
+            // Built once and then mutated. The original re-ran
+            // querySelectorAll('.door') for every door on every pass, which is
+            // ten thousand DOM queries for a hundred elements it already had.
+            (function build() {
+                var frag = document.createDocumentFragment();
+                for (var i = 0; i < TOTAL; i++) {
+                    var el = document.createElement('div');
+                    el.className = 'door closed';
+                    el.setAttribute('role', 'listitem');
+                    el.dataset.n = i + 1;
+                    frag.appendChild(el);
+                    elements.push(el);
+                }
+                container.appendChild(frag);
+            }());
 
-            // Update pass counter display
-            document.getElementById('pass-counter').textContent = `Pass ${pass} of 100`;
-
-            // Toggle every Nth door (where N = current pass number)
-            // Start at index (pass - 1) because array is 0-indexed
-            // Increment by 'pass' to hit every Nth door
-            for (let doorIndex = pass - 1; doorIndex < 100; doorIndex += pass) {
-                // Toggle the state
-                doors[doorIndex] = !doors[doorIndex];
-
-                // Update the DOM element
-                const doorElement = document.querySelectorAll('.door')[doorIndex];
-                const doorNumber = doorIndex + 1;
-                const newState = doors[doorIndex];
-
-                // Update class and title
-                doorElement.className = newState ? 'door open' : 'door closed';
-                doorElement.title = `Door ${doorNumber}: ${newState ? 'Open' : 'Closed'}`;
+            function paint(touched) {
+                var open = 0;
+                for (var i = 0; i < TOTAL; i++) {
+                    var el = elements[i];
+                    var isOpen = doors[i];
+                    if (isOpen) open++;
+                    var cls = 'door ' + (isOpen ? 'open' : 'closed');
+                    if (touched && touched.has(i)) cls += ' touched';
+                    if (el.className !== cls) el.className = cls;
+                    el.setAttribute('aria-label',
+                        'Door ' + (i + 1) + ': ' + (isOpen ? 'open' : 'closed'));
+                }
+                passEl.textContent = pass;
+                openEl.textContent = open;
+                touchEl.textContent = touched ? touched.size : 0;
+                return open;
             }
 
-            // Schedule next pass after 100ms delay (for animation effect)
-            setTimeout(() => runPass(pass + 1), 100);
-        }
+            function runPass() {
+                if (pass >= TOTAL) return false;
+                pass += 1;
+                var touched = new Set();
+                for (var i = pass - 1; i < TOTAL; i += pass) {
+                    doors[i] = !doors[i];
+                    touched.add(i);
+                }
+                var open = paint(touched);
+                liveEl.textContent = 'Pass ' + pass + ': ' + touched.size +
+                    ' doors toggled, ' + open + ' now open.';
+                return true;
+            }
 
-        // ============================================================
-        // INITIALIZATION
-        // ============================================================
+            function delay() {
+                return DELAYS[Number(speedInput.value)] || 100;
+            }
 
-        // Create all door elements
-        initializeDoors();
+            function schedule() {
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    if (!playing) return;
+                    if (!runPass()) { stop(true); return; }
+                    schedule();
+                }, delay());
+            }
 
-        // Start the simulation from pass 1
-        runPass(1);
+            function play() {
+                if (pass >= TOTAL) reset();
+                playing = true;
+                playBtn.textContent = 'Pause';
+                stepBtn.disabled = true;
+                schedule();
+            }
+
+            function stop(complete) {
+                playing = false;
+                clearTimeout(timer);
+                timer = null;
+                playBtn.textContent = complete ? 'Replay' : 'Play';
+                stepBtn.disabled = false;
+                if (complete) {
+                    liveEl.textContent = 'All 100 passes complete. ' +
+                        doors.filter(Boolean).length + ' doors open: the perfect squares.';
+                }
+            }
+
+            function reset() {
+                stop(false);
+                doors = new Array(TOTAL).fill(false);
+                pass = 0;
+                paint(null);
+                liveEl.textContent = 'Reset. All doors closed.';
+                playBtn.textContent = 'Play';
+            }
+
+            playBtn.addEventListener('click', function () {
+                if (playing) stop(false); else play();
+            });
+
+            stepBtn.addEventListener('click', function () {
+                if (pass >= TOTAL) return;
+                if (!runPass()) stop(true);
+                if (pass >= TOTAL) stop(true);
+            });
+
+            resetBtn.addEventListener('click', reset);
+
+            finishBtn.addEventListener('click', function () {
+                stop(false);
+                while (pass < TOTAL) {
+                    pass += 1;
+                    for (var i = pass - 1; i < TOTAL; i += pass) doors[i] = !doors[i];
+                }
+                paint(null);
+                stop(true);
+            });
+
+            speedInput.addEventListener('input', function () {
+                speedLabel.textContent = delay() + 'ms';
+                if (playing) schedule();
+            });
+
+            speedLabel.textContent = delay() + 'ms';
+            paint(null);
+        }());
     </script>
 </body>
 

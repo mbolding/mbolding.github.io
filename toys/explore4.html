@@ -1,333 +1,436 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Frontier Expedition</title>
+	<meta name="description" content="Cross the map on dwindling rations and reach the far corner alive.">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;600&display=swap"
+		rel="stylesheet">
 	<link rel="stylesheet" href="explore.css">
-	<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../archive.css">
 </head>
-<body>
-	<div id="game-container">
-		<h1>Frontier Expedition</h1>
-		<div id="game-board"></div>
-		<div id="resources"></div>
-		<div id="movement-controls">
-			<button onclick="move(-1, 0)">←</button>
-			<button onclick="move(0, 1)">↓</button>
-			<button onclick="move(0, -1)">↑</button>
-			<button onclick="move(1, 0)">→</button>
-		</div>
-		<div id="actions">
-			<button onclick="rest()">Rest</button>
-			<button onclick="hunt()">Hunt</button>
-			<button onclick="explore()">Explore</button>
-		</div>
-		<div id="message-container"><p id="message"></p></div>
-		<button id="instructions-button">Instructions</button>
-		<div id="instructions-popup" class="popup">
-			<div class="popup-content">
-				<span class="close">&times;</span>
-				<h2>Frontier Expedition Instructions</h2>
-				<p>You are the red dot. Navigate the frontier, manage your resources, and reach the blue square in the upper right corner. Light blue squares are supply caches. Exploring costs 1 food, but sometimes you find food. Resting costs 1 food and restores 1 health. Hunting brings in a random amount of food.</p>
-				<h3>Controls:</h3>
-				<ul>
-					<li>Move: Arrow keys or H (left), J (down), K (up), L (right)</li>
-					<li>Rest: R key or 'Rest' button</li>
-					<li>Hunt: F key or 'Hunt' button</li>
-					<li>Explore: E key or 'Explore' button</li>
-				</ul>
-				<h3>Objective:</h3>
-				<p>Collect as many discoveries as possible without dying.</p>
-			</div>
-		</div>
-	</div>
-	
-	<script>
-		const BOARD_WIDTH = 15;
-		const BOARD_HEIGHT = 10;
-		let playerPosition = { x: 0, y: 9 };
-		let resources = { food: 8, supplies: 6, health: 4, discoveries: 0 };
-		let exploredCells = new Set();
-		let supplyCaches = [];
-		
-		function initializeGame() {
-			const gameBoard = document.getElementById('game-board');
-			for (let y = 0; y < BOARD_HEIGHT; y++) {
-				for (let x = 0; x < BOARD_WIDTH; x++) {
-					const cell = document.createElement('div');
-					cell.className = 'cell';
-					cell.id = `cell-${x}-${y}`;
-					if (x === BOARD_WIDTH - 1 && y === 0) {
-						cell.style.backgroundColor = 'blue';
-					}
-					gameBoard.appendChild(cell);
-				}
-			}
-			generateSupplyCaches();
-			updateBoard();
-			updateResources();
-			// showInstructions();
-			setMessage("Movement: h (left), j (down), k (up), l (right). Actions: r (rest), f (hunt), e (explore).");
-		}
-		
-		function generateSupplyCaches() {
-			for (let i = 0; i < 4; i++) {
-				let x, y;
-				do {
-					x = Math.floor(Math.random() * BOARD_WIDTH);
-					y = Math.floor(Math.random() * BOARD_HEIGHT);
-				} while ((x === 0 && y === 9) || (x === 14 && y === 0) || supplyCaches.some(cache => cache.x === x && cache.y === y));
-				supplyCaches.push({x, y});
-				document.getElementById(`cell-${x}-${y}`).classList.add('supply-cache');
-			}
-		}
-		
-		function updateBoard() {
-			document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('player'));
-			document.getElementById(`cell-${playerPosition.x}-${playerPosition.y}`).classList.add('player');
-			exploredCells.forEach(cell => document.getElementById(cell).classList.add('explored'));
-		}
-		
-		function updateResources() {
-			document.getElementById('resources').innerHTML = `
-		Food: ${resources.food} | Supplies: ${resources.supplies} | Health: ${resources.health} | Discoveries: ${resources.discoveries}
-	`;
-		}
-		
-		function move(dx, dy) {
-			const newX = playerPosition.x + dx;
-			const newY = playerPosition.y + dy;
-			if (newX >= 0 && newX < BOARD_WIDTH && newY >= 0 && newY < BOARD_HEIGHT) {
-				playerPosition.x = newX;
-				playerPosition.y = newY;
-				resources.food--;
-				updateBoard();
-				updateResources();
-				checkSupplyCache();
-				checkRandomEncounter();
-				checkGameOver();
-			} else {
-				setMessage("You can't move in that direction.");
-			}
-		}
-		
-		function checkSupplyCache() {
-			const cacheIndex = supplyCaches.findIndex(cache => cache.x === playerPosition.x && cache.y === playerPosition.y);
-			if (cacheIndex !== -1) {
-				resources.supplies += 3;
-				setMessage("You've found a supply cache! +3 Supplies");
-				supplyCaches.splice(cacheIndex, 1);
-				document.getElementById(`cell-${playerPosition.x}-${playerPosition.y}`).classList.remove('supply-cache');
-				updateResources();
-			}
-		}
-		
-		function checkRandomEncounter() {
-			if (Math.random() < 0.25) { // 25% chance of an encounter
-				const encounterType = Math.random();
-				if (encounterType < 0.15) {
-					setMessage("You found a small food stash! +2 Food");
-					resources.food += 2;
-				} else if (encounterType < 0.30) {
-					setMessage("You've been caught in a storm! -1 Health");
-					resources.health = Math.max(0, resources.health - 1);
-				} else if (encounterType < 0.45) {
-					setMessage("You've discovered an ancient artifact! +1 Discovery");
-					resources.discoveries++;
-				} else if (encounterType < 0.60) {
-					const nativeOutcome = Math.random();
-					if (nativeOutcome < 0.2) {
-						setMessage("You've met friendly natives! They share their knowledge and food. +1 Discovery, +2 Food");
-						resources.discoveries++;
-						resources.food += 2;
-					} else if (nativeOutcome < 0.4) {
-						setMessage("You've encountered wary natives. They trade supplies for food. -1 Food, +1 Supplies");
-						resources.food = Math.max(0, resources.food - 1);
-						resources.supplies++;
-					} else if (nativeOutcome < 0.6) {
-						setMessage("You've impressed the local tribe with your exploration skills! They guide you to a hidden location. +2 Discoveries");
-						resources.discoveries += 2;
-					} else if (nativeOutcome < 0.8) {
-						setMessage("The natives are suspicious of outsiders. You leave quickly to avoid conflict. -1 Food");
-						resources.food = Math.max(0, resources.food - 1);
-					} else {
-						setMessage("You've been invited to a native ceremony! The experience is enlightening. +1 Discovery, +1 Health");
-						resources.discoveries++;
-						resources.health = Math.min(5, resources.health + 1);
-					}
-				} else if (encounterType < 0.70) {
-					setMessage("You've found a geographic landmark! +2 Discoveries");
-					resources.discoveries += 2;
-				} else if (encounterType < 0.80) {
-					const predatorOutcome = Math.random();
-					if (predatorOutcome < 0.2) {
-						setMessage("You've encountered a dangerous predator! You manage to scare it away, but it's a close call. -2 Health");
-						resources.health = Math.max(0, resources.health - 2);
-					} else if (predatorOutcome < 0.4) {
-						setMessage("A predator raids your camp at night! You lose some food but escape unharmed. -1 Food");
-						resources.food = Math.max(0, resources.food - 1);
-					} else if (predatorOutcome < 0.6) {
-						setMessage("You outsmart a cunning predator and turn it into a successful hunt! -1 Supplies, +2 Food");
-						resources.supplies = Math.max(0, resources.supplies - 1);
-						resources.food += 2;
-					} else if (predatorOutcome < 0.8) {
-						setMessage("A predator chases you into a new area. You discover something interesting in your haste! -1 Health, +1 Discovery");
-						resources.health = Math.max(0, resources.health - 1);
-						resources.discoveries++;
-					} else {
-						setMessage("You narrowly escape a predator ambush, but drop some supplies in the process. -1 Supplies");
-						resources.supplies = Math.max(0, resources.supplies - 1);
-					}
-				} else if (encounterType < 0.90) {
-					setMessage("You've had an accident! -1 Health");
-					resources.health = Math.min(5, resources.health - 1);
-				} else if (encounterType < 0.95) {
-					setMessage("You've found an abandoned camp! +1 Food, +1 Supplies");
-					resources.food++;
-					resources.supplies++;
-				} else {
-					// River crossing encounter
-					const riverOutcome = Math.random();
-					if (riverOutcome < 0.2) {
-						setMessage("You've successfully crossed a river and found a bountiful fishing spot! +3 Food");
-						resources.food += 3;
-					} else if (riverOutcome < 0.4) {
-						setMessage("Crossing the river was challenging. You lost some supplies but gained valuable experience. -1 Supplies, +1 Discovery");
-						resources.supplies = Math.max(0, resources.supplies - 1);
-						resources.discoveries++;
-					} else if (riverOutcome < 0.6) {
-						setMessage("The river crossing was treacherous! You barely made it across. -1 Health, -1 Supplies");
-						resources.health = Math.max(0, resources.health - 1);
-						resources.supplies = Math.max(0, resources.supplies - 1);
-					} else if (riverOutcome < 0.8) {
-						setMessage("You found a safe ford to cross the river. No resources lost.");
-					} else {
-						setMessage("You discovered a massive waterfall! +1 Discoveries");
-						resources.discoveries += 1;
-					}
-				}
-				updateResources();
-			}
-		}
-		
-		function rest() {
-			resources.health = Math.min(resources.health + 1, 5);
-			resources.food--;
-			updateResources();
-			checkGameOver();
-		}
-		
-		function hunt() {
-			const roll = Math.floor(Math.random() * 6) + 1;
-			if (roll <= 2) {
-				setMessage("Hunt failed.");
-			} else if (roll <= 4) {
-				resources.food += 1;
-				setMessage("Small game caught. +1 Food");
-			} else {
-				resources.food += 3;
-				setMessage("Large game caught. +3 Food");
-			}
-			resources.supplies--;
-			updateResources();
-			checkGameOver();
-		}
-		
-		function explore() {
-			const cellId = `cell-${playerPosition.x}-${playerPosition.y}`;
-			if (!exploredCells.has(cellId)) {
-				exploredCells.add(cellId);
-				if (Math.random() < 0.50) {
-					const successOutcome = Math.random();
-					if (successOutcome < 0.25) {
-						setMessage("You discover a new animal species! +1 Food, +2 Discoveries");
-						resources.discoveries += 2;
-						resources.food++
-					} else if (successOutcome < 0.5) {
-						setMessage("You find a hidden cave with primitive paintings and other artifacts. +1 Discovery");
-						resources.discoveries++;
-					} else if (successOutcome < 0.75) {
-						setMessage("You stumble upon natural hot springs. It's very relaxing! +1 Health, +1 Discovery");
-						resources.health = Math.min(5, resources.health + 1);
-						resources.discoveries++;
-					} else {
-						setMessage("You find a new species of edible plant. +2 Food, +1 Discovery");
-						resources.food += 2;
-						resources.discoveries++;
-					}
-				} else {
-					setMessage("Nothing of note found.");
-				}
-			} else {
-				setMessage("This area has already been explored.");
-			}
-			resources.food--;
-			updateBoard();
-			updateResources();
-			checkGameOver();
-		}
-		
-		function setMessage(msg) {
-			document.getElementById('message').textContent = msg;
-		}
-		
-		function checkGameOver() {
-			if (resources.food <= 0 || resources.health <= 0  || resources.supplies <= 0 ) {
-				alert("Game Over! Your expedition has failed.");
-				location.reload();
-			} else if (playerPosition.x === BOARD_WIDTH - 1 && playerPosition.y === 0) {
-				alert(`Congratulations! You've completed the expedition with ${resources.discoveries} discoveries!`);
-				location.reload();
-			}
-		}
-		
-		function showInstructions() {
-			document.getElementById('instructions-popup').style.display = 'block';
-		}
-		
-		function closeInstructions() {
-			document.getElementById('instructions-popup').style.display = 'none';
-		}
-		
-		document.getElementById('instructions-button').addEventListener('click', showInstructions);
-		document.querySelector('.close').addEventListener('click', closeInstructions);
 
-		window.addEventListener('click', function(event) {
-			if (event.target == document.getElementById('instructions-popup')) {
-				closeInstructions();
+<body class="ar-touch ar-motion ar-nozoom">
+	<nav class="ar-bar">
+		<a href="../archive.html">&larr; Archive</a>
+		<span class="ar-here">Frontier Expedition</span>
+		<span class="ar-spacer"></span>
+		<a href="../index.html">Commonplace Book</a>
+	</nav>
+
+	<main data-ar-focus>
+		<div id="game-container">
+			<h1>Frontier Expedition</h1>
+			<p class="lede">You are the red dot, bottom left. The blue square, top right, is the pass.</p>
+
+			<div id="resources">
+				<div class="resource" id="res-food">
+					<span class="label">Food</span><span class="value" id="val-food">8</span>
+				</div>
+				<div class="resource" id="res-supplies">
+					<span class="label">Supplies</span><span class="value" id="val-supplies">6</span>
+				</div>
+				<div class="resource" id="res-health">
+					<span class="label">Health</span><span class="value" id="val-health">4</span>
+				</div>
+				<div class="resource" id="res-discoveries">
+					<span class="label">Finds</span><span class="value" id="val-discoveries">0</span>
+				</div>
+			</div>
+
+			<div id="game-board" role="img" aria-labelledby="board-summary"></div>
+			<p class="ar-sr" id="board-summary">A fifteen by ten map.</p>
+
+			<div id="movement-controls" role="group" aria-label="Move">
+				<button type="button" id="btn-up" aria-label="Move north">&uarr;</button>
+				<button type="button" id="btn-left" aria-label="Move west">&larr;</button>
+				<button type="button" id="btn-down" aria-label="Move south">&darr;</button>
+				<button type="button" id="btn-right" aria-label="Move east">&rarr;</button>
+			</div>
+
+			<div id="actions">
+				<button type="button" id="btn-rest">Rest</button>
+				<button type="button" id="btn-hunt">Hunt</button>
+				<button type="button" id="btn-explore">Explore</button>
+			</div>
+
+			<div id="message-container">
+				<p id="message" role="status" aria-live="polite"></p>
+			</div>
+
+			<div id="end-panel" hidden>
+				<h2 id="end-title"></h2>
+				<p id="end-text"></p>
+				<button type="button" id="btn-again">Set out again</button>
+			</div>
+
+			<button type="button" id="instructions-button">Instructions</button>
+		</div>
+	</main>
+
+	<dialog id="instructions">
+		<h2>Frontier Expedition</h2>
+		<p>Navigate the map, manage your stores, and reach the blue square in the top right corner.
+			Light blue squares are supply caches.</p>
+
+		<h3>Costs</h3>
+		<ul>
+			<li>Every move costs 1 food.</li>
+			<li>Resting costs 1 food and restores 1 health.</li>
+			<li>Hunting costs 1 supply and brings back a variable amount of food.</li>
+			<li>Exploring costs 1 food, and a square only pays out once.</li>
+		</ul>
+
+		<h3>Controls</h3>
+		<ul>
+			<li>Move: arrow keys, <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>,
+				or <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd>, or the on-screen pad</li>
+			<li>Rest: <kbd>R</kbd></li>
+			<li>Hunt: <kbd>F</kbd></li>
+			<li>Explore: <kbd>E</kbd></li>
+			<li>On a touch screen, swipe across the map to move</li>
+		</ul>
+
+		<h3>Ending</h3>
+		<p>Run out of food, supplies or health and the expedition fails. Reach the pass and it
+			succeeds, scored by what you found on the way.</p>
+
+		<div class="close-row">
+			<button type="button" id="close-instructions">Close</button>
+		</div>
+	</dialog>
+
+	<script>
+		(function () {
+			var WIDTH = 15;
+			var HEIGHT = 10;
+			var MAX_HEALTH = 5;
+			var START = { x: 0, y: HEIGHT - 1 };
+			var GOAL = { x: WIDTH - 1, y: 0 };
+
+			var boardEl = document.getElementById('game-board');
+			var messageEl = document.getElementById('message');
+			var endPanel = document.getElementById('end-panel');
+			var endTitle = document.getElementById('end-title');
+			var endText = document.getElementById('end-text');
+			var summaryEl = document.getElementById('board-summary');
+
+			var cells = [];
+			var player, resources, explored, caches, over;
+
+			var actionButtons = ['btn-up', 'btn-left', 'btn-down', 'btn-right',
+				'btn-rest', 'btn-hunt', 'btn-explore'].map(function (id) {
+					return document.getElementById(id);
+				});
+
+			function buildBoard() {
+				boardEl.innerHTML = '';
+				cells = [];
+				var frag = document.createDocumentFragment();
+				for (var y = 0; y < HEIGHT; y++) {
+					cells[y] = [];
+					for (var x = 0; x < WIDTH; x++) {
+						var cell = document.createElement('div');
+						cell.className = 'cell';
+						frag.appendChild(cell);
+						cells[y][x] = cell;
+					}
+				}
+				boardEl.appendChild(frag);
 			}
-		});
-		
-		document.addEventListener('keydown', function(event) {
-			switch(event.key.toLowerCase()) {
-				case 'h': // left
-				move(-1, 0);
-				break;
-				case 'j': // down
-				move(0, 1);
-				break;
-				case 'k': // up
-				move(0, -1);
-				break;
-				case 'l': // right
-				move(1, 0);
-				break;
-				case 'r': // rest
-				rest();
-				break;
-				case 'f': // hunt (using 'f' instead of 'h' to avoid conflict with left movement)
-				hunt();
-				break;
-				case 'e': // explore
-				explore();
-				break;
+
+			function placeCaches() {
+				caches = [];
+				var tries = 0;
+				while (caches.length < 4 && tries < 500) {
+					tries++;
+					var x = Math.floor(Math.random() * WIDTH);
+					var y = Math.floor(Math.random() * HEIGHT);
+					if (x === START.x && y === START.y) continue;
+					if (x === GOAL.x && y === GOAL.y) continue;
+					if (caches.some(function (c) { return c.x === x && c.y === y; })) continue;
+					caches.push({ x: x, y: y });
+				}
 			}
-		});
-		
-		initializeGame();
+
+			function render() {
+				for (var y = 0; y < HEIGHT; y++) {
+					for (var x = 0; x < WIDTH; x++) {
+						var cls = 'cell';
+						if (explored.has(x + ',' + y)) cls += ' explored';
+						if (caches.some(function (c) { return c.x === x && c.y === y; })) cls += ' supply-cache';
+						if (x === GOAL.x && y === GOAL.y) cls += ' goal';
+						if (x === player.x && y === player.y) cls += ' player';
+						if (cells[y][x].className !== cls) cells[y][x].className = cls;
+					}
+				}
+
+				['food', 'supplies', 'health', 'discoveries'].forEach(function (key) {
+					document.getElementById('val-' + key).textContent = resources[key];
+					document.getElementById('res-' + key)
+						.classList.toggle('low', key !== 'discoveries' && resources[key] <= 2);
+				});
+
+				summaryEl.textContent = 'You are at column ' + (player.x + 1) + ', row ' +
+					(player.y + 1) + '. The pass is at column ' + WIDTH + ', row 1. ' +
+					caches.length + ' caches left.';
+			}
+
+			function setMessage(text) {
+				messageEl.textContent = text;
+			}
+
+			// --- encounters ------------------------------------------------------
+			// Weighted table. The old version leaned on a run of "natives"
+			// encounters written as scenery for the expedition to react to;
+			// these are about the country and the people travelling it instead.
+			var ENCOUNTERS = [
+				[3, 'You find a small food stash left by an earlier party. +2 food', { food: 2 }],
+				[3, 'A storm catches you in the open. −1 health', { health: -1 }],
+				[3, 'You turn up a worked stone tool, far older than any map you carry. +1 find', { discoveries: 1 }],
+				[2, 'A trapper going the other way trades news and jerky for a little of your rope. −1 supplies, +2 food', { supplies: -1, food: 2 }],
+				[2, 'You fall in with a survey party for an afternoon. They mark two springs on your map. +2 finds', { discoveries: 2 }],
+				[2, 'A herder points you to a ford that saves half a day. +1 food, +1 find', { food: 1, discoveries: 1 }],
+				[3, 'A landmark peak resolves out of the haze, exactly where the sketch map said. +2 finds', { discoveries: 2 }],
+				[2, 'A bear works your camp over in the night. −1 food, −1 supplies', { food: -1, supplies: -1 }],
+				[2, 'Something large paces you along the ridge for an hour, then loses interest. −1 health', { health: -1 }],
+				[2, 'You turn a predator’s kill into your own supper. −1 supplies, +2 food', { supplies: -1, food: 2 }],
+				[2, 'A bad step on scree costs you a turned ankle. −1 health', { health: -1 }],
+				[2, 'An abandoned camp yields a usable pot and half a sack of meal. +1 food, +1 supplies', { food: 1, supplies: 1 }],
+				[1, 'The river is high. You get across, but the crossing costs you. −1 health, −1 supplies', { health: -1, supplies: -1 }],
+				[1, 'You find a deep pool thick with fish. +3 food', { food: 3 }],
+				[1, 'A waterfall no one has written down drops three hundred feet into the gorge. +1 find', { discoveries: 1 }],
+				[1, 'A safe ford, and an easy afternoon.', {}]
+			];
+
+			var ENCOUNTER_TOTAL = ENCOUNTERS.reduce(function (s, e) { return s + e[0]; }, 0);
+
+			function applyDeltas(deltas) {
+				// Every resource is clamped at zero on the way down and health
+				// at its ceiling on the way up. The original clamped an injury
+				// with Math.min, which let health fall below zero.
+				if (deltas.food) resources.food = Math.max(0, resources.food + deltas.food);
+				if (deltas.supplies) resources.supplies = Math.max(0, resources.supplies + deltas.supplies);
+				if (deltas.health) {
+					resources.health = Math.min(MAX_HEALTH, Math.max(0, resources.health + deltas.health));
+				}
+				if (deltas.discoveries) resources.discoveries += deltas.discoveries;
+			}
+
+			function rollEncounter() {
+				if (Math.random() >= 0.25) return;
+				var roll = Math.random() * ENCOUNTER_TOTAL;
+				for (var i = 0; i < ENCOUNTERS.length; i++) {
+					roll -= ENCOUNTERS[i][0];
+					if (roll <= 0) {
+						setMessage(ENCOUNTERS[i][1]);
+						applyDeltas(ENCOUNTERS[i][2]);
+						return;
+					}
+				}
+			}
+
+			// --- actions ---------------------------------------------------------
+			function move(dx, dy) {
+				if (over) return;
+				var nx = player.x + dx;
+				var ny = player.y + dy;
+				if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) {
+					setMessage('The map ends that way.');
+					return;
+				}
+
+				player.x = nx;
+				player.y = ny;
+				resources.food = Math.max(0, resources.food - 1);
+				setMessage('You press on.');
+
+				var hit = caches.findIndex(function (c) { return c.x === nx && c.y === ny; });
+				if (hit !== -1) {
+					caches.splice(hit, 1);
+					resources.supplies += 3;
+					setMessage('A supply cache, still dry. +3 supplies');
+				} else {
+					rollEncounter();
+				}
+
+				render();
+				checkEnd();
+			}
+
+			function rest() {
+				if (over) return;
+				resources.food = Math.max(0, resources.food - 1);
+				var before = resources.health;
+				resources.health = Math.min(MAX_HEALTH, resources.health + 1);
+				setMessage(resources.health > before
+					? 'A long halt. +1 health, −1 food'
+					: 'You are already sound. The food goes anyway. −1 food');
+				render();
+				checkEnd();
+			}
+
+			function hunt() {
+				if (over) return;
+				resources.supplies = Math.max(0, resources.supplies - 1);
+				var roll = 1 + Math.floor(Math.random() * 6);
+				if (roll <= 2) {
+					setMessage('Nothing moving all morning. −1 supplies');
+				} else if (roll <= 4) {
+					resources.food += 1;
+					setMessage('Small game. +1 food, −1 supplies');
+				} else {
+					resources.food += 3;
+					setMessage('A good kill, and enough to carry. +3 food, −1 supplies');
+				}
+				render();
+				checkEnd();
+			}
+
+			function explore() {
+				if (over) return;
+				var key = player.x + ',' + player.y;
+				resources.food = Math.max(0, resources.food - 1);
+
+				if (explored.has(key)) {
+					setMessage('You have already worked this ground over. −1 food');
+				} else {
+					explored.add(key);
+					if (Math.random() < 0.5) {
+						var finds = [
+							['A bird you cannot place in any of your books. +1 food, +2 finds', { food: 1, discoveries: 2 }],
+							['A cave mouth, and ochre handprints inside. +1 find', { discoveries: 1 }],
+							['Hot springs, and an hour of not being cold. +1 health, +1 find', { health: 1, discoveries: 1 }],
+							['An unfamiliar tuber that turns out to be worth eating. +2 food, +1 find', { food: 2, discoveries: 1 }]
+						];
+						var pick = finds[Math.floor(Math.random() * finds.length)];
+						setMessage(pick[0]);
+						applyDeltas(pick[1]);
+					} else {
+						setMessage('Nothing of note. −1 food');
+					}
+				}
+
+				render();
+				checkEnd();
+			}
+
+			// --- ending ----------------------------------------------------------
+			function finish(title, text, failed) {
+				over = true;
+				actionButtons.forEach(function (b) { b.disabled = true; });
+				endTitle.textContent = title;
+				endText.textContent = text;
+				endPanel.classList.toggle('failed', !!failed);
+				endPanel.hidden = false;
+				// Replaces an alert() followed by location.reload(), which
+				// threw the run away before you could read what happened.
+				document.getElementById('btn-again').focus();
+			}
+
+			function checkEnd() {
+				if (player.x === GOAL.x && player.y === GOAL.y) {
+					finish('You reach the pass.',
+						'The expedition is through, with ' + resources.discoveries +
+						(resources.discoveries === 1 ? ' find' : ' finds') +
+						' recorded and ' + resources.food + ' food left.', false);
+					return;
+				}
+				if (resources.health <= 0) {
+					finish('The expedition fails.', 'You are too badly worn to go on.', true);
+				} else if (resources.food <= 0) {
+					finish('The expedition fails.', 'The food is gone and the pass is still ahead.', true);
+				} else if (resources.supplies <= 0) {
+					finish('The expedition fails.', 'Without supplies there is no going further.', true);
+				}
+			}
+
+			function reset() {
+				player = { x: START.x, y: START.y };
+				resources = { food: 8, supplies: 6, health: 4, discoveries: 0 };
+				explored = new Set();
+				over = false;
+				actionButtons.forEach(function (b) { b.disabled = false; });
+				endPanel.hidden = true;
+				placeCaches();
+				render();
+				setMessage('Arrow keys, WASD or HJKL to move. R to rest, F to hunt, E to explore.');
+			}
+
+			// --- input -----------------------------------------------------------
+			document.getElementById('btn-up').addEventListener('click', function () { move(0, -1); });
+			document.getElementById('btn-down').addEventListener('click', function () { move(0, 1); });
+			document.getElementById('btn-left').addEventListener('click', function () { move(-1, 0); });
+			document.getElementById('btn-right').addEventListener('click', function () { move(1, 0); });
+			document.getElementById('btn-rest').addEventListener('click', rest);
+			document.getElementById('btn-hunt').addEventListener('click', hunt);
+			document.getElementById('btn-explore').addEventListener('click', explore);
+			document.getElementById('btn-again').addEventListener('click', reset);
+
+			// The instructions always listed arrow keys; only HJKL were ever
+			// wired up. Arrows and WASD work now, and the page stops the
+			// arrow keys scrolling underneath the board.
+			var KEYS = {
+				arrowup: [0, -1], w: [0, -1], k: [0, -1],
+				arrowdown: [0, 1], s: [0, 1], j: [0, 1],
+				arrowleft: [-1, 0], a: [-1, 0], h: [-1, 0],
+				arrowright: [1, 0], d: [1, 0], l: [1, 0]
+			};
+
+			document.addEventListener('keydown', function (e) {
+				if (e.ctrlKey || e.metaKey || e.altKey) return;
+				// Don't eat keystrokes meant for a dialog or a form control.
+				var tag = (e.target.tagName || '').toLowerCase();
+				if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+				if (document.getElementById('instructions').open) return;
+
+				var key = e.key.toLowerCase();
+				if (KEYS[key]) {
+					e.preventDefault();
+					move(KEYS[key][0], KEYS[key][1]);
+					return;
+				}
+				if (key === 'r') { e.preventDefault(); rest(); }
+				else if (key === 'f') { e.preventDefault(); hunt(); }
+				else if (key === 'e') { e.preventDefault(); explore(); }
+			});
+
+			// Swipe across the map. The D-pad works with a thumb already, but
+			// dragging the map directly is how anyone expects to move on a
+			// touch screen.
+			var swipe = null;
+			boardEl.addEventListener('pointerdown', function (e) {
+				swipe = { x: e.clientX, y: e.clientY };
+			});
+			boardEl.addEventListener('pointerup', function (e) {
+				if (!swipe) return;
+				var dx = e.clientX - swipe.x;
+				var dy = e.clientY - swipe.y;
+				swipe = null;
+				if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+				if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : -1, 0);
+				else move(0, dy > 0 ? 1 : -1);
+			});
+			boardEl.addEventListener('pointercancel', function () { swipe = null; });
+
+			var dialog = document.getElementById('instructions');
+			document.getElementById('instructions-button').addEventListener('click', function () {
+				if (typeof dialog.showModal === 'function') dialog.showModal();
+				else dialog.setAttribute('open', '');
+			});
+			document.getElementById('close-instructions').addEventListener('click', function () {
+				if (typeof dialog.close === 'function') dialog.close();
+				else dialog.removeAttribute('open');
+			});
+
+			buildBoard();
+			reset();
+		}());
 	</script>
 </body>
+
 </html>
-
-

@@ -12,6 +12,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="../archive.css">
 
     <style>
         :root {
@@ -30,6 +31,22 @@
 
             --cell-size: 32px;
             --grid-gap: 2px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg-color: #0e0e11;
+                --text-color: #ededed;
+                --secondary-text: #9a9aa2;
+                --accent-red: #ff5c33;
+                --accent-green: #34d399;
+                --accent-blue: #60a5fa;
+                --card-bg: #17171b;
+                --cell-closed: #2b2b33;
+                --cell-open: #131318;
+                --cell-hover: #3a3a45;
+                --border-color: #2b2b33;
+            }
         }
 
         * {
@@ -139,7 +156,7 @@
         }
 
         .diff-btn:hover {
-            background: #e5e5e5;
+            background: var(--cell-hover);
         }
 
         .diff-btn.active {
@@ -175,6 +192,20 @@
             font-size: 18px;
             cursor: pointer;
             transition: background-color 0.1s;
+            /* A long press on a touch screen otherwise raises the text
+               selection callout and the magnifier, which eats the gesture
+               before the page ever sees it. */
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* Grows while a long press is building, so the flag gesture has some
+           feedback instead of happening silently. */
+        .cell.pressing:not(.revealed) {
+            background-color: var(--cell-hover);
+            transform: scale(0.92);
         }
 
         .cell:hover:not(.revealed) {
@@ -273,8 +304,14 @@
     </style>
 </head>
 
-<body>
-    <a href="../index.html" class="back-link">← Back to Index</a>
+<body class="ar-touch ar-motion ar-nozoom">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">Minesweeper</span>
+        <span class="ar-spacer"></span>
+        <a href="../index.html">Commonplace Book</a>
+    </nav>
+
 
     <div class="container">
         <header>
@@ -307,8 +344,8 @@
         </div>
 
         <div class="instructions">
-            <p>Left Click to Reveal • Right Click to Flag</p>
-            <p style="margin-top:8px;">Long press on touch devices to flag.</p>
+            <p>Click to reveal &bull; Right-click to flag</p>
+            <p style="margin-top:8px;">On a touch screen: tap to reveal, press and hold to flag.</p>
         </div>
     </div>
 
@@ -390,12 +427,15 @@
                     cell.dataset.r = r;
                     cell.dataset.c = c;
 
-                    // Interaction
-                    cell.addEventListener('mousedown', (e) => handleInput(e, r, c));
-                    cell.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        toggleFlag(r, c);
-                    });
+                    // Interaction. Pointer events cover mouse, touch and pen
+                    // in one path; the page previously listened only for
+                    // mousedown and contextmenu, so the long press it told
+                    // players about on touch devices did not exist.
+                    cell.addEventListener('pointerdown', (e) => onPointerDown(e, r, c));
+                    cell.addEventListener('pointerup', (e) => onPointerUp(e, r, c));
+                    cell.addEventListener('pointercancel', cancelPress);
+                    cell.addEventListener('pointerleave', cancelPress);
+                    cell.addEventListener('contextmenu', (e) => e.preventDefault());
 
                     // Logic State
                     state.grid[r][c] = {
@@ -413,14 +453,56 @@
 
         // --- GAME LOGIC ---
 
-        function handleInput(e, r, c) {
+        // --- INPUT ---
+        // Mouse keeps its two buttons. Touch and pen get tap-to-reveal and
+        // hold-to-flag, which is the gesture the instructions have always
+        // claimed. Long press is deliberately not wired up for the mouse:
+        // resting on a cell mid-thought should not silently plant a flag.
+        const LONG_PRESS_MS = 400;
+        let press = null;
+
+        function cancelPress() {
+            if (!press) return;
+            clearTimeout(press.timer);
+            if (press.element) press.element.classList.remove('pressing');
+            press = null;
+        }
+
+        function onPointerDown(e, r, c) {
             if (state.gameOver) return;
 
-            // Handle Right Click via mousedown checks if contextmenu fails or specific mouse buttons
-            if (e.button === 2) {
-                // Handled by contextmenu usually, but ignore here to prevent double fire
+            if (e.pointerType === 'mouse') {
+                if (e.button === 2) {
+                    toggleFlag(r, c);
+                    cancelPress();
+                    return;
+                }
+                if (e.button !== 0) return;
+                press = { r, c, flagged: false, element: null };
                 return;
             }
+
+            const element = state.grid[r][c].element;
+            element.classList.add('pressing');
+            press = { r, c, flagged: false, element };
+            press.timer = setTimeout(() => {
+                if (!press) return;
+                press.flagged = true;
+                element.classList.remove('pressing');
+                toggleFlag(r, c);
+                // A short buzz distinguishes "flag planted" from "still
+                // holding", on the devices that can manage one.
+                if (navigator.vibrate) navigator.vibrate(30);
+            }, LONG_PRESS_MS);
+        }
+
+        function onPointerUp(e, r, c) {
+            if (state.gameOver) { cancelPress(); return; }
+            if (!press || press.r !== r || press.c !== c) { cancelPress(); return; }
+
+            const wasFlagGesture = press.flagged;
+            cancelPress();
+            if (wasFlagGesture) return;
 
             if (state.firstClick) {
                 generateMines(r, c);

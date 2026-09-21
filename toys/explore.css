@@ -1,173 +1,356 @@
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;600&display=swap');
+/* explore.css — Frontier Expedition.
+   The board is sized in viewport-aware units rather than a fixed 25px grid,
+   which used to overflow its own container on anything narrower than a
+   tablet. */
+
+:root {
+    --page-bg: #e9e2d0;
+    --panel: #f7f3e8;
+    --panel-2: #fffdf7;
+    --board-bg: #d4c8a8;
+    --cell: #e7dec5;
+    --cell-line: #b0a080;
+    --explored: #c7b68a;
+    --cache: #5bc0de;
+    --player: #d9534f;
+    --goal: #3b6ea5;
+    --fg: #3d3626;
+    --muted: #6f6550;
+    --btn: #6b8e23;
+    --btn-hover: #556b2f;
+    --btn-fg: #ffffff;
+    --danger: #b3453f;
+    --shadow: rgba(0, 0, 0, 0.15);
+    --weave: 0.4;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --page-bg: #14120d;
+        --panel: #1e1b14;
+        --panel-2: #262218;
+        --board-bg: #2e2921;
+        --cell: #211e17;
+        --cell-line: #453e30;
+        --explored: #4a4232;
+        --cache: #3d94b5;
+        --player: #e0635e;
+        --goal: #5b8fc9;
+        --fg: #ece5d4;
+        --muted: #a79d86;
+        --btn: #7fa030;
+        --btn-hover: #93b53c;
+        --btn-fg: #12150a;
+        --danger: #e0635e;
+        --shadow: rgba(0, 0, 0, 0.5);
+        --weave: 0.12;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
 
 body {
-    font-family: 'Open Sans', sans-serif;
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'Open Sans', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--fg);
+    background-color: var(--page-bg);
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4c8a8' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: var(--weave);
+    pointer-events: none;
+    z-index: -1;
+}
+
+main {
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    background-color: #e9e2d0;
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4c8a8' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    padding: 24px 16px 64px;
 }
 
 #game-container {
-    background-color: #f7f3e8;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.15);
-    max-width: 90%;
-    width: 500px;
+    width: 100%;
+    max-width: 560px;
+    padding: 24px 20px 28px;
+    background-color: var(--panel);
+    border-radius: 12px;
+    box-shadow: 0 0 20px var(--shadow);
 }
 
 h1 {
-    font-family: 'Merriweather', serif;
-    color: #4a4a4a;
+    margin: 0 0 4px;
+    font-family: 'Merriweather', Georgia, serif;
+    font-size: clamp(1.4rem, 6vw, 1.9rem);
     text-align: center;
-    margin-bottom: 20px;
 }
 
+.lede {
+    margin: 0 0 18px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* --- resources ---------------------------------------------------------- */
+#resources {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.resource {
+    padding: 8px 4px;
+    text-align: center;
+    background-color: var(--panel-2);
+    border: 1px solid var(--cell-line);
+    border-radius: 5px;
+}
+
+.resource .label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.resource .value {
+    display: block;
+    margin-top: 2px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.resource.low .value {
+    color: var(--danger);
+}
+
+/* --- board -------------------------------------------------------------- */
 #game-board {
     display: grid;
-    grid-template-columns: repeat(15, 25px);
+    grid-template-columns: repeat(15, 1fr);
     gap: 2px;
-    margin: 0 auto 20px;
-    padding: 10px;
-    background-color: #d4c8a8;
-    border-radius: 10px;
+    width: 100%;
+    margin: 0 auto 16px;
+    padding: 8px;
+    background-color: var(--board-bg);
+    border-radius: 8px;
 }
 
-#message-container {
-    max-width: 100%;
-    margin: 20px auto;
-    padding: 15px;
-    background-color: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+.cell {
+    aspect-ratio: 1;
+    background-color: var(--cell);
+    border: 1px solid var(--cell-line);
+    border-radius: 2px;
+    transition: background-color 0.25s ease;
 }
 
-#message {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #333;
+.cell.explored {
+    background-color: var(--explored);
+}
+
+.cell.supply-cache {
+    background-color: var(--cache);
+}
+
+.cell.goal {
+    background-color: var(--goal);
+}
+
+.cell.player {
+    background-color: var(--player);
+    border-radius: 50%;
+}
+
+/* --- controls ----------------------------------------------------------- */
+#movement-controls {
+    display: grid;
+    grid-template-areas:
+        '. up .'
+        'left down right';
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+#movement-controls button {
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    font-size: 1.3rem;
+}
+
+#btn-up {
+    grid-area: up;
+}
+
+#btn-left {
+    grid-area: left;
+}
+
+#btn-down {
+    grid-area: down;
+}
+
+#btn-right {
+    grid-area: right;
 }
 
 #actions {
     display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
 }
 
-#actions button, #movement-controls button, #instructions-button {
-    padding: 10px 20px;
-    font-size: 16px;
-    background-color: #6b8e23;
-    color: white;
+button {
+    padding: 11px 18px;
+    color: var(--btn-fg);
+    font-family: inherit;
+    font-size: 0.95rem;
+    background-color: var(--btn);
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.2s ease;
 }
 
-#actions button:hover, #movement-controls button:hover, #instructions-button:hover {
-    background-color: #556b2f;
+button:hover:not(:disabled) {
+    background-color: var(--btn-hover);
 }
 
-.cell {
-    width: 25px;
-    height: 25px;
-    border: 1px solid #b0a080;
-    transition: background-color 0.3s ease;
-}
-
-.player {
-    background-color: #d9534f;
-    border-radius: 50%;
-}
-
-.explored {
-    background-color: #c7b68a;
-}
-
-.supply-cache {
-    background-color: #5bc0de;
-}
-
-#movement-controls {
-    display: flex;
-    justify-content: center;
-    gap: 5px;
-    margin-bottom: 10px;
-}
-
-#movement-controls button {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.popup {
-    display: none;
-    position: fixed;
-    z-index: 1;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.6);
-}
-
-.popup-content {
-    background-color: #f7f3e8;
-    margin: 10% auto;
-    padding: 30px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 600px;
-    border-radius: 15px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.2);
-}
-
-.close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.3s ease;
-}
-
-.close:hover,
-.close:focus {
-    color: #333;
-    text-decoration: none;
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 #instructions-button {
-    margin-top: 20px;
     width: 100%;
+    margin-top: 14px;
+    color: var(--btn);
+    background-color: transparent;
+    border: 1px solid var(--btn);
 }
 
-#resources {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 20px;
-    font-size: 14px;
+#instructions-button:hover {
+    color: var(--btn-fg);
+    background-color: var(--btn);
 }
 
-.resource {
+/* --- message ------------------------------------------------------------ */
+#message-container {
+    margin: 16px 0 0;
+    padding: 14px;
+    background-color: var(--panel-2);
+    border-radius: 8px;
+    box-shadow: 0 2px 5px var(--shadow);
+}
+
+#message {
+    margin: 0;
+    min-height: 2.8em;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+}
+
+/* --- end panel, replacing the alert() + location.reload() --------------- */
+#end-panel {
+    margin-top: 16px;
+    padding: 20px;
     text-align: center;
-    background-color: #e0d5b8;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    background-color: var(--panel-2);
+    border: 2px solid var(--btn);
+    border-radius: 8px;
+}
+
+#end-panel[hidden] {
+    display: none;
+}
+
+#end-panel h2 {
+    margin: 0 0 8px;
+    font-family: 'Merriweather', Georgia, serif;
+    font-size: 1.2rem;
+}
+
+#end-panel.failed {
+    border-color: var(--danger);
+}
+
+#end-panel p {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* --- instructions dialog ------------------------------------------------ */
+dialog#instructions {
+    max-width: 560px;
+    width: calc(100% - 32px);
+    padding: 28px;
+    color: var(--fg);
+    background-color: var(--panel);
+    border: 1px solid var(--cell-line);
+    border-radius: 12px;
+}
+
+dialog#instructions::backdrop {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+dialog#instructions h2 {
+    margin: 0 0 12px;
+    font-family: 'Merriweather', Georgia, serif;
+    font-size: 1.2rem;
+}
+
+dialog#instructions h3 {
+    margin: 18px 0 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+dialog#instructions ul {
+    margin: 0;
+    padding-left: 1.2em;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+dialog#instructions .close-row {
+    margin-top: 20px;
+    text-align: right;
+}
+
+kbd {
+    padding: 1px 6px;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    font-size: 0.85em;
+    background-color: var(--panel-2);
+    border: 1px solid var(--cell-line);
+    border-radius: 3px;
+}
+
+@media (max-width: 420px) {
+    #resources {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    #game-container {
+        padding: 18px 14px 22px;
+    }
 }
