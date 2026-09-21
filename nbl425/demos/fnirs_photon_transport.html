@@ -141,15 +141,77 @@
 
   .legend-bar {
     display: flex;
-    gap: 14px;
+    gap: 16px;
     flex-wrap: wrap;
-    padding: 8px 12px;
-    background: rgba(0,0,0,0.18);
-    border-top: 1px solid var(--border);
-    font-size: 0.78rem;
+    padding: 9px 14px;
+    background: #090f1d;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.8rem;
+    color: #cbd5e1;
   }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; color: #f1f5f9; font-weight: 500; }
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .metric-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .metric-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .metric-lbl {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .badge-success { background: rgba(16,185,129,0.18); color: #10b981; }
+  .badge-warning { background: rgba(245,158,11,0.18); color: #f59e0b; }
+  .badge-danger { background: rgba(239,68,68,0.18); color: #ef4444; }
+  .badge-info { background: rgba(56,189,248,0.18); color: #38bdf8; }
+
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 7px 10px;
+    background: var(--bg);
+    border: none;
+    color: var(--fg);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+  .mode-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
 
   .theory-grid {
     display: grid;
@@ -190,6 +252,22 @@
     <div class="grid-layout">
       <!-- Left: Canvases -->
       <div>
+        <!-- Live Physical & Physiological Metrics Strip -->
+        <div class="metrics-strip">
+          <div class="metric-card">
+            <div class="metric-val" id="mDepthVal">12.2 mm</div>
+            <div class="metric-lbl">Mean Penetration &middot; <span id="mTargetLayer" class="badge badge-success">Cortex</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="mDpfVal">5.85</div>
+            <div class="metric-lbl">Diff. Pathlength (DPF)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="mSnrVal">+18.4 dB</div>
+            <div class="metric-lbl">Cortical Signal Quality</div>
+          </div>
+        </div>
+
         <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Tissue Slab &amp; Photon Transport Simulation</div>
         <div class="canvas-box">
           <canvas id="transportCanvas" height="260"></canvas>
@@ -203,17 +281,27 @@
 
         <div style="font-size:0.85rem;font-weight:600;margin:16px 0 6px;">Real-Time Hemodynamic Signal Decontamination</div>
         <div class="canvas-box">
-          <canvas id="timeCanvas" height="180"></canvas>
+          <canvas id="timeCanvas" height="190"></canvas>
           <div class="legend-bar">
-            <div class="legend-item"><div style="width:12px;height:2px;background:var(--c-short);"></div><span>Short Channel (Scalp Mayer Wave)</span></div>
-            <div class="legend-item"><div style="width:12px;height:2px;background:var(--c-long);"></div><span>Raw Long Channel (Corrupted Mix)</span></div>
-            <div class="legend-item"><div style="width:12px;height:2px;background:var(--c-task);"></div><span>Decontaminated Cortical Signal</span></div>
+            <div class="legend-item"><div style="width:14px;height:3px;background:var(--c-short);"></div><span>Short Channel (Scalp Mayer Wave)</span></div>
+            <div class="legend-item"><div style="width:14px;height:3px;background:var(--c-long);"></div><span>Raw Long Channel (Corrupted Mix)</span></div>
+            <div class="legend-item"><div style="width:14px;height:3px;background:var(--c-task);"></div><span>Decontaminated Cortical Signal</span></div>
           </div>
         </div>
       </div>
 
       <!-- Right: Controls -->
       <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:8px;">Task Paradigm Mode</div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btnModeBlock">Block Design (8s On / 8s Off)</button>
+          <button class="mode-btn" id="btnModeEvent">Event-Related</button>
+        </div>
+
+        <div style="margin-bottom:14px;" id="eventBtnRow" hidden>
+          <button class="action-btn btn-primary" id="btnTask" style="width:100%;">Trigger Cortical Neural Event</button>
+        </div>
+
         <!-- Source-Detector Distance Slider -->
         <div class="ctrl-group">
           <div class="ctrl-label">
@@ -221,9 +309,10 @@
             <span class="ctrl-val" id="distVal">30 mm</span>
           </div>
           <input type="range" id="distSlider" min="15" max="45" step="1" value="30">
-          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
-            <span>15 mm (Superficial)</span>
-            <span>45 mm (Deep Penetration)</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;margin-top:2px;">
+            <span style="color:var(--muted);">15 mm (Superficial)</span>
+            <span id="distLayerBadge" class="badge badge-success">Cortex Reached</span>
+            <span style="color:var(--muted);">45 mm (Deep)</span>
           </div>
         </div>
 
@@ -233,7 +322,24 @@
             <span>Tissue Scattering (&mu;'<sub>s</sub>)</span>
             <span class="ctrl-val" id="scatVal">1.0 mm<sup>-1</sup></span>
           </div>
-          <input type="range" id="scatSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+          <input type="range" id="scatSlider" min="0.5" max="2.5" step="0.1" value="1.0">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>0.5 mm⁻¹ (Low / Ballistic)</span>
+            <span>2.5 mm⁻¹ (Turbid / Diffuse)</span>
+          </div>
+        </div>
+
+        <!-- Cortical Task Signal Amplitude -->
+        <div class="ctrl-group">
+          <div class="ctrl-label">
+            <span>Cortical Neural Activation (&Delta;HbO<sub>2</sub>)</span>
+            <span class="ctrl-val" id="taskAmpVal">1.8 &mu;M</span>
+          </div>
+          <input type="range" id="taskAmpSlider" min="0.0" max="3.0" step="0.2" value="1.8">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>0.0 (Resting State)</span>
+            <span>3.0 (Robust Activation)</span>
+          </div>
         </div>
 
         <!-- Systemic Scalp Noise Amplitude -->
@@ -242,27 +348,26 @@
             <span>Scalp Mayer Wave Amplitude</span>
             <span class="ctrl-val" id="mayerVal">High</span>
           </div>
-          <input type="range" id="mayerSlider" min="0" max="2" step="0.2" value="1.2">
-        </div>
-
-        <!-- Task Stimulation Button -->
-        <div style="margin-top:14px;">
-          <button class="action-btn btn-primary" id="btnTask" style="width:100%;">Trigger Cortical Neural Task (Event)</button>
+          <input type="range" id="mayerSlider" min="0.0" max="2.5" step="0.25" value="1.25">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <span>0.0 (Clean Scalp)</span>
+            <span>2.5 (Severe Noise)</span>
+          </div>
         </div>
 
         <!-- Short-Channel Regression Toggle -->
-        <div style="margin-top:10px;">
+        <div style="margin-top:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;">
           <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
             <input type="checkbox" id="chkRegress" checked>
-            <span>Enable Short-Channel Scalp Regression</span>
+            <span>Enable Short-Channel Regression</span>
           </label>
         </div>
 
         <!-- Information Box -->
-        <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
-          <strong>Clinical Insight:</strong>
+        <div style="margin-top:14px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
+          <strong>Clinical &amp; Biophysical Insight:</strong>
           <p style="margin:4px 0 0;color:var(--muted);">
-            Notice how the <strong>Short Channel (8 mm)</strong> samples only the yellow scalp layer. Uncheck "Enable Short-Channel Scalp Regression" to observe how systemic blood pressure Mayer waves (0.1 Hz) contaminate the raw long channel, mimicking false brain activation.
+            Notice how the <strong>Short Optode (8 mm)</strong> samples only the yellow scalp layer. Try unchecking "Enable Short-Channel Regression" with High Mayer waves to observe how blood pressure oscillations masquerade as cortical activation. Vary <strong>Tissue Scattering</strong> to observe how photon wander spreads the banana path!
           </p>
         </div>
       </div>
@@ -306,35 +411,40 @@
   const DEPTH_CSF = 10;
   const MAX_DEPTH = 30;
 
-  // State
+  // Simulation State
   let longDistMm = 30; // 15 to 45 mm
-  let reducedScattering = 1.0; // mm^-1
-  let mayerAmp = 1.2;
+  let reducedScattering = 1.0; // mm^-1 (0.5 to 2.5)
+  let taskAmp = 1.8; // 0.0 to 3.0 uM
+  let mayerAmp = 1.25; // 0.0 to 2.5
   let regressionEnabled = true;
+  let paradigmMode = 'block'; // 'block' or 'event'
+  let eventTriggered = false;
+  let eventTimer = 0;
+  let blockTimer = 0;
+  let currentTaskActive = false;
+  let currentHrfVal = 0;
 
-  // Real-time time series buffer
+  // Real-time time series rolling buffers
   const TIME_POINTS = 240;
   const shortHistory = new Float64Array(TIME_POINTS);
   const longHistory = new Float64Array(TIME_POINTS);
   const cleanHistory = new Float64Array(TIME_POINTS);
+  const taskStateHistory = new Uint8Array(TIME_POINTS); // 1 if task active, 0 if rest
 
-  let taskActive = false;
-  let taskTimer = 0;
   let timeStep = 0;
 
-  // Photon simulation particles
-  const MAX_PHOTONS = 280;
+  // Monte Carlo Photon simulation particles
+  const MAX_PHOTONS = 300;
   const photons = [];
 
   function initPhotons() {
+    photons.length = 0;
     for (let i = 0; i < MAX_PHOTONS; i++) {
       photons.push({
-        x: 0,
-        y: 0,
-        target: (Math.random() < 0.3) ? 'short' : 'long',
+        target: (Math.random() < 0.32) ? 'short' : 'long',
         progress: Math.random(),
-        speed: 0.008 + Math.random() * 0.008,
-        wander: (Math.random() - 0.5) * 6
+        speed: 0.006 + Math.random() * 0.007,
+        wander: (Math.random() - 0.5) * 8 * Math.sqrt(reducedScattering)
       });
     }
   }
@@ -348,51 +458,145 @@
 
   const distSlider = document.getElementById('distSlider');
   const distVal = document.getElementById('distVal');
+  const distLayerBadge = document.getElementById('distLayerBadge');
   const scatSlider = document.getElementById('scatSlider');
   const scatVal = document.getElementById('scatVal');
+  const taskAmpSlider = document.getElementById('taskAmpSlider');
+  const taskAmpVal = document.getElementById('taskAmpVal');
   const mayerSlider = document.getElementById('mayerSlider');
   const mayerVal = document.getElementById('mayerVal');
-  const btnTask = document.getElementById('btnTask');
   const chkRegress = document.getElementById('chkRegress');
+
+  const btnModeBlock = document.getElementById('btnModeBlock');
+  const btnModeEvent = document.getElementById('btnModeEvent');
+  const eventBtnRow = document.getElementById('eventBtnRow');
+  const btnTask = document.getElementById('btnTask');
+
+  const mDepthVal = document.getElementById('mDepthVal');
+  const mTargetLayer = document.getElementById('mTargetLayer');
+  const mDpfVal = document.getElementById('mDpfVal');
+  const mSnrVal = document.getElementById('mSnrVal');
+
+  // Helper for rounded rectangles with fallback
+  function drawRoundedRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+    } else {
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+    }
+  }
+
+  // Physics Calculations
+  function calcPhysics() {
+    // Differential Pathlength Factor scales with sqrt(reducedScattering)
+    const dpf = 5.85 * Math.sqrt(reducedScattering / 1.0);
+
+    // Mean penetration depth (in mm)
+    // Physical diffusion approximation: z ~ 0.5 * sqrt(d_SD / (c * mu_s'))
+    const zPenLong = 0.5 * Math.sqrt(longDistMm) * Math.sqrt(1.0 / reducedScattering) * 4.45;
+    const zPenShort = 0.5 * Math.sqrt(8.0) * Math.sqrt(1.0 / reducedScattering) * 2.0;
+
+    // Cortical coupling efficiency: 0 if superficial (<= 8.5 mm), full coupling at >= 14 mm
+    let corticalCoupling = 0;
+    if (zPenLong > 8.5) {
+      corticalCoupling = Math.min(1.0, (zPenLong - 8.5) / 5.5);
+    }
+
+    // Scalp coupling: photons always enter and exit through scalp
+    const scalpCoupling = 0.75;
+
+    return { dpf, zPenLong, zPenShort, corticalCoupling, scalpCoupling };
+  }
+
+  // Update DOM Metrics
+  function updateMetrics(phys) {
+    const z = phys.zPenLong;
+    mDepthVal.innerText = `${z.toFixed(1)} mm`;
+
+    if (z < DEPTH_SCALP) {
+      mTargetLayer.innerHTML = '<span class="badge badge-warning">Scalp Only</span>';
+      distLayerBadge.innerHTML = '<span class="badge badge-warning">Scalp Only</span>';
+    } else if (z < DEPTH_SKULL) {
+      mTargetLayer.innerHTML = '<span class="badge badge-warning">Skull Only</span>';
+      distLayerBadge.innerHTML = '<span class="badge badge-warning">Skull Only</span>';
+    } else if (z < DEPTH_CSF) {
+      mTargetLayer.innerHTML = '<span class="badge badge-info">CSF Border</span>';
+      distLayerBadge.innerHTML = '<span class="badge badge-info">CSF Border</span>';
+    } else {
+      mTargetLayer.innerHTML = '<span class="badge badge-success">Cortex</span>';
+      distLayerBadge.innerHTML = '<span class="badge badge-success">Cortex Reached</span>';
+    }
+
+    mDpfVal.innerText = phys.dpf.toFixed(2);
+
+    // Signal Quality / SNR calculation
+    if (phys.corticalCoupling <= 0.05 || taskAmp <= 0.05) {
+      mSnrVal.innerText = '0.0 dB (No Signal)';
+      mSnrVal.style.color = '#94a3b8';
+    } else if (regressionEnabled) {
+      const snr = 12.0 + 10.0 * phys.corticalCoupling * (taskAmp / 1.5) / (0.2 + 0.3 * (mayerAmp / 1.25));
+      mSnrVal.innerText = `+${snr.toFixed(1)} dB`;
+      mSnrVal.style.color = '#10b981';
+    } else {
+      const snr = -6.0 + 7.5 * phys.corticalCoupling * (taskAmp / 1.5) / (0.25 + 1.25 * (mayerAmp / 1.25));
+      mSnrVal.innerText = `${snr >= 0 ? '+' : ''}${snr.toFixed(1)} dB`;
+      mSnrVal.style.color = (snr >= 0) ? '#f59e0b' : '#ef4444';
+    }
+  }
 
   // Animation Loop
   function tick() {
     timeStep++;
+    const phys = calcPhysics();
 
-    // 1. Simulate true cortical hemodynamic response (gamma variate)
-    let taskSignal = 0;
-    if (taskActive) {
-      taskTimer++;
-      const tSec = taskTimer * 0.08;
-      // Double gamma HRF
-      taskSignal = 2.5 * (Math.pow(tSec / 4.0, 5) * Math.exp(-(tSec - 4.0) / 1.0));
-      if (taskTimer > 120) {
-        taskActive = false;
-        taskTimer = 0;
+    // 1. Paradigm & Cortical HRF Simulation
+    if (paradigmMode === 'block') {
+      blockTimer = (blockTimer + 1) % 320;
+      currentTaskActive = (blockTimer < 160); // 8s ON, 8s OFF
+      const targetHrf = currentTaskActive ? taskAmp : 0;
+      currentHrfVal += (targetHrf - currentHrfVal) * 0.045; // smooth physiological transition
+    } else {
+      if (eventTriggered) {
+        eventTimer++;
+        const tSec = eventTimer * 0.05;
+        // Double gamma variate HRF response
+        const hrf = Math.pow(tSec / 2.8, 4) * Math.exp(-(tSec - 2.8) / 1.1) - 0.22 * Math.pow(tSec / 7.5, 7) * Math.exp(-(tSec - 7.5) / 1.1);
+        currentHrfVal = taskAmp * Math.max(0, hrf);
+        currentTaskActive = (eventTimer < 55);
+        if (eventTimer > 170) {
+          eventTriggered = false;
+          eventTimer = 0;
+          currentHrfVal = 0;
+          currentTaskActive = false;
+        }
+      } else {
+        currentHrfVal = 0;
+        currentTaskActive = false;
       }
     }
 
-    // 2. Simulate systemic physiological oscillations in scalp (0.1 Hz Mayer wave + 1.0 Hz cardiac)
+    // 2. Superficial Extracerebral Physiology (Scalp Mayer waves 0.1 Hz + Cardiac 1.0 Hz)
     const t = timeStep * 0.05;
-    const mayerWave = mayerAmp * (Math.sin(2 * Math.PI * 0.1 * t) + 0.35 * Math.sin(2 * Math.PI * 0.05 * t));
-    const cardiacWave = 0.25 * mayerAmp * Math.sin(2 * Math.PI * 1.0 * t);
-    const scalpPhysiology = mayerWave + cardiacWave;
+    const mayerWave = mayerAmp * (Math.sin(2 * Math.PI * 0.10 * t) + 0.35 * Math.sin(2 * Math.PI * 0.05 * t));
+    const cardiacWave = 0.22 * mayerAmp * Math.sin(2 * Math.PI * 1.05 * t);
+    const scalpNoise = (Math.random() - 0.5) * 0.12;
+    const scalpPhysiology = mayerWave + cardiacWave + scalpNoise;
 
-    // 3. Short channel: 100% scalp physiology, 0% cortical brain response
-    const shortVal = scalpPhysiology + (Math.random() - 0.5) * 0.15;
+    // 3. Channels Simulation
+    // Short Channel (8 mm): purely scalp physiology, 0 cortical coupling
+    const shortVal = scalpPhysiology;
 
-    // 4. Long channel: mix of scalp contamination (~70%) + true cortical signal (~30%)
-    const scalpCoupling = 0.75;
-    const corticalCoupling = 0.35 * (longDistMm / 30); // deeper penetration with wider separation
-    const longVal = (scalpCoupling * scalpPhysiology) + (corticalCoupling * taskSignal) + (Math.random() - 0.5) * 0.2;
+    // Long Channel (d_SD mm): scalp contamination + cortical coupling * HRF
+    const longVal = (phys.scalpCoupling * scalpPhysiology) + (phys.corticalCoupling * currentHrfVal) + (Math.random() - 0.5) * 0.10;
 
-    // 5. Decontaminated signal via short-channel regression
-    // Y_cortex = Y_long - beta * Y_short
-    let decontaminatedVal = 0;
+    // Decontaminated Signal via Short-Channel Regression
+    let cleanVal = 0;
     if (regressionEnabled) {
-      decontaminatedVal = longVal - (scalpCoupling * shortVal);
+      cleanVal = longVal - (phys.scalpCoupling * shortVal);
     } else {
-      decontaminatedVal = longVal;
+      cleanVal = longVal;
     }
 
     // Push into rolling buffers
@@ -400,28 +604,36 @@
       shortHistory[i] = shortHistory[i + 1];
       longHistory[i] = longHistory[i + 1];
       cleanHistory[i] = cleanHistory[i + 1];
+      taskStateHistory[i] = taskStateHistory[i + 1];
     }
     shortHistory[TIME_POINTS - 1] = shortVal;
     longHistory[TIME_POINTS - 1] = longVal;
-    cleanHistory[TIME_POINTS - 1] = decontaminatedVal;
+    cleanHistory[TIME_POINTS - 1] = cleanVal;
+    taskStateHistory[TIME_POINTS - 1] = currentTaskActive ? 1 : 0;
 
-    // Advance photons
+    // 4. Advance Photons with scattering-dependent wander
+    const wanderScale = Math.sqrt(reducedScattering);
     for (let p of photons) {
       p.progress += p.speed;
       if (p.progress >= 1.0) {
         p.progress = 0;
-        p.target = (Math.random() < 0.35) ? 'short' : 'long';
-        p.wander = (Math.random() - 0.5) * 6;
+        p.target = (Math.random() < 0.32) ? 'short' : 'long';
+        p.wander = (Math.random() - 0.5) * 8 * wanderScale;
       }
     }
 
-    renderTransport();
+    // Update DOM indicators
+    updateMetrics(phys);
+
+    // Render Canvases
+    renderTransport(phys);
     renderTimeSeries();
+
     requestAnimationFrame(tick);
   }
 
   // Draw Tissue Slab & Banana Paths
-  function renderTransport() {
+  function renderTransport(phys) {
     const dpr = window.devicePixelRatio || 1;
     const w = transportCanvas.parentElement.clientWidth;
     const h = 260;
@@ -433,12 +645,14 @@
     tCtx.save();
     tCtx.scale(dpr, dpr);
 
-    tCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    tCtx.fillStyle = '#070c18';
     tCtx.fillRect(0, 0, w, h);
 
-    const padX = 60;
-    const surfaceY = 40;
-    const slabH = h - surfaceY - 20;
+    const padLeft = 112;
+    const padRight = 30;
+    const surfaceY = 46;
+    const slabH = h - surfaceY - 18;
+    const slabW = w - padLeft - padRight;
 
     // Layer depths in pixels
     const yScalp = surfaceY + (DEPTH_SCALP / MAX_DEPTH) * slabH;
@@ -446,137 +660,151 @@
     const yCsf = surfaceY + (DEPTH_CSF / MAX_DEPTH) * slabH;
     const yCortex = surfaceY + slabH;
 
-    // Draw tissue layers
+    // Tissue layer fills
     // Scalp
-    tCtx.fillStyle = 'rgba(251, 191, 36, 0.12)';
-    tCtx.fillRect(padX, surfaceY, w - 2 * padX, yScalp - surfaceY);
-
+    tCtx.fillStyle = 'rgba(251, 191, 36, 0.15)';
+    tCtx.fillRect(padLeft, surfaceY, slabW, yScalp - surfaceY);
     // Skull
-    tCtx.fillStyle = 'rgba(148, 163, 184, 0.10)';
-    tCtx.fillRect(padX, yScalp, w - 2 * padX, ySkull - yScalp);
-
+    tCtx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+    tCtx.fillRect(padLeft, yScalp, slabW, ySkull - yScalp);
     // CSF
-    tCtx.fillStyle = 'rgba(56, 189, 248, 0.08)';
-    tCtx.fillRect(padX, ySkull, w - 2 * padX, yCsf - ySkull);
+    tCtx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+    tCtx.fillRect(padLeft, ySkull, slabW, yCsf - ySkull);
+    // Cortex
+    tCtx.fillStyle = 'rgba(244, 63, 94, 0.18)';
+    tCtx.fillRect(padLeft, yCsf, slabW, yCortex - yCsf);
 
-    // Cerebral Cortex
-    tCtx.fillStyle = 'rgba(244, 63, 94, 0.15)';
-    tCtx.fillRect(padX, yCsf, w - 2 * padX, yCortex - yCsf);
-
-    // Layer dividing lines & text labels
-    tCtx.font = '10px -apple-system, sans-serif';
-    tCtx.fillStyle = '#64748b';
-    tCtx.textAlign = 'right';
-
-    tCtx.fillText('Scalp (0-4mm)', padX - 8, surfaceY + 14);
-    tCtx.fillText('Skull (4-8mm)', padX - 8, yScalp + 14);
-    tCtx.fillText('CSF (8-10mm)', padX - 8, ySkull + 12);
-    tCtx.fillText('Cortex (>10mm)', padX - 8, yCsf + 20);
-
-    tCtx.strokeStyle = 'rgba(100, 116, 139, 0.25)';
+    // Dividing lines
+    tCtx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
     tCtx.lineWidth = 1;
     [surfaceY, yScalp, ySkull, yCsf, yCortex].forEach(y => {
       tCtx.beginPath();
-      tCtx.moveTo(padX, y);
-      tCtx.lineTo(w - padX, y);
+      tCtx.moveTo(padLeft, y);
+      tCtx.lineTo(padLeft + slabW, y);
       tCtx.stroke();
     });
 
-    // Optode positions (mapped to pixels: 1 mm ~ 8 px)
-    const mmToPx = (w - 2 * padX) / 55;
-    const emitterX = padX + 30;
-    const shortDetX = emitterX + 8 * mmToPx;
+    // Helper: Draw Left Label Pill
+    function drawLayerBadge(text, bgCol, borderCol, textCol, midY) {
+      const badgeW = 96;
+      const badgeH = 18;
+      const badgeX = (padLeft - badgeW) / 2;
+      const badgeY = midY - badgeH / 2;
+
+      tCtx.fillStyle = bgCol;
+      tCtx.strokeStyle = borderCol;
+      tCtx.lineWidth = 1;
+
+      drawRoundedRect(tCtx, badgeX, badgeY, badgeW, badgeH, 4);
+      tCtx.fill();
+      tCtx.stroke();
+
+      tCtx.font = 'bold 9.5px -apple-system, BlinkMacSystemFont, sans-serif';
+      tCtx.fillStyle = textCol;
+      tCtx.textAlign = 'center';
+      tCtx.textBaseline = 'middle';
+      tCtx.fillText(text, badgeX + badgeW / 2, badgeY + badgeH / 2);
+    }
+
+    drawLayerBadge('Scalp (0-4mm)', 'rgba(251, 191, 36, 0.18)', '#fbbf24', '#fef08a', (surfaceY + yScalp) / 2);
+    drawLayerBadge('Skull (4-8mm)', 'rgba(148, 163, 184, 0.18)', '#94a3b8', '#e2e8f0', (yScalp + ySkull) / 2);
+    drawLayerBadge('CSF (8-10mm)', 'rgba(56, 189, 248, 0.18)', '#38bdf8', '#7dd3fc', (ySkull + yCsf) / 2);
+    drawLayerBadge('Cortex (>10mm)', 'rgba(244, 63, 94, 0.20)', '#f87171', '#fca5a5', (yCsf + yCortex) / 2);
+
+    // Optode positions in pixels (0 to 50 mm coordinate system)
+    const mmToPx = slabW / 52;
+    const emitterX = padLeft + 22;
+    const shortDetX = emitterX + 8.0 * mmToPx;
     const longDetX = emitterX + longDistMm * mmToPx;
 
-    // Draw Photon Banana Paths (Elliptical Glow Profiles)
-    // 1. Short banana path (stays in scalp)
+    // Draw Sensitivity Bananas
+    // 1. Short Banana Path (in scalp)
     const shortMidX = (emitterX + shortDetX) / 2;
-    const shortDepth = (DEPTH_SCALP * 0.8 / MAX_DEPTH) * slabH;
-    const shortGrad = tCtx.createRadialGradient(shortMidX, surfaceY + shortDepth, 2, shortMidX, surfaceY, (shortDetX - emitterX) * 0.7);
-    shortGrad.addColorStop(0, 'rgba(251, 191, 36, 0.35)');
+    const shortDepthPx = (phys.zPenShort / MAX_DEPTH) * slabH;
+    const shortRadiusX = (shortDetX - emitterX) * 0.6;
+    const shortGrad = tCtx.createRadialGradient(shortMidX, surfaceY + shortDepthPx * 0.7, 2, shortMidX, surfaceY, shortRadiusX);
+    shortGrad.addColorStop(0, 'rgba(251, 191, 36, 0.42)');
+    shortGrad.addColorStop(0.7, 'rgba(251, 191, 36, 0.15)');
     shortGrad.addColorStop(1, 'transparent');
     tCtx.fillStyle = shortGrad;
     tCtx.beginPath();
-    tCtx.ellipse(shortMidX, surfaceY + shortDepth * 0.5, (shortDetX - emitterX) * 0.6, shortDepth, 0, 0, Math.PI);
+    tCtx.ellipse(shortMidX, surfaceY + shortDepthPx * 0.5, shortRadiusX, shortDepthPx, 0, 0, Math.PI);
     tCtx.fill();
 
-    // 2. Long banana path (penetrates deep into cortex)
+    // 2. Long Banana Path (penetrates cortex)
     const longMidX = (emitterX + longDetX) / 2;
-    const longDepth = (Math.min(MAX_DEPTH, 0.55 * Math.sqrt(longDistMm) * 3.5) / MAX_DEPTH) * slabH;
-    const longGrad = tCtx.createRadialGradient(longMidX, surfaceY + longDepth * 0.65, 5, longMidX, surfaceY, (longDetX - emitterX) * 0.7);
-    longGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
-    longGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.20)');
+    const longDepthPx = (Math.min(MAX_DEPTH, phys.zPenLong) / MAX_DEPTH) * slabH;
+    const longRadiusX = (longDetX - emitterX) * (0.54 + 0.08 * Math.sqrt(reducedScattering));
+    const longGrad = tCtx.createRadialGradient(longMidX, surfaceY + longDepthPx * 0.65, 4, longMidX, surfaceY, longRadiusX);
+    longGrad.addColorStop(0, 'rgba(56, 189, 248, 0.40)');
+    longGrad.addColorStop(0.45, 'rgba(245, 158, 11, 0.22)');
+    longGrad.addColorStop(0.85, 'rgba(239, 68, 68, 0.10)');
     longGrad.addColorStop(1, 'transparent');
     tCtx.fillStyle = longGrad;
     tCtx.beginPath();
-    tCtx.ellipse(longMidX, surfaceY + longDepth * 0.5, (longDetX - emitterX) * 0.6, longDepth, 0, 0, Math.PI);
+    tCtx.ellipse(longMidX, surfaceY + longDepthPx * 0.5, longRadiusX, longDepthPx, 0, 0, Math.PI);
     tCtx.fill();
 
-    // Draw active animated photons
+    // Animated Monte Carlo Photons
     for (let p of photons) {
       const isShort = (p.target === 'short');
       const detX = isShort ? shortDetX : longDetX;
-      const midX = (emitterX + detX) / 2;
-      const maxPen = isShort ? shortDepth : longDepth;
+      const maxPenPx = isShort ? shortDepthPx : longDepthPx;
 
-      // Parabolic / elliptical trajectory with scattering wander
       const frac = p.progress;
       const x = emitterX + frac * (detX - emitterX);
       const arc = 4 * frac * (1 - frac);
-      const y = surfaceY + arc * maxPen + p.wander * Math.sin(frac * Math.PI);
+      const y = surfaceY + arc * maxPenPx + p.wander * Math.sin(frac * Math.PI);
 
       tCtx.beginPath();
-      tCtx.arc(x, Math.max(surfaceY + 1, y), 1.6, 0, 2 * Math.PI);
-      tCtx.fillStyle = isShort ? '#fbbf24' : '#f59e0b';
+      tCtx.arc(x, Math.max(surfaceY + 1.5, y), 1.7, 0, 2 * Math.PI);
+      tCtx.fillStyle = isShort ? '#fbbf24' : '#38bdf8';
       tCtx.fill();
     }
 
-    // Draw Optodes on surface
-    // Emitter
-    tCtx.beginPath();
-    tCtx.arc(emitterX, surfaceY, 6, 0, 2 * Math.PI);
-    tCtx.fillStyle = 'var(--c-emitter)';
-    tCtx.fill();
-    tCtx.strokeStyle = '#fff';
-    tCtx.lineWidth = 1.5;
-    tCtx.stroke();
+    // Helper: Draw Optode Pin & Text
+    function drawOptodePin(x, color, labelText) {
+      // Glow circle
+      tCtx.beginPath();
+      tCtx.arc(x, surfaceY, 7, 0, 2 * Math.PI);
+      tCtx.fillStyle = color;
+      tCtx.fill();
+      tCtx.strokeStyle = '#ffffff';
+      tCtx.lineWidth = 2;
+      tCtx.stroke();
 
-    // Short Detector
-    tCtx.beginPath();
-    tCtx.arc(shortDetX, surfaceY, 5, 0, 2 * Math.PI);
-    tCtx.fillStyle = 'var(--c-short)';
-    tCtx.fill();
-    tCtx.strokeStyle = '#fff';
-    tCtx.lineWidth = 1.5;
-    tCtx.stroke();
+      // Top label badge
+      const tagW = 66;
+      const tagH = 18;
+      const tagX = x - tagW / 2;
+      const tagY = surfaceY - 26;
 
-    // Long Detector
-    tCtx.beginPath();
-    tCtx.arc(longDetX, surfaceY, 6, 0, 2 * Math.PI);
-    tCtx.fillStyle = 'var(--c-long)';
-    tCtx.fill();
-    tCtx.strokeStyle = '#fff';
-    tCtx.lineWidth = 1.5;
-    tCtx.stroke();
+      tCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      tCtx.strokeStyle = color;
+      tCtx.lineWidth = 1;
+      drawRoundedRect(tCtx, tagX, tagY, tagW, tagH, 3);
+      tCtx.fill();
+      tCtx.stroke();
 
-    // Optode labels
-    tCtx.font = 'bold 11px -apple-system, sans-serif';
-    tCtx.textAlign = 'center';
-    tCtx.fillStyle = 'var(--c-emitter)';
-    tCtx.fillText('Source', emitterX, surfaceY - 12);
-    tCtx.fillStyle = 'var(--c-short)';
-    tCtx.fillText('8 mm', shortDetX, surfaceY - 12);
-    tCtx.fillStyle = 'var(--c-long)';
-    tCtx.fillText(`${longDistMm} mm`, longDetX, surfaceY - 12);
+      tCtx.font = 'bold 9.5px -apple-system, sans-serif';
+      tCtx.fillStyle = '#ffffff';
+      tCtx.textAlign = 'center';
+      tCtx.textBaseline = 'middle';
+      tCtx.fillText(labelText, x, tagY + tagH / 2);
+    }
+
+    drawOptodePin(emitterX, '#ef4444', 'Source');
+    drawOptodePin(shortDetX, '#fbbf24', 'Short 8mm');
+    drawOptodePin(longDetX, '#38bdf8', `Long ${longDistMm}mm`);
 
     tCtx.restore();
   }
 
-  // Draw Time Series Strip Chart
+  // Draw Real-Time Time Series Strip Chart
   function renderTimeSeries() {
     const dpr = window.devicePixelRatio || 1;
     const w = timeCanvas.parentElement.clientWidth;
-    const h = 180;
+    const h = 190;
     timeCanvas.width = w * dpr;
     timeCanvas.height = h * dpr;
     timeCanvas.style.width = w + 'px';
@@ -585,28 +813,110 @@
     tsCtx.save();
     tsCtx.scale(dpr, dpr);
 
-    tsCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg') || '#050813';
+    tsCtx.fillStyle = '#070c18';
     tsCtx.fillRect(0, 0, w, h);
 
-    const padL = 40;
-    const padR = 20;
+    const padL = 50;
+    const padR = 24;
+    const padT = 24;
+    const padB = 26;
     const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+    const midY = padT + plotH * 0.5;
 
-    // Grid & Zero lines
-    tsCtx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
-    tsCtx.lineWidth = 1;
-    const midY = h * 0.52;
+    // 1. Shaded Task Bands
+    tsCtx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+    let inTask = false;
+    let taskStartX = 0;
+    for (let i = 0; i < TIME_POINTS; i++) {
+      const x = padL + (i / (TIME_POINTS - 1)) * plotW;
+      if (taskStateHistory[i] === 1) {
+        if (!inTask) {
+          inTask = true;
+          taskStartX = x;
+        }
+      } else {
+        if (inTask) {
+          inTask = false;
+          tsCtx.fillRect(taskStartX, padT, x - taskStartX, plotH);
+        }
+      }
+    }
+    if (inTask) {
+      tsCtx.fillRect(taskStartX, padT, (padL + plotW) - taskStartX, plotH);
+    }
 
-    tsCtx.beginPath();
-    tsCtx.moveTo(padL, midY);
-    tsCtx.lineTo(padL + plotW, midY);
-    tsCtx.stroke();
+    // 2. Y-Axis Gridlines & Scale
+    const yLevels = [
+      { val: 2.0, lbl: '+2.0' },
+      { val: 1.0, lbl: '+1.0' },
+      { val: 0.0, lbl: ' 0.0' },
+      { val: -1.0, lbl: '-1.0' },
+      { val: -2.0, lbl: '-2.0' }
+    ];
 
-    const scaleY = 32;
+    const scaleY = (plotH * 0.44) / 2.0;
 
-    // 1. Draw Short Channel Trace (Yellow)
-    tsCtx.strokeStyle = 'rgba(251, 191, 36, 0.75)';
-    tsCtx.lineWidth = 1.2;
+    tsCtx.font = '9px monospace';
+    tsCtx.textAlign = 'right';
+    tsCtx.textBaseline = 'middle';
+
+    yLevels.forEach(lvl => {
+      const y = midY - lvl.val * scaleY;
+      tsCtx.strokeStyle = (lvl.val === 0.0) ? 'rgba(148, 163, 184, 0.45)' : 'rgba(100, 116, 139, 0.20)';
+      tsCtx.lineWidth = (lvl.val === 0.0) ? 1.2 : 0.8;
+      tsCtx.setLineDash(lvl.val === 0.0 ? [] : [3, 3]);
+
+      tsCtx.beginPath();
+      tsCtx.moveTo(padL, y);
+      tsCtx.lineTo(padL + plotW, y);
+      tsCtx.stroke();
+
+      tsCtx.fillStyle = (lvl.val === 0.0) ? '#cbd5e1' : '#94a3b8';
+      tsCtx.fillText(lvl.lbl, padL - 6, y);
+    });
+    tsCtx.setLineDash([]);
+
+    // Y-Axis Title
+    tsCtx.font = '9.5px -apple-system, sans-serif';
+    tsCtx.fillStyle = '#94a3b8';
+    tsCtx.textAlign = 'left';
+    tsCtx.fillText('ΔOD / μM', padL, padT - 10);
+
+    // Live Task Status Pill in Top-Right
+    if (currentTaskActive) {
+      tsCtx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      tsCtx.strokeStyle = '#10b981';
+      tsCtx.lineWidth = 1;
+      drawRoundedRect(tsCtx, padL + plotW - 140, padT - 17, 140, 17, 3);
+      tsCtx.fill();
+      tsCtx.stroke();
+
+      tsCtx.font = 'bold 9px -apple-system, sans-serif';
+      tsCtx.fillStyle = '#10b981';
+      tsCtx.textAlign = 'center';
+      tsCtx.textBaseline = 'middle';
+      tsCtx.fillText('● CORTICAL TASK ACTIVE', padL + plotW - 70, padT - 8);
+    } else {
+      tsCtx.font = '9px -apple-system, sans-serif';
+      tsCtx.fillStyle = '#64748b';
+      tsCtx.textAlign = 'right';
+      tsCtx.textBaseline = 'middle';
+      tsCtx.fillText('○ RESTING STATE', padL + plotW, padT - 8);
+    }
+
+    // 3. Time Axis Labels
+    tsCtx.font = '9px -apple-system, sans-serif';
+    tsCtx.fillStyle = '#64748b';
+    tsCtx.textAlign = 'left';
+    tsCtx.fillText('← Past (12s)', padL, h - 8);
+    tsCtx.textAlign = 'right';
+    tsCtx.fillText('Live (t) →', padL + plotW, h - 8);
+
+    // 4. Traces
+    // Short Channel (Yellow)
+    tsCtx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+    tsCtx.lineWidth = 1.3;
     tsCtx.beginPath();
     for (let i = 0; i < TIME_POINTS; i++) {
       const x = padL + (i / (TIME_POINTS - 1)) * plotW;
@@ -616,9 +926,9 @@
     }
     tsCtx.stroke();
 
-    // 2. Draw Long Channel Trace (Blue)
-    tsCtx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
-    tsCtx.lineWidth = 1.2;
+    // Raw Long Channel (Sky Blue)
+    tsCtx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+    tsCtx.lineWidth = 1.3;
     tsCtx.beginPath();
     for (let i = 0; i < TIME_POINTS; i++) {
       const x = padL + (i / (TIME_POINTS - 1)) * plotW;
@@ -628,9 +938,9 @@
     }
     tsCtx.stroke();
 
-    // 3. Draw Decontaminated Cortical Signal (Green, Bold)
+    // Decontaminated Cortical Signal (Emerald Green, Bold)
     tsCtx.strokeStyle = '#10b981';
-    tsCtx.lineWidth = 2.2;
+    tsCtx.lineWidth = 2.4;
     tsCtx.beginPath();
     for (let i = 0; i < TIME_POINTS; i++) {
       const x = padL + (i / (TIME_POINTS - 1)) * plotW;
@@ -652,20 +962,46 @@
   scatSlider.addEventListener('input', (e) => {
     reducedScattering = parseFloat(e.target.value);
     scatVal.innerHTML = `${reducedScattering.toFixed(1)} mm<sup>-1</sup>`;
+    initPhotons();
+  });
+
+  taskAmpSlider.addEventListener('input', (e) => {
+    taskAmp = parseFloat(e.target.value);
+    taskAmpVal.innerHTML = `${taskAmp.toFixed(1)} &mu;M`;
   });
 
   mayerSlider.addEventListener('input', (e) => {
     mayerAmp = parseFloat(e.target.value);
-    mayerVal.innerText = (mayerAmp > 1.4) ? 'Severe' : (mayerAmp > 0.6) ? 'High' : (mayerAmp > 0) ? 'Mild' : 'Zero';
-  });
-
-  btnTask.addEventListener('click', () => {
-    taskActive = true;
-    taskTimer = 0;
+    mayerVal.innerText = (mayerAmp > 1.6) ? 'Severe' : (mayerAmp > 0.8) ? 'High' : (mayerAmp > 0.2) ? 'Mild' : 'Zero';
   });
 
   chkRegress.addEventListener('change', (e) => {
     regressionEnabled = e.target.checked;
+  });
+
+  btnModeBlock.addEventListener('click', () => {
+    paradigmMode = 'block';
+    btnModeBlock.classList.add('active');
+    btnModeEvent.classList.remove('active');
+    eventBtnRow.hidden = true;
+    blockTimer = 0;
+  });
+
+  btnModeEvent.addEventListener('click', () => {
+    paradigmMode = 'event';
+    btnModeEvent.classList.add('active');
+    btnModeBlock.classList.remove('active');
+    eventBtnRow.hidden = false;
+    eventTriggered = false;
+    eventTimer = 0;
+    currentHrfVal = 0;
+  });
+
+  btnTask.addEventListener('click', () => {
+    if (paradigmMode === 'event') {
+      eventTriggered = true;
+      eventTimer = 0;
+    }
   });
 
   // Start Animation
