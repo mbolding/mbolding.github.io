@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MRS Metabolite Basis Set &amp; LCModel Spectral Fitter</title>
+<!-- MathJax 3 for rendering LaTeX math formulas -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <style>
   :root {
     --bg: #fafafa;
@@ -306,15 +320,10 @@
   @media (max-width: 768px) {
     .theory-grid { grid-template-columns: 1fr; }
   }
-  .code-math {
-    background: rgba(0,0,0,0.06);
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.88em;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  .math-block {
+    margin: 10px 0;
+    text-align: center;
+    overflow-x: auto;
   }
 </style>
 </head>
@@ -331,9 +340,11 @@
   </p>
 
   <div class="banner">
-    <strong>Key Principle:</strong> Rather than fitting isolated Gaussian peaks, modern in-vivo MRS quantitation constructs the acquired spectrum as a linear combination of prior-simulated metabolite basis vectors: 
-    <span class="code-math">S(&delta;) = &sum; c_k [B_k(&delta; - &Delta;&delta;) &otimes; L(&Delta;&nu;)] + Baseline(&delta;)</span>. 
-    Peak separation improves linearly with main magnetic field strength <span class="code-math">B_0</span>, while shimming controls the line broadening <span class="code-math">T_2^*</span> that governs spectral overlap and quantitation confidence.
+    <strong>Key Principle:</strong> Rather than fitting isolated Gaussian peaks, modern in-vivo MRS quantitation constructs the acquired spectrum as a linear combination of prior-simulated metabolite basis vectors:
+    <div class="math-block">
+      \[ S(\delta) = \sum_k c_k \left[ B_k(\delta - \Delta\delta) \otimes L(\Delta\nu) \right] + \text{Baseline}(\delta) \]
+    </div>
+    Peak separation improves linearly with main magnetic field strength \(B_0\), while shimming controls the line broadening \(T_2^*\) that governs spectral overlap and quantitation confidence.
   </div>
 
   <div class="panel">
@@ -491,16 +502,23 @@
     <div class="theory-grid">
       <div>
         <strong>1. Chemical Shift Dispersion &amp; Field Strength:</strong>
-        <p>Electrons orbiting distinct chemical moieties generate local diamagnetic shielding currents that oppose the main field: <span class="code-math">B_{\text{local}} = B_0(1 - \sigma)</span>. Chemical shifts are reported on a dimensionless parts-per-million scale (<span class="code-math">&delta; = (\nu - \nu_{\text{ref}})/\nu_{\text{ref}} \times 10^6</span>). While the chemical shift in ppm is field-independent, frequency dispersion in Hertz increases linearly with field strength (<span class="code-math">\Delta\nu_{\text{Hz}} = \gamma B_0 \Delta\delta</span>). At 7.0 T, J-coupled multiplets (Glutamate, GABA) and crowded singlets (Cho, Cr) separate cleanly, reducing spectral covariance and fitting errors.</p>
+        <p>Electrons orbiting distinct chemical moieties generate local diamagnetic shielding currents that oppose the main field: \(B_{\text{local}} = B_0(1 - \sigma)\). Chemical shifts are reported on a dimensionless parts-per-million scale (\(\delta = (\nu - \nu_{\text{ref}})/\nu_{\text{ref}} \times 10^6\)). While the chemical shift in ppm is field-independent, frequency dispersion in Hertz increases linearly with field strength (\(\Delta\nu_{\text{Hz}} = \gamma B_0 \Delta\delta\)). At 7.0 T, J-coupled multiplets (Glutamate, GABA) and crowded singlets (Cho, Cr) separate cleanly, reducing spectral covariance and fitting errors.</p>
       </div>
       <div>
         <strong>2. Basis Sets vs. Single-Peak Fitting:</strong>
         <p>In-vivo <sup>1</sup>H spectra consist of overlapping scalar J-coupled multiplets and a broad macromolecular envelope. Rather than fitting unconstrained individual Gaussians, the Linear Combination Model constructs the total signal from quantum-mechanically simulated or phantom-recorded metabolite basis spectra:
-        <span class="code-math">S(\delta) = \sum_k c_k B_k(\delta) \otimes L(\Delta\nu) + \text{Baseline}(\delta)</span>. This fixes relative peak multiplet areas, chemical shifts, and J-splitting within each molecule, leaving only overall concentration <span class="code-math">c_k</span>, line broadening, and baseline to be estimated.</p>
+        <div class="math-block">
+          \[ S(\delta) = \sum_k c_k B_k(\delta) \otimes L(\Delta\nu) + \text{Baseline}(\delta) \]
+        </div>
+        This fixes relative peak multiplet areas, chemical shifts, and J-splitting within each molecule, leaving only overall concentration \(c_k\), line broadening, and baseline to be estimated.</p>
       </div>
       <div>
         <strong>3. Cramer-Rao Lower Bounds (CRLB):</strong>
-        <p>The Cramer-Rao inequality establishes the minimum possible variance achievable by any unbiased estimator: <span class="code-math">\text{Cov}(\hat{c}) \ge F^{-1} = \sigma^2 (X^T X)^{-1}</span>, where <span class="code-math">X</span> contains the metabolite basis columns and <span class="code-math">\sigma^2</span> is the noise variance. The relative uncertainty <span class="code-math">\text{CRLB} = (\text{SD}_k / \hat{c}_k) \times 100\%</span> reflects not only noise, but severe covariance between overlapping metabolites. By convention in clinical spectroscopy, metabolite fits with <span class="code-math">\text{CRLB} > 20\%</span> are classified as unreliable.</p>
+        <p>The Cramer-Rao inequality establishes the minimum possible variance achievable by any unbiased estimator:
+        <div class="math-block">
+          \[ \text{Cov}(\hat{c}) \ge F^{-1} = \sigma^2 (X^T X)^{-1} \]
+        </div>
+        where \(X\) contains the metabolite basis columns and \(\sigma^2\) is the noise variance. The relative uncertainty \(\text{CRLB} = (\text{SD}_k / \hat{c}_k) \times 100\%\) reflects not only noise, but severe covariance between overlapping metabolites. By convention in clinical spectroscopy, metabolite fits with \(\text{CRLB} > 20\%\) are classified as unreliable.</p>
       </div>
       <div>
         <strong>4. Diagnostic Neurochemical Markers:</strong>

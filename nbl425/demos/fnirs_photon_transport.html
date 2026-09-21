@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>fNIRS Photon Transport &amp; Short-Channel Scalp Regression</title>
+<!-- MathJax 3 for rendering LaTeX math formulas -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <style>
   :root {
     --bg: #fafafa;
@@ -149,15 +163,10 @@
     .theory-grid { grid-template-columns: 1fr; }
   }
   .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
-  .code-math {
-    background: rgba(0,0,0,0.06);
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.88em;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  .math-block {
+    margin: 10px 0;
+    text-align: center;
+    overflow-x: auto;
   }
 </style>
 </head>
@@ -174,7 +183,7 @@
   </p>
 
   <div class="banner">
-    <strong>The Scalp Contamination Problem:</strong> Near-infrared light diffuses through layered biological media in a characteristic curved "banana path". However, standard long-separation channels (<span class="code-math">d \approx 30\text{ mm}</span>) pass twice through superficial extracerebral tissue (scalp and skull). Up to 80% of recorded hemodynamic oscillations arise from systemic scalp Mayer waves (<span class="code-math">\approx 0.1\text{ Hz}</span>) rather than cortical brain activity. Modern fNIRS solves this by incorporating short-separation channels (<span class="code-math">d \approx 8\text{ mm}</span>) to measure and regress out superficial contamination.
+    <strong>The Scalp Contamination Problem:</strong> Near-infrared light diffuses through layered biological media in a characteristic curved "banana path". However, standard long-separation channels (\(d \approx 30\text{ mm}\)) pass twice through superficial extracerebral tissue (scalp and skull). Up to 80% of recorded hemodynamic oscillations arise from systemic scalp Mayer waves (\(\approx 0.1\text{ Hz}\)) rather than cortical brain activity. Modern fNIRS solves this by incorporating short-separation channels (\(d \approx 8\text{ mm}\)) to measure and regress out superficial contamination.
   </div>
 
   <div class="panel">
@@ -266,21 +275,23 @@
     <div class="theory-grid">
       <div>
         <strong>1. Monte Carlo Radiative Transport:</strong>
-        <p>In biological tissue, the transport mean free path (<span class="code-math">1/\mu_s' \approx 1\text{ mm}</span>) is orders of magnitude shorter than the absorption length (<span class="code-math">1/\mu_a \approx 100\text{ mm}</span>). Photons undergo thousands of elastic scattering collisions before being detected or absorbed. The spatial probability distribution of detected photons follows the diffusion equation, producing the characteristic curved "banana path" whose mean penetration depth scales approximately as <span class="code-math">z_{\text{mean}} \approx \frac{1}{2} \sqrt{d_{\text{SD}}}</span>.</p>
+        <p>In biological tissue, the transport mean free path (\(1/\mu_s' \approx 1\text{ mm}\)) is orders of magnitude shorter than the absorption length (\(1/\mu_a \approx 100\text{ mm}\)). Photons undergo thousands of elastic scattering collisions before being detected or absorbed. The spatial probability distribution of detected photons follows the diffusion equation, producing the characteristic curved "banana path" whose mean penetration depth scales approximately as \(z_{\text{mean}} \approx \frac{1}{2} \sqrt{d_{\text{SD}}}\).</p>
       </div>
       <div>
         <strong>2. The Extracerebral Contamination Hazard:</strong>
-        <p>Because photons enter and exit through the head's surface, they traverse the highly vascularized scalp and skull twice. Scalp blood vessels exhibit pronounced systemic physiological oscillations: Mayer waves in blood pressure (<span class="code-math">\sim 0.1\text{ Hz}</span>), respiration (<span class="code-math">\sim 0.25\text{ Hz}</span>), and cardiac pulsatility (<span class="code-math">\sim 1.0\text{ Hz}</span>). Because psychological stress, speech, and motor effort modulate autonomic blood pressure, these scalp oscillations correlate with task blocks, producing catastrophic false-positive activation maps.</p>
+        <p>Because photons enter and exit through the head's surface, they traverse the highly vascularized scalp and skull twice. Scalp blood vessels exhibit pronounced systemic physiological oscillations: Mayer waves in blood pressure (\(\sim 0.1\text{ Hz}\)), respiration (\(\sim 0.25\text{ Hz}\)), and cardiac pulsatility (\(\sim 1.0\text{ Hz}\)). Because psychological stress, speech, and motor effort modulate autonomic blood pressure, these scalp oscillations correlate with task blocks, producing catastrophic false-positive activation maps.</p>
       </div>
       <div>
         <strong>3. Short-Separation Optode Physics:</strong>
-        <p>By placing a detector at <span class="code-math">d_{\text{SD}} \le 8\text{ mm}</span> from the emitter, the sensitivity profile is strictly confined within the <span class="code-math">3-4\text{ mm}</span> scalp depth, entirely bypassing the underlying cerebral cortex. This provides a pure, real-time reference recording of extracerebral systemic physiology without any contamination from true brain activity.</p>
+        <p>By placing a detector at \(d_{\text{SD}} \le 8\text{ mm}\) from the emitter, the sensitivity profile is strictly confined within the \(3\text{--}4\text{ mm}\) scalp depth, entirely bypassing the underlying cerebral cortex. This provides a pure, real-time reference recording of extracerebral systemic physiology without any contamination from true brain activity.</p>
       </div>
       <div>
         <strong>4. Adaptive GLM Short-Channel Filtering:</strong>
         <p>To eliminate superficial noise, the long-channel optical density is modeled via multilinear regression:
-        <span class="code-math">Y_{\text{long}}(t) = \beta_{\text{task}} X_{\text{task}}(t) + \beta_{\text{scalp}} Y_{\text{short}}(t) + \epsilon(t)</span>.
-        Regressing out <span class="code-math">Y_{\text{short}}(t)</span> strips away the confounding systemic Mayer waves and respiratory noise, isolating the true cortical hemodynamic response.</p>
+        <div class="math-block">
+          \[ Y_{\text{long}}(t) = \beta_{\text{task}} X_{\text{task}}(t) + \beta_{\text{scalp}} Y_{\text{short}}(t) + \epsilon(t) \]
+        </div>
+        Regressing out \(Y_{\text{short}}(t)\) strips away the confounding systemic Mayer waves and respiratory noise, isolating the true cortical hemodynamic response.</p>
       </div>
     </div>
   </div>

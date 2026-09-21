@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PET Sinogram &amp; Tomographic Reconstruction Workbench</title>
+<!-- MathJax 3 for rendering LaTeX math formulas -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <style>
   :root {
     --bg: #fafafa;
@@ -158,15 +172,10 @@
     .theory-grid { grid-template-columns: 1fr; }
   }
   .theory-grid h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
-  .code-math {
-    background: rgba(0,0,0,0.06);
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.88em;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .code-math { background: rgba(255,255,255,0.1); }
+  .math-block {
+    margin: 10px 0;
+    text-align: center;
+    overflow-x: auto;
   }
 </style>
 </head>
@@ -183,7 +192,7 @@
   </p>
 
   <div class="banner">
-    <strong>Tomographic Principles:</strong> An annihilation event sends antiparallel 511 keV photon pairs into opposing detectors, defining a Line of Response (LOR). Sorting millions of LORs by angle <span class="code-math">\theta</span> and radial offset <span class="code-math">s</span> produces the <strong>Sinogram</strong> via the Radon transform. Reconstructing the cross-sectional tracer distribution requires inverting the intrinsic <span class="code-math">1/r</span> backprojection blurring via the ramp filter, or applying iterative Maximum Likelihood Expectation Maximization (MLEM) to model Poisson noise and tissue photon attenuation.
+    <strong>Tomographic Principles:</strong> An annihilation event sends antiparallel 511 keV photon pairs into opposing detectors, defining a Line of Response (LOR). Sorting millions of LORs by angle \(\theta\) and radial offset \(s\) produces the <strong>Sinogram</strong> via the Radon transform. Reconstructing the cross-sectional tracer distribution requires inverting the intrinsic \(1/r\) backprojection blurring via the ramp filter, or applying iterative Maximum Likelihood Expectation Maximization (MLEM) to model Poisson noise and tissue photon attenuation.
   </div>
 
   <div class="panel">
@@ -279,23 +288,31 @@
     <div class="theory-grid">
       <div>
         <strong>1. The Radon Transform &amp; Sinogram Geometry:</strong>
-        <p>In 2D PET, each line integral across tracer activity <span class="code-math">f(x, y)</span> is parameterized by normal angle <span class="code-math">\theta \in [0, \pi]</span> and signed radial displacement <span class="code-math">s</span> from the scanner isocenter:
-        <span class="code-math">p(s, \theta) = \int \int f(x, y) \delta(x \cos\theta + y \sin\theta - s) dx dy</span>.
-        A single isolated hot tumor at polar coordinate <span class="code-math">(r_0, \phi_0)</span> traces a pure sine wave across the Radon plane: <span class="code-math">s(\theta) = r_0 \sin(\theta - \phi_0)</span>. The sinogram is the collection of all such intersecting sinusoids.</p>
+        <p>In 2D PET, each line integral across tracer activity \(f(x, y)\) is parameterized by normal angle \(\theta \in [0, \pi]\) and signed radial displacement \(s\) from the scanner isocenter:
+        <div class="math-block">
+          \[ p(s, \theta) = \iint f(x, y) \, \delta(x \cos\theta + y \sin\theta - s) \, dx \, dy \]
+        </div>
+        A single isolated hot tumor at polar coordinate \((r_0, \phi_0)\) traces a pure sine wave across the Radon plane: \(s(\theta) = r_0 \sin(\theta - \phi_0)\). The sinogram is the collection of all such intersecting sinusoids.</p>
       </div>
       <div>
         <strong>2. Unfiltered vs. Filtered Backprojection:</strong>
-        <p>Projecting sinogram values back along each LOR without filtering accumulates the image, but introduces an intrinsic <span class="code-math">1/r</span> point-spread blurring kernel (<span class="code-math">f_{\text{unfiltered}} = f \ast \frac{1}{r}</span>). In Fourier space, the Fourier Slice Theorem proves that 1D projections correspond to radial slices through 2D k-space. The <strong>Ram-Lak ramp filter</strong> (<span class="code-math">|k|</span>) compensates exactly for the high density of radial sampling near the origin. Apodizing with a <strong>Hann window</strong> (<span class="code-math">H(k) = 0.5 + 0.5\cos(\pi k / k_{\text{max}})</span>) prevents high-frequency Poisson noise blow-up.</p>
+        <p>Projecting sinogram values back along each LOR without filtering accumulates the image, but introduces an intrinsic \(1/r\) point-spread blurring kernel (\(f_{\text{unfiltered}} = f \ast \frac{1}{r}\)). In Fourier space, the Fourier Slice Theorem proves that 1D projections correspond to radial slices through 2D k-space. The <strong>Ram-Lak ramp filter</strong> (\(|k|\)) compensates exactly for the high density of radial sampling near the origin. Apodizing with a <strong>Hann window</strong> (\(H(k) = 0.5 + 0.5\cos(\pi k / k_{\text{max}})\)) prevents high-frequency Poisson noise blow-up.</p>
       </div>
       <div>
         <strong>3. Iterative MLEM Reconstruction:</strong>
         <p>Filtered Backprojection assumes deterministic, continuous line integrals and easily produces negative artifactual pixel values in low-count regions. <strong>Maximum Likelihood Expectation Maximization (MLEM)</strong> models the discrete Poisson statistics of radioactive decay:
-        <span class="code-math">\hat{f}_j^{(n+1)} = \hat{f}_j^{(n)} \frac{1}{\sum_i c_{ij}} \sum_i c_{ij} \frac{p_i}{\sum_k c_{ik} \hat{f}_k^{(n)}}</span>.
+        <div class="math-block">
+          \[ \hat{f}_j^{(n+1)} = \hat{f}_j^{(n)} \frac{1}{\sum_i c_{ij}} \sum_i c_{ij} \frac{p_i}{\sum_k c_{ik} \hat{f}_k^{(n)}} \]
+        </div>
         Each iteration compares projected estimates against actual measured counts, guaranteeing strictly non-negative activity and superior signal-to-noise ratios.</p>
       </div>
       <div>
         <strong>4. 511 keV Photon Attenuation Correction:</strong>
-        <p>Before escaping the patient's body, 511 keV photons can undergo Compton scattering or photoelectric absorption. The survival probability along an LOR is <span class="code-math">A_i = \exp(-\int \mu(x,y) dl)</span>, independent of where along the LOR the emission took place! Without attenuation correction (CT or MRI-based <span class="code-math">\mu</span>-map), deep brain structures appear artificially hypometabolic while the cortical periphery creates false hypermetabolic rims.</p>
+        <p>Before escaping the patient's body, 511 keV photons can undergo Compton scattering or photoelectric absorption. The survival probability along an LOR is:
+        <div class="math-block">
+          \[ A_i = \exp\left(-\int \mu(x,y) \, dl\right) \]
+        </div>
+        independent of where along the LOR the emission took place! Without attenuation correction (CT or MRI-based \(\mu\)-map), deep brain structures appear artificially hypometabolic while the cortical periphery creates false hypermetabolic rims.</p>
       </div>
     </div>
   </div>
