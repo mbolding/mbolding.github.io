@@ -225,15 +225,18 @@
     if (savedState && Array.isArray(savedState.clusters) && Array.isArray(savedState.trayCardIds)) {
       // Reconcile saved state with dataset cards
       const assignedCardIds = new Set();
-      clusters = savedState.clusters.map((c, i) => {
-        const validIds = (c.cardIds || []).filter(id => allCardIds.has(id) && !assignedCardIds.has(id));
-        validIds.forEach(id => assignedCardIds.add(id));
-        return {
-          id: c.id || 'c_' + (i + 1) + '_' + Date.now(),
-          name: c.name || `Cluster ${i + 1}`,
-          cardIds: validIds
-        };
-      });
+      clusters = savedState.clusters
+        .filter(c => c && typeof c === 'object')
+        .map((c, i) => {
+          const cardList = Array.isArray(c.cardIds) ? c.cardIds : [];
+          const validIds = cardList.filter(id => allCardIds.has(id) && !assignedCardIds.has(id));
+          validIds.forEach(id => assignedCardIds.add(id));
+          return {
+            id: c.id || 'c_' + (i + 1) + '_' + Date.now(),
+            name: c.name || `Cluster ${i + 1}`,
+            cardIds: validIds
+          };
+        });
 
       // Filter tray
       trayCardIds = savedState.trayCardIds.filter(id => allCardIds.has(id) && !assignedCardIds.has(id));
@@ -733,21 +736,25 @@
             ghostEl = null;
           }
 
-          // Identify drop zone under pointer
-          const dropTarget = getDropZoneUnderPoint(upEvent.clientX, upEvent.clientY);
-          clearDropTargetHighlights();
+          if (upEvent.type !== 'pointercancel') {
+            // Identify drop zone under pointer
+            const dropTarget = getDropZoneUnderPoint(upEvent.clientX, upEvent.clientY);
+            clearDropTargetHighlights();
 
-          if (dropTarget) {
-            if (dropTarget.type === 'tray') {
-              moveCard(cardId, 'tray');
-            } else if (dropTarget.type === 'cluster') {
-              moveCard(cardId, 'cluster', dropTarget.clusterId);
+            if (dropTarget) {
+              if (dropTarget.type === 'tray') {
+                moveCard(cardId, 'tray');
+              } else if (dropTarget.type === 'cluster') {
+                moveCard(cardId, 'cluster', dropTarget.clusterId);
+              }
+              selectedCardId = null;
+              renderBoard();
             }
-            selectedCardId = null;
-            renderBoard();
+          } else {
+            clearDropTargetHighlights();
           }
-        } else {
-          // It was a click!
+        } else if (upEvent.type !== 'pointercancel') {
+          // It was an intentional click
           handleCardClick(cardId);
         }
       }
@@ -995,11 +1002,77 @@
   }
 
   // -------------------------------------------------------------
+  // Safe Event and Modal Helpers
+  // -------------------------------------------------------------
+  function logWarn(...args) {
+    if (typeof console !== 'undefined' && console.warn) console.warn(...args);
+  }
+  function logError(...args) {
+    if (typeof console !== 'undefined' && console.error) console.error(...args);
+    else if (typeof console !== 'undefined' && console.log) console.log(...args);
+  }
+
+  function on(idOrEl, event, handler) {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    if (!el) {
+      logWarn(`[Affinity Map] Element not found for '${event}' listener:`, idOrEl);
+      return;
+    }
+    el.addEventListener(event, (e) => {
+      try {
+        handler(e);
+      } catch (err) {
+        logError(`[Affinity Map] Error handling '${event}' on:`, idOrEl, err);
+      }
+    });
+  }
+
+  function openModal(dialogEl) {
+    if (!dialogEl) return;
+    if (typeof dialogEl.showModal === 'function') {
+      try {
+        if (!dialogEl.open) dialogEl.showModal();
+        return;
+      } catch (e) {
+        // Fallback if already open or invalid state
+      }
+    }
+    dialogEl.setAttribute('open', '');
+  }
+
+  function closeModal(dialogEl) {
+    if (!dialogEl) return;
+    if (typeof dialogEl.close === 'function') {
+      try {
+        dialogEl.close();
+        return;
+      } catch (e) {
+        // Fallback
+      }
+    }
+    dialogEl.removeAttribute('open');
+  }
+
+  // -------------------------------------------------------------
   // Event Listeners & Setup
   // -------------------------------------------------------------
   function attachEventHandlers() {
+    // Backdrop click-to-close on all dialogs
+    document.querySelectorAll('dialog').forEach(dialog => {
+      dialog.addEventListener('click', (e) => {
+        const rect = dialog.getBoundingClientRect();
+        const isInDialog = (
+          rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+          rect.left <= e.clientX && e.clientX <= rect.left + rect.width
+        );
+        if (!isInDialog) {
+          closeModal(dialog);
+        }
+      });
+    });
+
     // Toolbar: New Cluster
-    document.getElementById('btnNewCluster').addEventListener('click', () => {
+    on('btnNewCluster', 'click', () => {
       const newCluster = {
         id: 'c_' + Date.now(),
         name: `Cluster ${clusters.length + 1}`,
@@ -1020,24 +1093,24 @@
     });
 
     // Toolbar: Shuffle Tray
-    document.getElementById('btnShuffleTray').addEventListener('click', shuffleTray);
+    on('btnShuffleTray', 'click', shuffleTray);
 
     // Toolbar: Reset Board
-    document.getElementById('btnResetBoard').addEventListener('click', () => {
-      confirmResetDialogEl.showModal();
+    on('btnResetBoard', 'click', () => {
+      openModal(confirmResetDialogEl);
     });
 
-    document.getElementById('btnCancelReset').addEventListener('click', () => {
-      confirmResetDialogEl.close();
+    on('btnCancelReset', 'click', () => {
+      closeModal(confirmResetDialogEl);
     });
 
-    document.getElementById('btnConfirmReset').addEventListener('click', () => {
+    on('btnConfirmReset', 'click', () => {
       resetBoard();
-      confirmResetDialogEl.close();
+      closeModal(confirmResetDialogEl);
     });
 
     // Section Colors Toggle
-    toggleSectionColorsEl.addEventListener('change', () => {
+    on(toggleSectionColorsEl, 'change', () => {
       if (toggleSectionColorsEl.checked) {
         document.body.classList.add('show-sections');
       } else {
@@ -1047,7 +1120,7 @@
     });
 
     // Big Text Toggle
-    toggleBigTextEl.addEventListener('change', () => {
+    on(toggleBigTextEl, 'change', () => {
       if (toggleBigTextEl.checked) {
         document.body.classList.add('big-text');
       } else {
@@ -1056,14 +1129,14 @@
     });
 
     // Selection Cancel
-    document.getElementById('btnCancelSelection').addEventListener('click', () => {
+    on('btnCancelSelection', 'click', () => {
       selectedCardId = null;
       updateSelectionBanner();
       renderBoard();
     });
 
     // Timer Controls
-    btnTimerToggleEl.addEventListener('click', () => {
+    on(btnTimerToggleEl, 'click', () => {
       if (timerRunning) {
         pauseTimer();
       } else {
@@ -1071,38 +1144,38 @@
       }
     });
 
-    btnTimerResetEl.addEventListener('click', resetTimer);
+    on(btnTimerResetEl, 'click', resetTimer);
 
-    btnTimerEditEl.addEventListener('click', () => {
+    on(btnTimerEditEl, 'click', () => {
       timerMinutesInputEl.value = Math.round(timerDuration / 60);
-      timerDialogEl.showModal();
+      openModal(timerDialogEl);
     });
 
-    timerDisplayEl.addEventListener('click', () => {
+    on(timerDisplayEl, 'click', () => {
       timerMinutesInputEl.value = Math.round(timerDuration / 60);
-      timerDialogEl.showModal();
+      openModal(timerDialogEl);
     });
 
-    document.getElementById('btnCancelTimerDialog').addEventListener('click', () => {
-      timerDialogEl.close();
+    on('btnCancelTimerDialog', 'click', () => {
+      closeModal(timerDialogEl);
     });
 
-    document.getElementById('timerForm').addEventListener('submit', (e) => {
+    on('timerForm', 'submit', (e) => {
       e.preventDefault();
       const mins = parseInt(timerMinutesInputEl.value, 10);
       if (!isNaN(mins) && mins > 0) {
         timerDuration = mins * 60;
         resetTimer();
       }
-      timerDialogEl.close();
+      closeModal(timerDialogEl);
     });
 
     // Open File
-    document.getElementById('btnOpenFile').addEventListener('click', () => {
-      fileInputEl.click();
+    on('btnOpenFile', 'click', () => {
+      if (fileInputEl) fileInputEl.click();
     });
 
-    fileInputEl.addEventListener('change', (e) => {
+    on(fileInputEl, 'change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -1121,17 +1194,17 @@
     });
 
     // Paste JSON
-    document.getElementById('btnPaste').addEventListener('click', () => {
+    on('btnPaste', 'click', () => {
       pasteTextareaEl.value = '';
       pasteErrorEl.hidden = true;
-      pasteDialogEl.showModal();
+      openModal(pasteDialogEl);
     });
 
-    document.getElementById('btnCancelPaste').addEventListener('click', () => {
-      pasteDialogEl.close();
+    on('btnCancelPaste', 'click', () => {
+      closeModal(pasteDialogEl);
     });
 
-    document.getElementById('pasteForm').addEventListener('submit', (e) => {
+    on('pasteForm', 'submit', (e) => {
       e.preventDefault();
       try {
         const text = pasteTextareaEl.value.trim();
@@ -1140,7 +1213,7 @@
         const sanitized = validateDataset(parsed);
         window.location.hash = '';
         loadDataset(sanitized);
-        pasteDialogEl.close();
+        closeModal(pasteDialogEl);
       } catch (err) {
         pasteErrorEl.hidden = false;
         pasteErrorEl.textContent = 'JSON Error: ' + err.message;
@@ -1148,9 +1221,9 @@
     });
 
     // Share Link
-    document.getElementById('btnShare').addEventListener('click', async () => {
+    on('btnShare', 'click', async () => {
       shareCopyFeedbackEl.hidden = true;
-      shareDialogEl.showModal();
+      openModal(shareDialogEl);
       shareUrlInputEl.value = 'Generating link...';
       try {
         const fragment = await encodeDatasetToFragment(currentDataset);
@@ -1162,7 +1235,7 @@
       }
     });
 
-    document.getElementById('btnCopyShareUrl').addEventListener('click', async () => {
+    on('btnCopyShareUrl', 'click', async () => {
       try {
         await navigator.clipboard.writeText(shareUrlInputEl.value);
         shareCopyFeedbackEl.hidden = false;
@@ -1173,18 +1246,18 @@
       }
     });
 
-    document.getElementById('btnCloseShareDialog').addEventListener('click', () => {
-      shareDialogEl.close();
+    on('btnCloseShareDialog', 'click', () => {
+      closeModal(shareDialogEl);
     });
 
     // Summary View
-    document.getElementById('btnSummary').addEventListener('click', () => {
+    on('btnSummary', 'click', () => {
       summaryPreEl.textContent = generateSummaryText();
       summaryCopyFeedbackEl.hidden = true;
-      summaryDialogEl.showModal();
+      openModal(summaryDialogEl);
     });
 
-    document.getElementById('btnCopySummary').addEventListener('click', async () => {
+    on('btnCopySummary', 'click', async () => {
       try {
         await navigator.clipboard.writeText(summaryPreEl.textContent);
         summaryCopyFeedbackEl.hidden = false;
@@ -1199,19 +1272,19 @@
       }
     });
 
-    document.getElementById('btnCloseSummary').addEventListener('click', () => {
-      summaryDialogEl.close();
+    on('btnCloseSummary', 'click', () => {
+      closeModal(summaryDialogEl);
     });
 
     // State Export / Import
-    document.getElementById('btnExportImport').addEventListener('click', () => {
+    on('btnExportImport', 'click', () => {
       stateErrorEl.hidden = true;
       stateSuccessEl.hidden = true;
       importStateTextareaEl.value = '';
-      stateDialogEl.showModal();
+      openModal(stateDialogEl);
     });
 
-    document.getElementById('btnDownloadState').addEventListener('click', () => {
+    on('btnDownloadState', 'click', () => {
       const state = {
         datasetId: currentDataset.id,
         clusters: clusters.map(c => ({ id: c.id, name: c.name, cardIds: c.cardIds })),
@@ -1227,7 +1300,7 @@
       URL.revokeObjectURL(url);
     });
 
-    document.getElementById('btnCopyState').addEventListener('click', async () => {
+    on('btnCopyState', 'click', async () => {
       const state = {
         datasetId: currentDataset.id,
         clusters: clusters.map(c => ({ id: c.id, name: c.name, cardIds: c.cardIds })),
@@ -1245,11 +1318,11 @@
       }
     });
 
-    document.getElementById('btnImportStateFile').addEventListener('click', () => {
-      stateFileInputEl.click();
+    on('btnImportStateFile', 'click', () => {
+      if (stateFileInputEl) stateFileInputEl.click();
     });
 
-    stateFileInputEl.addEventListener('change', (e) => {
+    on(stateFileInputEl, 'change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -1260,7 +1333,7 @@
       stateFileInputEl.value = '';
     });
 
-    document.getElementById('btnApplyStatePaste').addEventListener('click', () => {
+    on('btnApplyStatePaste', 'click', () => {
       applyImportedState(importStateTextareaEl.value);
     });
 
@@ -1284,23 +1357,23 @@
       }
     }
 
-    document.getElementById('btnCloseStateDialog').addEventListener('click', () => {
-      stateDialogEl.close();
+    on('btnCloseStateDialog', 'click', () => {
+      closeModal(stateDialogEl);
     });
 
     // Print Cards
-    document.getElementById('btnPrint').addEventListener('click', () => {
+    on('btnPrint', 'click', () => {
       setupPrintArea();
       window.print();
     });
 
     // Help Dialog
-    document.getElementById('btnHelp').addEventListener('click', () => {
-      helpDialogEl.showModal();
+    on('btnHelp', 'click', () => {
+      openModal(helpDialogEl);
     });
 
-    document.getElementById('btnCloseHelp').addEventListener('click', () => {
-      helpDialogEl.close();
+    on('btnCloseHelp', 'click', () => {
+      closeModal(helpDialogEl);
     });
   }
 
@@ -1308,8 +1381,17 @@
   // Startup
   // -------------------------------------------------------------
   async function init() {
-    attachEventHandlers();
-    updateTimerDisplay();
+    try {
+      attachEventHandlers();
+    } catch (err) {
+      console.error('[Affinity Map] attachEventHandlers error:', err);
+    }
+
+    try {
+      updateTimerDisplay();
+    } catch (err) {
+      console.error('[Affinity Map] updateTimerDisplay error:', err);
+    }
 
     // Check URL fragment for shared dataset
     if (window.location.hash) {
@@ -1325,7 +1407,11 @@
     }
 
     // Default to synthetic demo dataset
-    loadDataset(DEMO_DATASET);
+    try {
+      loadDataset(DEMO_DATASET);
+    } catch (err) {
+      console.error('[Affinity Map] loadDataset error:', err);
+    }
   }
 
   // Run on DOM ready
