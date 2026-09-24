@@ -65,23 +65,6 @@
         section: "625",
         text: "Deep learning automated population arterial input function (AIF) estimator for pharmacokinetic deconvolution in DSC-MRI."
       }
-    ],
-    themes: [
-      {
-        name: "Hardware & Instrumentation",
-        cards: [1, 2, 6, 8],
-        note: "Physical device innovations: portable magnets, RF coils, haptic interfaces, and therapeutic ultrasound arrays."
-      },
-      {
-        name: "AI & Computational Reconstruction",
-        cards: [4, 7, 9],
-        note: "Machine learning approaches replacing specialized hardware or correcting artifacts in reconstruction and modeling."
-      },
-      {
-        name: "Point-of-Care & Mobile Monitoring",
-        cards: [1, 3, 5],
-        note: "Decentralizing imaging from scanner suites to sports sidelines, operating rooms, and outpatient clinics."
-      }
     ]
   };
 
@@ -92,7 +75,6 @@
   let clusters = []; // Array of { id: string, name: string, cardIds: number[] }
   let trayCardIds = []; // Array of number (card IDs)
   let selectedCardId = null;
-  let activeThemeIndex = null;
 
   // Timer State
   let timerDuration = 15 * 60; // default 15 minutes in seconds
@@ -112,11 +94,6 @@
   const totalClustersBadgeEl = document.getElementById('totalClustersBadge');
   const selectionBannerEl = document.getElementById('selectionBanner');
   const selectionTextEl = document.getElementById('selectionText');
-  const themeCountBadgeEl = document.getElementById('themeCountBadge');
-  const btnRevealThemesEl = document.getElementById('btnRevealThemes');
-  const revealPanelEl = document.getElementById('revealPanel');
-  const themeListEl = document.getElementById('themeList');
-  const activeThemeIndicatorEl = document.getElementById('activeThemeIndicator');
   const sectionLegendEl = document.getElementById('sectionLegend');
   const legendBadgesEl = document.getElementById('legendBadges');
   const toggleSectionColorsEl = document.getElementById('toggleSectionColors');
@@ -286,13 +263,10 @@
   function loadDataset(dataset) {
     currentDataset = dataset;
     selectedCardId = null;
-    activeThemeIndex = null;
-    clearThemeHighlights();
 
     loadBoardState(dataset);
     renderHeader();
     renderBoard();
-    updateThemeRevealUI();
   }
 
   // -------------------------------------------------------------
@@ -436,11 +410,6 @@
       datasetIdBadgeEl.hidden = true;
     }
 
-    // Themes badge
-    const themeCount = currentDataset.themes ? currentDataset.themes.length : 0;
-    themeCountBadgeEl.textContent = themeCount;
-    btnRevealThemesEl.disabled = themeCount === 0;
-
     // Sections legend
     const sections = new Set();
     currentDataset.cards.forEach(c => {
@@ -474,13 +443,6 @@
 
     if (selectedCardId === card.id) {
       cardEl.classList.add('selected');
-    }
-
-    if (activeThemeIndex !== null) {
-      const activeTheme = currentDataset.themes[activeThemeIndex];
-      if (activeTheme && activeTheme.cards.includes(card.id)) {
-        cardEl.classList.add('theme-highlighted');
-      }
     }
 
     // Top Row (Number + Section Badge)
@@ -559,7 +521,6 @@
         cluster.name = titleInput.value.trim() || `Cluster ${index + 1}`;
         titleInput.value = cluster.name;
         saveBoardState();
-        updateThemeRevealUI();
       });
       titleWrap.appendChild(titleInput);
       header.appendChild(titleWrap);
@@ -660,7 +621,6 @@
     }
 
     saveBoardState();
-    updateThemeRevealUI();
   }
 
   function deleteCluster(clusterId) {
@@ -678,7 +638,6 @@
     clusters = clusters.filter(c => c.id !== clusterId);
     saveBoardState();
     renderBoard();
-    updateThemeRevealUI();
   }
 
   function shuffleTray() {
@@ -708,7 +667,6 @@
     selectedCardId = null;
     saveBoardState();
     renderBoard();
-    updateThemeRevealUI();
   }
 
   function updateSelectionBanner() {
@@ -917,117 +875,6 @@
   });
 
   // -------------------------------------------------------------
-  // The Reveal: Instructor Themes & Comparisons
-  // -------------------------------------------------------------
-  function computeThemeComparison(theme) {
-    if (!theme.cards || theme.cards.length === 0) return 'No cards in this theme.';
-
-    const totalInTheme = theme.cards.length;
-    let maxCluster = null;
-    let maxCount = 0;
-
-    clusters.forEach(cluster => {
-      let count = 0;
-      theme.cards.forEach(cardId => {
-        if (cluster.cardIds.includes(cardId)) count++;
-      });
-      if (count > maxCount) {
-        maxCount = count;
-        maxCluster = cluster;
-      }
-    });
-
-    let trayCount = 0;
-    theme.cards.forEach(cardId => {
-      if (trayCardIds.includes(cardId)) trayCount++;
-    });
-
-    if (maxCount > 0 && maxCount >= trayCount) {
-      return `Your cluster '${maxCluster.name}' holds ${maxCount} of these ${totalInTheme}.`;
-    } else if (trayCount > 0) {
-      return `${trayCount} of these ${totalInTheme} are currently in the Tray.`;
-    } else {
-      return `Cards are distributed across clusters.`;
-    }
-  }
-
-  function updateThemeRevealUI() {
-    if (!currentDataset || !currentDataset.themes) return;
-    themeListEl.innerHTML = '';
-
-    currentDataset.themes.forEach((theme, index) => {
-      const themeCard = document.createElement('div');
-      themeCard.className = 'theme-card';
-      if (activeThemeIndex === index) {
-        themeCard.classList.add('active-theme');
-      }
-
-      // Top Row
-      const topRow = document.createElement('div');
-      topRow.className = 'theme-card-top';
-
-      const nameEl = document.createElement('h3');
-      nameEl.className = 'theme-name';
-      nameEl.textContent = theme.name;
-      topRow.appendChild(nameEl);
-
-      const countBadge = document.createElement('span');
-      countBadge.className = 'theme-badge';
-      countBadge.textContent = `${theme.cards.length} ideas`;
-      topRow.appendChild(countBadge);
-      themeCard.appendChild(topRow);
-
-      // Note (if present)
-      if (theme.note) {
-        const noteEl = document.createElement('p');
-        noteEl.className = 'theme-note';
-        noteEl.textContent = theme.note;
-        themeCard.appendChild(noteEl);
-      }
-
-      // Card Numbers
-      const cardsEl = document.createElement('div');
-      cardsEl.className = 'theme-card-numbers';
-      cardsEl.textContent = `Card IDs: ${theme.cards.map(id => '#' + id).join(', ')}`;
-      themeCard.appendChild(cardsEl);
-
-      // Live comparison line
-      const compEl = document.createElement('div');
-      compEl.className = 'theme-comparison';
-      compEl.textContent = computeThemeComparison(theme);
-      themeCard.appendChild(compEl);
-
-      // Click to toggle highlight
-      themeCard.addEventListener('click', () => {
-        if (activeThemeIndex === index) {
-          clearThemeHighlights();
-        } else {
-          activateThemeHighlight(index);
-        }
-      });
-
-      themeListEl.appendChild(themeCard);
-    });
-  }
-
-  function activateThemeHighlight(index) {
-    activeThemeIndex = index;
-    const theme = currentDataset.themes[index];
-    document.body.classList.add('theme-dimmed');
-    activeThemeIndicatorEl.textContent = `Highlighting: ${theme.name}`;
-    renderBoard();
-    updateThemeRevealUI();
-  }
-
-  function clearThemeHighlights() {
-    activeThemeIndex = null;
-    document.body.classList.remove('theme-dimmed');
-    activeThemeIndicatorEl.textContent = 'Click a theme to highlight cards';
-    renderBoard();
-    updateThemeRevealUI();
-  }
-
-  // -------------------------------------------------------------
   // Countdown Timer
   // -------------------------------------------------------------
   function formatTime(totalSeconds) {
@@ -1161,7 +1008,6 @@
       clusters.push(newCluster);
       saveBoardState();
       renderBoard();
-      updateThemeRevealUI();
 
       // Focus the new cluster's title input
       setTimeout(() => {
@@ -1189,20 +1035,6 @@
       resetBoard();
       confirmResetDialogEl.close();
     });
-
-    // Toolbar: Reveal Themes
-    btnRevealThemesEl.addEventListener('click', () => {
-      revealPanelEl.hidden = !revealPanelEl.hidden;
-      if (!revealPanelEl.hidden) {
-        updateThemeRevealUI();
-      }
-    });
-
-    document.getElementById('btnCloseReveal').addEventListener('click', () => {
-      revealPanelEl.hidden = true;
-    });
-
-    document.getElementById('btnClearThemeHighlight').addEventListener('click', clearThemeHighlights);
 
     // Section Colors Toggle
     toggleSectionColorsEl.addEventListener('change', () => {
@@ -1444,7 +1276,6 @@
         localStorage.setItem(getStorageKey(currentDataset.id), JSON.stringify(parsed));
         loadBoardState(currentDataset);
         renderBoard();
-        updateThemeRevealUI();
         stateSuccessEl.hidden = false;
         stateSuccessEl.textContent = 'Board arrangement applied successfully!';
       } catch (err) {
