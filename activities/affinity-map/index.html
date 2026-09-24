@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affinity Mapping Studio — NBL 425/625</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Offline-only, zero network requests, strict FERPA privacy -->
+
+  <header class="app-header">
+    <div class="header-top-row">
+      <div class="header-brand">
+        <a href="../../nbl425/index.html" class="nav-back-link" title="Return to NBL 425/625 Course Page">&larr; NBL 425/625</a>
+        <span class="nav-separator">/</span>
+        <span class="nav-current">Affinity Mapping</span>
+        <span id="demoBadge" class="badge badge-demo" title="Currently displaying synthetic demo ideas">Demo Data</span>
+        <span id="datasetIdBadge" class="badge badge-id" hidden></span>
+      </div>
+
+      <div class="header-actions">
+        <button id="btnOpenFile" class="btn btn-sm" title="Load custom dataset from a local .json file">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Open File
+        </button>
+        <input type="file" id="fileInput" accept=".json" style="display: none;">
+
+        <button id="btnPaste" class="btn btn-sm" title="Paste dataset JSON directly">
+          Paste JSON
+        </button>
+
+        <button id="btnShare" class="btn btn-sm" title="Generate private link with dataset encoded in URL fragment">
+          Share Link
+        </button>
+
+        <button id="btnSummary" class="btn btn-sm" title="View and copy plain-text summary of clusters">
+          Summary
+        </button>
+
+        <button id="btnExportImport" class="btn btn-sm" title="Export or import cluster arrangements">
+          State &hellip;
+        </button>
+
+        <button id="btnPrint" class="btn btn-sm" title="Print cards as classroom index cards">
+          Print Cards
+        </button>
+
+        <button id="btnHelp" class="btn btn-sm btn-icon" title="Help & Keyboard Shortcuts" aria-label="Help">?</button>
+      </div>
+    </div>
+
+    <div class="header-main-row">
+      <div class="dataset-meta">
+        <h1 id="datasetTitle" class="dataset-title">Loading ideas&hellip;</h1>
+        <p id="datasetPrompt" class="dataset-prompt"></p>
+        <p id="withheldInfo" class="withheld-info" hidden></p>
+      </div>
+
+      <!-- Classroom Timer Widget -->
+      <div class="timer-widget" id="timerWidget" role="timer" aria-label="Classroom Countdown Timer">
+        <div class="timer-display-group">
+          <span class="timer-label">Timer</span>
+          <span id="timerDisplay" class="timer-display" title="Click to change duration">15:00</span>
+        </div>
+        <div class="timer-controls">
+          <button id="btnTimerToggle" class="btn btn-sm btn-timer-action" title="Start or pause countdown">Start</button>
+          <button id="btnTimerReset" class="btn btn-sm btn-icon" title="Reset timer to original duration">↺</button>
+          <button id="btnTimerEdit" class="btn btn-sm btn-icon" title="Change duration">⚙</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toolbar: Active Class Operations -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button id="btnNewCluster" class="btn btn-primary" title="Create a new theme cluster container">
+          + New Cluster
+        </button>
+        <button id="btnShuffleTray" class="btn" title="Randomly shuffle the unclustered cards in the tray">
+          Shuffle Tray
+        </button>
+        <button id="btnRevealThemes" class="btn btn-reveal" title="Compare clusters with instructor themes">
+          Reveal My Themes <span id="themeCountBadge" class="badge badge-subtle">0</span>
+        </button>
+        <button id="btnResetBoard" class="btn btn-subtle-danger" title="Return all clustered cards back to the tray">
+          Reset Board
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <label class="toggle-control" title="Toggle section color coding on cards">
+          <input type="checkbox" id="toggleSectionColors">
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">Section Colors</span>
+        </label>
+
+        <label class="toggle-control" title="Enlarge typography for high-readability classroom projection">
+          <input type="checkbox" id="toggleBigText">
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">Big Text</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Dynamic Section Legend (appears when section colors is ON) -->
+    <div id="sectionLegend" class="section-legend" hidden>
+      <span class="legend-title">Sections:</span>
+      <div id="legendBadges" class="legend-badges"></div>
+    </div>
+
+    <!-- Active Selection Banner (For Click-to-Move & Keyboard) -->
+    <div id="selectionBanner" class="selection-banner" hidden>
+      <div class="selection-banner-content">
+        <span class="selection-icon">✦</span>
+        <span id="selectionText" class="selection-text">Card # selected</span>
+        <span class="selection-hint">— Click any cluster or tray to place, or press 1–9 (0 for tray)</span>
+      </div>
+      <button id="btnCancelSelection" class="btn btn-sm btn-banner-cancel" title="Cancel selection (Esc)">Cancel</button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="workspace" id="workspace">
+    <!-- Unclustered Cards Tray -->
+    <section class="tray-section" id="traySection" aria-label="Tray of unclustered ideas">
+      <div class="tray-header" id="trayHeader">
+        <div class="tray-title-group">
+          <h2 class="tray-title">Unclustered Tray</h2>
+          <span id="trayCountBadge" class="badge badge-count">0</span>
+        </div>
+        <p class="tray-sub">Cards waiting to be placed into clusters. Click a card to pick up or drag directly.</p>
+      </div>
+      <div id="trayCards" class="tray-cards-grid" data-dropzone="tray" tabindex="0" role="region" aria-label="Tray Cards">
+        <!-- Cards dynamically injected here -->
+      </div>
+    </section>
+
+    <!-- Clustered Themes Board -->
+    <section class="clusters-section" id="clustersSection" aria-label="Affinity clusters">
+      <div class="clusters-header">
+        <div class="clusters-title-group">
+          <h2 class="clusters-title">Clusters</h2>
+          <span id="totalClustersBadge" class="badge badge-count">0</span>
+        </div>
+        <div class="clusters-actions">
+          <span class="clusters-hint">Drag cards into clusters or select a card then click a cluster</span>
+        </div>
+      </div>
+
+      <div id="clustersContainer" class="clusters-grid">
+        <!-- Cluster boxes dynamically injected here -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Reveal Side Panel (Themes Comparison) -->
+  <aside id="revealPanel" class="reveal-panel" hidden aria-label="Instructor Themes Comparison">
+    <div class="reveal-header">
+      <div class="reveal-title-wrap">
+        <h2 class="reveal-title">Instructor Themes</h2>
+        <span class="reveal-subtitle">Compare class groupings to instructor analysis</span>
+      </div>
+      <button id="btnCloseReveal" class="btn btn-sm btn-icon" title="Close Reveal Panel" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="reveal-toolbar">
+      <button id="btnClearThemeHighlight" class="btn btn-sm" title="Clear theme highlights on board">
+        Clear Highlight
+      </button>
+      <span id="activeThemeIndicator" class="active-theme-text">Click a theme to highlight cards</span>
+    </div>
+
+    <div id="themeList" class="theme-list">
+      <!-- Injected themes list -->
+    </div>
+  </aside>
+
+  <!-- Paste JSON Dialog -->
+  <dialog id="pasteDialog" class="modal-dialog">
+    <form method="dialog" class="dialog-form" id="pasteForm">
+      <h3 class="dialog-title">Paste Dataset JSON</h3>
+      <p class="dialog-desc">Paste complete class JSON data into the box below. Data stays entirely in your local browser and is never transmitted over the network.</p>
+      
+      <textarea id="pasteTextarea" class="paste-textarea" rows="12" placeholder='{\n  "id": "nbl425-625-quiz7-2026",\n  "title": "Quiz 7: What would you invent?",\n  "prompt": "...",\n  "cards": [...],\n  "themes": [...]\n}' spellcheck="false"></textarea>
+      
+      <div id="pasteError" class="dialog-error" hidden></div>
+
+      <div class="dialog-actions">
+        <button type="button" id="btnCancelPaste" class="btn">Cancel</button>
+        <button type="submit" id="btnSubmitPaste" class="btn btn-primary">Load Dataset</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Share Link Dialog -->
+  <dialog id="shareDialog" class="modal-dialog">
+    <div class="dialog-form">
+      <h3 class="dialog-title">Share Activity Link</h3>
+      
+      <div class="notice-box notice-warning">
+        <strong>Privacy Notice:</strong> This link contains the dataset encoded directly into the URL fragment (<code>#data=...</code>). Hash fragments are processed entirely in the browser and are <em>never</em> sent to any web server. However, anyone who receives this link can view the ideas, so <strong>share it only privately</strong> (e.g. inside Canvas or password-protected course materials).
+      </div>
+
+      <div class="share-url-container">
+        <input type="text" id="shareUrlInput" class="share-url-input" readonly spellcheck="false">
+        <button type="button" id="btnCopyShareUrl" class="btn btn-primary">Copy Link</button>
+      </div>
+      <p id="shareCopyFeedback" class="dialog-feedback" hidden>Copied to clipboard!</p>
+
+      <div class="dialog-actions">
+        <button type="button" id="btnCloseShareDialog" class="btn">Done</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Summary Dialog -->
+  <dialog id="summaryDialog" class="modal-dialog">
+    <div class="dialog-form">
+      <h3 class="dialog-title">Cluster Summary</h3>
+      <p class="dialog-desc">Plain text summary of all clusters and their assigned card numbers, ready to copy into your lecture notes.</p>
+      
+      <pre id="summaryPre" class="summary-pre"></pre>
+      
+      <div class="dialog-actions">
+        <button type="button" id="btnCopySummary" class="btn btn-primary">Copy to Clipboard</button>
+        <button type="button" id="btnCloseSummary" class="btn">Close</button>
+      </div>
+      <p id="summaryCopyFeedback" class="dialog-feedback" hidden>Summary copied to clipboard!</p>
+    </div>
+  </dialog>
+
+  <!-- Export / Import Board State Dialog -->
+  <dialog id="stateDialog" class="modal-dialog">
+    <div class="dialog-form">
+      <h3 class="dialog-title">Export / Import Board Arrangement</h3>
+      <p class="dialog-desc">Save or restore just the cluster layout and card positions (independent of the dataset text).</p>
+      
+      <div class="state-section">
+        <h4>Export Current Arrangement</h4>
+        <div class="state-btn-row">
+          <button type="button" id="btnDownloadState" class="btn btn-primary">Download JSON File</button>
+          <button type="button" id="btnCopyState" class="btn">Copy State JSON</button>
+        </div>
+      </div>
+
+      <div class="state-section">
+        <h4>Import Arrangement</h4>
+        <input type="file" id="stateFileInput" accept=".json" style="display: none;">
+        <div class="state-btn-row">
+          <button type="button" id="btnImportStateFile" class="btn">Choose State File</button>
+        </div>
+        <textarea id="importStateTextarea" class="paste-textarea" rows="4" placeholder="Or paste board state JSON here..."></textarea>
+        <button type="button" id="btnApplyStatePaste" class="btn">Apply Pasted State</button>
+      </div>
+
+      <div id="stateError" class="dialog-error" hidden></div>
+      <p id="stateSuccess" class="dialog-feedback" hidden>State updated successfully!</p>
+
+      <div class="dialog-actions">
+        <button type="button" id="btnCloseStateDialog" class="btn">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Timer Edit Dialog -->
+  <dialog id="timerDialog" class="modal-dialog">
+    <form method="dialog" class="dialog-form" id="timerForm">
+      <h3 class="dialog-title">Set Countdown Timer</h3>
+      <p class="dialog-desc">Set duration in minutes for the affinity clustering session.</p>
+      <div class="timer-input-row">
+        <label for="timerMinutesInput">Minutes:</label>
+        <input type="number" id="timerMinutesInput" min="1" max="120" value="15" class="timer-number-input">
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="btnCancelTimerDialog" class="btn">Cancel</button>
+        <button type="submit" id="btnSaveTimerDialog" class="btn btn-primary">Set Timer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Confirm Reset Dialog -->
+  <dialog id="confirmResetDialog" class="modal-dialog">
+    <div class="dialog-form">
+      <h3 class="dialog-title">Reset Board?</h3>
+      <p class="dialog-desc">Are you sure you want to return all cards back to the Unclustered Tray? Cluster containers and their titles will be kept.</p>
+      <div class="dialog-actions">
+        <button type="button" id="btnCancelReset" class="btn">Cancel</button>
+        <button type="button" id="btnConfirmReset" class="btn btn-danger">Return All Cards to Tray</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Help & Keyboard Shortcuts Dialog -->
+  <dialog id="helpDialog" class="modal-dialog">
+    <div class="dialog-form">
+      <h3 class="dialog-title">Affinity Mapping Guide &amp; Controls</h3>
+      
+      <div class="help-grid">
+        <div class="help-section">
+          <h4>Pointer &amp; Touch</h4>
+          <ul>
+            <li><strong>Drag &amp; Drop:</strong> Grab any card and drag it into a cluster or back into the tray. Works with mouse, trackpad, and touchscreen.</li>
+            <li><strong>Click-to-Move:</strong> Click any card to select it (glowing highlight), then click the target cluster or tray to place it immediately. Ideal for wireless clickers or when students call out moves from the room.</li>
+          </ul>
+        </div>
+
+        <div class="help-section">
+          <h4>Keyboard Shortcuts</h4>
+          <ul>
+            <li><kbd>Tab</kbd> / <kbd>&larr;</kbd> <kbd>&rarr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd> : Navigate through cards</li>
+            <li><kbd>Enter</kbd> / <kbd>Space</kbd> : Pick up / select focused card</li>
+            <li><kbd>1</kbd> through <kbd>9</kbd> : Drop selected card into cluster 1 through 9</li>
+            <li><kbd>0</kbd> : Drop selected card back into the tray</li>
+            <li><kbd>Esc</kbd> : Cancel card selection / close popups</li>
+          </ul>
+        </div>
+
+        <div class="help-section">
+          <h4>Classroom Features</h4>
+          <ul>
+            <li><strong>Section Colors:</strong> Off by default. Turn on during discussion to reveal undergrad (425) vs grad (625) origins.</li>
+            <li><strong>Big Text:</strong> Scales up fonts and cards for back-of-the-room projector visibility.</li>
+            <li><strong>Reveal Themes:</strong> Open the instructor comparison panel. Click any theme to highlight where its ideas landed across student clusters.</li>
+            <li><strong>Autosave:</strong> All arrangements persist automatically in your browser's local storage.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" id="btnCloseHelp" class="btn btn-primary">Got It</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Printable Area for Fallback Paper Cards -->
+  <div id="printCardsArea" class="print-cards-area" aria-hidden="true">
+    <!-- Rendered specifically for @media print -->
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
