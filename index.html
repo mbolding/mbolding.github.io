@@ -14,7 +14,6 @@
             --text-color: #111111;
             --secondary-text: #666666;
             --accent-color: #ff3300;
-            --new-color: #007a33;
             --grid-gap: 24px;
             --card-bg: #f5f5f5;
             --card-hover: #e0e0e0;
@@ -150,58 +149,12 @@
             color: var(--secondary-text);
         }
 
-        .toolbar button {
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--secondary-text);
-            background: none;
-            border: 1px solid #e0e0e0;
-            padding: 7px 12px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
 
-        .toolbar button:hover {
-            color: var(--text-color);
-            border-color: var(--text-color);
-        }
 
-        .toolbar button[aria-pressed="true"] {
-            background-color: var(--text-color);
-            border-color: var(--text-color);
-            color: #ffffff;
-        }
 
-        .toolbar button:focus-visible {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 2px;
-        }
 
-        .card-new {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background-color: var(--new-color);
-            color: #ffffff;
-            font-size: 10px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            padding: 3px 7px;
-            line-height: 1.2;
-        }
 
-        .card.is-new .card-title {
-            padding-right: 48px;
-        }
 
-        .card:hover .card-new {
-            background-color: #ffffff;
-            color: var(--new-color);
-        }
 
         .card.featured {
             background-color: #111;
@@ -404,18 +357,6 @@
             <div class="toolbar-group toolbar-search">
                 <label class="toolbar-label" for="card-search">Search</label>
                 <input type="search" id="card-search" placeholder="Filter pages&hellip;" autocomplete="off">
-            </div>
-            <div class="toolbar-group" role="group" aria-label="Sort order">
-                <span class="toolbar-label">Sort</span>
-                <button type="button" data-sort="curated" aria-pressed="true">Curated</button>
-                <button type="button" data-sort="newest" aria-pressed="false">Newest</button>
-                <button type="button" data-sort="oldest" aria-pressed="false">Oldest</button>
-                <button type="button" data-sort="az" aria-pressed="false">A&ndash;Z</button>
-            </div>
-            <div class="toolbar-group" role="group" aria-label="Which date to use">
-                <span class="toolbar-label">By date</span>
-                <button type="button" data-basis="updated" aria-pressed="true">Last updated</button>
-                <button type="button" data-basis="added" aria-pressed="false">Added</button>
             </div>
         </div>
 
@@ -732,52 +673,18 @@
         (function () {
             var toolbar = document.getElementById('toolbar');
             var grids = Array.prototype.slice.call(document.querySelectorAll('section[id]:not(#recent-section) .grid'));
-            var NEW_DAYS = 30;
             var RECENT_COUNT = 6;
             if (!toolbar || !grids.length) return;
 
-            var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            var STORAGE_KEY = 'commonplace-card-sort';
-            var state = { sort: 'curated', basis: 'updated' };
-
-            try {
-                var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-                if (saved && saved.sort) state.sort = saved.sort;
-                if (saved && saved.basis) state.basis = saved.basis;
-            } catch (e) { /* private mode, blocked storage */ }
-
             var cards = [];
             grids.forEach(function (grid) {
-                Array.prototype.slice.call(grid.children).forEach(function (card, i) {
+                Array.prototype.slice.call(grid.children).forEach(function (card) {
                     cards.push({
                         el: card,
-                        grid: grid,
-                        order: i,
-                        added: card.getAttribute('data-added') || '',
                         updated: card.getAttribute('data-updated') || '',
-                        title: (card.querySelector('.card-title') || {}).textContent || ''
+                        text: card.textContent.replace(/\s+/g, ' ').toLowerCase()
                     });
                 });
-            });
-
-            // "New" badge: a card (or any page listed inside a hub card) added
-            // within the last NEW_DAYS days.
-            var cutoff = new Date(Date.now() - NEW_DAYS * 864e5).toISOString().slice(0, 10);
-            cards.forEach(function (c) {
-                var newest = c.added;
-                Array.prototype.slice.call(c.el.querySelectorAll('.card-sub a[data-added]')).forEach(function (a) {
-                    var d = a.getAttribute('data-added');
-                    if (d > newest) newest = d;
-                });
-                if (newest && newest >= cutoff) {
-                    var badge = document.createElement('span');
-                    badge.className = 'card-new';
-                    badge.textContent = 'New';
-                    c.el.insertBefore(badge, c.el.firstChild);
-                    c.el.classList.add('is-new');
-                }
-                c.text = c.el.textContent.replace(/\s+/g, ' ').toLowerCase();
             });
 
             // Recently updated strip, built from copies of the newest cards.
@@ -785,7 +692,6 @@
             var recentGrid = document.getElementById('recent-grid');
             if (recentSection && recentGrid) {
                 cards.filter(function (c) { return !c.el.classList.contains('archive'); })
-                    .slice()
                     .sort(function (a, b) { return a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0; })
                     .slice(0, RECENT_COUNT)
                     .forEach(function (c) {
@@ -816,72 +722,7 @@
             }
             if (search) search.addEventListener('input', applySearch);
 
-            function pretty(iso) {
-                var p = iso.split('-');
-                return MONTHS[Number(p[1]) - 1] + ' ' + Number(p[2]) + ', ' + p[0];
-            }
-
-            function stamp(card) {
-                // "Added" until a page is revised, "Updated" after; the Added view
-                // always shows the original date.
-                var useUpdated = state.basis === 'updated' && card.updated !== card.added;
-                var iso = useUpdated ? card.updated : card.added;
-                var el = card.el.querySelector('.card-date');
-                if (!el || !iso) return;
-                el.setAttribute('datetime', iso);
-                el.textContent = (useUpdated ? 'Updated ' : 'Added ') + pretty(iso);
-            }
-
-            function keyDate(card) {
-                return state.basis === 'added' ? card.added : card.updated;
-            }
-
-            function render() {
-                cards.forEach(stamp);
-
-                grids.forEach(function (grid) {
-                    var items = cards.filter(function (c) { return c.grid === grid; });
-
-                    items.sort(function (a, b) {
-                        if (state.sort === 'az') {
-                            return a.title.localeCompare(b.title);
-                        }
-                        if (state.sort === 'newest' || state.sort === 'oldest') {
-                            var da = keyDate(a), db = keyDate(b);
-                            if (da !== db) {
-                                return state.sort === 'newest'
-                                    ? (da < db ? 1 : -1)
-                                    : (da < db ? -1 : 1);
-                            }
-                        }
-                        return a.order - b.order;
-                    });
-
-                    var frag = document.createDocumentFragment();
-                    items.forEach(function (c) { frag.appendChild(c.el); });
-                    grid.appendChild(frag);
-                });
-
-                Array.prototype.slice.call(toolbar.querySelectorAll('button')).forEach(function (btn) {
-                    var on = btn.dataset.sort === state.sort || btn.dataset.basis === state.basis;
-                    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-                });
-
-                try {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                } catch (e) { /* ignore */ }
-            }
-
-            toolbar.addEventListener('click', function (event) {
-                var btn = event.target.closest('button');
-                if (!btn) return;
-                if (btn.dataset.sort) state.sort = btn.dataset.sort;
-                if (btn.dataset.basis) state.basis = btn.dataset.basis;
-                render();
-            });
-
             toolbar.hidden = false;
-            render();
         }());
     </script>
 </body>
