@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>13C carrier calculator — Prisma</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink:#1b1f24; --muted:#5b6570; --line:#d9dee3; --accent:#1f4e9c; --warn:#b35806; --bg:#f7f8fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 760px; margin: 28px auto; padding: 0 18px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  input[type=number], input[type=text] { width:100%; padding:8px 10px; font: 16px ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid var(--line); border-radius:6px; }
+  input:focus { outline: 2px solid #c9d8f0; border-color: var(--accent); }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .presets { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .presets button { font-size:12px; padding:5px 9px; border:1px solid var(--line); background:#fff; border-radius:14px; cursor:pointer; color:var(--ink); }
+  .presets button.on { background: var(--accent); color:#fff; border-color: var(--accent); }
+  .result { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-top: 4px; }
+  .big { font: 600 30px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); letter-spacing: .01em; }
+  .unit { color: var(--muted); }
+  .copy { font-size:12px; padding:5px 10px; border:1px solid var(--accent); color:var(--accent); background:#fff; border-radius:6px; cursor:pointer; }
+  .small { font-size: 13px; color: var(--muted); }
+  table { width:100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  th, td { text-align:right; padding:5px 6px; border-bottom:1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color: var(--muted); font-weight: 600; }
+  .far { color: var(--warn); }
+  .err { color: var(--warn); font-size: 13px; margin-top: 6px; min-height: 1em; }
+  details { font-size: 13px; color: var(--muted); }
+  details summary { cursor: pointer; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>¹³C carrier calculator</h1>
+  <p class="sub">Siemens Prisma (B₀ ≈ 2.89 T). ¹³C frequency from the session's ¹H system frequency via Ξ(¹³C) = 25.145020 %.</p>
+
+  <section class="card">
+    <h2>Inputs</h2>
+    <div class="row">
+      <div>
+        <label for="fH">¹H frequency from the protocol (MHz)</label>
+        <input id="fH" type="number" step="0.000001" value="123.244602">
+      </div>
+      <div>
+        <label for="dw">Water ¹H shift assumed for that frequency (ppm)</label>
+        <input id="dw" type="number" step="0.01" value="4.80">
+        <div class="presets" id="dwPresets">
+          <button data-v="4.80" class="on">4.80 · project convention</button>
+          <button data-v="4.68">4.68 · water at 37 °C</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label for="tgt">Target ¹³C chemical shift for the carrier (ppm)</label>
+      <input id="tgt" type="number" step="0.1" value="100.5">
+      <div class="presets" id="tgtPresets">
+        <button data-v="100.5" class="on">Glycogen C1 · 100.5</button>
+        <button data-v="83.7">Glycogen band centre · 83.7</button>
+        <button data-v="75.0">Glycogen C2–C5 · 75</button>
+        <button data-v="164.25">Urea fiducial · 164.25</button>
+        <button data-v="30.0">Lipid CH₂ · 30</button>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+  </section>
+
+  <section class="card">
+    <h2>Enter this ¹³C frequency</h2>
+    <div class="result">
+      <span class="big" id="outMHz">—</span><span class="unit">MHz</span>
+      <button class="copy" id="copyBtn">Copy</button>
+    </div>
+    <p class="small" id="outHz"></p>
+  </section>
+
+  <section class="card">
+    <h2>Where resonances will fall (undecoupled)</h2>
+    <table id="tbl">
+      <thead><tr><th>Resonance</th><th>ppm</th><th>Offset from carrier (Hz)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="small">Offsets beyond ±1.2 kHz are shown in orange: with the 0.30 ms rectangular pulse, excitation falls off beyond about that range (fitted to the phantom sweep). The sweep only sampled offsets up to about ±800 Hz.</p>
+  </section>
+
+  <section class="card">
+    <h2>Check an existing protocol</h2>
+    <div class="row">
+      <div>
+        <label for="fCin">¹³C frequency already in the protocol (MHz)</label>
+        <input id="fCin" type="number" step="0.000001" value="30.991851">
+      </div>
+      <div>
+        <label>Carrier sits at</label>
+        <div class="result"><span class="big" id="revPpm" style="font-size:24px">—</span><span class="unit">ppm</span></div>
+        <p class="small" id="revNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Formula and checks</summary>
+    <p><code>f_TMS(¹³C) = f(¹H) / (1 + δ_water·10⁻⁶) × 0.25145020</code><br>
+       <code>f(¹³C) = f_TMS(¹³C) × (1 + δ_target·10⁻⁶)</code></p>
+    <p>Recompute every session: the ¹³C frequency is stored as a fixed number and does not follow the ¹H frequency adjustment.
+       After acquiring, confirm that urea sits near 164.2 ppm and the glycogen C1 doublet near 97.8 / 103.2 ppm.
+       The difference between the 4.80 and 4.68 ppm water conventions is 0.12 ppm (≈ 4 Hz at ¹³C), well under the ~46 Hz glycogen linewidth.
+       Keep one convention for a whole study so ppm axes agree.</p>
+    <p id="selftest"></p>
+  </details>
+</main>
+
+<script>
+const XI_C13 = 0.25145020;
+const RES = [
+  ["Lipid C=O", 172.5], ["Urea fiducial", 164.25], ["Olefinic lipid (CH=CH)", 130.0],
+  ["Glycogen C1, upper doublet line", 103.24], ["Glycogen C1 (decoupled)", 100.5], ["Glycogen C1, lower doublet line", 97.76],
+  ["β-Glucose C1", 96.8], ["α-Glucose C1", 92.9], ["Glycogen C2–C5", 75.0], ["Glycerol C2", 69.5],
+  ["Glycogen C6 / glycerol C1,3", 62.0], ["Lipid CH₂", 30.0]
+];
+const $ = id => document.getElementById(id);
+const fTMS = (fH, dw) => fH / (1 + dw * 1e-6) * XI_C13;
+const f13 = (fH, dw, d) => fTMS(fH, dw) * (1 + d * 1e-6);
+const ppmOf = (fH, dw, fC) => (fC / fTMS(fH, dw) - 1) * 1e6;
+
+function num(id) { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : NaN; }
+
+function update() {
+  const fH = num("fH"), dw = num("dw"), tgt = num("tgt"), fCin = num("fCin");
+  let msg = "";
+  if (!(fH > 100 && fH < 150)) msg = "¹H frequency should be in MHz, around 123.2 for a Prisma.";
+  $("err").textContent = msg;
+  if (!Number.isFinite(fH) || !Number.isFinite(dw) || !Number.isFinite(tgt)) return;
+
+  const fC = f13(fH, dw, tgt);
+  $("outMHz").textContent = fC.toFixed(6);
+  $("outHz").textContent = `${Math.round(fC * 1e6).toLocaleString("en-US")} Hz · 1 ppm = ${(fC).toFixed(2)} Hz at this field`;
+
+  const tb = $("tbl").querySelector("tbody"); tb.innerHTML = "";
+  for (const [name, d] of RES) {
+    const off = (f13(fH, dw, d) - fC) * 1e6;
+    const tr = document.createElement("tr");
+    const far = Math.abs(off) > 1200 ? ' class="far"' : "";
+    tr.innerHTML = `<td>${name}</td><td>${d.toFixed(2)}</td><td${far}>${off >= 0 ? "+" : ""}${off.toFixed(0)}</td>`;
+    tb.appendChild(tr);
+  }
+
+  if (Number.isFinite(fCin)) {
+    const p = ppmOf(fH, dw, fCin);
+    $("revPpm").textContent = p.toFixed(2);
+    const dC1 = (f13(fH, dw, 100.5) - fCin) * 1e6;
+    $("revNote").textContent = `Glycogen C1 would be ${dC1 >= 0 ? "+" : ""}${dC1.toFixed(0)} Hz from this carrier.`;
+  }
+}
+
+function wirePresets(groupId, inputId) {
+  const g = $(groupId);
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    $(inputId).value = b.dataset.v;
+    g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    update();
+  });
+  $(inputId).addEventListener("input", () => {
+    g.querySelectorAll("button").forEach(x => x.classList.toggle("on", parseFloat(x.dataset.v) === num(inputId)));
+  });
+}
+wirePresets("dwPresets", "dw"); wirePresets("tgtPresets", "tgt");
+["fH", "dw", "tgt", "fCin"].forEach(id => $(id).addEventListener("input", update));
+
+$("copyBtn").addEventListener("click", async () => {
+  const t = $("outMHz").textContent;
+  try { await navigator.clipboard.writeText(t); $("copyBtn").textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents($("outMHz")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("copyBtn").textContent = "Selected"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy", 1200);
+});
+
+// self-test against values computed during the phantom and liver sessions
+(function selftest() {
+  const cases = [
+    ["123.244561 MHz, C1 → 30.992835", f13(123.244561, 4.80, 100.5).toFixed(6), "30.992835"],
+    ["123.244561 MHz, 83.7 ppm → 30.992315", f13(123.244561, 4.80, 83.7).toFixed(6), "30.992315"],
+    ["28 Sep carrier 30.991851 at 123.244602 → 68.41 ppm", ppmOf(123.244602, 4.80, 30.991851).toFixed(2), "68.41"],
+  ];
+  const ok = cases.every(c => c[1] === c[2]);
+  $("selftest").textContent = (ok ? "Self-test passed: " : "Self-test FAILED: ") + cases.map(c => `${c[0]} (${c[1]})`).join("; ");
+  $("selftest").style.color = ok ? "" : "#b35806";
+})();
+
+update();
+</script>
+</body>
+</html>
