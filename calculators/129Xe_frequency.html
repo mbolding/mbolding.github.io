@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>129Xe frequency calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink:#1b1f24; --muted:#5b6570; --line:#d9dee3; --accent:#1f4e9c; --warn:#b35806; --bg:#f7f8fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 760px; margin: 28px auto; padding: 0 18px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  input[type=number] { width:100%; padding:8px 10px; font: 16px ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid var(--line); border-radius:6px; }
+  input:focus { outline: 2px solid #c9d8f0; border-color: var(--accent); }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+  .presets { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .presets button { font-size:12px; padding:5px 9px; border:1px solid var(--line); background:#fff; border-radius:14px; cursor:pointer; color:var(--ink); }
+  .presets button.on { background: var(--accent); color:#fff; border-color: var(--accent); }
+  .result { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-top: 4px; }
+  .big { font: 600 30px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); letter-spacing: .01em; }
+  .unit { color: var(--muted); }
+  .copy, .apply { font-size:12px; padding:5px 10px; border:1px solid var(--accent); color:var(--accent); background:#fff; border-radius:6px; cursor:pointer; }
+  .small { font-size: 13px; color: var(--muted); }
+  table { width:100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  th, td { text-align:right; padding:5px 6px; border-bottom:1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color: var(--muted); font-weight: 600; }
+  .err { color: var(--warn); font-size: 13px; margin-top: 6px; min-height: 1em; }
+  details { font-size: 13px; color: var(--muted); }
+  details summary { cursor: pointer; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>¹²⁹Xe frequency calculator</h1>
+  <p class="sub">Hyperpolarized ¹²⁹Xe lung MRI. Predicts the gas-phase ¹²⁹Xe frequency from the session's ¹H water frequency, then places the carrier on the gas, membrane (tissue/plasma) or RBC resonance. Shifts are in ppm relative to xenon gas (0 ppm).</p>
+
+  <section class="card">
+    <h2>Inputs</h2>
+    <div class="row">
+      <div>
+        <label for="fH">¹H water frequency from the protocol (MHz)</label>
+        <input id="fH" type="number" step="0.000001" value="123.250000">
+      </div>
+      <div>
+        <label for="ratio">Ratio f(¹²⁹Xe gas) / f(¹H water)</label>
+        <input id="ratio" type="number" step="0.0000001" value="0.2766087">
+        <p class="small" style="margin:4px 0 0">Default from γ/2π = 11.777 MHz/T (Xe gas) and 42.576 MHz/T (water ¹H), good to about ±100 ppm. Calibrate it below from a measured gas frequency.</p>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label for="tgt">Target ¹²⁹Xe chemical shift for the carrier (ppm from gas)</label>
+      <input id="tgt" type="number" step="0.1" value="0">
+      <div class="presets" id="tgtPresets">
+        <button data-v="0" class="on">Gas · 0</button>
+        <button data-v="197.7">Membrane (TP) · 197.7</button>
+        <button data-v="207.6">TP/RBC midpoint · 207.6</button>
+        <button data-v="217.5">RBC · 217.5</button>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+  </section>
+
+  <section class="card">
+    <h2>Enter this ¹²⁹Xe frequency</h2>
+    <div class="result">
+      <span class="big" id="outMHz">—</span><span class="unit">MHz</span>
+      <button class="copy" id="copyBtn">Copy</button>
+    </div>
+    <p class="small" id="outHz"></p>
+  </section>
+
+  <section class="card">
+    <h2>Where resonances will fall</h2>
+    <table id="tbl">
+      <thead><tr><th>Resonance</th><th>ppm</th><th>Offset from carrier (Hz)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="small">Dissolved-phase shifts vary with field, oxygenation and subject (RBC roughly 216–222 ppm, membrane 196–199 ppm). Use the spectroscopy calibration from each session where you have it.</p>
+  </section>
+
+  <section class="card">
+    <h2>Calibrate from a measured gas frequency</h2>
+    <div class="row">
+      <div>
+        <label for="fHcal">¹H water frequency that session (MHz)</label>
+        <input id="fHcal" type="number" step="0.000001" value="">
+      </div>
+      <div>
+        <label for="fXcal">Measured ¹²⁹Xe gas frequency (MHz)</label>
+        <input id="fXcal" type="number" step="0.000001" value="">
+      </div>
+    </div>
+    <div class="result" style="margin-top:10px">
+      <span class="small">Ratio:</span><span class="big" id="calRatio" style="font-size:22px">—</span>
+      <button class="apply" id="applyBtn">Use this ratio</button>
+    </div>
+    <p class="small" id="calNote"></p>
+  </section>
+
+  <section class="card">
+    <h2>Check an existing protocol</h2>
+    <div class="row">
+      <div>
+        <label for="fXin">¹²⁹Xe frequency already in the protocol (MHz)</label>
+        <input id="fXin" type="number" step="0.000001" value="">
+      </div>
+      <div>
+        <label>Carrier sits at</label>
+        <div class="result"><span class="big" id="revPpm" style="font-size:24px">—</span><span class="unit">ppm from gas</span></div>
+        <p class="small" id="revNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Formula and checks</summary>
+    <p><code>f_gas(¹²⁹Xe) = f(¹H water) × R</code><br>
+       <code>f(¹²⁹Xe) = f_gas × (1 + δ_target·10⁻⁶)</code></p>
+    <p>R depends on how the gas reference is defined (low-pressure gas in the lungs sits a fraction of a ppm off the zero-density value) and on the water ¹H reference.
+       100 ppm of error in R moves the carrier by about 3.4 kHz at 2.89 T, so calibrate R from a measured gas frequency (a short gas-phase spectrum or the frequency adjustment) and keep that value for the study.
+       Recompute every session: the ¹H frequency drifts and the ¹²⁹Xe frequency is a fixed number in the protocol.</p>
+    <p id="selftest"></p>
+  </details>
+</main>
+
+<script>
+const RES = [
+  ["RBC", 217.5], ["Membrane (tissue/plasma)", 197.7], ["Gas", 0]
+];
+const $ = id => document.getElementById(id);
+const fGas = (fH, R) => fH * R;
+const fXe = (fH, R, d) => fGas(fH, R) * (1 + d * 1e-6);
+const ppmOf = (fH, R, fX) => (fX / fGas(fH, R) - 1) * 1e6;
+
+function num(id) { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : NaN; }
+
+function update() {
+  const fH = num("fH"), R = num("ratio"), tgt = num("tgt"), fXin = num("fXin");
+  let msg = "";
+  if (!(fH > 20 && fH < 500)) msg = "¹H frequency should be in MHz (about 123.2 for a 3 T Prisma).";
+  else if (!(R > 0.27 && R < 0.28)) msg = "Ratio should be about 0.2766.";
+  $("err").textContent = msg;
+  if (!Number.isFinite(fH) || !Number.isFinite(R) || !Number.isFinite(tgt)) return;
+
+  const fX = fXe(fH, R, tgt);
+  const ppmHz = fGas(fH, R);
+  $("outMHz").textContent = fX.toFixed(6);
+  const offGas = (fX - fGas(fH, R)) * 1e6;
+  $("outHz").textContent = `${Math.round(fX * 1e6).toLocaleString("en-US")} Hz · ${offGas >= 0 ? "+" : ""}${offGas.toFixed(0)} Hz from gas · 1 ppm = ${ppmHz.toFixed(2)} Hz at this field`;
+
+  const tb = $("tbl").querySelector("tbody"); tb.innerHTML = "";
+  for (const [name, d] of RES) {
+    const off = (fXe(fH, R, d) - fX) * 1e6;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${name}</td><td>${d.toFixed(1)}</td><td>${off >= 0 ? "+" : ""}${off.toFixed(0)}</td>`;
+    tb.appendChild(tr);
+  }
+
+  if (Number.isFinite(fXin)) {
+    const p = ppmOf(fH, R, fXin);
+    $("revPpm").textContent = p.toFixed(1);
+    const dRBC = (fXe(fH, R, 217.5) - fXin) * 1e6;
+    $("revNote").textContent = `RBC would be ${dRBC >= 0 ? "+" : ""}${dRBC.toFixed(0)} Hz from this carrier.`;
+  } else {
+    $("revPpm").textContent = "—"; $("revNote").textContent = "";
+  }
+
+  const fHc = num("fHcal"), fXc = num("fXcal");
+  if (fHc > 0 && fXc > 0) {
+    const Rc = fXc / fHc;
+    $("calRatio").textContent = Rc.toFixed(7);
+    $("calNote").textContent = `Differs from the current ratio by ${((Rc / R - 1) * 1e6).toFixed(1)} ppm.`;
+  } else {
+    $("calRatio").textContent = "—"; $("calNote").textContent = "";
+  }
+}
+
+function wirePresets(groupId, inputId) {
+  const g = $(groupId);
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    $(inputId).value = b.dataset.v;
+    g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    update();
+  });
+  $(inputId).addEventListener("input", () => {
+    g.querySelectorAll("button").forEach(x => x.classList.toggle("on", parseFloat(x.dataset.v) === num(inputId)));
+  });
+}
+wirePresets("tgtPresets", "tgt");
+["fH", "ratio", "tgt", "fXin", "fHcal", "fXcal"].forEach(id => $(id).addEventListener("input", update));
+
+$("applyBtn").addEventListener("click", () => {
+  const t = $("calRatio").textContent;
+  if (t !== "—") { $("ratio").value = t; update(); }
+});
+
+$("copyBtn").addEventListener("click", async () => {
+  const t = $("outMHz").textContent;
+  try { await navigator.clipboard.writeText(t); $("copyBtn").textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents($("outMHz")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("copyBtn").textContent = "Selected"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy", 1200);
+});
+
+// arithmetic self-test (internal consistency only, not checked against scanner data)
+(function selftest() {
+  const cases = [
+    ["123.25 MHz gas → 34.092022", fXe(123.25, 0.2766087, 0).toFixed(6), "34.092022"],
+    ["123.25 MHz RBC 217.5 ppm → 34.099437", fXe(123.25, 0.2766087, 217.5).toFixed(6), "34.099437"],
+    ["round trip 197.7 ppm", ppmOf(123.25, 0.2766087, fXe(123.25, 0.2766087, 197.7)).toFixed(1), "197.7"],
+  ];
+  const ok = cases.every(c => c[1] === c[2]);
+  $("selftest").textContent = (ok ? "Self-test passed: " : "Self-test FAILED: ") + cases.map(c => `${c[0]} (${c[1]})`).join("; ");
+  $("selftest").style.color = ok ? "" : "#b35806";
+})();
+
+update();
+</script>
+</body>
+</html>
