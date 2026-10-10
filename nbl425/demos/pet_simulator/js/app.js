@@ -244,6 +244,14 @@
         if (!PET.engine || typeof PET.engine.simulate !== 'function') {
             return scanFailed('The acquisition engine (js/engine.js) is not available, so nothing can be acquired.', { stage: 'compute' });
         }
+        // An expected student mistake, not a bug: report it plainly, without a stack trace.
+        try {
+            const l = PET.phantoms && PET.phantoms.list().find(function (x) { return x.id === state.phantomId; });
+            if (l && l.kind === 'brain' && !prog.tracer) {
+                return scanFailed('The brain needs a tracer: a solution of ' + (prog.isotope || 'an isotope') +
+                    ' has no biology to follow. Add a tracer line (for example "tracer FDG") or choose a phantom.', { stage: 'compile', tab: 'protocol' });
+            }
+        } catch (e) { /* phantom list unavailable: the engine will report it */ }
         const animate = req.animate && state.speed !== 'instant';
         state.scanning = true;
         state.stale = false;
