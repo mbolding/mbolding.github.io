@@ -200,21 +200,30 @@
        one update) are processed in chunks with a chance to yield between
        them; the arithmetic is the same as one call. */
     const CHUNK = 24;
-    function chunksOf(angles) {
-        if (angles.length <= CHUNK) return [angles];
-        const k = Math.ceil(angles.length / CHUNK), out = [];
+    /* Angles per chunk, scaled by what one angle costs with this projector:
+       samples per ray grow with the matrix, sub-rays per bin multiply them,
+       and TOF spreads every sample over several bins. */
+    function chunkSize(P) {
+        if (!P) return CHUNK;
+        const cost = (P.n / 128) * (P.rays || 1) * (P.tof ? 2.5 : 1);
+        return Math.max(2, Math.floor(CHUNK / Math.max(1, cost)));
+    }
+    function chunksOf(angles, P) {
+        const lim = chunkSize(P);
+        if (angles.length <= lim) return [angles];
+        const k = Math.ceil(angles.length / lim), out = [];
         for (let c = 0; c < k; c++) out.push(angles.subarray(Math.floor(c * angles.length / k), Math.floor((c + 1) * angles.length / k)));
         return out;
     }
     async function backChunked(P, sino, angles, out, tick) {
         out = out || new Float32Array(P.n * P.n);
-        const ch = chunksOf(angles);
+        const ch = chunksOf(angles, P);
         for (let c = 0; c < ch.length; c++) { P.back(sino, ch[c], out); await tick(); }
         return out;
     }
     async function forwardChunked(P, img, angles, out, tick) {
         out = out || new Float32Array(P.size);
-        const ch = chunksOf(angles);
+        const ch = chunksOf(angles, P);
         for (let c = 0; c < ch.length; c++) { P.forward(img, ch[c], out); await tick(); }
         return out;
     }
@@ -466,7 +475,7 @@
         for (let it = 1; it <= o.iterations; it++) {
             for (let qi = 0; qi < nSub; qi++) {
                 const src = range ? convolveSym(x, n, range.kernel, range.size, xr) : x;
-                const chunks = chunksOf(subsetList[qi]);
+                const chunks = chunksOf(subsetList[qi], P);
                 bimg.fill(0);
                 for (let ci = 0; ci < chunks.length; ci++) {
                     const angles = chunks[ci];

@@ -277,7 +277,13 @@
         acq.stats = acq.stats || {};
         if (!isFinite(acq.stats.computeMs)) acq.stats.computeMs = now() - t0;
         state.reconAll = null;
-        if (state.frame >= acq.frames.length) setFrameInternal(acq.frames.length - 1, true);
+        // A new framing (another protocol) starts on its last frame: in a dynamic
+        // scan that is the one with the settled tracer distribution and the most
+        // counts. Re-scans of the same framing keep the frame the student chose.
+        const prevFrames = state.acq ? state.acq.frames.length : 0, prevFrame = state.frame;
+        if (acq.frames.length !== prevFrames) state.frame = acq.frames.length - 1;
+        else if (state.frame >= acq.frames.length) state.frame = acq.frames.length - 1;
+        const frameMoved = state.frame !== prevFrame;
 
         if (animate) {
             state.acq = acq;
@@ -297,6 +303,7 @@
         state.acq = acq;
         state.scanning = false;
         bus.emit('scan:done', { acq: acq });
+        if (frameMoved || state.frame !== prevFrame) bus.emit('frame:changed', { frame: state.frame });
         reconstruct();
         return acq;
     }
