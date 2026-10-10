@@ -58,7 +58,7 @@
 
     /* How long an animated scan takes on screen, in seconds of wall time,
        for the whole sequence (including dummy scans). */
-    const PLAYBACK = { fast: 4, slow: 15 };
+    const PLAYBACK = { fast: 4, slow: 15, warp: 0.5 };   // seconds of wall time; warp = share of playback paced by readouts
 
     /* ---------- small utilities ---------- */
 
@@ -402,6 +402,38 @@
         return tr.amp * (tr.rise + tr.flat + tr.fall - u) / tr.fall;
     }
 
+    /* Map playback progress (0..1 of wall time) onto sequence time.
+       A purely linear map is faithful but hides the most instructive part
+       of fast sequences: a single-shot EPI spends a few tens of ms filling
+       all of k-space after seconds of dummy TRs, so it would appear in one
+       frame. Instead, half of the wall time follows sequence time and half
+       is shared out by readouts, so k-space always fills visibly. For an
+       evenly spaced acquisition (spin echo, GRE) the two halves agree and
+       the map stays linear. PLAYBACK.warp sets the readout share (0..1). */
+    function buildWarp(reads, ends, T) {
+        const nR = reads.length;
+        const a = 1 - U.clamp(PLAYBACK.warp === undefined ? 0.5 : PLAYBACK.warp, 0, 1);
+        if (!nR || a >= 1) return function (f) { return f * T; };
+        const ts = [0], rs = [0];
+        let last = 0;
+        for (let i = 0; i < nR; i++) {
+            const s0 = Math.max(last, reads[i].t0 || 0), e0 = Math.max(s0, ends[i]);
+            ts.push(s0); rs.push(i);
+            ts.push(e0); rs.push(i + 1);
+            last = e0;
+        }
+        ts.push(Math.max(last, T)); rs.push(nR);
+        const ws = ts.map(function (t, k) { return a * t / T + (1 - a) * rs[k] / nR; });
+        return function (f) {
+            if (f <= 0) return 0;
+            if (f >= 1) return T;
+            let lo = 0, hi = ws.length - 1;
+            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ws[mid] <= f) lo = mid; else hi = mid; }
+            const dw = ws[hi] - ws[lo];
+            return dw > 0 ? ts[lo] + (ts[hi] - ts[lo]) * (f - ws[lo]) / dw : ts[hi];
+        };
+    }
+
     function playback(acq, prog, shouldAbort) {
         return new Promise(function (resolve) {
             const reads = acq.readouts, nR = reads.length;
@@ -413,6 +445,7 @@
             }
             const T = Math.max(prog.duration || 0, nR ? ends[nR - 1] : 0) || 1;
             const wallMs = 1000 * (state.speed === 'slow' ? PLAYBACK.slow : PLAYBACK.fast);
+            const warp = buildWarp(reads, ends, T);
             const byT0 = function (a, b) { return a.t0 - b.t0; };
             const rf = (prog.rf || []).slice().sort(byT0);
             const adc = (prog.adc || []).filter(function (a) { return !a.dummy; }).sort(byT0);
@@ -465,7 +498,7 @@
                 if (start === null) start = tNow;
                 if (shouldAbort()) { resolve({ aborted: true, readoutsDone: done, reconned: reconned }); return; }
                 const frac = Math.min(1, (tNow - start) / wallMs);
-                const t = frac * T;
+                const t = warp(frac);
                 while (done < nR && ends[done] <= t + 1e-12) done++;
                 const tick = {
                     t: t, frac: frac, readoutsDone: done,
