@@ -315,6 +315,41 @@ CoilSet = { type: 'body'|'head8', n, names: [..], positions: [{x, y}], radius }
   SENSE and Roemer combination (the simulator knows the true maps; the UI says
   that a real scanner measures them in a short calibration scan).
 
+### 7.1 Interactive shimming (round 2 extension of fields.js)
+
+Students shim the magnet themselves. The field the engine and the
+spectroscopy simulator see is
+
+    b0(r) = susceptibility · phantom.dB0(r) + shim · residual(r) + Σ_i shimCoeffs_i · basis_i(r)
+
+`residual(r)` is the un-shimmed field after the patient is loaded: a fixed
+pattern of low-order terms (a constant frequency offset of about +25 Hz, X, Y,
+XY, X²−Y² and Z2, tens of Hz across the head), so a perfect set of shim
+currents can cancel it exactly while the local sinus field in `dB0` stays.
+That is the lesson: shims remove smooth fields, not local susceptibility
+fields.
+
+```js
+b0 = { susceptibility: 1, shim: 0,
+       shimCoeffs: { z0: 0, x: 0, y: 0, xy: 0, x2y2: 0, z2: 0 } }   // Hz at the 100 mm reference radius
+MRI.fields.shimTerms -> [ { id, name, order, fn(x, y) } ]     // in-plane (z = 0) basis, R = 0.1 m:
+    // z0: 1 (the centre-frequency adjustment), x: x/R, y: y/R, xy: 2xy/R², x2y2: (x²−y²)/R², z2: −(x²+y²)/R²
+MRI.fields.autoShim(phantom, b0, { region: 'object'|'center', radius: 0.06 }) ->
+    { shimCoeffs, rmsBefore, rmsAfter }     // least squares over non-air points in the region,
+                                            // weighted by pd; returns the coefficients that ADD to the
+                                            // existing ones to minimise the field variance
+MRI.fields.fieldStats(phantom, b0Map, { region, radius }) ->
+    { mean, sd, fwhmHz, hist: { centers: Float32Array, counts: Float32Array } }   // pd-weighted
+```
+
+Defaults keep `shim: 0` and zero coefficients (a well-shimmed scanner). The
+"Start unshimmed" button sets `shim: 1` and zeroes the coefficients. Any
+cache keyed on the B0 settings must include `shimCoeffs`. The Shim panel
+lives in the Spectroscopy tab (sliders per term, Auto-shim with region
+choice, Reset, a live field map, a field histogram, an estimated water FWHM
+and the water line itself, updating as the sliders move), and the shim coils
+in the Scanner schematic link to it.
+
 ---
 
 ## 8. The pulse-sequence language (dsl.js)
@@ -893,7 +928,8 @@ reset, and a hover readout.
   imaging: turbo spin echo and EPI; 10 Motion and flow; 11 Hardware faults:
   spikes, zipper and Nyquist ghosts; 12 Reconstruction choices: filtering,
   partial Fourier, SENSE; 13 Spectroscopy: chemical shift, water suppression,
-  shimming.
+  shimming (start unshimmed, shim by hand, then auto-shim, and see what the
+  shims cannot fix).
 - **Scanner (scanner.js)**: an SVG schematic of the 3 T system: magnet room
   (Faraday cage) with the cryostat and superconducting coil, shim coils,
   gradient coils, RF body coil, bore, patient table and receive head coil;
@@ -905,7 +941,8 @@ reset, and a hover readout.
   causes). During playback, components light up from `playback:tick` (RF
   chain during RF, the right gradient amplifier with a level bar, the receive
   chain while the ADC is on). A Larmor calculator (f = γ̄(B0 + G·x)) and a
-  receive-coil selector (body / 8-channel head) that calls `setCoil`. A "follow
+  receive-coil selector (body / 8-channel head) that calls `setCoil`. Clicking
+  the shim coils offers a link to the Shim panel (section 7.1). A "follow
   the signal" stepper that walks the chain in order.
 - **Phantom (phantom.js)**: phantom picker cards with thumbnails, options
   (lesion, gadolinium dose), a map viewer (tissue labels with legend, PD, T1,
@@ -962,6 +999,7 @@ reset, and a hover readout.
   resolution = 1/acquisition time, linewidth = 1/(πT2*), why water must be
   suppressed, and why non-selective excitation of a head is dominated by scalp
   lipid (the reason localisation exists).
+  Also the Shim panel of section 7.1.
 
 ---
 
