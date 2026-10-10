@@ -181,6 +181,7 @@ numbers are fine.
 | air | Air | 0 | 1 | 0.001 | 0.001 | 0 | no signal; label 0 everywhere |
 | wm | White matter | 0.70 | 0.85 | 0.075 | 0.050 | 0 | NAA 9, Cr 6, Cho 2.0, mI 5, Glu 7, Gln 2, Lac 0.4 mM |
 | gm | Grey matter | 0.80 | 1.35 | 0.095 | 0.060 | 0 | NAA 11, Cr 8.5, Cho 1.5, mI 6, Glu 10, Gln 3, Lac 0.5 |
+| deepgm | Deep grey matter | 0.78 | 1.15 | 0.075 | 0.045 | 0 | caudate heads, lentiform nuclei and thalami of the brain phantom (between cortex and WM on T1-weighted images); metabolites as gm |
 | csf | CSF | 1.00 | 4.0 | 1.8 | 0.40 | 0 | water only |
 | fat | Fat (scalp, orbit) | 0.90 | 0.38 | 0.068 | 0.035 | -3.4 | lipid only |
 | marrow | Skull marrow (diploë) | 0.80 | 0.42 | 0.060 | 0.020 | -3.4 | lipid 0.8, water 0.2 |

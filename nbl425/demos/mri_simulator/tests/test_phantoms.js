@@ -27,7 +27,7 @@ function landmark(ph, prefix) { return ph.landmarks.find(L => L.name.indexOf(pre
         csf: [1.00, 4.0, 1.8, 0.40, 0], fat: [0.90, 0.38, 0.068, 0.035, -3.4], marrow: [0.80, 0.42, 0.060, 0.020, -3.4],
         bone: [0.05, 0.25, 0.0006, 0.0004, 0], muscle: [0.75, 1.40, 0.032, 0.025, 0], vessel: [0.85, 1.65, 0.10, 0.040, 0],
         lesion: [0.85, 1.60, 0.18, 0.10, 0], water: [1.00, 1.00, 0.25, 0.15, 0], oil: [0.90, 0.28, 0.080, 0.040, -3.4],
-        braino: [1.00, 1.50, 0.30, 0.15, 0]
+        braino: [1.00, 1.50, 0.30, 0.15, 0], deepgm: [0.78, 1.15, 0.075, 0.045, 0]
     };
     for (const id in table) {
         const t = T.get(id), v = table[id];
@@ -46,7 +46,9 @@ function landmark(ph, prefix) { return ph.landmarks.find(L => L.name.indexOf(pre
         ok(Math.abs(t.spectrum.water + t.spectrum.lipid - (id === 'air' ? 0 : 1)) < 1e-12, 'water + lipid fractions = 1 for ' + id);
     }
     ok(T.library.vessel.pulsatile && T.library.vessel.enhances && T.library.lesion.enhances, 'vessel pulsatile and enhancing, lesion enhancing');
-    ok(!T.library.wm.enhances && !T.library.gm.enhances && !T.library.csf.enhances && !T.library.wm.pulsatile, 'brain tissue does not enhance');
+    ok(!T.library.wm.enhances && !T.library.gm.enhances && !T.library.deepgm.enhances && !T.library.csf.enhances && !T.library.wm.pulsatile, 'brain tissue does not enhance');
+    ok(T.library.deepgm.t1 > T.library.wm.t1 && T.library.deepgm.t1 < T.library.gm.t1, 'deep grey matter T1 lies between white matter and cortex');
+    ok(JSON.stringify(T.library.deepgm.spectrum) === JSON.stringify(T.library.gm.spectrum), 'deep grey matter has the metabolites of grey matter');
     ok(T.library.marrow.spectrum.lipid === 0.8 && T.library.marrow.spectrum.water === 0.2, 'marrow is 80 percent lipid');
     const wm = T.library.wm.spectrum.metabolites;
     ok(wm.NAA === 9 && wm.Cr === 6 && wm.Cho === 2 && wm.mI === 5 && wm.Glu === 7 && wm.Gln === 2 && wm.Lac === 0.4, 'WM metabolites');
@@ -137,8 +139,9 @@ for (const id of IDS) {
 for (const n of [256, 512]) {
     const ph = PH.build('brain', { n });
     const a = areas(ph), A = id => a[idx(ph, id)];
-    ok(ph.tissues.map(t => t.id).join(',') === 'air,fat,muscle,bone,marrow,csf,gm,wm,vessel', 'brain tissue list and order');
-    const intracranial = A('csf') + A('gm') + A('wm') + A('vessel');
+    ok(ph.tissues.map(t => t.id).join(',') === 'air,fat,muscle,bone,marrow,csf,gm,wm,vessel,deepgm', 'brain tissue list and order');
+    const intracranial = A('csf') + A('gm') + A('wm') + A('vessel') + A('deepgm');
+    ok(A('deepgm') > 0.03 * intracranial && A('deepgm') < 0.15 * intracranial, n + ': deep grey matter (caudate, lentiform, thalamus) present (' + (A('deepgm') / intracranial).toFixed(3) + ')');
     ok(A('wm') > 0.35 * intracranial && A('gm') > 0.25 * intracranial, n + ': WM and GM both substantial (' + (A('wm') / intracranial).toFixed(2) + ', ' + (A('gm') / intracranial).toFixed(2) + ')');
     ok(A('csf') < A('gm') && A('csf') < A('wm') && A('csf') > 0.08 * intracranial, n + ': CSF present but less than GM and WM');
     ok(A('bone') > 800 && A('marrow') > 600 && A('fat') > 1200 && A('muscle') > 400 && A('vessel') > 20, n + ': skull, scalp, muscle and sinus present');
@@ -162,7 +165,7 @@ for (const n of [256, 512]) {
         if (ix < h) right[l]++; else if (ix > h) left[l]++;
     }
     ok(same / head > 0.75, n + ': labels mostly mirror-symmetric (' + (same / head).toFixed(3) + ')');
-    for (const id of ['csf', 'gm', 'wm', 'bone', 'marrow', 'fat', 'muscle']) {
+    for (const id of ['csf', 'gm', 'wm', 'deepgm', 'bone', 'marrow', 'fat', 'muscle']) {
         const i = idx(ph, id);
         ok(Math.abs(left[i] - right[i]) < 0.08 * (left[i] + right[i]) / 2, n + ': ' + id + ' area similar in both hemispheres');
     }
@@ -186,8 +189,8 @@ for (const n of [256, 512]) {
         'Frontal sinus': 'air', 'Superior sagittal sinus': 'vessel', 'Scalp fat': 'fat', 'Diploë': 'marrow',
         'Outer table': 'bone', 'Right temporalis': 'muscle', 'Left temporalis': 'muscle', 'Subarachnoid': 'csf',
         'Genu': 'wm', 'Splenium': 'wm', 'Right lateral ventricle': 'csf', 'Left lateral ventricle': 'csf',
-        'Right caudate': 'gm', 'Left caudate': 'gm', 'Right thalamus': 'gm', 'Left thalamus': 'gm', 'Third ventricle': 'csf',
-        'Right internal capsule': 'wm', 'Left putamen': 'gm', 'Right insula': 'gm', 'Left Sylvian': 'csf',
+        'Right caudate': 'deepgm', 'Left caudate': 'deepgm', 'Right thalamus': 'deepgm', 'Left thalamus': 'deepgm', 'Third ventricle': 'csf',
+        'Right internal capsule': 'wm', 'Left putamen': 'deepgm', 'Right insula': 'gm', 'Left Sylvian': 'csf',
         'Right atrium': 'csf', 'Left occipital horn': 'csf', 'Frontal white matter': 'wm', 'Interhemispheric': 'csf',
         'Septum pellucidum': 'wm'
     };
@@ -201,7 +204,7 @@ for (const n of [256, 512]) {
     // Susceptibility field: positive lobe in the orbitofrontal brain behind the sinus.
     const ofc = landmark(ph, 'Orbitofrontal');
     let maxBrain = -1e9, peak = null;
-    const brainIds = new Set(['csf', 'gm', 'wm'].map(id => idx(ph, id)));
+    const brainIds = new Set(['csf', 'gm', 'wm', 'deepgm'].map(id => idx(ph, id)));
     for (let i = 0; i < n * n; i++) if (brainIds.has(ph.label[i]) && ph.dB0[i] > maxBrain) { maxBrain = ph.dB0[i]; peak = i; }
     near(maxBrain, 120, 25, n + ': peak brain off-resonance about +120 Hz');
     ok((Math.floor(peak / n) - h) * ph.dx < -0.07 && Math.abs((peak % n - h) * ph.dx) < 0.02, n + ': peak is at the anterior midline');
@@ -322,16 +325,21 @@ for (const n of [256, 512]) {
     ok(b0.every((v, i) => v === brain.dB0[i]), 'susceptibility 1, shim 0 returns dB0');
     const b2 = F.b0Map(brain, { susceptibility: 2 });
     ok(b2.every((v, i) => Math.abs(v - 2 * brain.dB0[i]) < 1e-3 * (1 + Math.abs(v))), 'susceptibility scales dB0');
+    // Section 7.1: the un-shimmed residual is a sum of shim terms (Hz at 100 mm);
+    // tests/test_shim.js covers it in detail.
     const bs = F.b0Map(brain, { susceptibility: 0, shim: 1 });
+    const RC = F.residualCoeffs;
+    const resid = (x, y) => RC.z0 + RC.x * x / 0.1 + RC.y * y / 0.1 + RC.xy * 2 * x * y / 0.01 +
+        RC.x2y2 * (x * x - y * y) / 0.01 - RC.z2 * (x * x + y * y) / 0.01;
     let shimErr = 0, airNonZero = 0;
     for (let iy = 0; iy < 256; iy++) for (let ix = 0; ix < 256; ix++) {
         const i = iy * 256 + ix, x = (ix - h) * brain.dx, y = (iy - h) * brain.dx;
-        if (brain.label[i]) shimErr = Math.max(shimErr, Math.abs(bs[i] - (250 * x - 150 * y + 40 * (x * x + y * y) / 0.01)));
+        if (brain.label[i]) shimErr = Math.max(shimErr, Math.abs(bs[i] - resid(x, y)));
         else if (bs[i] !== 0) airNonZero++;
     }
-    ok(shimErr < 1e-3 && airNonZero === 0, 'shim residual: 25 Hz/100 mm in x, -15 Hz/100 mm in y, +40 Hz (r/100 mm)^2; zero in air');
-    near(F.shimResidual(0.1, 0), 25 + 40, 1e-9, 'shim residual at x = 100 mm');
-    near(F.shimResidual(0, 0.1), -15 + 40, 1e-9, 'shim residual at y = 100 mm');
+    ok(shimErr < 1e-3 && airNonZero === 0, 'shim residual is the sum of its shim terms; zero in air');
+    near(F.shimResidual(0.1, 0), RC.z0 + RC.x + RC.x2y2 - RC.z2, 1e-9, 'shim residual at x = 100 mm');
+    near(F.shimResidual(0, 0.1), RC.z0 + RC.y - RC.x2y2 - RC.z2, 1e-9, 'shim residual at y = 100 mm');
     ok(F.b0Map(brain).every((v, i) => v === brain.dB0[i]), 'b0 defaults to susceptibility 1, shim 0');
 
     // B1

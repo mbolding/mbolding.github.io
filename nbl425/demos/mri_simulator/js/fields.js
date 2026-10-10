@@ -30,40 +30,338 @@
 
     /* ---------- B0 ---------- */
 
-    /* The residual field a shim leaves behind, in Hz at (x, y) metres,
-       for shim = 1. A real shim removes the first- and second-order
-       spherical harmonics of the field as well as it can; when it is
-       degraded what is left looks like a gentle tilt plus a bowl:
-         25 Hz per 100 mm along x, -15 Hz per 100 mm along y,
-         +40 Hz at 100 mm from the centre, growing as r^2. */
-    function shimResidual(x, y) {
-        return 250 * x - 150 * y + 40 * (x * x + y * y) / 0.01;
+    /* Shim terms (ARCHITECTURE.md section 7.1). A shim coil makes a field
+       shaped like one low-order spherical harmonic. The simulator's object
+       is the axial plane z = 0, so each term is written in-plane and
+       normalised to its value at the reference radius R = 100 mm: a
+       coefficient of 10 Hz on X means "10 Hz at x = 100 mm". Z2 is
+       2z^2 - x^2 - y^2, which at z = 0 is the bowl -(x^2 + y^2); the
+       z-dependent terms (Z, ZX, ZY) do nothing in this plane and are left
+       out. Z0 is the constant: on a scanner it is applied by retuning the
+       centre frequency rather than with a coil. */
+    const SHIM_R = 0.1;
+    const SHIM_TERMS = [
+        { id: 'z0', name: 'Z0', label: 'Z0 (centre frequency)', order: 0, formula: '1',
+            fn: function (x, y) { return 1; } },
+        { id: 'x', name: 'X', label: 'X', order: 1, formula: 'x / R',
+            fn: function (x, y) { return x / SHIM_R; } },
+        { id: 'y', name: 'Y', label: 'Y', order: 1, formula: 'y / R',
+            fn: function (x, y) { return y / SHIM_R; } },
+        { id: 'xy', name: 'XY', label: 'XY', order: 2, formula: '2xy / R²',
+            fn: function (x, y) { return 2 * x * y / (SHIM_R * SHIM_R); } },
+        { id: 'x2y2', name: 'X²−Y²', label: 'X²−Y²', order: 2, formula: '(x² − y²) / R²',
+            fn: function (x, y) { return (x * x - y * y) / (SHIM_R * SHIM_R); } },
+        { id: 'z2', name: 'Z2', label: 'Z2', order: 2, formula: '−(x² + y²) / R²  (z = 0)',
+            fn: function (x, y) { return -(x * x + y * y) / (SHIM_R * SHIM_R); } }
+    ];
+    const SHIM_IDS = SHIM_TERMS.map(function (t) { return t.id; });
+
+    /* The field left over after the patient is loaded and before anyone
+       shims (for shim = 1), as coefficients of the terms above, in Hz at
+       100 mm: the centre frequency is 25 Hz off, plus a tilt and a gentle
+       saddle and bowl, a few tens of Hz across a head. Because it is built
+       only from shim terms, a perfect set of shim currents (minus these
+       numbers) cancels it exactly, while the local sinus field in
+       phantom.dB0 stays: shims remove smooth fields, not local ones. */
+    const RESIDUAL = Object.freeze({ z0: 25, x: 25, y: -15, xy: 10, x2y2: 12, z2: -30 });
+
+    /* Range of each shim channel in the UI (Hz at 100 mm), like the
+       current limit of a shim supply. */
+    const SHIM_LIMITS = Object.freeze({ z0: 100, x: 150, y: 150, xy: 150, x2y2: 150, z2: 150 });
+
+    function coeffOf(c, id) { const v = c ? Number(c[id]) : 0; return isFinite(v) ? v : 0; }
+
+    /* Collapse a set of shim coefficients into the plain polynomial
+       c0 + cx x + cy y + cxx x^2 + cyy y^2 + cxy x y (x, y in metres). */
+    function polyOf(c) {
+        const R2 = SHIM_R * SHIM_R;
+        const z2 = coeffOf(c, 'z2'), x2y2 = coeffOf(c, 'x2y2');
+        return {
+            c0: coeffOf(c, 'z0'),
+            cx: coeffOf(c, 'x') / SHIM_R,
+            cy: coeffOf(c, 'y') / SHIM_R,
+            cxy: 2 * coeffOf(c, 'xy') / R2,
+            cxx: (x2y2 - z2) / R2,
+            cyy: (-x2y2 - z2) / R2
+        };
+    }
+
+    /* Field in Hz at (x, y) metres from a set of shim coefficients. */
+    function shimField(c, x, y) {
+        const p = polyOf(c);
+        return p.c0 + p.cx * x + p.cy * y + p.cxy * x * y + p.cxx * x * x + p.cyy * y * y;
+    }
+
+    /* The un-shimmed residual field in Hz at (x, y), for shim = 1. */
+    function shimResidual(x, y) { return shimField(RESIDUAL, x, y); }
+
+    /* Net shim coefficients that b0Map applies: shim x residual plus the
+       shim currents. Adding coefficients before evaluating means that
+       currents equal to minus the residual cancel it exactly (to the bit). */
+    function netCoeffs(b0) {
+        const shim = Number(b0.shim) || 0, sc = b0.shimCoeffs || {};
+        const out = {};
+        for (const id of SHIM_IDS) out[id] = shim * RESIDUAL[id] + coeffOf(sc, id);
+        return out;
     }
 
     /* Off-resonance map in Hz on the phantom raster, excluding chemical
-       shift (the engine adds that per tissue). b0 = {susceptibility,
-       shim}: susceptibility scales the phantom's intrinsic pattern
-       (0 removes it, 3 exaggerates it), shim scales the residual above.
-       Air pixels are 0: with no spins there, the off-resonance has no
-       meaning (and a measured field map would be masked there too). */
+       shift (the engine adds that per tissue).
+         b0 = { susceptibility, shim, shimCoeffs: {z0, x, y, xy, x2y2, z2} }
+       susceptibility scales the phantom's intrinsic pattern (0 removes it,
+       3 exaggerates it), shim scales the un-shimmed residual above, and
+       shimCoeffs are the shim currents, in Hz at 100 mm (section 7.1):
+         b0(r) = susceptibility dB0(r) + shim residual(r) + sum_i c_i basis_i(r)
+       Air pixels are exactly 0: with no spins there, the off-resonance has
+       no meaning (and a measured field map would be masked there too). */
     function b0Map(phantom, b0) {
         b0 = b0 || {};
         const susc = b0.susceptibility === undefined ? 1 : (Number(b0.susceptibility) || 0);
-        const shim = Number(b0.shim) || 0;
+        const p = polyOf(netCoeffs(b0));
+        const smooth = p.c0 || p.cx || p.cy || p.cxy || p.cxx || p.cyy;
         const n = phantom.n, d = phantom.dx, h = floor(n / 2);
         const label = phantom.label, dB0 = phantom.dB0;
         const out = new Float32Array(n * n);
         for (let iy = 0; iy < n; iy++) {
             const y = (iy - h) * d;
+            // the polynomial in x for this row: a0 + a1 x + a2 x^2
+            const a0 = p.c0 + p.cy * y + p.cyy * y * y, a1 = p.cx + p.cxy * y, a2 = p.cxx;
             for (let ix = 0; ix < n; ix++) {
                 const i = iy * n + ix;
                 if (!label[i]) continue;
                 let f = susc * dB0[i];
-                if (shim) f += shim * shimResidual((ix - h) * d, y);
+                if (smooth) { const x = (ix - h) * d; f += a0 + (a1 + a2 * x) * x; }
                 out[i] = f;
             }
         }
         return out;
+    }
+
+    /* ---------- Shimming: field statistics and the auto-shim ---------- */
+
+    /* Points that take part: non-air pixels with a positive proton
+       density, inside the region. region 'object' is the whole object,
+       'center' a disk of `radius` metres (default 60 mm) around the
+       isocentre. Weights are proton density, because the spectrum (and
+       the scanner's own shim routine) sees the field where the signal is. */
+    function regionOf(opts) {
+        opts = opts || {};
+        return { center: opts.region === 'center', radius: opts.radius > 0 ? Number(opts.radius) : 0.06 };
+    }
+    function forEachPoint(phantom, opts, fn) {
+        const reg = regionOf(opts);
+        const n = phantom.n, d = phantom.dx, h = floor(n / 2), label = phantom.label, tissues = phantom.tissues;
+        const pd = tissues.map(function (t, k) { return k === 0 || !t ? 0 : Math.max(0, Number(t.pd) || 0); });
+        const r2max = reg.radius * reg.radius;
+        for (let iy = 0; iy < n; iy++) {
+            const y = (iy - h) * d;
+            for (let ix = 0; ix < n; ix++) {
+                const i = iy * n + ix, L = label[i];
+                if (!L) continue;
+                const w = pd[L];
+                if (!(w > 0)) continue;
+                const x = (ix - h) * d;
+                if (reg.center && x * x + y * y > r2max) continue;
+                fn(i, x, y, w);
+            }
+        }
+        return reg;
+    }
+
+    /* Solve the small dense system A a = b (row-major K x K) by Gaussian
+       elimination with partial pivoting. A is symmetric positive
+       semi-definite (normal equations); a tiny ridge keeps it solvable if
+       the region is too small to determine every term. */
+    function solveDense(A, b, K) {
+        const M = new Float64Array(K * (K + 1));
+        let tr = 0;
+        for (let i = 0; i < K; i++) tr += A[i * K + i];
+        const ridge = 1e-12 * (tr / K || 1);
+        for (let i = 0; i < K; i++) {
+            for (let j = 0; j < K; j++) M[i * (K + 1) + j] = A[i * K + j] + (i === j ? ridge : 0);
+            M[i * (K + 1) + K] = b[i];
+        }
+        for (let c = 0; c < K; c++) {
+            let p = c;
+            for (let r = c + 1; r < K; r++) if (Math.abs(M[r * (K + 1) + c]) > Math.abs(M[p * (K + 1) + c])) p = r;
+            if (p !== c) for (let j = 0; j <= K; j++) { const t = M[c * (K + 1) + j]; M[c * (K + 1) + j] = M[p * (K + 1) + j]; M[p * (K + 1) + j] = t; }
+            const piv = M[c * (K + 1) + c];
+            if (!piv) continue;
+            for (let r = c + 1; r < K; r++) {
+                const f = M[r * (K + 1) + c] / piv;
+                if (!f) continue;
+                for (let j = c; j <= K; j++) M[r * (K + 1) + j] -= f * M[c * (K + 1) + j];
+            }
+        }
+        const x = new Float64Array(K);
+        for (let r = K - 1; r >= 0; r--) {
+            let s = M[r * (K + 1) + K];
+            for (let j = r + 1; j < K; j++) s -= M[r * (K + 1) + j] * x[j];
+            const piv = M[r * (K + 1) + r];
+            x[r] = piv ? s / piv : 0;
+        }
+        return x;
+    }
+
+    /* Auto-shim: the shim currents that make the field as uniform as
+       possible, by proton-density weighted least squares over the region.
+       The field is fitted with the six terms (Z0 included, so the centre
+       frequency is set too); minus the fit is what the shims must add.
+         autoShim(phantom, b0, {region: 'object'|'center', radius, b0Map})
+           -> { shimCoeffs,   the coefficients to ADD to b0.shimCoeffs (Hz at 100 mm)
+                total,        b0.shimCoeffs plus those: the new settings
+                rmsBefore, rmsAfter,   pd-weighted RMS field (about 0 Hz) in the region
+                sdBefore, sdAfter, meanBefore, meanAfter, nPoints, region, radius }
+       A precomputed map for these b0 settings may be passed as opts.b0Map.
+       What remains afterwards is whatever the six terms cannot describe:
+       the local field next to the sinus, and, for the central region, the
+       field outside it. */
+    function autoShim(phantom, b0, opts) {
+        opts = opts || {};
+        b0 = b0 || {};
+        const N = phantom.n * phantom.n;
+        const map = opts.b0Map && opts.b0Map.length === N ? opts.b0Map : b0Map(phantom, b0);
+        const K = SHIM_TERMS.length, fns = SHIM_TERMS.map(function (t) { return t.fn; });
+        const A = new Float64Array(K * K), rhs = new Float64Array(K), phi = new Float64Array(K);
+        let W = 0, S1 = 0, S2 = 0, count = 0;
+        const reg = forEachPoint(phantom, opts, function (i, x, y, w) {
+            const f = map[i];
+            for (let k = 0; k < K; k++) phi[k] = fns[k](x, y);
+            for (let j = 0; j < K; j++) {
+                const wj = w * phi[j];
+                rhs[j] += wj * f;
+                for (let k = j; k < K; k++) A[j * K + k] += wj * phi[k];
+            }
+            W += w; S1 += w * f; S2 += w * f * f; count++;
+        });
+        const existing = b0.shimCoeffs || {};
+        const zero = {}, totalZero = {};
+        SHIM_IDS.forEach(function (id) { zero[id] = 0; totalZero[id] = coeffOf(existing, id); });
+        if (!(W > 0)) {
+            return { shimCoeffs: zero, total: totalZero, rmsBefore: 0, rmsAfter: 0, sdBefore: 0, sdAfter: 0,
+                meanBefore: 0, meanAfter: 0, nPoints: 0, region: reg.center ? 'center' : 'object', radius: reg.radius };
+        }
+        for (let j = 0; j < K; j++) for (let k = 0; k < j; k++) A[j * K + k] = A[k * K + j];
+        const a = solveDense(A, rhs, K);
+        // Field after shimming, f - fit, accumulated in a second pass.
+        let T1 = 0, T2 = 0;
+        forEachPoint(phantom, opts, function (i, x, y, w) {
+            let fit = 0;
+            for (let k = 0; k < K; k++) fit += a[k] * fns[k](x, y);
+            const g = map[i] - fit;
+            T1 += w * g; T2 += w * g * g;
+        });
+        const delta = {}, total = {};
+        SHIM_IDS.forEach(function (id, k) { delta[id] = -a[k]; total[id] = coeffOf(existing, id) - a[k]; });
+        const m0 = S1 / W, m1 = T1 / W;
+        return {
+            shimCoeffs: delta, total: total,
+            rmsBefore: sqrt(S2 / W), rmsAfter: sqrt(Math.max(0, T2 / W)),
+            sdBefore: sqrt(Math.max(0, S2 / W - m0 * m0)), sdAfter: sqrt(Math.max(0, T2 / W - m1 * m1)),
+            meanBefore: m0, meanAfter: m1,
+            nPoints: count, region: reg.center ? 'center' : 'object', radius: reg.radius
+        };
+    }
+
+    /* Statistics of a field map over the object (or a central disk),
+       weighted by proton density:
+         fieldStats(phantom, b0Map, {region, radius, bins})
+           -> { mean, sd, rms, min, max, fwhmHz, nPoints,
+                hist: { centers: Float32Array, counts: Float32Array, binHz } }
+       counts are the fraction of the (pd-weighted) object in each bin,
+       summing to 1, over the whole range min..max (about `bins` bins,
+       default 120). fwhmHz is the full width at half maximum of the field
+       distribution, from a histogram whose bins are matched to its spread
+       and lightly smoothed: the spread of frequencies the field alone puts
+       into a spectral line (one bin, at most 0.05 Hz, when uniform). */
+    /* Region points of a phantom as flat arrays (pixel index, weight),
+       cached per phantom and region: the shim panel asks for statistics
+       every animation frame while a slider moves. */
+    const pointCache = new WeakMap();
+    function regionPoints(phantom, opts) {
+        const reg = regionOf(opts), key = (reg.center ? 'c' : 'o') + reg.radius;
+        let per = pointCache.get(phantom);
+        if (!per) { per = new Map(); pointCache.set(phantom, per); }
+        let P = per.get(key);
+        if (!P) {
+            const idx = [], wts = [];
+            forEachPoint(phantom, opts, function (i, x, y, w) { idx.push(i); wts.push(w); });
+            P = { idx: Int32Array.from(idx), w: Float64Array.from(wts) };
+            per.set(key, P);
+        }
+        return P;
+    }
+
+    function fieldStats(phantom, map, opts) {
+        opts = opts || {};
+        const P = regionPoints(phantom, opts), idx = P.idx, wt = P.w, np = idx.length;
+        let W = 0, S1 = 0, S2 = 0, lo = Infinity, hi = -Infinity, count = 0;
+        for (let p = 0; p < np; p++) {
+            const f = map[idx[p]];
+            if (f - f !== 0) continue;          // NaN or infinite (cheaper than isFinite in a hot loop)
+            const w = wt[p];
+            W += w; S1 += w * f; S2 += w * f * f; count++;
+            if (f < lo) lo = f;
+            if (f > hi) hi = f;
+        }
+        const empty = { centers: new Float32Array(0), counts: new Float32Array(0), binHz: 0 };
+        if (!(W > 0)) return { mean: 0, sd: 0, rms: 0, min: 0, max: 0, fwhmHz: 0, nPoints: 0, hist: empty };
+        const mean = S1 / W, sd = sqrt(Math.max(0, S2 / W - mean * mean)), rms = sqrt(S2 / W);
+
+        /* A fine histogram (up to 4096 bins) gives percentiles; it is then
+           re-binned for the FWHM and for display. */
+        const span = hi - lo;
+        const NF = span > 0 ? 4096 : 1, fb = span > 0 ? span / NF : 1;
+        const fine = new Float64Array(NF);
+        for (let p = 0; p < np; p++) {
+            const f = map[idx[p]];
+            if (f - f !== 0) continue;
+            fine[Math.min(NF - 1, floor((f - lo) / fb))] += wt[p] / W;
+        }
+        function pct(q) {
+            let c = 0;
+            for (let k = 0; k < NF; k++) { c += fine[k]; if (c >= q) return lo + (k + 0.5) * fb; }
+            return hi;
+        }
+        function rebin(width, start, stop) {
+            const nb = Math.max(1, Math.min(4096, Math.ceil((stop - start) / width - 1e-9) + 1));
+            const cen = new Float32Array(nb), cnt = new Float32Array(nb);
+            for (let k = 0; k < nb; k++) cen[k] = start + k * width;
+            for (let k = 0; k < NF; k++) {
+                if (!fine[k]) continue;
+                const f = lo + (k + 0.5) * fb, j = Math.round((f - start) / width);
+                cnt[Math.max(0, Math.min(nb - 1, j))] += fine[k];
+            }
+            return { centers: cen, counts: cnt, binHz: width };
+        }
+
+        let fwhm = 0;
+        if (span > 0) {
+            // Bin width from the robust spread (16th to 84th percentile), so a
+            // narrow core is resolved even when a long tail stretches the range.
+            const sdR = 0.5 * (pct(0.84) - pct(0.16));
+            const bw = Math.max(fb, Math.min(2, Math.max(0.05, sdR / 6)));
+            const H = rebin(bw, lo, hi), c = H.counts, m = c.length;
+            const s = new Float64Array(m);
+            for (let k = 0; k < m; k++) s[k] = 0.25 * (k > 0 ? c[k - 1] : 0) + 0.5 * c[k] + 0.25 * (k < m - 1 ? c[k + 1] : 0);
+            let km = 0;
+            for (let k = 1; k < m; k++) if (s[k] > s[km]) km = k;
+            const half = s[km] / 2;
+            let l = km, r = km;
+            while (l > 0 && s[l] > half) l--;
+            while (r < m - 1 && s[r] > half) r++;
+            const xl = s[l] > half ? l - 0.5 : l + (half - s[l]) / (s[l + 1] - s[l]);
+            const xr = s[r] > half ? r + 0.5 : r - (half - s[r]) / (s[r - 1] - s[r]);
+            // The [1 2 1] smoothing widens a single-bin spike to about one bin;
+            // never report less than the true spread can be.
+            fwhm = Math.max(0, (xr - xl) * bw);
+        }
+
+        const nbDisp = Math.max(8, Math.min(1024, Math.round(opts.bins || 120)));
+        const dispW = span > 0 ? Math.max(0.05, span / nbDisp) : 0.5;
+        const hist = span > 0 ? rebin(dispW, lo, hi)
+            : { centers: Float32Array.of(lo), counts: Float32Array.of(1), binHz: dispW };
+        return { mean: mean, sd: sd, rms: rms, min: lo, max: hi, fwhmHz: fwhm, nPoints: count, hist: hist };
     }
 
     /* ---------- B1 (transmit) ---------- */
@@ -249,7 +547,15 @@
         rss: rss,
         shimResidual: shimResidual,
         b1At: b1At,
-        defaults: { b0: { susceptibility: 1, shim: 0 }, b1: { amount: 0 } }
+        // interactive shimming (section 7.1)
+        shimTerms: SHIM_TERMS,
+        shimRadius: SHIM_R,
+        shimLimits: SHIM_LIMITS,
+        residualCoeffs: RESIDUAL,
+        shimField: shimField,
+        autoShim: autoShim,
+        fieldStats: fieldStats,
+        defaults: { b0: { susceptibility: 1, shim: 0, shimCoeffs: { z0: 0, x: 0, y: 0, xy: 0, x2y2: 0, z2: 0 } }, b1: { amount: 0 } }
     };
 
 })(typeof window !== 'undefined' ? window : globalThis);

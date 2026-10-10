@@ -113,6 +113,14 @@
         spec(1, 0, { NAA: 9, Cr: 6, Cho: 2.0, mI: 5, Glu: 7, Gln: 2, Lac: 0.4 })));
     add(tissue('gm', 'Grey matter', '#a3796b', 0.80, 1.35, 0.095, 0.060, 0, null,
         spec(1, 0, { NAA: 11, Cr: 8.5, Cho: 1.5, mI: 6, Glu: 10, Gln: 3, Lac: 0.5 })));
+    /* Deep grey matter (caudate, putamen and globus pallidus, thalamus)
+       is threaded with myelinated fibres and, in the pallidum and
+       putamen, holds more iron than cortex. Its T1 and T2 therefore sit
+       between those of cortex and white matter, which is why the basal
+       ganglia look intermediate on a T1-weighted image. The metabolite
+       pattern is taken as that of cortex. */
+    add(tissue('deepgm', 'Deep grey matter', '#c99a6e', 0.78, 1.15, 0.075, 0.045, 0, null,
+        spec(1, 0, { NAA: 11, Cr: 8.5, Cho: 1.5, mI: 6, Glu: 10, Gln: 3, Lac: 0.5 })));
     add(tissue('csf', 'CSF', '#3a7bd5', 1.00, 4.0, 1.8, 0.40, 0, null, spec(1, 0)));
     add(tissue('fat', 'Fat (scalp, orbit)', '#f2c94c', 0.90, 0.38, 0.068, 0.035, FAT_PPM, null, spec(0, 1)));
     add(tissue('marrow', 'Skull marrow (diploë)', '#e08e45', 0.80, 0.42, 0.060, 0.020, FAT_PPM, null, spec(0.2, 0.8)));

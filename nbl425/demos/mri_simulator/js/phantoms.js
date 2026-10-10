@@ -110,10 +110,10 @@
        cortical ribbon with CSF-filled sulci, white matter, and the deep
        structures.
        ============================================================= */
-    const B = {                      // tissue codes = index into BRAIN_TISSUES
-        AIR: 0, FAT: 1, MUSCLE: 2, BONE: 3, MARROW: 4, CSF: 5, GM: 6, WM: 7, VESSEL: 8, LESION: 9
+    const B = {                      // tissue codes = index into BRAIN_TISSUES (lesion last: it is optional)
+        AIR: 0, FAT: 1, MUSCLE: 2, BONE: 3, MARROW: 4, CSF: 5, GM: 6, WM: 7, VESSEL: 8, DEEPGM: 9, LESION: 10
     };
-    const BRAIN_TISSUES = ['air', 'fat', 'muscle', 'bone', 'marrow', 'csf', 'gm', 'wm', 'vessel', 'lesion'];
+    const BRAIN_TISSUES = ['air', 'fat', 'muscle', 'bone', 'marrow', 'csf', 'gm', 'wm', 'vessel', 'deepgm', 'lesion'];
     const ANT = -PI / 2, POST = PI / 2;   // directions of the anterior and posterior midline
 
     let brainModel = null;
@@ -595,19 +595,20 @@
                 code = cs < 0 ? B.CSF : (gmS < 0 ? B.GM : B.WM);
             }
 
-            // Deep grey matter and the ventricles.
+            // Deep grey matter (its own tissue: T1 between cortex and white
+            // matter) and the ventricles.
             if (code !== B.CSF && y > -40 && y < 60 && x > -36 && x < 36) {
                 const X = abs(x);
-                if (inLentiform(X, y) || inEllipse(thalamus, X, y)) code = B.GM;
+                if (inLentiform(X, y) || inEllipse(thalamus, X, y)) code = B.DEEPGM;
                 const inCaudate = inEllipse(caudate, X, y);
-                if (inCaudate) code = B.GM;
+                if (inCaudate) code = B.DEEPGM;
                 const septumHalf = max(0.8, 0.5 * dx);
                 if (!inCaudate && inEllipse(frontalHorn, X, y) && (X > septumHalf || y > -6)) code = B.CSF;
                 if (X < 2 && y > -7.5 && y < 17 && tubeDist(thirdVentricle, X, y) < 0) code = B.CSF;
                 if (X > 11 && X < 29 && y > 14 && y < 55 && tubeDist(atrium, X, y) < 0) code = B.CSF;
             }
 
-            if (lesion && (code === B.WM || code === B.GM)) {
+            if (lesion && (code === B.WM || code === B.GM || code === B.DEEPGM)) {
                 for (let k = 0; k < LESIONS.length; k++) if (inEllipse(LESIONS[k], x, y)) { code = B.LESION; break; }
             }
             return code;
