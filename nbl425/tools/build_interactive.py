@@ -78,6 +78,7 @@ TYPE = {
  'nbl425_games/petgame.html':'game',
  'xrayROS.html':'sim',
  'neuroengineering/eeg.html':'sim',
+ 'eegsim/index.html':'sim',
  'nbl425/demos/eeg_forward_model.html':'sim',
  'nbl425/demos/eeg_inverse_solution.html':'sim',
  'neuroengineering/hodgkin_huxley.html':'sim',
