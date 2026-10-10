@@ -622,7 +622,7 @@
                 'activity is left to count, and a long scan counts a fading source.</p>',
             formula: 'A(t) = A<sub>0</sub> e<sup>&minus;&lambda;t</sup>, &nbsp; &lambda; = ln 2 / T<sub>&frac12;</sub>',
             tryThis: [
-                { html: 'Drag <code>UPTAKE</code> from 45 to 90 min on the FDG protocol: the activity left at scan start falls from 75 % to 57 % and the trues fall with it.',
+                { html: 'Drag <code>UPTAKE</code> from 45 to 90 min on the FDG protocol: the activity left at scan start falls from 75 % to 57 %, but the trues fall only about 12 %, because FDG is still accumulating in the brain.',
                     label: 'Set 90 min', run: function () { tryUptake(); } },
                 { html: 'Type <code>45</code> instead of <code>45 min</code> on the UPTAKE line and read the error: units are part of the language.' },
                 { html: 'Widen the energy window to <code>350 keV .. 650 keV</code> and watch the share of scattered photons accepted rise below.',

@@ -142,7 +142,8 @@
        setup: { preset, phantom, phantomOpts, edits: [[keyword, statement, comment]],
                 params: {NAME: valueSI}, physics, recon, analysis, afterScan }
        step.run uses the same fields (applied on top of the current state),
-       plus resetPhysics / resetRecon, and step.tab says where to look. */
+       plus resetPhysics / resetRecon and scroll (the id of a card to bring
+       into view), and step.tab says where to look. */
     const LESSONS = [
         {
             id: 'decay', group: 'Physics of detection', title: 'From decay to coincidence', tab: 'scanner',
@@ -175,7 +176,7 @@
                 { html: 'Look at the rods on the Reconstruction tab and note the smallest sector whose rods you can still separate with ¹⁸F.', label: 'Show the image', run: { tab: 'recon' } },
                 { html: 'Switch the isotope to ¹⁵O. This rewrites the <code>isotope</code> line of the protocol and raises DOSE to 140 MBq, so the 10 min scan sees about as many decays as before despite the 2 min half-life.',
                     label: 'Switch to ¹⁵O', tab: 'recon', run: { edits: [['isotope', 'isotope O15', '# set by the Guide: oxygen-15, mean positron range 3 mm']], params: { DOSE: 140 * MBq } } },
-                { html: 'Compare the rods: the small sectors blur together. The detectors did not change; the extra blur is positron range. On the Degradations & corrections tab, switching positron range off (or modelling it in the reconstruction) shows how much of the blur it causes.' },
+                { html: 'Compare the rods: the small sectors blur together. The detectors did not change; the extra blur is positron range. On the Degradations & corrections tab, switching positron range off in the physics shows how much of the blur it causes (the rods look as they did with ¹⁸F). Modelling the range in the reconstruction is no quick fix: at the default 4 iterations it even softens the small rods, and only after many more iterations does it sharpen the larger ones.' },
                 { html: 'Go back to ¹⁸F at 40 MBq.', label: 'Back to ¹⁸F', tab: 'recon',
                     run: { edits: [['isotope', 'isotope F18', '# change to O15 (or C11) to see positron range blur the rods']], params: { DOSE: 40 * MBq } } }
             ],
@@ -255,11 +256,12 @@
             setupText: 'Loads the standard FDG brain scan (185 MBq, 45 min uptake, 10 min) with default physics and reconstruction, and opens the Protocol tab, where the DOSE, UPTAKE and DUR sliders are.',
             setup: { preset: 'fdg_static' },
             steps: [
-                { html: 'Note the number of trues in the summary under the scan bar (about 2 million) and look at the image on the Reconstruction tab, with its ROI statistics.' },
-                { html: 'Lower the dose to 40 MBq: less than a quarter of the counts, so the noise (the coefficient of variation in an ROI) grows by about √4.6 ≈ 2.1.',
-                    label: 'DOSE 40 MBq', tab: 'recon', run: { params: { DOSE: 40 * MBq } } },
+                { html: 'Note the number of trues in the summary under the scan bar (about 2 million). Then find the <strong>Low-count noise</strong> card on the Degradations & corrections tab: it shows the image and the noise, the coefficient of variation (CoV) in the core of the white matter, about 10 %.',
+                    label: 'Show the noise', tab: 'corrections', run: { scroll: 'corr-noise' } },
+                { html: 'Lower the dose to 40 MBq: less than a quarter of the counts, so the noise roughly doubles, as √4.6 ≈ 2.1 predicts (here from about 10 % to about 24 %).',
+                    label: 'DOSE 40 MBq', tab: 'corrections', run: { params: { DOSE: 40 * MBq }, scroll: 'corr-noise' } },
                 { html: 'Keep 185 MBq but scan for 2 min instead of 10: a fifth of the counts and about the same noise as the low dose. It is the counts that matter.',
-                    label: 'DUR 2 min', tab: 'recon', run: { params: { DOSE: 185 * MBq, DUR: 2 * MIN } } },
+                    label: 'DUR 2 min', tab: 'corrections', run: { params: { DOSE: 185 * MBq, DUR: 2 * MIN }, scroll: 'corr-noise' } },
                 { html: 'Back to 185 MBq for 10 min.', label: 'Back to standard', run: { params: { DOSE: 185 * MBq, DUR: 10 * MIN } } },
                 { html: 'Load the PiB protocol (carbon-11, half-life 20 min) and start the scan at 90 min instead of 50 min: two more half-lives, so a quarter of the counts. Watch the timeline on this tab.',
                     label: 'PiB at 90 min', run: { preset: 'pib_static', params: { UPTAKE: 90 * MIN } } },
@@ -301,7 +303,7 @@
             setup: { preset: 'spheres_iq' },
             steps: [
                 { html: 'Read the scatter fraction in the counts table (energy window 435 to 650 keV), and find the scatter tails outside the object in the radial profile.' },
-                { html: 'Lower the window\'s lower level to 350 keV: many more scattered photons pass, the scatter fraction rises, and the protocol warns you.',
+                { html: 'Lower the window\'s lower level to 350 keV: many more scattered photons pass and the scatter fraction rises (from about 41 % to 58 % here). Go below 350 keV and the protocol warns you as well.',
                     label: 'Lower level 350 keV', run: { edits: [['energy', 'energy 350 keV .. 650 keV', '# set by the Guide']] } },
                 { html: 'Raise it to 450 keV: fewer scatters, and slightly fewer trues, because with 11 % energy resolution the low side of the photopeak starts to be cut. Push the lower level higher in the Protocol tab and the loss of trues grows quickly.',
                     label: 'Lower level 450 keV', run: { edits: [['energy', 'energy 450 keV .. 650 keV', '# set by the Guide']] } },
@@ -335,7 +337,7 @@
                     label: 'FBP', tab: 'recon', run: { recon: { method: 'fbp' } } },
                 { html: 'Use the smooth estimate from the singles rates instead: the same randoms are removed without adding their noise.',
                     label: 'Singles estimate', tab: 'recon', run: { recon: { method: 'fbp', corrections: { randomsMethod: 'singles' } } } },
-                { html: 'Switch randoms correction off: a flat background covers the whole field of view, even outside the head.',
+                { html: 'Switch randoms correction off: the whole image reads high, white matter by about 15 %. The randoms are spread evenly over the sinogram, but attenuation correction multiplies them like any other count, so the excess is largest inside the head and only a faint haze lies outside it.',
                     label: 'Randoms correction off', tab: 'recon', run: { recon: { corrections: { randoms: false } } } }
             ],
             questions: [
@@ -421,7 +423,7 @@
                 { html: 'Switch decay correction off: every SUV drops by the decay factor (about two thirds at this time: the activity left on average during the frame), but the SUVR does not change, because both regions decayed alike.',
                     label: 'Decay correction off', run: { recon: { corrections: { decay: false } } } },
                 { html: 'Decay correction back on, uptake back to 45 min.', label: 'Back to standard', run: { recon: { corrections: { decay: true } }, params: { UPTAKE: 45 * MIN } } },
-                { html: 'Take white matter as the reference: the ratio jumps to about 2.5, the gray to white matter contrast. An SUVR means nothing without its reference.',
+                { html: 'Take white matter as the reference: the true ratio jumps to about 2.5, the gray to white matter contrast, but the measured one only reaches about 1.35, because partial volume lowers the thin cortex and spills it into the white matter. An SUVR means nothing without its reference.',
                     label: 'Reference: white matter', run: { analysis: { reference: 'white_matter' } } },
                 { html: 'Lower the dose to 100 MBq (reference back to the cerebellum): SUV hardly changes, because it divides by the dose; only the noise grows.',
                     label: 'DOSE 100 MBq', run: { params: { DOSE: 100 * MBq }, analysis: { reference: 'cereb_gm' } } }
@@ -444,7 +446,7 @@
                 { html: 'Read the <strong>Patlak plot</strong>: after about 20 min the points fall on a line whose slope is K<sub>i</sub>. On the true curves it matches the true K<sub>i</sub> of the voxel, about 0.032 mL/min/mL.' },
                 { html: 'Switch the input function to <strong>image-derived</strong>: the small venous sinus underestimates the blood curve, which pushes K<sub>i</sub> from the images up. Here that partly cancels the partial-volume loss of the cortex curve: two errors offsetting each other, not a correct measurement.' },
                 { html: 'Move t* earlier and later: too early, and the fit includes the curved start of the plot.' },
-                { html: 'Load the [¹⁵O]water study: for a freely diffusible tracer a one-tissue fit gives the cerebral blood flow K₁ (about 0.55 mL/min/mL in gray matter).',
+                { html: 'Load the [¹⁵O]water study: for a freely diffusible tracer a one-tissue fit of the true curves gives the cerebral blood flow K₁ (about 0.55 mL/min/mL in gray matter). The curves measured on the images give less (about 0.3): partial volume once more.',
                     label: 'Load [¹⁵O]water', run: { preset: 'water_dynamic', analysis: { target: 'cortex', reference: 'cereb_gm' }, afterScan: 'reconAll' } }
             ],
             questions: [
@@ -578,12 +580,21 @@
         if (PET.actions.showTab) PET.actions.showTab(lesson.tab);
         notify('Lesson ' + lesson.n + ' is set up: ' + lesson.title + '. The Guide tab has the steps.', 'good');
     }
+    /* Bring a card of the tab just shown into view (after the tab has laid out). */
+    function scrollToId(id) {
+        setTimeout(function () {
+            const node = doc.getElementById(id);
+            if (!node) return;
+            try { node.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { node.scrollIntoView(); }
+        }, 60);
+    }
     function runStep(lesson, step) {
         const r = step.run || {};
-        const hasChange = Object.keys(r).some(function (k) { return k !== 'tab'; });
+        const hasChange = Object.keys(r).some(function (k) { return k !== 'tab' && k !== 'scroll'; });
         if (hasChange && !apply(r)) return;
         const tab = r.tab || step.tab || lesson.tab;
         if (PET.actions && PET.actions.showTab) PET.actions.showTab(tab);
+        if (r.scroll) scrollToId(r.scroll);
         if (hasChange) notify('Lesson ' + lesson.n + ', step: ' + step.label + '. ' + (PET.state.autoRescan ? 'The simulator re-scans by itself.' : 'Scanning now.'), 'info');
     }
     function startOver() {

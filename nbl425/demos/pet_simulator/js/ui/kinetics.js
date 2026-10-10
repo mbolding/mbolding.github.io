@@ -465,8 +465,8 @@
             tryThis: [
                 { html: 'Load the <strong>PiB scan of an Alzheimer brain</strong> and compare the frontal cortex SUVR with the true DVR of 2.5.',
                     label: 'Load PiB (AD)', run: function () { loadPresetWith('pib_static', { target: 'gm_frontal', reference: 'cereb_gm' }); } },
-                { html: 'Pick <strong>frontal cortex as the reference</strong> region, a region full of plaques, and watch the ratio collapse.',
-                    label: 'Wrong reference', run: function () { PET.actions.setAnalysis({ reference: 'gm_frontal' }); scrollTo('statics'); } },
+                { html: 'Pick <strong>frontal cortex as the reference</strong> region, a region full of plaques, with temporal cortex as the target, and watch the ratio collapse towards 1.',
+                    label: 'Wrong reference', run: function () { PET.actions.setAnalysis({ target: 'gm_temporal', reference: 'gm_frontal' }); scrollTo('statics'); } },
                 { html: 'Load the <strong>dynamic FDG</strong> study, reconstruct every frame and read K<sub>i</sub> off the Patlak plot.',
                     label: 'Load FDG dynamic', run: function () { loadPresetWith('fdg_dynamic', { target: 'cortex', reference: 'cereb_gm' }); scrollTo('dynamic'); } },
                 { html: 'In the model explorer, <strong>set k<sub>4</sub> to 0</strong>: a reversible binder becomes a trap and K<sub>i</sub> replaces BP<sub>ND</sub>.',
@@ -588,7 +588,7 @@
         if (ty === '2tcr' && p.k4 > 0) items.push(['Set k₄ to 0: the bound pool becomes a trap, C₂ only rises, and K<sub>i</sub> replaces BP<sub>ND</sub> and DVR.', 'k4 = 0', 'k4']);
         else items.push([fdg ? 'Give FDG-6-phosphate a small k₄ (slow dephosphorylation, 0.007 /min): C₂ levels off late, and BP<sub>ND</sub> and V<sub>T</sub> become defined.'
             : 'Give the bound pool a release rate k₄: the trap becomes reversible binding, C₂ levels off, and BP<sub>ND</sub> and DVR replace K<sub>i</sub>.', fdg ? 'k4 = 0.007' : 'k4 = 0.05', 'k4']);
-        items.push([ty === '2tcr' && p.k4 > 0 ? 'Double k₃ and watch the bound pool fill faster and further: BP<sub>ND</sub> and V<sub>T</sub> double, K₁ does not change.'
+        items.push([ty === '2tcr' && p.k4 > 0 ? 'Double k₃ and watch the bound pool fill faster and further: BP<sub>ND</sub> doubles, V<sub>T</sub> = V<sub>ND</sub>(1 + BP<sub>ND</sub>) rises by less than double, and K₁ does not change.'
             : 'Double k₃: more tracer is trapped and K<sub>i</sub> = K₁k₃/(k₂ + k₃) rises, but by less than double, because delivery K₁ caps it.', 'k3 × 2', 'k3']);
         items.push([ty === '2tcr' && p.k4 > 0 ? 'Halve K₁ to mimic reduced delivery (less flow or a tighter blood-brain barrier): every curve drops, yet BP<sub>ND</sub> = k₃/k₄ stays the same.'
             : 'Halve K₁ to mimic reduced delivery: every curve drops and K<sub>i</sub> halves, because for a trapped tracer delivery is part of the measurement.', 'K1 ÷ 2', 'K1']);

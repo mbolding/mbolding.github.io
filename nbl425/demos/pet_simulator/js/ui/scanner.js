@@ -429,12 +429,12 @@
             tryThis: [
                 { html: 'Switch to <strong>¹⁵O</strong> and watch the 10× zoom: its positrons fly about five times farther than those of ¹⁸F, which blurs the image.',
                     label: 'Load [¹⁵O]water', run: function () { tryOxygen(); } },
-                { html: 'Raise the energy window\'s <strong>lower level</strong> from 435 to 480 keV: fewer scattered photons pass, so orange LORs get rarer (and a few trues are lost too).',
+                { html: 'Raise the energy window\'s <strong>lower level</strong> from 435 to 480 keV: fewer scattered photons pass, so orange LORs get rarer (and about a fifth of the trues are lost too, as the window starts to cut the photopeak).',
                     label: 'Toggle 435 / 480 keV', run: function () { toggleLLD(); } },
-                { html: '<strong>Widen the coincidence window</strong> from 4.5 to 9 ns: more unrelated singles share a window, so randoms (magenta) increase and the flat floor of the time-difference histogram rises.',
-                    label: 'Toggle 4.5 / 9 ns', run: function () { toggleWindow(); } },
-                { html: 'Turn <strong>time of flight</strong> on: every true LOR gets a blob where the arrival-time difference places the annihilation, about 6 cm long for a 400 ps CTR.',
+                { html: 'Toggle <strong>time of flight</strong> (on in most protocols): with it on, every true LOR gets a blob where the arrival-time difference places the annihilation, about 6 cm long for a 400 ps CTR. With it off, the randoms about double, because TOF also rejects randoms whose time difference does not fit its bins.',
                     label: 'Toggle TOF', run: function () { toggleTOF(); } },
+                { html: 'With TOF off, <strong>widen the coincidence window</strong> from 4.5 to 9 ns: more unrelated singles share a window, so randoms (magenta) double and the flat floor of the time-difference histogram rises. With TOF on the wider window changes the randoms little, since only those that fit the TOF bins are kept.',
+                    label: 'Toggle 4.5 / 9 ns', run: function () { toggleWindow(); } },
                 { html: 'Compare <strong>2D and 3D</strong>: septa between the rings block oblique and scattered photons. Watch the side view and the counts.',
                     label: 'Toggle 2D / 3D', run: function () { toggleMode(); } }
             ]

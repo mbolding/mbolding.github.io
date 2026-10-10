@@ -286,11 +286,11 @@
             status: function (p, c) {
                 const P = p.randoms !== false, C = !!c.randoms;
                 if (P && C) return ['corrected', 'good', 'Randoms are estimated (' + (c.randomsMethod === 'singles' ? 'from the singles rates' : 'from the delayed window') + ') and put in the model.'];
-                if (P) return ['not corrected', 'warn', 'A flat background lifts everything, even the air around the object.'];
+                if (P) return ['not corrected', 'warn', 'A background lifts everything, even the air around the object.'];
                 if (C) return ['harmless', 'muted', 'The delayed window is empty, so there is nothing to subtract.'];
                 return ['off', 'muted', 'No randoms simulated, none corrected.'];
             },
-            see: 'A nearly flat background over the whole field of view, including the air outside the object. It lowers contrast and biases values up, worst in cold and low-uptake regions.',
+            see: 'A background over the whole field of view: faint in the air outside the object, much stronger inside it, because attenuation correction multiplies the randoms like any other count (they are flat only in the sinogram). It lowers contrast and biases values up, worst in cold and low-uptake regions.',
             why: 'Two photons from different decays that happen to arrive within the coincidence window τ are paired. Their rate is R = 2τ S<sub>1</sub>S<sub>2</sub>: it grows with the square of the activity (trues only grow linearly) and in proportion to the window.',
             how: 'Measure them in a delayed window (pairs offset in time can only be randoms; as noisy as the randoms themselves) or compute them from the singles rates (smooth), and add them to the model. TOF also rejects randoms whose time difference places them outside the object.',
             controls: function (box) {
@@ -319,7 +319,7 @@
                 { label: 'High dose, wide window', run: function () { demo({ preset: 'fdg_static', params: { DOSE: 400e6 },
                     edit: function (s) { return s.replace(/^(\s*coincidence\s+)[0-9.]+\s*ns/m, '$112 ns').replace(/^(\s*tof\s+)on(\s+[0-9.]+\s*ps)?/m, '$1off'); },
                     corrections: { randoms: false }, focus: 'randoms',
-                    look: 'with 400 MBq, a 12 ns window and no TOF, randoms outnumber trues. Uncorrected, a flat haze lifts the whole head and the air around it, and white matter reads far above its true value. Then load "Back to the clinical protocol" and compare the randoms fraction.' }); } },
+                    look: 'with 400 MBq, a 12 ns window and no TOF, randoms outnumber trues. Uncorrected, a haze lifts the whole head and the air around it, and white matter reads far above its true value. Then load "Back to the clinical protocol" and compare the randoms fraction.' }); } },
                 { label: 'Back to the clinical protocol', run: function () { demo({ preset: 'fdg_static', focus: 'randoms',
                     look: '185 MBq, 4.5 ns and TOF on: randoms are about a tenth of the prompts, and TOF keeps only those whose timing places them near the head.' }); } }
             ],
@@ -376,7 +376,8 @@
                     const ph = phantomOf(acq), uni = { brain: 'white_matter', cylinder: 'centre', spheres: 'background' }[kindOf(ph)];
                     if (res && res.image && uni && PET.analysis) {
                         try {
-                            const s = PET.analysis.roiStats(res.image, PET.analysis.roiMask(ph, res.n, uni, { erode: 1 }));
+                            // two pixels in from the edge, so the CoV is noise rather than spill from the neighbours
+                            const s = PET.analysis.roiStats(res.image, PET.analysis.roiMask(ph, res.n, uni, { erode: 2 }));
                             rows.push({ label: 'Noise (CoV) in ' + (uni === 'white_matter' ? 'white matter' : uni === 'centre' ? 'the centre' : 'the background'), value: pct(s.cov, 1) });
                         } catch (e) { /* no ROI */ }
                     }
@@ -389,7 +390,7 @@
                 { label: 'Low counts (40 MBq, 2 min)', run: function () { demo({ preset: 'fdg_static', params: { DOSE: 40e6, DUR: 120 }, focus: 'noise',
                     look: 'about 80 k trues instead of about 2 M: the brain dissolves into blotches and the noise in white matter is several times higher (the table on the left). Then try the high-count version.' }); } },
                 { label: 'High counts (400 MBq, 20 min)', run: function () { demo({ preset: 'fdg_static', params: { DOSE: 400e6, DUR: 1200 }, focus: 'noise',
-                    look: 'about 100 times the counts of the low-count scan: a smooth image. Noise fell about ten-fold, as 1 / √counts predicts (randoms grow faster than trues at this dose, so NEC grows a little less).' }); } }
+                    look: 'about 100 times the counts of the low-count scan: a smooth image. Noise fell nearly ten-fold, as 1 / √counts predicts (randoms grow faster than trues at this dose, so NEC grows a little less).' }); } }
             ],
             cmp: null
         },
@@ -1003,7 +1004,7 @@
             tryThis: [
                 { html: 'Turn <b>attenuation correction</b> off on the uniform cylinder: the middle sags.', label: 'Show me', run: function () { BY_KEY.attenuation.shows[0].run(); scrollToCard('attenuation'); } },
                 { html: 'Then turn <b>attenuation</b> off in the physics but keep the correction: the middle glows.', label: 'Show me', run: function () { BY_KEY.attenuation.shows[1].run(); scrollToCard('attenuation'); } },
-                { html: 'Switch every effect off in the physics and every correction off: the reconstruction approaches the truth, limited only by the pixel grid.', label: 'All off',
+                { html: 'Switch every effect off in the physics and every correction off: the reconstruction approaches the truth, limited only by the pixel grid and the reconstruction\'s own smoothing (iterations and post-filter).', label: 'All off',
                     run: function () { act('setPhysics', { attenuation: false, scatter: false, randoms: false, noise: false, positronRange: false, detectorBlur: false, motion: { on: false }, muMap: { dx: 0, dy: 0, rot: 0, model: 'ct' }, detector: { variation: 0, deadBlock: -1 } });
                         act('setRecon', { corrections: { attenuation: false, scatter: false, randoms: false, normalization: false }, psf: false, rangeCorrection: false }); } },
                 { html: 'Read the <b>Why</b> of each card, then predict what its "Show me" will do before you press it.' }
