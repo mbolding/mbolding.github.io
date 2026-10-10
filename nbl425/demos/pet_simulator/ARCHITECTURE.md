@@ -811,8 +811,8 @@ PET.actions = {
   setPhantom(id, opts?), setPhantomOpts(patch),
   loadPreset(id), setSource(text), setParam(name, valueSI),
   setPhysics(patch /* deep merge */), resetPhysics(),
-  setRecon(patch /* deep merge, corrections included */), reconstruct(),
-  reconstructAllFrames() -> Promise<ReconResult>,      // for the kinetics tab
+  setRecon(patch /* deep merge, corrections included */), resetRecon(), reconstruct() -> Promise,
+  reconstructAllFrames() -> Promise<ReconResult>,      // for the kinetics tab; cached in state.reconAll
   setFrame(i), setAnalysis(patch),
   runScan({ animate }) -> Promise, stopScan(),
   showTab(id), setAutoRescan(bool), setSpeed(mode), currentSummary()
@@ -826,9 +826,14 @@ only re-runs the reconstruction.
 Bus events: `phantom:changed {phantom}` · `program:compiled {program, errors}`
 · `physics:changed {physics}` · `scan:start {animate}` · `scan:progress {frac,
 stage: 'compute'|'playback'}` · `playback:tick {frac, t /* protocol time, s */,
-frame, counts}` · `scan:done {acq}` · `scan:error {message}` · `recon:start` ·
-`recon:done {result, partial}` · `frame:changed {frame}` ·
-`analysis:changed {analysis}` · `tab:shown {id}` · `theme:changed {dark}`.
+frame, nFrames, frameFrac, counts: {prompts}}` · `scan:done {acq, partial?}` ·
+`scan:error {message, stage?, aborted?, tab?}` · `preset:loaded {id}` ·
+`reconopts:changed {recon}` · `recon:start {opts}` · `recon:progress {frac}` ·
+`recon:iteration {k, image}` · `recon:done {result, partial}` ·
+`recon:allstart` · `recon:allprogress {frac}` · `recon:alldone {result, error?}` ·
+`frame:changed {frame}` · `analysis:changed {analysis}` · `tab:shown {id}` ·
+`theme:changed {dark}`. `PET.app.notify(msg, kind)` shows a toast;
+`PET.app.isDark()`, `PET.app.activeTab()`.
 
 **Playback.** After `engine.simulate` finishes, an animated scan reveals the
 counts as they would accumulate: at progress f each frame's prompts are

@@ -471,27 +471,45 @@
         return out;
     };
 
-    /* Box-average an n x n image down (or nearest-sample up) to m x m over
-       the same FOV. Downsampling by an integer factor averages exactly;
-       otherwise each output pixel averages the input pixels whose centres
-       fall inside it. Used to put the fine phantom truth on the image grid. */
+    /* Resample an n x n image to m x m over the same FOV by exact area
+       overlap: each output pixel is the area-weighted mean of the input
+       pixels it covers (downsampling), or takes the value of the input
+       pixel(s) under it (upsampling). Exact overlap matters because with
+       the floor(n/2) centre convention a 128 grid is not simply every
+       other 256 pixel: its edges run through the fine pixels' centres.
+       Used to put the fine phantom truth on the image grid. */
+    function overlapWeights(n, m) {
+        const dn = 1 / n, dm = 1 / m, hn = Math.floor(n / 2), hm = Math.floor(m / 2), rows = [];
+        for (let j = 0; j < m; j++) {
+            const a = (j - hm - 0.5) * dm, b = a + dm, list = [];
+            let tot = 0;
+            const i0 = Math.max(0, Math.floor(a / dn + hn - 0.5) - 1), i1 = Math.min(n - 1, Math.ceil(b / dn + hn + 0.5) + 1);
+            for (let i = i0; i <= i1; i++) {
+                const c = (i - hn - 0.5) * dn, d = c + dn, ov = Math.min(b, d) - Math.max(a, c);
+                if (ov > 1e-12) { list.push(i, ov); tot += ov; }
+            }
+            for (let k = 1; k < list.length; k += 2) list[k] /= tot;
+            rows.push(list);
+        }
+        return rows;
+    }
     U.resample = function (img, n, m) {
         if (n === m) return Float32Array.from(img);
-        var out = new Float32Array(m * m);
-        if (n > m) {
-            var cnt = new Float32Array(m * m), r = m / n;
-            for (var iy = 0; iy < n; iy++) {
-                var oy = Math.min(m - 1, Math.floor((iy + 0.5) * r));
-                for (var ix = 0; ix < n; ix++) {
-                    var o = oy * m + Math.min(m - 1, Math.floor((ix + 0.5) * r));
-                    out[o] += img[iy * n + ix]; cnt[o]++;
-                }
+        const W = overlapWeights(n, m), tmp = new Float32Array(m * n), out = new Float32Array(m * m);
+        for (let iy = 0; iy < n; iy++) {
+            const o = iy * n;
+            for (let j = 0; j < m; j++) {
+                const w = W[j]; let v = 0;
+                for (let k = 0; k < w.length; k += 2) v += img[o + w[k]] * w[k + 1];
+                tmp[iy * m + j] = v;
             }
-            for (var i = 0; i < m * m; i++) out[i] = cnt[i] ? out[i] / cnt[i] : 0;
-        } else {
-            var q = n / m;
-            for (var jy = 0; jy < m; jy++) for (var jx = 0; jx < m; jx++)
-                out[jy * m + jx] = img[Math.min(n - 1, Math.floor((jy + 0.5) * q)) * n + Math.min(n - 1, Math.floor((jx + 0.5) * q))];
+        }
+        for (let jx = 0; jx < m; jx++) {
+            for (let j = 0; j < m; j++) {
+                const w = W[j]; let v = 0;
+                for (let k = 0; k < w.length; k += 2) v += tmp[w[k] * m + jx] * w[k + 1];
+                out[j * m + jx] = v;
+            }
         }
         return out;
     };

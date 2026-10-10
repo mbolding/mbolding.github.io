@@ -167,6 +167,15 @@ for (const n of [128, 256]) {
     near(b[32 * 64 + 32], 1, 1e-6, 'blur keeps a uniform image uniform');
     const r = U.resample(disk(256, 320, 80, 1), 256, 128);
     near(r[64 * 128 + 64], 1, 1e-6, 'resample keeps interior value');
+    // the centre fine pixel lies wholly inside the centre coarse pixel; its
+    // neighbour at ix = 127 straddles coarse pixels 63 and 64 equally
+    const d = new Float32Array(256 * 256); d[128 * 256 + 128] = 16;
+    near(U.resample(d, 256, 128)[64 * 128 + 64], 4, 1e-6, 'centre fine pixel falls in the centre coarse pixel');
+    d[128 * 256 + 128] = 0; d[128 * 256 + 127] = 16;
+    const rd = U.resample(d, 256, 128);
+    near(rd[64 * 128 + 63], 2, 1e-6, 'straddling fine pixel splits evenly (left)');
+    near(rd[64 * 128 + 64], 2, 1e-6, 'straddling fine pixel splits evenly (right)');
+    let tot = 0; for (const v of rd) tot += v; near(tot * 4, 16, 1e-4, 'resample conserves the integral');
     const t = U.transformImage(disk(128, 320, 20, 1), 128, 2.5, 25, 0, 0);
     near(t[64 * 128 + 64 + 10], 1, 1e-6, 'shift moves the object 10 px right');
 }
