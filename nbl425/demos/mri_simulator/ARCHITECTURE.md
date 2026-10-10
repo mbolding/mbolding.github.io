@@ -374,7 +374,7 @@ dummies 2
 
 for line in 0 .. N-1 every TR
     rf 90 slice as exc                        # excitation, defines time zero for TE
-    gz rephase, gx -prephase, gy encode line   # before the 180 the prephaser has the readout's sign
+    gz rephase, gx -prephase, gy -encode line  # before the 180 both lobes take the opposite sign: the 180 flips them
     rf 180 slice phase 90 at exc + TE/2       # refocusing pulse half way to the echo
     gx readout, adc at exc + TE               # echo centred at TE
     spoil
@@ -389,7 +389,8 @@ end
   with or without a space, by a unit: time `s ms us µs`; length `mm cm`;
   angle `deg rad` (rad converts to degrees); frequency `Hz kHz MHz Hz/px`;
   gradient `mT/m T/m`; slew `T/m/s`; `ppm`. Units attach only to number
-  literals, so `pi*s/spokes` uses a variable `s`.
+  literals, so `pi*s/spokes` uses a variable `s`. Unit names are reserved
+  for `param` and `let` names but allowed as loop variables.
 - Strings: `"..."`. Identifiers: `[A-Za-z_][A-Za-z0-9_]*`.
 - Operators: `+ - * / ^ ( ) , = ..`. `^` is power (right associative, binds
   tighter than unary minus: `-2^2 = -4`, write `(-1)^line`).
@@ -647,7 +648,13 @@ opts = { onProgress(frac), shouldAbort() -> bool, seed }
    for the imaging engine: "This sequence has no spatial encoding. Use the
    Spectroscopy tab."
 5. **Off-resonance** Δf(r) = b0Map + tissue.cs·PPM_HZ.
-6. **Recon sees nominal k only.** AcqData carries the nominal trajectory (what
+6. **Through-plane dephasing.** The object is 2D, but real susceptibility
+   fields also vary across the slice. Each point's signal is multiplied by
+   sinc(Gz·Δz·τ), with Gz taken as the magnitude of the in-plane gradient of
+   the B0 map (non-air neighbours, chemical shift excluded). That is what
+   makes gradient-echo dropout near the sinus grow with TE and slice
+   thickness while spin echoes (τ = 0 at the echo) are immune.
+7. **Recon sees nominal k only.** AcqData carries the nominal trajectory (what
    the scanner believes). Physical imperfections change the signal, never the
    nominal k, which is exactly why they cause artifacts.
 
@@ -662,8 +669,8 @@ artifacts = {
   b0:     { susceptibility: 1, shim: 0 },    // passed to fields.b0Map
   b1:     { amount: 0 },                     // passed to fields.b1Map
   gradDelay: 0,                              // s; true gradients lag nominal ones (EPI Nyquist ghost)
-  spike:  { on: false, amp: 50, at: 0.37 },  // one corrupt sample, fraction of scan
-  zipper: { on: false, offsetHz: 3000, amp: 0.02 },  // RF interference at f0 + offset
+  spike:  { on: false, amp: 4, at: 0.37 },   // one corrupt sample, fraction of scan
+  zipper: { on: false, offsetHz: 3000, amp: 0.002 }, // RF interference at f0 + offset
   transient: false                           // reserved
 }
 ```
@@ -678,7 +685,7 @@ artifacts = {
   (1 + depth·sin 2πt/period)·exp(i·phase·sin 2πt/period).
 - Gradient delay δ: true k_c = nominal k_c − g·δ for each readout.
 - Spike: add amp × (typical k-centre magnitude) to one sample of every coil.
-- Zipper: add amp × (k-centre magnitude) × exp(i(2π·offsetHz·t + φ_line)) to
+- Zipper: add amp × (k-centre magnitude) × exp(−i2π·offsetHz·t + iφ_line) to
   every sample, φ_line random per readout (seeded).
 - Noise as section 3.
 
@@ -1012,3 +1019,57 @@ Chromium at `/opt/pw-browsers`, do not run `playwright install`), serving the
 repo with `npx http-server` or loading `file://` directly, failing on any
 console error, and writing screenshots to the session scratchpad, not the
 repo.
+
+---
+
+## 14. Implementation notes (round 1)
+
+Agreed details that the first round of modules added to the contract. Tab
+authors in particular need these.
+
+- **Slider scale.** `MRI.ui.w.slider({scale})` means *display units per SI
+  unit* (1000 for a TE slider in ms), with min/max/step/value in SI. The DSL's
+  `program.params[i].scale` is the opposite (SI per display unit). Build a
+  slider from a DSL parameter with `siPerUnit: p.scale`, never `scale: p.scale`.
+- **Programs that fail.** `state.program` is the latest compile result and can
+  have `ok: false`; `state.lastGoodProgram` is the most recent one that
+  compiled. Tabs check `program.ok`.
+- **Merges.** `setArtifacts` deep-merges; `setPhantomOpts`, `setRecon` and
+  `spectro.setProcessing` are shallow (pass `overrides` whole).
+- **Extra actions and events.** `setAutoRescan(bool)`, `setSpeed(mode)`,
+  `MRI.app.{isDark(), activeTab(), playbackSeconds}`. `scan:error` carries
+  `{message, stage, aborted?, tab?}`; `spectro:error {message}` exists.
+  `playback:tick` also carries `t0, duration, readouts`; within a frame `rf`
+  is the pulse active at `t` or the last one played, `grad` the signed peak.
+- **Presets.** Spin-echo presets write `gy -encode line` before the 180.
+  `tse` and `flair` have no `TE` parameter: their effective TE is
+  `(ETL/2 + 1)·ESP`, available as `program.stats.TE`; set `ESP` to change it.
+  ETL must divide N. Some slider corners do not compile on purpose; the error
+  names the minimum, and the UI keeps the last good program.
+- **Program extras.** `adc.axis`, `stats.TE` (echo time of the readout nearest
+  k = 0), `stats.TI`, `MRI.dsl.formatParam(param, valueSI)`. Events outside any
+  `every` loop have `period: -1` when the program also has `every` loops.
+- **Phantoms.** `list()` marks `hasSpectra` true for brain, braino and
+  waterfat. `b0Map` is 0 in air; `b1Map` is not masked (mask by label for
+  display). Shepp-Logan always contains lesion ellipses. Extras:
+  `MRI.fields.rss`, `MRI.tissues.waterProtons`, `MRI.phantoms.clearCache`.
+- **Engine.** `truth.data` is signed (negative where Mz was still inverted):
+  compare `|truth|` with magnitude images. `tissueEvolution` omits air, adds
+  `segments` and `center.t`; `mxy` is signed, plot its absolute value.
+  `stats.fatShiftPx` is signed; `stats.path` is 'fast', 'general' or 'mixed'.
+- **Recon.** Defaults are `partialFourier: 'homodyne'` and `parallel:
+  'sense'` (both only act when partial Fourier or undersampling is detected).
+  `kspace.tmap` is per-sample time since excitation. With SENSE the combined
+  image is the unfolded solution and `coilImages` stay folded. With
+  undersampling and `parallel: 'none'` the folded image is scaled by R. SENSE
+  at R = 4 with the head8 model has a large g-factor (mean about 3), so
+  lessons use R = 2 or 3.
+- **Spectroscopy.** `SpecData.delay` is the chemical-shift evolution time at
+  the first sample; `SpecData.te` is excitation centre to first sample.
+  `info.linewidthHz` is the FWHM of fully relaxed, unsuppressed whole-object
+  water, also available live as `MRI.spectro.waterLine(phantom, ctx)` for the
+  Shim panel. `metrics.ratios` integrate fixed windows (the 1.9-2.1 ppm window
+  also catches Glu at 2.04 ppm); `metrics.componentRatios` are per-metabolite
+  and should be shown alongside. The unsuppressed spectrum carries a real
+  dead-time baseline offset; use the peaks' `baseline` when zooming.
+  `process` ignores `p.display`; the UI picks re, im or mag.
