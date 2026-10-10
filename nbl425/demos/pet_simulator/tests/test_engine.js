@@ -112,7 +112,9 @@ const CYL = cylinder(100), CYL_TACS = constTACs(CYL, 3400, 10000);
         const F = acq.frames[0], iso = PET.isotopes.get('F18');
         const img = new Float32Array(N * N);
         for (let p = 0; p < img.length; p++) img[p] = cyl.label[p] === 1 ? C0 : 0;
-        const PC = S.plainProjector(N, FOV).forward(img);
+        // with the detector blur off the engine still band-limits the raster by one pixel
+        const ak = S.isoKernel(FOV / N, FOV / N);
+        const PC = S.plainProjector(N, FOV).forward(U.convolve2D(img, N, N, ak.kernel, ak.size));
         let worst = 0, mx = maxOf(PC);
         for (let l = 0; l < NLOR; l++) if (PC[l] > 0.05 * mx) worst = Math.max(worst, Math.abs(F.expected.trues[l] / F.kappa / PC[l] - 1));
         ok(worst < 0.002, 'unattenuated, unblurred trues / kappa = P C per LOR (worst ' + (100 * worst).toFixed(3) + ' %)');
@@ -375,9 +377,10 @@ const CYL = cylinder(100), CYL_TACS = constTACs(CYL, 3400, 10000);
             const F = (await sim(program({ isotope: iso, tracer: null, frames: [{ t0: 0, t1: 60 }] }), src, tc, { noise: false, positronRange: pr })).frames[0];
             return maxOf(F.prompts) / U.sum(F.prompts);
         };
-        const f18 = await peak('F18', true), o15 = await peak('O15', true), o15off = await peak('O15', false);
+        const f18 = await peak('F18', true), o15 = await peak('O15', true), o15off = await peak('O15', false), f18off = await peak('F18', false);
         ok(o15 < 0.8 * f18, '15O positron range spreads a line source more than 18F (peak share ' + o15.toFixed(4) + ' vs ' + f18.toFixed(4) + ')');
-        near(o15off / f18, 1, 0.1, 'with positron range off the isotopes look alike');
+        near(o15off / f18off, 1, 0.01, 'with positron range off the isotopes look alike');
+        ok(f18 < f18off && f18 > 0.8 * f18off, '18F range blurs a little (peak share ' + f18.toFixed(4) + ' vs ' + f18off.toFixed(4) + ' without)');
     }
 
     /* ---------- motion ---------- */

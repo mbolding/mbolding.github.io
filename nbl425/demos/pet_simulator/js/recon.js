@@ -236,7 +236,7 @@
        with the same matrix (S.blurMatrix with the scanner's defaults). */
     let blurM = null;
     function blurRows(src, dst, angles, nT, transpose) {
-        const M = blurM || (blurM = S.blurMatrix(G.detFwhm0, G.parallaxFwhm));
+        const M = blurM || (blurM = S.blurMatrix(G.detRadialFwhm0, G.parallaxFwhm));
         for (let q = 0; q < angles.length; q++) {
             const rb = angles[q] * nR;
             if (!transpose) for (let k = rb * nT, e = (rb + nR) * nT; k < e; k++) dst[k] = 0;
@@ -610,10 +610,17 @@
         const job = { pe: pe, o: o, nT: nT, w: w, range: null, subsetList: null, sens: null,
             onIteration: typeof hooks.onIteration === 'function' ? hooks.onIteration : null };
         if (iterativeM) {
+            // Image-space part of the system model: the isotropic detector
+            // response (with psf) and the positron range kernel (with
+            // rangeCorrection), combined into one symmetric kernel.
+            let ik = null, ikey = '';
+            if (o.psf) { ik = S.isoKernel(pe.dx); ikey += 'psf'; }
             if (o.rangeCorrection && acq.isotope) {
                 const rk = PET.isotopes.rangeKernel(acq.isotope, pe.dx);
-                job.range = { kernel: rk.kernel, size: rk.size, key: PET.isotopes.get(acq.isotope).id + ':' + pe.dx };
+                ik = ik ? S.combineKernels(ik, rk) : rk;
+                ikey += ':' + PET.isotopes.get(acq.isotope).id;
             }
+            if (ik) job.range = { kernel: ik.kernel, size: ik.size, key: ikey + ':' + pe.dx };
             job.subsetList = o.method === 'mlem' ? [ALL] : S.subsets(o.subsets);
             job.sens = await sensitivities(acq, pe, o, job.subsetList, nT, w, job.range, tick);
             await tick(0.02);
@@ -675,7 +682,7 @@
             info: {
                 timeMs: Date.now() - t0, notes: notes, tofUsed: useTof, iterationsDone: iterativeM ? done : 0,
                 subsets: o.method === 'osem' ? job.subsetList.length : (o.method === 'mlem' ? 1 : 0),
-                sigmaTOF: sigma, psf: iterativeM && !!o.psf, rangeCorrection: iterativeM && !!job.range,
+                sigmaTOF: sigma, psf: iterativeM && !!o.psf, rangeCorrection: iterativeM && !!o.rangeCorrection && !!acq.isotope,
                 filter: o.method === 'fbp' ? o.filter : null, options: o
             }
         };

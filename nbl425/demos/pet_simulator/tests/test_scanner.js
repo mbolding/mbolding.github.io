@@ -56,6 +56,25 @@ for (const n of [128, 256]) {
     near(lhs / rhs, 1, 1e-4, 'projector adjointness n=' + n);
 }
 
+// A one-pixel point on the fine raster, band-limited by the isotropic part of
+// the detector response as the engine does, must project nearly the same
+// total at every angle (no aliasing between 2 mm bins and 1.25 mm pixels)
+{
+    const n = 256, P = S.projector({ n }), k = S.isoKernel(G.fov / n);
+    ok(P.rays === 2, 'fine raster uses two sub-rays per bin');
+    ok(S.projector({ n: 128 }).rays === 1, '2.5 mm pixels need one ray per bin');
+    near(U.sum(k.kernel), 1, 1e-6, 'isotropic detector kernel sums to 1');
+    near(Math.hypot(G.detIsoFwhm, G.detRadialFwhm0), G.detFwhm0, 1e-9, 'isotropic and radial parts add up to the central FWHM');
+    for (const [ix, iy] of [[128, 128], [168, 128], [208, 140], [145, 99]]) {
+        let img = new Float32Array(n * n); img[iy * n + ix] = 1;
+        img = U.convolve2D(img, n, n, k.kernel, k.size);
+        const s = P.forward(img);
+        let mn = Infinity, mx = -Infinity;
+        for (let a = 0; a < G.nA; a++) { let t = 0; for (let i = 0; i < G.nR; i++) t += s[a * G.nR + i]; mn = Math.min(mn, t); mx = Math.max(mx, t); }
+        ok((mx - mn) / mx < 0.08, 'point at (' + ix + ',' + iy + ') projects evenly over angles (spread ' + ((mx - mn) / mx * 100).toFixed(1) + ' %)');
+    }
+}
+
 // TOF: summing over TOF bins gives the non-TOF projection; the TOF profile peaks where the source is
 {
     const n = 128, P = S.projector({ n }), PT = S.projector({ n, tof: { sigma: S.timing.sigmaPos(400e-12) } });

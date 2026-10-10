@@ -175,13 +175,22 @@
         }
         return { groups: groups, comp: comp, w: w };
     }
-    function componentRasters(phantom, C, iso, positronRange) {
+    /* The image-space part of the resolution: positron range (if on) and the
+       isotropic part of the detector response (geom.detIsoFwhm; the radial
+       remainder and parallax are applied in the sinogram). With the detector
+       blur off, a one-raster-pixel blur still band-limits the raster so the
+       2 mm radial bins do not alias it. */
+    function imageKernel(phantom, iso, positronRange, detectorBlur) {
+        const det = SC.isoKernel(phantom.dx, detectorBlur ? G.detIsoFwhm : phantom.dx);
+        return positronRange ? SC.combineKernels(det, PET.isotopes.rangeKernel(iso, phantom.dx)) : det;
+    }
+    function componentRasters(phantom, C, iso, positronRange, detectorBlur) {
         const n = phantom.n, lab = phantom.label, out = [];
-        const k = positronRange ? PET.isotopes.rangeKernel(iso, phantom.dx) : null;
+        const k = imageKernel(phantom, iso, positronRange, detectorBlur);
         for (let g = 0; g < C.groups.length; g++) {
             let img = new Float32Array(n * n);
             for (let p = 0; p < lab.length; p++) { const r = lab[p]; if (C.comp[r] === g) img[p] = C.w[r]; }
-            if (k) img = U.convolve2D(img, n, n, k.kernel, k.size);
+            img = U.convolve2D(img, n, n, k.kernel, k.size);
             out.push(img);
         }
         return out;
@@ -284,7 +293,7 @@
        FWHM that grows off centre (parallax), as PET.scanner.blurRadial,
        using its matrix so the two can never disagree. */
     function blurRows(src, out, nT, a0, a1) {
-        const M = SC.blurMatrix(G.detFwhm0, G.parallaxFwhm), nR = G.nR;
+        const M = SC.blurMatrix(G.detRadialFwhm0, G.parallaxFwhm), nR = G.nR;
         for (let a = a0; a < a1; a++) {
             const rb = a * nR;
             for (let j = 0; j < nR; j++) {
@@ -623,7 +632,7 @@
         // components and their rasters (positron range applied once here)
         const C = buildComponents(phantom, tacs, pix), nC = C.groups.length;
         const compInteg = C.groups.map(function (g) { return integ[g.rep]; });
-        const compRaster = componentRasters(phantom, C, iso, physics.positronRange);
+        const compRaster = componentRasters(phantom, C, iso, physics.positronRange, physics.detectorBlur !== false);
         await tick(0);
 
         // motion plan

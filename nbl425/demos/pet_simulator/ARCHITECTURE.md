@@ -163,7 +163,11 @@ interpolation; a 256² forward projection takes about 50 to 100 ms, TOF about
 twice that. The **detector blur** is a Gaussian along r whose FWHM depends on
 the true radial position: `sqrt(2.8² + (9·|r|/250)²)` mm (crystal size,
 non-collinearity, and depth-of-interaction parallax that grows off centre).
-**Normalisation**: each crystal's efficiency is a block factor times a crystal
+Of the 2.8 mm at the centre, 2.4 mm is isotropic and applied in image space
+(`isoKernel`, it also band-limits the 1.25 mm raster against the 2 mm bins);
+the rest, `detRadialFwhm0` about 1.4 mm plus parallax, is applied along r.
+Each radial bin averages `rays` sub-rays (2 for the 1.25 mm raster) so fine
+pixels are not skipped between rays. **Normalisation**: each crystal's efficiency is a block factor times a crystal
 factor (SD `variation`); an LOR's efficiency is the product of its two
 crystals; a dead block zeroes its LORs.
 
@@ -697,8 +701,10 @@ Units: images in Bq/mL, so that a 40 MBq / 6.28 L cylinder gives about
 PET.analysis = {
   regionFractions(phantom, m) -> [Float32Array(m*m)]    // per region, fraction of each image pixel; cached
   roiDefs(phantom) -> [ { id, name, regions: [regionId], color, reference: bool } ]
-       // single regions plus composites: brain: cortex, striatum, putamen_l, putamen_r, caudate, cerebellum,
-       // white matter; spheres: each sphere and the background; rods: each rod group; cylinder: centre disk
+       // single regions plus composites: brain: cortex, striatum, putamen_l, putamen_r, caudate,
+       // cerebellum (whole: cereb_gm + cereb_wm), white_matter (wm + cereb_wm), whole_brain;
+       // spheres: each sphere and the background; rods: each rod region (rods3 ... rods10);
+       // cylinder: centre disk and whole
   roiMask(phantom, m, roiId, { threshold: 0.5, erode: 0 }) -> Float32Array(m*m)   // 0/1 weights
   roiStats(image, mask) -> { mean, sd, cov, min, max, nPix }
   truthImage(acq, frame, m) -> Float32Array        // Σ regionMean · fraction (decay corrected Bq/mL)

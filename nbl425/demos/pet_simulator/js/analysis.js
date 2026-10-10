@@ -144,8 +144,10 @@
         ['putamen_l', 'Putamen (L)', ['putamen_l_ant', 'putamen_l_post'], false],
         ['putamen_r', 'Putamen (R)', ['putamen_r_ant', 'putamen_r_post'], false],
         ['caudate', 'Caudate (both)', ['caudate_l', 'caudate_r'], false],
-        ['cerebellum', 'Cerebellum (gray matter)', ['cereb_gm'], true],
-        ['white_matter', 'White matter', ['wm'], true]
+        // Whole cerebellum (gray and white) is the reference many 18F amyloid
+        // protocols use; cerebellar gray matter alone is offered as its own region.
+        ['cerebellum', 'Whole cerebellum (gray and white matter)', ['cereb_gm', 'cereb_wm'], true],
+        ['white_matter', 'All white matter (cerebral and cerebellar)', ['wm', 'cereb_wm'], true]
     ];
     const REFERENCE_IDS = { cereb_gm: true, wm: true, gm_occipital: true };
     const defsCache = new WeakMap();

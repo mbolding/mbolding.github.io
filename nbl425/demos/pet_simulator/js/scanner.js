@@ -42,8 +42,17 @@
         nA: 192,                         // angles over [0, pi): N_CRYSTALS / 2, one per crystal pair rotation
         nT: 17, ds: 20,                  // TOF bins along the LOR: s_k = (k - 8) * 20 mm
         detFwhm0: 2.8,                   // mm: crystal size, photon non-collinearity, decoding (at the centre)
+        detIsoFwhm: 2.4,                 // mm of detFwhm0 that is isotropic (applied in image space)
         parallaxFwhm: 9                  // mm of extra radial blur at r = ringRadius (depth of interaction)
     };
+    /* At the centre of the ring the detector response is the same in every
+       direction (crystal width and non-collinearity blur tangentially as
+       much as radially), so most of it is applied to the image as an
+       isotropic Gaussian; only the remainder, and the parallax that grows
+       off centre, is applied along r in the sinogram. The isotropic part
+       also band-limits the 1.25 mm emission raster before it is sampled by
+       the 2 mm radial bins, which keeps small sources from aliasing. */
+    G.detRadialFwhm0 = Math.sqrt(G.detFwhm0 * G.detFwhm0 - G.detIsoFwhm * G.detIsoFwhm);
     G.angle = function (a) { return a * Math.PI / G.nA; };
     G.radius = function (i) { return (i - G.nR / 2) * G.dr; };
     G.tofCentre = function (k) { return (k - Math.floor(G.nT / 2)) * G.ds; };
@@ -173,27 +182,39 @@
        (image units x mm); back() is its exact adjoint, so the pair can be
        used in MLEM without bias.
 
+       A radial bin is 2 mm wide. When pixels are finer than that (the
+       1.25 mm phantom raster, a 256 recon matrix) one ray per bin would
+       skip pixels between rays, so a point source's counts would depend on
+       where it sits relative to the rays and MLEM would grow pixel-scale
+       ripples. Each bin therefore averages `rays` parallel sub-rays spread
+       across its width, enough that they are closer together than a pixel.
+
        opts = { n,                  image is n x n
                 fov,                mm (default G.fov)
                 tof: null | { sigma },   position sigma along the LOR, mm
                 sWeight: null | fn(s) -> weight, a factor per position along
                          the LOR (the engine uses it for coincidence-window
-                         losses; reconstruction leaves it out) }
+                         losses; reconstruction leaves it out)
+                rays: sub-rays per radial bin (default: enough to be denser than the pixels) }
        Because the sample positions along an LOR depend only on its radial
-       bin, every per-sample weight is precomputed once per radial bin. */
+       position, every per-sample weight is precomputed once per sub-ray. */
     function projector(opts) {
         const n = opts.n, fov = opts.fov || G.fov, dx = fov / n, inv = 1 / dx, h0 = Math.floor(n / 2);
         const nA = G.nA, nR = G.nR, tof = !!(opts.tof && opts.tof.sigma > 0);
         const nT = tof ? G.nT : 1, ds = G.ds, kMid = Math.floor(G.nT / 2);
+        const R = opts.rays || Math.max(1, Math.ceil(G.dr / dx - 0.2));
+        const STEP = opts.step || 1;            // sample spacing along the ray, in pixels
         // Keep every sample at least one pixel inside the grid so the
         // bilinear footprint never needs a bounds check.
         const Rf = Math.min(fov / 2 - 1.01 * dx, G.nR / 2 * G.dr);
         const cosA = new Float64Array(nA), sinA = new Float64Array(nA);
         for (let a = 0; a < nA; a++) { cosA[a] = Math.cos(G.angle(a)); sinA[a] = Math.sin(G.angle(a)); }
 
-        // Per radial bin: number of samples, first sample s, step, and the
-        // weight of each sample (step length times sWeight).
-        const rowK = new Int32Array(nR), rowS0 = new Float64Array(nR), rowH = new Float64Array(nR), rowW = [];
+        // Per sub-ray j = i*R + q: its radius, number of samples, first
+        // sample s, step, and the weight of each sample (step length times
+        // sWeight, divided by R so a bin is the mean of its sub-rays).
+        const NS = nR * R;
+        const rowRad = new Float64Array(NS), rowK = new Int32Array(NS), rowS0 = new Float64Array(NS), rowH = new Float64Array(NS), rowW = [];
         // TOF: for each sample, the first TOF bin it feeds and its weights.
         const rowT0 = [], rowTN = [], rowTW = [];
         let tofW = null;
@@ -203,18 +224,20 @@
             const sg = opts.tof.sigma;
             tofW = { reach: 4 * sg + ds / 2, sg: sg };
         }
-        for (let i = 0; i < nR; i++) {
-            const r = G.radius(i);
-            if (Math.abs(r) >= Rf) { rowK[i] = 0; rowW.push(new Float32Array(0)); rowT0.push(null); rowTN.push(null); rowTW.push(null); continue; }
-            const smax = Math.sqrt(Rf * Rf - r * r), K = Math.max(1, Math.ceil(2 * smax / dx)), h = 2 * smax / K;
-            rowK[i] = K; rowS0[i] = -smax + h / 2; rowH[i] = h;
+        for (let j = 0; j < NS; j++) {
+            const i = Math.floor(j / R), q = j - i * R;
+            const r = G.radius(i) + ((q + 0.5) / R - 0.5) * G.dr;
+            rowRad[j] = r;
+            if (Math.abs(r) >= Rf) { rowK[j] = 0; rowW.push(new Float32Array(0)); rowT0.push(null); rowTN.push(null); rowTW.push(null); continue; }
+            const smax = Math.sqrt(Rf * Rf - r * r), K = Math.max(1, Math.ceil(2 * smax / (dx * STEP))), h = 2 * smax / K;
+            rowK[j] = K; rowS0[j] = -smax + h / 2; rowH[j] = h;
             const w = new Float32Array(K);
-            for (let k = 0; k < K; k++) { const s = rowS0[i] + k * h; w[k] = h * (opts.sWeight ? opts.sWeight(s) : 1); }
+            for (let k = 0; k < K; k++) { const s = rowS0[j] + k * h; w[k] = h / R * (opts.sWeight ? opts.sWeight(s) : 1); }
             rowW.push(w);
             if (tof) {
                 const t0 = new Int16Array(K), tn = new Int16Array(K), tw = [];
                 for (let k = 0; k < K; k++) {
-                    const s = rowS0[i] + k * h;
+                    const s = rowS0[j] + k * h;
                     let first = Math.max(0, Math.ceil((s - tofW.reach) / ds) + kMid), last = Math.min(nT - 1, Math.floor((s + tofW.reach) / ds) + kMid);
                     if (last < first) { t0[k] = 0; tn[k] = 0; tw.push(new Float32Array(0)); continue; }
                     const ws = new Float32Array(last - first + 1);
@@ -239,25 +262,28 @@
         function forward(img, angles, out) {
             out = out || new Float32Array(size);
             const list = anglesOf(angles);
-            for (let q = 0; q < list.length; q++) {
-                const a = list[q], c = cosA[a], sn = sinA[a];
+            for (let p = 0; p < list.length; p++) {
+                const a = list[p], c = cosA[a], sn = sinA[a];
                 for (let i = 0; i < nR; i++) {
-                    const K = rowK[i], base = (a * nR + i) * nT;
+                    const base = (a * nR + i) * nT;
                     if (tof) for (let t = 0; t < nT; t++) out[base + t] = 0;
-                    if (!K) { if (!tof) out[base] = 0; continue; }
-                    const r = G.radius(i), w = rowW[i], s0 = rowS0[i], h = rowH[i];
-                    // pixel coordinates of the first sample and the per-sample step
-                    let fx = (r * c - s0 * sn) * inv + h0, fy = (r * sn + s0 * c) * inv + h0;
-                    const sx = -sn * h * inv, sy = c * h * inv;
                     let acc = 0;
-                    const T0 = rowT0[i], TN = rowTN[i], TW = rowTW[i];
-                    for (let k = 0; k < K; k++, fx += sx, fy += sy) {
-                        const ix = fx | 0, iy = fy | 0, ax = fx - ix, ay = fy - iy, o = iy * n + ix;
-                        const v = ((img[o] * (1 - ax) + img[o + 1] * ax) * (1 - ay) + (img[o + n] * (1 - ax) + img[o + n + 1] * ax) * ay) * w[k];
-                        if (!tof) acc += v;
-                        else if (v !== 0) {
-                            const tw = TW[k], t0 = base + T0[k];
-                            for (let t = 0, tn = TN[k]; t < tn; t++) out[t0 + t] += v * tw[t];
+                    for (let j = i * R, je = j + R; j < je; j++) {
+                        const K = rowK[j];
+                        if (!K) continue;
+                        const r = rowRad[j], w = rowW[j], s0 = rowS0[j], h = rowH[j];
+                        // pixel coordinates of the first sample and the per-sample step
+                        let fx = (r * c - s0 * sn) * inv + h0, fy = (r * sn + s0 * c) * inv + h0;
+                        const sx = -sn * h * inv, sy = c * h * inv;
+                        const T0 = rowT0[j], TN = rowTN[j], TW = rowTW[j];
+                        for (let k = 0; k < K; k++, fx += sx, fy += sy) {
+                            const ix = fx | 0, iy = fy | 0, ax = fx - ix, ay = fy - iy, o = iy * n + ix;
+                            const v = ((img[o] * (1 - ax) + img[o + 1] * ax) * (1 - ay) + (img[o + n] * (1 - ax) + img[o + n + 1] * ax) * ay) * w[k];
+                            if (!tof) acc += v;
+                            else if (v !== 0) {
+                                const tw = TW[k], t0 = base + T0[k];
+                                for (let t = 0, tn = TN[k]; t < tn; t++) out[t0 + t] += v * tw[t];
+                            }
                         }
                     }
                     if (!tof) out[base] = acc;
@@ -271,32 +297,35 @@
         function back(sino, angles, out) {
             out = out || new Float32Array(n * n);
             const list = anglesOf(angles);
-            for (let q = 0; q < list.length; q++) {
-                const a = list[q], c = cosA[a], sn = sinA[a];
+            for (let p = 0; p < list.length; p++) {
+                const a = list[p], c = cosA[a], sn = sinA[a];
                 for (let i = 0; i < nR; i++) {
-                    const K = rowK[i]; if (!K) continue;
                     const base = (a * nR + i) * nT;
                     let val = 0;
                     if (!tof) { val = sino[base]; if (val === 0) continue; }
-                    const r = G.radius(i), w = rowW[i], s0 = rowS0[i], h = rowH[i];
-                    let fx = (r * c - s0 * sn) * inv + h0, fy = (r * sn + s0 * c) * inv + h0;
-                    const sx = -sn * h * inv, sy = c * h * inv;
-                    const T0 = rowT0[i], TN = rowTN[i], TW = rowTW[i];
-                    for (let k = 0; k < K; k++, fx += sx, fy += sy) {
-                        let v;
-                        if (!tof) v = val * w[k];
-                        else {
-                            const tw = TW[k], t0 = base + T0[k];
-                            let sum = 0;
-                            for (let t = 0, tn = TN[k]; t < tn; t++) sum += sino[t0 + t] * tw[t];
-                            if (sum === 0) continue;
-                            v = sum * w[k];
+                    for (let j = i * R, je = j + R; j < je; j++) {
+                        const K = rowK[j];
+                        if (!K) continue;
+                        const r = rowRad[j], w = rowW[j], s0 = rowS0[j], h = rowH[j];
+                        let fx = (r * c - s0 * sn) * inv + h0, fy = (r * sn + s0 * c) * inv + h0;
+                        const sx = -sn * h * inv, sy = c * h * inv;
+                        const T0 = rowT0[j], TN = rowTN[j], TW = rowTW[j];
+                        for (let k = 0; k < K; k++, fx += sx, fy += sy) {
+                            let v;
+                            if (!tof) v = val * w[k];
+                            else {
+                                const tw = TW[k], t0 = base + T0[k];
+                                let sum = 0;
+                                for (let t = 0, tn = TN[k]; t < tn; t++) sum += sino[t0 + t] * tw[t];
+                                if (sum === 0) continue;
+                                v = sum * w[k];
+                            }
+                            const ix = fx | 0, iy = fy | 0, ax = fx - ix, ay = fy - iy, o = iy * n + ix;
+                            out[o] += v * (1 - ax) * (1 - ay);
+                            out[o + 1] += v * ax * (1 - ay);
+                            out[o + n] += v * (1 - ax) * ay;
+                            out[o + n + 1] += v * ax * ay;
                         }
-                        const ix = fx | 0, iy = fy | 0, ax = fx - ix, ay = fy - iy, o = iy * n + ix;
-                        out[o] += v * (1 - ax) * (1 - ay);
-                        out[o + 1] += v * ax * (1 - ay);
-                        out[o + n] += v * (1 - ax) * ay;
-                        out[o + n + 1] += v * ax * ay;
                     }
                 }
             }
@@ -313,7 +342,7 @@
             return m;
         }
 
-        return { n: n, fov: fov, dx: dx, nA: nA, nR: nR, nT: nT, tof: tof, size: size, radius: Rf,
+        return { n: n, fov: fov, dx: dx, nA: nA, nR: nR, nT: nT, tof: tof, size: size, radius: Rf, rays: R,
             forward: forward, back: back, fovMask: fovMask };
     }
 
@@ -334,7 +363,9 @@
        from the centre enters the crystals at a slant, so where along the
        crystal the photon stops matters. Modelled as a Gaussian along r
        whose FWHM depends on the TRUE radial position (source bin j):
-           FWHM(r) = sqrt(detFwhm0^2 + (parallaxFwhm * |r| / R)^2).
+           FWHM(r) = sqrt(detRadialFwhm0^2 + (parallaxFwhm * |r| / R)^2),
+       on top of the isotropic part detIsoFwhm applied in image space
+       (isoKernel), so the total at the centre is detFwhm0 in every direction.
        Each source bin's counts are spread over neighbouring bins (counts are
        conserved). blurRadial(sino, nT, false) applies it; true applies the
        transpose, which reconstruction needs for resolution modelling. */
@@ -362,7 +393,7 @@
     }
     function blurRadial(sino, nT, transpose, opts) {
         opts = opts || {};
-        const M = blurMatrix(opts.fwhm0 !== undefined ? opts.fwhm0 : G.detFwhm0, opts.parallax !== undefined ? opts.parallax : G.parallaxFwhm);
+        const M = blurMatrix(opts.fwhm0 !== undefined ? opts.fwhm0 : G.detRadialFwhm0, opts.parallax !== undefined ? opts.parallax : G.parallaxFwhm);
         const nA = G.nA, nR = G.nR, out = new Float32Array(sino.length);
         nT = nT || 1;
         for (let a = 0; a < nA; a++) {
@@ -383,6 +414,30 @@
             }
         }
         return out;
+    }
+
+    /* The isotropic part of the detector response as a square image-space
+       kernel for pixel size dx (sums to 1, symmetric, so it is its own
+       adjoint). fwhm defaults to geom.detIsoFwhm. Cached. */
+    const isoCache = {};
+    function isoKernel(dx, fwhm) {
+        fwhm = fwhm === undefined ? G.detIsoFwhm : fwhm;
+        const key = dx.toFixed(4) + ':' + fwhm;
+        if (isoCache[key]) return isoCache[key];
+        const k1 = U.gaussKernel(fwhm / dx), size = k1.length, k = new Float32Array(size * size);
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) k[y * size + x] = k1[y] * k1[x];
+        return (isoCache[key] = { kernel: k, size: size, dx: dx, fwhm: fwhm });
+    }
+    /* Full 2D convolution of two square kernels (to combine the detector
+       and positron-range kernels into one). */
+    function combineKernels(a, b) {
+        const size = a.size + b.size - 1, out = new Float32Array(size * size);
+        for (let ay = 0; ay < a.size; ay++) for (let ax = 0; ax < a.size; ax++) {
+            const va = a.kernel[ay * a.size + ax]; if (va === 0) continue;
+            for (let by = 0; by < b.size; by++) for (let bx = 0; bx < b.size; bx++)
+                out[(ay + by) * size + ax + bx] += va * b.kernel[by * b.size + bx];
+        }
+        return { kernel: out, size: size };
     }
 
     /* ---------- normalisation ----------
@@ -450,7 +505,7 @@
         lorFromPoints: lorFromPoints, binOf: binOf, lorEndpoints: lorEndpoints, pointSinusoid: pointSinusoid,
         lorCrystals: function (a, i) { const t = lorCrystalTable(); return [t.A[a * G.nR + i], t.B[a * G.nR + i]]; },
         projector: projector, plainProjector: plainProjector, subsets: subsets,
-        blurRadial: blurRadial, blurMatrix: blurMatrix,
+        blurRadial: blurRadial, blurMatrix: blurMatrix, isoKernel: isoKernel, combineKernels: combineKernels,
         normalization: normalization, attenuationFactors: attenuationFactors, sumTOF: sumTOF,
         timing: { sigmaPos: sigmaPos, trueAcceptance: trueAcceptance, randomsTofFraction: randomsTofFraction },
         energy: {
