@@ -111,7 +111,9 @@
         const r = get(iso.id || iso).range1D, a = Math.abs(x);
         return r.C * r.k1 / 2 * Math.exp(-r.k1 * a) + (1 - r.C) * r.k2 / 2 * Math.exp(-r.k2 * a);
     }
-    /* FWHM and FWTM of the 1D profile, found numerically. */
+    /* FWHM and FWTM of the 1D profile, found numerically. The profile is a
+       sharp cusp on a long tail, so these widths are set by the cusp and
+       understate the blur; use rangeStats (mean, RMS) to describe it. */
     function rangeWidths(iso) {
         const peak = rangeProfile(iso, 0);
         const width = function (frac) {

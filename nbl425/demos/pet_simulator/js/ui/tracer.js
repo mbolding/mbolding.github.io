@@ -502,13 +502,15 @@
         T.rngBands.set({ bands: [{ x0: -CRYSTAL / 2, x1: CRYSTAL / 2, alpha: 0.1, label: '4 mm crystal' }] });
         // comparison table
         T.cmp.textContent = '';
-        T.cmp.appendChild(el('thead', {}, [el('tr', {}, [el('th', { text: '1D profile' })].concat(list.map(function (i) { return el('th', { scope: 'col', text: i.label }); })))]));
+        T.cmp.appendChild(el('thead', {}, [el('tr', {}, [el('th', { text: 'Positron range' })].concat(list.map(function (i) { return el('th', { scope: 'col', text: i.label }); })))]));
         const body = el('tbody');
         const rows = [
-            ['FWHM', function (i) { return PET.isotopes.rangeWidths(i).fwhm; }],
-            ['FWTM (tenth max)', function (i) { return PET.isotopes.rangeWidths(i).fwtm; }],
-            ['Mean distance', function (i) { return PET.isotopes.rangeStats(i).mean1D; }],
-            ['RMS', function (i) { return PET.isotopes.rangeStats(i).rms1D; }]
+            // The profile is a sharp cusp on a long tail, so its FWHM and FWTM say
+            // little about the blur it adds; the mean and RMS displacement do.
+            ['Mean range in 3D (textbook)', function (i) { return i.rangeMean; }],
+            ['Maximum range (textbook)', function (i) { return i.rangeMax; }],
+            ['Mean distance along one axis', function (i) { return PET.isotopes.rangeStats(i).mean1D; }],
+            ['RMS blur along one axis', function (i) { return PET.isotopes.rangeStats(i).rms1D; }]
         ];
         rows.forEach(function (r) {
             body.appendChild(el('tr', {}, [el('th', { scope: 'row', text: r[0] })].concat(list.map(function (i) {
