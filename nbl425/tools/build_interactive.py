@@ -44,6 +44,7 @@ TYPE = {
  'presentations/rad_vs_sci.html':'tool',
  'quizzes/human_neuroimaging_incoming.html':'assess',
  'diagnostic_tests.html':'tool',
+ 'nbl425/demos/mri_simulator/index.html':'sim',
  'nbl425/demos/fid_relaxation.html':'sim',
  'nbl425/demos/gradient_encoding.html':'sim',
  'nbl425/demos/pulse_sequence.html':'sim',
