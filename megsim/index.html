@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEG Simulator</title>
+<meta name="description" content="A teaching MEG simulator: describe a recording in a small language, record the magnetic fields of current dipoles with SQUID or OPM sensors, add environmental noise and artifacts, switch on the shielded room, reference sensors, SSP and SSS, then filter, run ICA, average evoked fields and estimate the sources.">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Apply a remembered theme before first paint.
+  try { const t = localStorage.getItem('megsim-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topline">
+    <a class="back" href="../index.html">&larr; Back to home</a>
+    <button class="ghost small" id="btnTheme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+  <h1>MEG Simulator</h1>
+  <p class="sub">A sibling to the <a href="../eegsim/index.html">EEG simulator</a> and the <a href="../petdemo.html">PET scanner simulator</a>.
+    Describe a recording in a few lines, record the magnetic field of current dipoles in the head with SQUIDs in a helmet or with
+    OPMs on the scalp, let the elevator, the traffic, the heart and the eyes in, and then do what an MEG lab does: shield, compensate,
+    project, separate, filter, average and localize. The simulator always knows the truth, so every answer can be checked.</p>
+
+  <nav class="tabs" role="tablist" aria-label="Simulator sections">
+    <button role="tab" id="t-instrument" aria-controls="tab-instrument" aria-selected="true"><span class="num">1</span>Instrument</button>
+    <button role="tab" id="t-experiment" aria-controls="tab-experiment" aria-selected="false"><span class="num">2</span>Experiment</button>
+    <button role="tab" id="t-fields" aria-controls="tab-fields" aria-selected="false"><span class="num">3</span>MEG &amp; EEG fields</button>
+    <button role="tab" id="t-sources" aria-controls="tab-sources" aria-selected="false"><span class="num">4</span>Sources</button>
+    <button role="tab" id="t-noise" aria-controls="tab-noise" aria-selected="false"><span class="num">5</span>Noise &amp; shielding</button>
+    <button role="tab" id="t-recording" aria-controls="tab-recording" aria-selected="false"><span class="num">6</span>Recording</button>
+    <button role="tab" id="t-spectra" aria-controls="tab-spectra" aria-selected="false"><span class="num">7</span>Spectra</button>
+    <button role="tab" id="t-processing" aria-controls="tab-processing" aria-selected="false"><span class="num">8</span>Processing</button>
+    <button role="tab" id="t-averaging" aria-controls="tab-averaging" aria-selected="false"><span class="num">9</span>Averaging</button>
+    <button role="tab" id="t-estimation" aria-controls="tab-estimation" aria-selected="false"><span class="num">10</span>Source estimation</button>
+    <button role="tab" id="t-guide" aria-controls="tab-guide" aria-selected="false"><span class="num">11</span>Guide</button>
+  </nav>
+  <div class="status" id="status" aria-live="polite"><span class="busy" id="busy">Working</span></div>
+
+  <!-- ================= 1. INSTRUMENT ================= -->
+  <section role="tabpanel" id="tab-instrument" aria-labelledby="t-instrument">
+    <details class="concept" open>
+      <summary>The idea: a field a billion times weaker than the Earth's</summary>
+      <div>
+        <p>When tens of thousands of pyramidal cells in a patch of cortex receive synaptic input at the same moment, the currents
+          flowing inside their apical dendrites add up to a <strong>current dipole</strong> of a few tens of nanoampere-metres. Its
+          magnetic field leaves the head undistorted by the skull and is about 100 femtotesla a few centimetres away: a billionth of
+          the Earth's field, and a millionth of the field of a car passing in the street. Measuring it takes the most sensitive
+          detectors there are, <strong>SQUIDs</strong>, coupled to <strong>pickup coils</strong> in a helmet; liquid helium in a
+          <strong>dewar</strong> to keep them superconducting; a <strong>magnetically shielded room</strong> to keep the world out;
+          and <strong>head position coils</strong> and a <strong>digitizer</strong> to know where the head is. Optically pumped
+          magnetometers (<strong>OPMs</strong>) are a newer way to do the same thing at room temperature, on the scalp. Click a part
+          of the system, or a stage below, to see how it works.</p>
+      </div>
+    </details>
+    <div class="panel">
+      <h2>The system <span class="hint">click a part to read about it</span></h2>
+      <div class="btnrow" style="margin-bottom:8px">
+        <div class="seg" id="sysSeg"><button data-sys="squid" aria-pressed="true">SQUID MEG</button><button data-sys="opm" aria-pressed="false">OPM MEG</button></div>
+        <span class="note" id="sysNote"></span>
+      </div>
+      <canvas id="cvSystem"></canvas>
+      <p class="cap" id="sysCap"></p>
+    </div>
+    <div class="chain" id="instStages" role="group" aria-label="Parts of the system">
+      <button data-stage="neurons" aria-pressed="true"><span>1 · Neurons</span><small>pyramidal cells form a dipole</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="head" aria-pressed="false"><span>2 · Head</span><small>a conductor MEG can ignore</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="coils" aria-pressed="false"><span>3 · Coils &amp; SQUIDs</span><small>flux to voltage</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="dewar" aria-pressed="false"><span>4 · Dewar</span><small>liquid helium, 4 kelvin</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="room" aria-pressed="false"><span>5 · Shielded room</span><small>keeping the world out</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="hpi" aria-pressed="false"><span>6 · Head position</span><small>HPI coils and digitizer</small></button>
+      <span class="arrow" aria-hidden="true">|</span>
+      <button data-stage="opm" aria-pressed="false"><span>OPMs</span><small>the wearable alternative</small></button>
+    </div>
+
+    <div class="panel" id="stage-neurons">
+      <h2>Pyramidal cells and the current dipole they form <span class="hint">animated; current flows down the apical dendrites</span></h2>
+      <div class="grid-wide">
+        <div>
+          <canvas id="cvNeurons"></canvas>
+          <p class="cap">A fold of cortex. Pyramidal cells stand perpendicular to the cortical surface, so on the crown of a gyrus they
+            point at the scalp and on the wall of a sulcus they lie along it. An excitatory synapse on the apical dendrite lets positive
+            charge in; it flows down inside the cell (the <strong>primary current</strong>, blue arrows) and returns through the
+            surrounding tissue (the <strong>volume current</strong>, grey). Seen from a few centimetres away the loop is a current
+            dipole, and its magnetic field circles the primary current (dots: field out of the page, crosses: into it).</p>
+        </div>
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="nrnPatch">Active patch</label>
+              <select id="nrnPatch">
+                <option value="wall">Wall of a sulcus (tangential)</option>
+                <option value="crown">Crown of a gyrus (radial)</option>
+                <option value="both">Both walls of a sulcus (opposed)</option>
+              </select></div>
+            <div class="ctl"><label for="nrnArea">Active area <span class="val" id="nrnAreaV"></span></label><input type="range" id="nrnArea" min="2" max="400" step="1" value="40"></div>
+            <div class="ctl"><label for="nrnSync">Synchronous share <span class="val" id="nrnSyncV"></span></label><input type="range" id="nrnSync" min="0" max="5" step="0.05" value="0.5"></div>
+          </div>
+          <div class="readouts" id="nrnReadouts"></div>
+          <div class="grid2" style="margin-top:10px"><canvas id="cvNrnMEG"></canvas><canvas id="cvNrnEEG"></canvas></div>
+          <p class="cap">Magnetometer field map and EEG potential map of the active patch, from the same head model as the rest of the
+            simulator. Synchronous cells add linearly; asynchronous ones add like a random walk, as the square root of their number. A
+            radial patch on a gyral crown is nearly invisible to MEG; two opposed sulcal walls cancel for both methods.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-head" hidden>
+      <h2>The head: primary and volume currents <span class="hint">why the skull blurs EEG and leaves MEG alone</span></h2>
+      <div class="grid-wide">
+        <div>
+          <canvas id="cvHeadCur"></canvas>
+          <p class="cap">A cross-section through a tangential dipole in the four-shell head: brain, cerebrospinal fluid, skull and scalp.
+            Grey lines are the volume currents, computed for these conductivities; colour is the potential they set up. The skull
+            conducts tens of times worse than the brain, so the current spreads sideways before crossing it and the scalp potential is
+            smeared. In a spherical head the magnetic field outside does not depend on the conductivities at all: the volume currents'
+            contribution is fixed by the primary current alone (Sarvas, 1987).</p>
+        </div>
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="hdRatio">Brain : skull conductivity <span class="val" id="hdRatioV"></span></label><input type="range" id="hdRatio" min="5" max="120" step="1" value="40"></div>
+            <div class="ctl"><label for="hdTilt">Tilt from radial <span class="val" id="hdTiltV"></span></label><input type="range" id="hdTilt" min="0" max="90" step="1" value="90"></div>
+          </div>
+          <div class="grid2"><canvas id="cvHdMEG"></canvas><canvas id="cvHdEEG"></canvas></div>
+          <div class="readouts" id="hdReadouts"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-coils" hidden>
+      <h2>Pickup coils and SQUIDs <span class="hint">a superconducting flux transformer carries the field to the SQUID</span></h2>
+      <div class="grid2">
+        <div>
+          <div class="btnrow" style="margin-bottom:8px"><span class="lbl" style="margin:0">Pickup coil</span>
+            <div class="seg" id="coilSeg"><button data-coil="mag" aria-pressed="true">Magnetometer</button><button data-coil="axial" aria-pressed="false">Axial gradiometer</button><button data-coil="planar" aria-pressed="false">Planar gradiometer</button></div></div>
+          <canvas id="cvCoil"></canvas>
+          <div class="controls tight">
+            <div class="ctl"><label for="coilDepth">Brain source below the scalp <span class="val" id="coilDepthV"></span></label><input type="range" id="coilDepth" min="1.5" max="7" step="0.1" value="3"></div>
+            <div class="ctl"><label for="coilFar">Distance of a noise source <span class="val" id="coilFarV"></span></label><input type="range" id="coilFar" min="-0.7" max="1.7" step="0.01" value="1"></div>
+          </div>
+          <div class="readouts" id="coilReadouts"></div>
+        </div>
+        <div>
+          <canvas id="cvCoilFalloff"></canvas>
+          <div class="legend" id="coilFalloffLegend"></div>
+          <p class="cap">How each coil's response to a small magnetic source falls with distance, relative to a source 4 cm away. A
+            magnetometer's falls as the cube of distance; a gradiometer subtracts two nearly equal readings of anything far away and
+            its response falls one power faster. That is the gradiometer's distance filter: the brain is near, the world is far.</p>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:14px">
+        <div>
+          <canvas id="cvSquid"></canvas>
+          <p class="cap">A DC SQUID is a superconducting ring broken by two Josephson junctions. Biased with a small current, the voltage
+            across it oscillates with the magnetic flux through the ring, once per flux quantum, &Phi;<sub>0</sub> = h/2e = 2.07 &times; 10<sup>-15</sup> Wb.
+            The electronics feed a current back into a coil beside the ring to hold the flux at the steepest point of the curve (the
+            <strong>flux-locked loop</strong>); the feedback current is the output, linear over many flux quanta.</p>
+        </div>
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="fllStep">Sudden change of flux <span class="val" id="fllStepV"></span></label><input type="range" id="fllStep" min="0" max="3" step="0.05" value="0.3"></div>
+            <div class="ctl"><label for="fllSlew">Loop speed <span class="val" id="fllSlewV"></span></label><input type="range" id="fllSlew" min="0.05" max="1" step="0.01" value="0.25"></div>
+          </div>
+          <canvas id="cvFLL"></canvas>
+          <div class="legend" id="fllLegend"></div>
+          <p class="cap">When the flux changes faster than the loop can follow, the SQUID passes through a whole period of its curve
+            before the feedback catches up, and the loop locks again one flux quantum away. The output jumps by a fixed step and stays
+            there: a <strong>flux jump</strong> or SQUID jump. Strong, fast fields (no shielded room, a nearby magnet) make them common.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-dewar" hidden>
+      <h2>The dewar <span class="hint">4 kelvin inside, 300 kelvin outside, two centimetres apart</span></h2>
+      <div class="grid-wide">
+        <div>
+          <canvas id="cvDewar"></canvas>
+          <p class="cap">SQUIDs and pickup coils are niobium, superconducting below 9 K, so they sit in liquid helium at 4.2 K inside a
+            vacuum-insulated vessel shaped into a helmet at the bottom. A whole-head dewar holds about 70 litres and boils off several
+            litres a day; many labs now recycle the gas. The price of the cold is distance: vacuum and insulation keep the coils about
+            2 cm from the scalp on top of the head and more where the head does not fill the helmet.</p>
+        </div>
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="dwGap">Coil to scalp distance <span class="val" id="dwGapV"></span></label><input type="range" id="dwGap" min="0.3" max="4.5" step="0.05" value="2.4"></div>
+            <div class="ctl"><label for="dwDepth">Source depth below the scalp <span class="val" id="dwDepthV"></span></label><input type="range" id="dwDepth" min="1.5" max="6" step="0.1" value="2.5"></div>
+          </div>
+          <canvas id="cvDewarGap"></canvas>
+          <div class="legend" id="dwLegend"></div>
+          <div class="readouts" id="dwReadouts"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-room" hidden>
+      <h2>The magnetically shielded room <span class="hint">mu-metal for slow fields, aluminium for fast ones</span></h2>
+      <div class="grid2">
+        <div>
+          <canvas id="cvRoom"></canvas>
+          <p class="cap">Layers of mu-metal, a nickel-iron alloy of very high permeability, give slowly varying fields an easier path
+            around the room than through it. A layer of aluminium adds eddy-current shielding, which grows with frequency. Everything
+            that must cross the walls does so through filtered connectors and waveguides; stimuli arrive by light, air tubes and
+            plastic, and the participant is watched by camera. Opening the door, even an elevator next door, shows in the data.</p>
+        </div>
+        <div>
+          <canvas id="cvRoomSF"></canvas>
+          <div class="legend" id="roomLegend"></div>
+          <div class="readouts" id="roomReadouts"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-hpi" hidden>
+      <h2>Head position coils and the digitizer <span class="hint">tying the head to the sensors and to the MRI</span></h2>
+      <div class="grid2">
+        <div>
+          <canvas id="cvHPI"></canvas>
+          <p class="cap">Before the recording a 3D digitizer pen records three anatomical landmarks (the <strong>nasion</strong> and the two
+            <strong>preauricular points</strong>), which define the head coordinate frame, the positions of four or five small
+            <strong>head position indicator (HPI) coils</strong> taped to the scalp, and a hundred or more points on the scalp and the
+            nose. In the helmet, each coil is driven with its own frequency, above the brain's band, and its field is fitted as a
+            magnetic dipole: the coils' positions in the helmet give the head's position, continuously if the coils stay on.</p>
+        </div>
+        <div>
+          <canvas id="cvHeadPos"></canvas>
+          <div class="legend" id="headPosLegend"></div>
+          <div class="readouts" id="hpiReadouts"></div>
+          <p class="cap">Head position over this recording, as the HPI coils would track it (switch on <em>Head movement</em> on the Noise
+            tab or in the program). With SQUIDs the helmet stays put and the head moves inside it, so every source's field map slides
+            across the sensors.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-opm" hidden>
+      <h2>Optically pumped magnetometers <span class="hint">laser light, an alkali vapour, and zero field</span></h2>
+      <div class="grid2">
+        <div>
+          <canvas id="cvOPM"></canvas>
+          <p class="cap">Circularly polarized laser light pumps the spins of rubidium atoms in a small heated glass cell into one direction,
+            and a pumped vapour stops absorbing the light. Any magnetic field makes the spins precess away and the cell absorbs more, so
+            the light reaching the photodiode measures the field. The effect is sharpest near zero field: within about a nanotesla. That
+            is why OPMs need a well-shielded room and coils that null the remaining field, and why moving them through a gradient of a
+            few nanotesla per metre makes artifacts.</p>
+        </div>
+        <div>
+          <div class="tablewrap"><table class="ref cmp">
+            <thead><tr><th></th><th>SQUID magnetometer</th><th>OPM</th></tr></thead>
+            <tbody>
+              <tr><td>Operating temperature</td><td>4 K (liquid helium)</td><td>about 150 &deg;C inside the cell, skin-safe outside</td></tr>
+              <tr><td>Distance to the scalp</td><td>2 to 4 cm, fixed helmet</td><td>about 6 mm, on the head</td></tr>
+              <tr><td>Noise</td><td>2 to 5 fT/&radic;Hz</td><td>7 to 20 fT/&radic;Hz</td></tr>
+              <tr><td>Dynamic range</td><td>very large, with flux-locked loop</td><td>a few nT; needs nulling coils</td></tr>
+              <tr><td>Bandwidth</td><td>DC to kHz</td><td>DC to about 150 Hz</td></tr>
+              <tr><td>Head movement</td><td>the head moves under fixed sensors</td><td>sensors move with the head, through any residual field</td></tr>
+              <tr><td>Fits</td><td>one adult head size</td><td>any head, children, movement</td></tr>
+            </tbody>
+          </table></div>
+          <div class="grid2" style="margin-top:10px"><canvas id="cvOPMsq"></canvas><canvas id="cvOPMop"></canvas></div>
+          <div class="readouts" id="opmReadouts"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2. EXPERIMENT ================= -->
+  <section role="tabpanel" id="tab-experiment" aria-labelledby="t-experiment" hidden>
+    <details class="concept">
+      <summary>A recording is a description</summary>
+      <div><p>Every MEG study can be written down as a handful of decisions: which sensors, how fast to sample, what the online filters do,
+        which shielding and noise rejection to use, what the participant does and when, and what is in and around the head. The program
+        on the left is exactly that, in a small language. Change a line and press <strong>Build recording</strong>: the simulator
+        records a new session and every other tab updates. The examples are a good place to start; the language is described under
+        the editor.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Program <span class="hint">Ctrl or &#8984; + Enter builds</span></h2>
+        <div class="btnrow" style="margin-bottom:8px">
+          <select id="exSelect" aria-label="Example programs" style="width:auto;max-width:100%"></select>
+          <button id="btnBuild">Build recording</button>
+          <button class="ghost" id="btnRevert">Revert to example</button>
+        </div>
+        <p class="note" id="exDesc"></p>
+        <div class="editor"><pre id="edHi" aria-hidden="true"></pre><textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Recording program"></textarea></div>
+        <div class="errbox" id="errbox" role="status"></div>
+        <ul class="warnlist" id="warnlist"></ul>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>What the program describes</h2>
+          <canvas id="cvExpHelmet"></canvas>
+          <div class="legend" id="expLegend"></div>
+          <div class="prose" id="expSummary" style="margin-top:10px"></div>
+        </div>
+        <div class="panel">
+          <h2>Timeline</h2>
+          <canvas id="cvTimeline"></canvas>
+          <div class="legend" id="tlLegend"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The language</h2>
+      <div class="prose"><p>A program is a few blocks in braces. Inside a block each statement is a keyword and its values. A number takes a unit
+        (<code>Hz</code>, <code>ms</code>, <code>s</code>, <code>fT</code>, <code>pT</code>, <code>nT</code>, <code>fT/cm</code>, <code>nAm</code>,
+        <code>cm</code>, <code>mm</code>, <code>deg</code>, <code>bpm</code>) or a <code>%</code>, and the unit says what the number is, so
+        <code>blinks 0.2 Hz 2 pT</code> and <code>blinks 2 pT 0.2 Hz</code> mean the same. In a run of numbers the last unit applies to all:
+        <code>epoch -100 400 ms</code>. Line breaks are only spacing, and <code>#</code> starts a comment.</p></div>
+      <div class="tablewrap"><table class="ref">
+        <thead><tr><th>Statement</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><th colspan="2">recording { ... }</th></tr>
+          <tr><td>sensors magnetometers | axial | planar | opm</td><td>The array: 105 SQUID magnetometers, 105 axial gradiometers (5 cm baseline), 105 triplets of one magnetometer and two planar gradiometers (315 channels, as in the 306-channel systems), or 105 OPMs on the scalp.</td></tr>
+          <tr><td>rate 500 Hz</td><td>Sampling rate, 200 to 2000 Hz.</td></tr>
+          <tr><td>highpass 0.1 Hz | off &nbsp; lowpass 150 Hz</td><td>Online filters (first-order high-pass, fourth-order Butterworth low-pass). Default low-pass 0.3 &times; rate.</td></tr>
+          <tr><td>mains 60 Hz</td><td>Line frequency, 50 or 60 Hz.</td></tr>
+          <tr><td>noise 3 fT</td><td>Sensor noise density per &radic;Hz (fT/cm/&radic;Hz for planar gradiometers). Defaults: SQUIDs 3, axial 4, OPMs 15.</td></tr>
+          <tr><td>background 150 fT | off</td><td>RMS of spontaneous brain activity on the magnetometers (random cortical dipoles with 1/f time courses).</td></tr>
+          <tr><td>hpi on</td><td>Head position coils, each driven at its own frequency above the band of interest.</td></tr>
+          <tr><td>seed 1</td><td>Random seed. The same program and seed always produce the same recording.</td></tr>
+          <tr><th colspan="2">shielding { ... }</th></tr>
+          <tr><td>room on | off</td><td>The magnetically shielded room. Off means a recording in an ordinary lab.</td></tr>
+          <tr><td>references on</td><td>Gradient compensation from the reference magnetometers high in the dewar (or on the wall, for OPMs).</td></tr>
+          <tr><td>ssp 3</td><td>Signal space projection with this many empty-room vectors.</td></tr>
+          <tr><td>sss on | tsss | off &nbsp; order 8 3</td><td>Signal space separation, or its temporal extension, with the inside and outside expansion orders. Needs <code>sensors planar</code>.</td></tr>
+          <tr><td>nulling on</td><td>For OPMs: coils around the head that cancel the room's residual field.</td></tr>
+          <tr><th colspan="2">head { ... }</th></tr>
+          <tr><td>position 0 0 -1 cm</td><td>Where the head sits in the helmet, relative to its centre (x right, y forward, z up).</td></tr>
+          <tr><th colspan="2">source dipole | pair | auditory | somatosensory | alpha | spike <i>name</i> { ... }</th></tr>
+          <tr><td>at C3 depth 2.5 cm</td><td>Place a dipole 2.5 cm under the scalp beneath a 10-10 position or a sensor (MLT31). Or <code>pos x y z cm</code>.</td></tr>
+          <tr><td>orient tangential | radial | inward | 40 deg &nbsp; dir 90 deg</td><td>Tilt from pointing straight out (0 radial, 90 tangential), and the direction of the tangential part: 0&deg; toward the nose, 90&deg; toward the right ear. <code>toward C4</code> also works.</td></tr>
+          <tr><td>amp 20 nAm &nbsp; signal sine | burst | pink 10 Hz</td><td><code>dipole</code>: moment and time course (a steady sinusoid, a waxing and waning rhythm, or 1/f noise).</td></tr>
+          <tr><td>dipole A { at C3 ... } &nbsp; rhythm 20 Hz &nbsp; coupling 0.6 &nbsp; lag 10 ms</td><td><code>pair</code>: two dipoles sharing a fraction of a common rhythm, the second lagging the first.</td></tr>
+          <tr><td>side both | left | right &nbsp; amp 30 nAm &nbsp; latency 100 ms &nbsp; jitter 8 ms</td><td><code>auditory</code>: the M50, M100 and M200 from the supratemporal plane; <code>somatosensory</code>: the N20m and later peaks from area 3b of the hand area.</td></tr>
+          <tr><td>peak 100 ms 35 ms 1 &nbsp; condition deviant 1.4</td><td>Replace the default peaks (latency, full width at half maximum, gain), and set the gain for each condition.</td></tr>
+          <tr><td>beta 20 Hz 18 nAm &nbsp; erd 60% &nbsp; rebound 120%</td><td><code>somatosensory</code>: a motor-cortex beta rhythm that drops after each stimulus and rebounds.</td></tr>
+          <tr><td>freq 10 Hz &nbsp; closed 100% &nbsp; open 20% &nbsp; erd 40%</td><td><code>alpha</code>: two parieto-occipital generators; amplitude with the eyes closed and open, and the drop after each stimulus.</td></tr>
+          <tr><td>rate 0.2 Hz &nbsp; width 70 ms &nbsp; wave 50%</td><td><code>spike</code>: interictal epileptiform spikes at random times, with an aftergoing slow wave.</td></tr>
+          <tr><th colspan="2">timeline { ... }</th></tr>
+          <tr><td>block closed | open 20 s</td><td>A rest block with the eyes closed or open.</td></tr>
+          <tr><td>trials 120 isi 1 s jitter 0.2 s { condition a 80% ... }</td><td>A run of stimuli, one every isi plus a random 0 to jitter, in random, <code>alternate</code> or <code>sequence</code> order.</td></tr>
+          <tr><th colspan="2">artifacts { ... }</th></tr>
+          <tr><td>environment 50 nT &nbsp; line 100 nT</td><td>Field changes from an elevator, traffic and the city, and the mains field, as they would be without the shielded room.</td></tr>
+          <tr><td>cardiac 70 bpm 3 pT &nbsp; blinks 0.2 Hz 2 pT &nbsp; saccades 0.15 Hz 1 pT &nbsp; muscle 0.05 Hz 2 pT</td><td>The heart, the eyes and the muscles, with their largest field on the magnetometers.</td></tr>
+          <tr><td>dental 400 pT</td><td>Magnetized dental work, moved by the jaw.</td></tr>
+          <tr><td>jumps 0.03 Hz 6 pT</td><td>SQUID flux jumps (ten times as frequent without the room).</td></tr>
+          <tr><td>bad MRT31 noisy | flat | jumpy</td><td>One misbehaving sensor.</td></tr>
+          <tr><td>movement 5 mm</td><td>Head movement in the helmet: drift, sinking, and sudden shifts.</td></tr>
+          <tr><td>&hellip; off</td><td>Declare an artifact but start with it switched off. Every artifact can be toggled on the Noise and Recording tabs.</td></tr>
+          <tr><th colspan="2">analysis { ... }</th></tr>
+          <tr><td>highpass 1 Hz &nbsp; lowpass 40 Hz &nbsp; notch 60 Hz &nbsp; order 4 &nbsp; phase zero | causal</td><td>Starting offline filters.</td></tr>
+          <tr><td>epoch -100 400 ms &nbsp; baseline -100 0 ms &nbsp; reject 4 pT 1500 fT/cm</td><td>Epoch window, baseline and peak-to-peak rejection thresholds (field for magnetometers, gradient for planar gradiometers).</td></tr>
+          <tr><td>ica 25 &nbsp; compensate on</td><td>Number of ICA components, and head movement compensation through SSS.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= 3. FIELDS ================= -->
+  <section role="tabpanel" id="tab-fields" aria-labelledby="t-fields" hidden>
+    <details class="concept">
+      <summary>Two maps of one source</summary>
+      <div><p>The current inside the cells (the primary current) drives volume currents through the whole head. EEG measures the
+        potential those volume currents set up on the scalp; MEG measures the magnetic field of both kinds of current. In a spherical
+        head the field outside depends only on the primary current's position and its <em>tangential</em> part: a radial dipole makes no
+        field outside at all, and a deep one makes very little, because the field falls with distance and the radial share grows toward
+        the centre. The EEG potential map of a tangential dipole has its two poles on either side of the dipole, along it; the magnetic
+        field circles the current, so the MEG map's two poles lie across it, rotated by 90 degrees. The skull smears the potential but
+        not the field. Move the dipole below and watch both maps.</p></div>
+    </details>
+    <div class="panel">
+      <h2>One current dipole <span class="hint">move it, tilt it, push it deeper</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="fdFrom">Start from</label><select id="fdFrom"></select></div>
+        <div class="ctl"><label for="fdAt">Beneath</label><select id="fdAt"></select></div>
+        <div class="ctl"><label for="fdDepth">Depth below the scalp <span class="val" id="fdDepthV"></span></label><input type="range" id="fdDepth" min="1.4" max="8" step="0.1" value="2.5"></div>
+        <div class="ctl"><label for="fdTilt">Tilt: radial 0&deg;, tangential 90&deg; <span class="val" id="fdTiltV"></span></label><input type="range" id="fdTilt" min="0" max="180" step="1" value="90"></div>
+        <div class="ctl"><label for="fdDir">Direction of the tangential part <span class="val" id="fdDirV"></span></label><input type="range" id="fdDir" min="0" max="359" step="1" value="0"></div>
+        <div class="ctl"><label for="fdAmp">Moment <span class="val" id="fdAmpV"></span></label><input type="range" id="fdAmp" min="1" max="100" step="1" value="20"></div>
+      </div>
+      <p class="note">Direction is measured in the plane of the scalp above the dipole: 0&deg; toward the nose, 90&deg; toward the right ear.</p>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>The magnetic field around the dipole <span class="hint">in the plane across the current</span></h2>
+        <canvas id="cvFieldB"></canvas>
+        <div class="checks"><label class="check"><input type="checkbox" id="fdLines" checked> Field lines</label><label class="check"><input type="checkbox" id="fdPrimary"> Primary current only</label><label class="check"><input type="checkbox" id="fdHelmet" checked> Helmet and coils</label></div>
+        <p class="cap" id="fdBCap">Colour is the strength of the field in this plane on a logarithmic scale; lines follow its direction. The current
+          flows out of the page at the dipole (dot). Outside the head the field is that of the whole head, primary and volume currents
+          together.</p>
+      </div>
+      <div class="panel">
+        <h2>Volume currents and the potential <span class="hint">in the plane along the current</span></h2>
+        <canvas id="cvFieldJ"></canvas>
+        <p class="cap">Colour is the potential (red positive, blue negative); grey lines are the volume currents, leaving the head of the
+          dipole and returning to its tail through the brain, the CSF, the skull and the scalp. EEG electrodes sit on the outer circle.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>MEG field map and EEG potential map <span class="hint">the same dipole, seen by the two methods</span></h2>
+      <div class="btnrow" style="margin-bottom:8px"><span class="lbl" style="margin:0">MEG sensors</span>
+        <div class="seg" id="fdSensSeg"><button data-s="mag" aria-pressed="true">Magnetometers</button><button data-s="axial" aria-pressed="false">Axial gradiometers</button><button data-s="planar" aria-pressed="false">Planar gradiometers</button><button data-s="opm" aria-pressed="false">OPMs</button></div>
+        <select id="fdPlanarShow" aria-label="Planar gradiometer display" style="width:auto"><option value="rms">gradient magnitude</option><option value="a">gradient across latitude</option><option value="b">gradient across longitude</option></select>
+      </div>
+      <div class="grid3">
+        <div><canvas id="cvFdMEG"></canvas></div>
+        <div><canvas id="cvFdEEG"></canvas></div>
+        <div><canvas id="cvFdBoth"></canvas></div>
+      </div>
+      <div class="controls tight">
+        <div class="ctl"><label for="fdSkull">Brain : skull conductivity (EEG only) <span class="val" id="fdSkullV"></span></label><input type="range" id="fdSkull" min="5" max="120" step="1" value="40"></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="fdHomog"> No skull: EEG in a uniform sphere</label></div>
+      </div>
+      <div class="readouts" id="fdReadouts"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>From tangential to radial <span class="hint">peak signal as the dipole tilts</span></h2>
+        <canvas id="cvFdTilt"></canvas>
+        <div class="legend" id="fdTiltLegend"></div>
+        <p class="cap">Largest signal across the array as the dipole turns from pointing out (0&deg;) through tangential (90&deg;) to pointing in
+          (180&deg;), each method relative to its own maximum. MEG falls to zero at radial; EEG barely changes.</p>
+      </div>
+      <div class="panel">
+        <h2>Depth <span class="hint">peak signal as the dipole goes deeper</span></h2>
+        <canvas id="cvFdDepth"></canvas>
+        <div class="legend" id="fdDepthLegend"></div>
+        <p class="cap">Largest signal for the current orientation as the dipole moves along its radius toward the centre of the head, each
+          relative to its value at the shallowest depth. Gradiometers and OPMs favour shallow sources most; EEG reaches deepest. At the
+          centre of the sphere every orientation is radial and the MEG signal vanishes.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>What one sensor sees <span class="hint">click a sensor site on any map</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="lfSite">Sensor site</label><select id="lfSite"></select></div>
+        <div class="ctl"><label for="lfDepth">Cortex depth below the scalp <span class="val" id="lfDepthV"></span></label><input type="range" id="lfDepth" min="1.5" max="5" step="0.1" value="2.5"></div>
+      </div>
+      <div class="lf-grid" id="lfGrid"></div>
+      <p class="cap">Sensitivity of one channel to a dipole anywhere on a sphere of cortex, in its best orientation at each point, on the
+        same map projection as the field maps (the cross marks the sensor). A magnetometer sees a broad ring and is blind right under
+        itself, where every current is either radial or makes a field along the surface; a planar gradiometer sees best what is right
+        under it; an OPM on the scalp sees a tighter patch than a SQUID magnetometer at the same site, and more strongly. The EEG
+        electrode, against the average reference, is most sensitive to radial currents right under it. The number is the area of cortex
+        above half the channel's largest sensitivity.</p>
+    </div>
+  </section>
+
+  <!-- ================= 4. SOURCES ================= -->
+  <section role="tabpanel" id="tab-sources" aria-labelledby="t-sources" hidden>
+    <details class="concept">
+      <summary>Every sensor records every source</summary>
+      <div><p>The field of every source in the head reaches every sensor, so each channel records a weighted sum of all of them. The
+        weights, one column per source and one row per sensor, form the <strong>mixing matrix</strong> A in x = A s. They depend on where
+        each source is, its depth and its orientation, and on where the sensors are; for MEG, unlike EEG, not on the conductivities.
+        Two sources whose field maps overlap are hard to tell apart, from the sensors and from any inverse method. Select a source to
+        move it and watch its map, the mixing matrix and the recording change together.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Sources in the head <span class="hint">click a source to select it</span></h2>
+        <canvas id="cvHeads"></canvas>
+        <div class="legend" id="srcLegend"></div>
+        <h3 style="margin-top:14px">Selected source</h3>
+        <div class="controls tight" id="srcControls">
+          <div class="ctl"><label for="srcSel">Source</label><select id="srcSel"></select></div>
+          <div class="ctl"><label for="srcAt">Beneath</label><select id="srcAt"></select></div>
+          <div class="ctl"><label for="srcDepth">Depth below the scalp <span class="val" id="srcDepthV"></span></label><input type="range" id="srcDepth" min="1.4" max="7.5" step="0.1"></div>
+          <div class="ctl"><label for="srcTilt">Tilt from radial <span class="val" id="srcTiltV"></span></label><input type="range" id="srcTilt" min="0" max="180" step="1"></div>
+          <div class="ctl"><label for="srcDir">Direction of tilt <span class="val" id="srcDirV"></span></label><input type="range" id="srcDir" min="0" max="359" step="1"></div>
+          <div class="ctl"><label for="srcAmp">Strength <span class="val" id="srcAmpV"></span></label><input type="range" id="srcAmp" min="0" max="3" step="0.01"></div>
+        </div>
+        <div class="btnrow" style="margin-top:8px"><button class="ghost small" id="btnWriteBack">Copy these settings into the program</button><span class="note" id="srcNote"></span></div>
+      </div>
+      <div class="panel">
+        <h2>Field map of the selected source <span class="hint" id="srcMapHint"></span></h2>
+        <canvas id="cvSrcTopo"></canvas>
+        <div class="readouts" id="srcReadouts"></div>
+        <p class="cap">The map is the source's column of the mixing matrix for the array in use, per 10 nAm of moment. A tangential
+          source makes an outgoing and an ingoing pole on either side of itself, with the zero line right above it; the planar
+          gradiometers instead peak right above it.</p>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>One sensor, many sources <span class="hint">5 s from the recording</span></h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="decompCh">Sensor</label><select id="decompCh"></select></div>
+          <div class="ctl"><label for="decompT">Start time <span class="val" id="decompTV"></span></label><input type="range" id="decompT" min="0" max="100" step="0.5" value="0"></div>
+        </div>
+        <canvas id="cvDecomp"></canvas>
+        <p class="cap">The top trace is what the sensor records, before noise rejection and without offline filters. Below it, each signal's
+          share, all on the same scale; they add up to the top trace. Choose another sensor and the same sources appear with different weights.</p>
+      </div>
+      <div class="panel">
+        <h2>The mixing matrix <span class="hint">rows: sensors, columns: generators</span></h2>
+        <canvas id="cvMixing"></canvas>
+        <p class="cap">Each column is one generator's field pattern, scaled to its largest value. Hover for values. Below, how alike the
+          patterns are: the cosine of the angle between two columns. Two sources with similar patterns mix almost indistinguishably.</p>
+        <canvas id="cvOverlap"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. NOISE ================= -->
+  <section role="tabpanel" id="tab-noise" aria-labelledby="t-noise" hidden>
+    <details class="concept" open>
+      <summary>The brain is the smallest thing in the room</summary>
+      <div><p>An evoked field of a few hundred femtotesla has to be measured next to the Earth's 50 microtesla, field changes of tens of
+        nanotesla from moving steel and currents in the building, the mains, the heart's picotesla and the eyes and muscles. No single
+        trick removes all of it. The <strong>shielded room</strong> takes out most of the world; <strong>gradiometers</strong> ignore what
+        is far; <strong>reference sensors</strong> measure the remaining field and subtract it; <strong>signal space projection</strong>
+        removes the directions in sensor space that noise occupies; <strong>signal space separation</strong> splits the field into a part
+        from inside the helmet and a part from outside and keeps only the inside. Each step costs something. Switch them on one at a time
+        and watch the budget below.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Noise rejection, step by step</h2>
+        <div class="steps">
+          <div class="step"><label class="check"><input type="checkbox" id="nzRoom"> 1 · Magnetically shielded room</label><small id="nzRoomNote">Attenuates outside fields 500 times at DC and about 60 000 times at the line frequency.</small></div>
+          <div class="step"><span class="lbl">2 · Sensors</span>
+            <div class="seg" id="nzSensors"><button data-s="mag" aria-pressed="true">Magnetometers</button><button data-s="axial" aria-pressed="false">Axial gradiometers</button><button data-s="planar" aria-pressed="false">Planar + magnetometers</button><button data-s="opm" aria-pressed="false">OPMs</button></div>
+            <small id="nzSensNote"></small></div>
+          <div class="step" id="nzNullRow"><label class="check"><input type="checkbox" id="nzNulling"> Field nulling coils</label><small>OPMs only: cancel the room's residual field so moving sensors do not see it.</small></div>
+          <div class="step"><label class="check"><input type="checkbox" id="nzRefs"> 3 · Reference sensors</label><small>Fit the field and its gradients from nine magnetometers far from the head, and subtract each channel's share.</small></div>
+          <div class="step" id="nzSSSRow"><span class="lbl">4 · Signal space separation</span>
+            <div class="btnrow"><div class="seg" id="nzSSS"><button data-v="off" aria-pressed="true">Off</button><button data-v="sss" aria-pressed="false">SSS</button><button data-v="tsss" aria-pressed="false">Temporal SSS</button></div>
+            <label class="check"><input type="checkbox" id="nzComp"> with head movement compensation</label></div>
+            <small id="nzSSSNote">Keep only the part of the field that comes from inside the helmet.</small></div>
+          <div class="step"><span class="lbl">5 · Signal space projection</span>
+            <div class="btnrow"><select id="nzSSP" style="width:auto" aria-label="Empty-room projection vectors"><option value="0">no empty-room vectors</option><option value="1">1 empty-room vector</option><option value="2">2 vectors</option><option value="3">3 vectors</option><option value="5">5 vectors</option><option value="8">8 vectors</option></select>
+            <label class="check"><input type="checkbox" id="nzSSPecg"> heartbeat</label><label class="check"><input type="checkbox" id="nzSSPeog"> blinks</label></div>
+            <small>Project out the noise's own directions in sensor space, measured with nobody in the room, or averaged over heartbeats and blinks.</small></div>
+        </div>
+        <div class="progress" id="nzProgress"><div></div></div>
+        <p class="note" id="nzStatus"></p>
+      </div>
+      <div class="panel">
+        <h2>How small is the brain? <span class="hint">field strengths on one logarithmic scale</span></h2>
+        <canvas id="cvLadder"></canvas>
+        <p class="cap">Fields at the head. On the left, typical values; on the right, the largest value of each signal in a 10 s stretch of this
+          recording on the magnetometers (or the array's own sensors): what reaches the sensors (open circle) and what is left after the
+          noise rejection chosen on the left (filled).</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Noise budget <span class="hint" id="budgetHint"></span></h2>
+      <canvas id="cvBudget"></canvas>
+      <div class="legend" id="budgetLegend"></div>
+      <p class="cap">Each signal's own contribution, RMS over the main sensors in a 10 s stretch of the recording, before and after the noise
+        rejection chosen above; all steps are linear, so the parts add up to the whole. The brain's signals are at the top: whatever
+        removes the noise should leave them alone.</p>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>One sensor, before and after <span class="hint">10 s, no offline filters</span></h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="nzCh">Sensor</label><select id="nzCh"></select></div>
+          <div class="ctl"><label for="nzT">Start <span class="val" id="nzTV"></span></label><input type="range" id="nzT" min="0" max="100" step="0.5" value="0"></div>
+        </div>
+        <canvas id="cvNzBefore"></canvas>
+        <canvas id="cvNzAfter" style="margin-top:8px"></canvas>
+      </div>
+      <div class="panel">
+        <h2>What is in the recording <span class="hint">switch each signal on or off</span></h2>
+        <div class="layers" id="nzLayers"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6. RECORDING ================= -->
+  <section role="tabpanel" id="tab-recording" aria-labelledby="t-recording" hidden>
+    <details class="concept">
+      <summary>Reading a raw MEG recording</summary>
+      <div><p>Traces are grouped by region from front to back, left before right. The same data can be shown as they reach the sensors,
+        after the noise rejection chosen on the Noise tab, or after the offline filters and ICA as well. Switch signals on and off on the
+        right to learn each one's signature: where on the helmet it appears, how big, how fast and how often. Click in the traces to put a
+        cursor there and see the field map at that instant.</p></div>
+    </details>
+    <div class="grid-side">
+      <div class="panel">
+        <div class="btnrow" style="margin-bottom:10px">
+          <div class="seg" id="recView"><button data-v="raw" aria-pressed="true">As recorded</button><button data-v="sup" aria-pressed="false">Noise rejected</button><button data-v="proc" aria-pressed="false">Processed</button></div>
+          <select id="recChans" aria-label="Channels shown" style="width:auto"></select>
+          <select id="recKind" aria-label="Channel kind" style="width:auto"><option value="planar">gradiometers</option><option value="mag">magnetometers</option></select>
+          <select id="recWin" aria-label="Window length" style="width:auto"><option value="2">2 s</option><option value="5">5 s</option><option value="10" selected>10 s</option><option value="20">20 s</option><option value="30">30 s</option></select>
+          <select id="recScale" aria-label="Scale" style="width:auto"></select>
+          <select id="recHighlight" aria-label="Highlight a signal" style="width:auto"></select>
+          <label class="check"><input type="checkbox" id="recButterfly"> Butterfly</label>
+          <label class="check"><input type="checkbox" id="recRefs"> Reference sensors</label>
+          <button class="ghost small" id="recPrev" aria-label="Previous page">&larr;</button>
+          <button class="small" id="recPlay">Play</button>
+          <button class="ghost small" id="recNext" aria-label="Next page">&rarr;</button>
+        </div>
+        <canvas id="cvTraces"></canvas>
+        <input type="range" id="recTime" min="0" max="100" step="0.1" value="0" aria-label="Time">
+        <div class="legend" id="recLegend"></div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Map at the cursor <span class="hint" id="cursorTime"></span></h2>
+          <canvas id="cvCursorTopo"></canvas>
+        </div>
+        <div class="panel">
+          <h2>Signals in the recording</h2>
+          <div class="layers" id="layers"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 7. SPECTRA ================= -->
+  <section role="tabpanel" id="tab-spectra" aria-labelledby="t-spectra" hidden>
+    <details class="concept">
+      <summary>Frequency: rhythms, noise floors and what the shielding leaves</summary>
+      <div><p>MEG spectra are usually drawn as an amplitude spectral density, in femtotesla per root hertz, because that is how sensor noise
+        is specified: a good SQUID has a flat floor of a few fT/&radic;Hz with a rise at the lowest frequencies. Brain activity falls
+        roughly as 1/f above that floor and rhythms stand out as peaks: alpha near 10 Hz over the back of the head with the eyes closed,
+        beta near 20 Hz over the motor strip. Line noise is a needle at 50 or 60 Hz and its harmonics; the environment and the heart
+        crowd the lowest frequencies. A time-frequency map shows when power changes: alpha appearing as the eyes close, or beta
+        dropping after a stimulus and rebounding.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Amplitude spectrum</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="psdCh">Sensor</label><select id="psdCh"></select></div>
+          <div class="ctl"><label for="psdSeg">Segments</label><select id="psdSeg"><option value="all">Whole recording</option><option value="eyes">Eyes closed vs open</option><option value="task">Task blocks only</option></select></div>
+          <div class="ctl"><label for="psdData">Data</label><select id="psdData"><option value="raw">As recorded</option><option value="sup">Noise rejected</option><option value="proc">Processed</option><option value="both">As recorded and noise rejected</option></select></div>
+        </div>
+        <canvas id="cvPSD"></canvas>
+        <div class="legend" id="psdLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Band power across the helmet</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="bandSel">Band</label><select id="bandSel">
+            <option value="1,4">Delta 1–4 Hz</option><option value="4,8">Theta 4–8 Hz</option><option value="8,13" selected>Alpha 8–13 Hz</option>
+            <option value="13,30">Beta 13–30 Hz</option><option value="30,45">Gamma 30–45 Hz</option><option value="line">Mains &plusmn;1 Hz</option><option value="0.1,1">Below 1 Hz</option></select></div>
+          <div class="ctl"><label for="bandSeg">Segments</label><select id="bandSeg"><option value="all">Whole recording</option><option value="closed">Eyes closed</option><option value="open">Eyes open</option><option value="ratio">Closed / open ratio</option></select></div>
+        </div>
+        <canvas id="cvBandTopo"></canvas>
+        <p class="cap">Noise-rejected data. Power is integrated over the band from each channel's spectrum and interpolated between sensor sites.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Time-frequency <span class="hint">Morlet wavelets</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="tfCh">Sensor</label><select id="tfCh"></select></div>
+        <div class="ctl"><label for="tfMode">View</label><select id="tfMode"><option value="cont">Continuous recording</option><option value="erp">Event-related</option></select></div>
+        <div class="ctl" id="tfStartBox"><label for="tfStart">Start <span class="val" id="tfStartV"></span></label><input type="range" id="tfStart" min="0" max="100" step="1" value="0"></div>
+        <div class="ctl" id="tfLenBox"><label for="tfLen">Length</label><select id="tfLen"><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select></div>
+        <div class="ctl" id="tfCondBox" hidden><label for="tfCond">Condition</label><select id="tfCond"></select></div>
+        <div class="ctl" id="tfKindBox" hidden><label for="tfKind">Power</label><select id="tfKind"><option value="total">Total (mean of single trials)</option><option value="evoked">Evoked (of the average)</option><option value="induced">Induced (average removed first)</option></select></div>
+      </div>
+      <canvas id="cvTF"></canvas>
+      <p class="cap" id="tfCap"></p>
+    </div>
+  </section>
+
+  <!-- ================= 8. PROCESSING ================= -->
+  <section role="tabpanel" id="tab-processing" aria-labelledby="t-processing" hidden>
+    <details class="concept">
+      <summary>Processing changes the data; know what each step does</summary>
+      <div><p>After the noise rejection come the steps an analyst chooses. Filters remove what you do not want and distort what you do, more
+        so the steeper and closer to the signal they are, and a filter that does not shift latencies must look into the future. ICA can
+        separate the heart, the eyes and a bad sensor from the brain only to the extent that they have fixed field patterns and
+        independent time courses. Head movement blurs every average; with an array that supports SSS the field can be rebuilt as if the
+        head had stayed still. The Recording, Spectra and Averaging tabs all show the output of this pipeline.</p></div>
+    </details>
+    <div class="panel">
+      <h2>Pipeline</h2>
+      <div class="chain" id="pipeline"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>1 · Filters</h2>
+        <div class="controls tight">
+          <div class="ctl"><label class="check"><input type="checkbox" id="fHpOn"> High-pass <span class="val" id="fHpV"></span></label><input type="range" id="fHp" min="-2" max="1.3" step="0.01" value="0"></div>
+          <div class="ctl"><label class="check"><input type="checkbox" id="fLpOn"> Low-pass <span class="val" id="fLpV"></span></label><input type="range" id="fLp" min="3" max="150" step="1" value="40"></div>
+          <div class="ctl"><label for="fNotch">Notch</label><select id="fNotch"><option value="0">Off</option><option value="50">50 Hz</option><option value="60">60 Hz</option></select></div>
+          <div class="ctl"><label for="fNotchW">Notch width <span class="val" id="fNotchWV"></span></label><input type="range" id="fNotchW" min="0.5" max="8" step="0.5" value="2"></div>
+          <div class="ctl"><label for="fOrder">Order <span class="val" id="fOrderV"></span></label><input type="range" id="fOrder" min="1" max="8" step="1" value="4"></div>
+          <div class="ctl"><label for="fPhase">Phase</label><select id="fPhase"><option value="zero">Zero-phase</option><option value="causal">Causal, like hardware</option></select></div>
+          <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="fHarm"> Notch the harmonics too</label></div>
+        </div>
+        <canvas id="cvFiltResp"></canvas>
+        <div class="legend" id="filtRespLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>What the filters do to a waveform <span class="hint">the current settings, applied to a clean test signal</span></h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="testSig">Test signal</label><select id="testSig">
+            <option value="erp">The true evoked field of this experiment</option><option value="spike">An epileptiform spike</option>
+            <option value="step">A step (a flux jump)</option><option value="burst">A 10 Hz burst</option></select></div>
+          <div class="ctl"><label for="testCh">Sensor (true evoked field)</label><select id="testCh"></select></div>
+        </div>
+        <canvas id="cvFiltTest"></canvas>
+        <div class="legend" id="filtTestLegend"></div>
+        <div class="readouts" id="filtReadouts"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>2 · Independent component analysis</h2>
+      <div class="prose"><p>ICA assumes the recording is x = A s: a fixed mixture of signals that are statistically independent. It finds an
+        unmixing matrix that makes the recovered signals as non-Gaussian as possible, then shows each component's field pattern (a column of A)
+        and its time course. Channels are divided by their noise first so magnetometers and gradiometers can be mixed. Mark components to
+        remove and their back-projection is subtracted from the data. Here you can check each decision against the truth.</p></div>
+      <div class="controls tight">
+        <div class="ctl"><label for="icaK">Components <span class="val" id="icaKV"></span></label><input type="range" id="icaK" min="4" max="40" step="1" value="20"></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="icaTruth"> Reveal what made each component</label></div>
+        <div class="ctl" style="align-self:end"><button id="btnICA">Run ICA</button></div>
+      </div>
+      <div class="progress" id="icaProgress"><div></div></div>
+      <p class="note" id="icaStatus">ICA has not been run on this recording.</p>
+      <div class="ica-grid" id="icaGrid"></div>
+      <div class="grid2" style="margin-top:14px">
+        <div><canvas id="cvICAAct"></canvas><canvas id="cvICASpec" style="margin-top:8px"></canvas><p class="cap" id="icaActCap">Select a component to see its time course and spectrum.</p></div>
+        <div><canvas id="cvICAClean"></canvas><div class="legend" id="icaCleanLegend"></div>
+          <div class="controls tight"><div class="ctl"><label for="icaCh">Sensor</label><select id="icaCh"></select></div><div class="ctl"><label for="icaT">Start <span class="val" id="icaTV"></span></label><input type="range" id="icaT" min="0" max="100" step="0.5" value="0"></div></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>3 · Head movement and its compensation</h2>
+      <div class="grid2">
+        <div>
+          <canvas id="cvMove"></canvas>
+          <div class="legend" id="moveLegend"></div>
+          <p class="cap">The head's position over the recording, from the HPI coils: displacement of the centre of the head from where it
+            started, in millimetres, along each axis of the helmet.</p>
+        </div>
+        <div>
+          <div class="btnrow" style="margin-bottom:8px"><button id="btnMove">Compare</button><span class="note" id="moveNote"></span></div>
+          <div class="grid3" id="moveMaps"><canvas id="cvMvStill"></canvas><canvas id="cvMvMoved"></canvas><canvas id="cvMvComp"></canvas></div>
+          <div class="readouts" id="moveReadouts"></div>
+        </div>
+      </div>
+      <p class="cap">The evoked field's map, averaged over the trials at the head positions where they happened: as if the head had stayed
+        still, as recorded, and after SSS rebuilt each trial's inside field for the starting position. Compensation needs an array that
+        supports SSS (planar gradiometers with magnetometers). OPMs move with the head, so for them the brain does not move at all.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9. AVERAGING ================= -->
+  <section role="tabpanel" id="tab-averaging" aria-labelledby="t-averaging" hidden>
+    <details class="concept">
+      <summary>Why averaging works, and what it costs</summary>
+      <div><p>An evoked field of a hundred femtotesla is buried in hundreds of femtotesla of everything else. If the response is the same on
+        every trial and the rest is not time-locked to the stimulus, averaging N trials leaves the response untouched and shrinks the rest by
+        a factor of &radic;N. Signal-to-noise ratio grows as &radic;N, so doubling it costs four times the trials. The catch is in the
+        assumptions: if the latency wanders from trial to trial the average is smaller and wider than any single response, and artifacts that
+        are time-locked or huge survive. Epochs are cut around each event, baseline corrected, screened for artifacts, and then averaged.</p></div>
+    </details>
+    <div class="panel">
+      <h2>Epoching, baseline and rejection</h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="avgCh">Sensor</label><select id="avgCh"></select></div>
+        <div class="ctl"><label for="epT0">Epoch start <span class="val" id="epT0V"></span></label><input type="range" id="epT0" min="-1000" max="-20" step="10" value="-100"></div>
+        <div class="ctl"><label for="epT1">Epoch end <span class="val" id="epT1V"></span></label><input type="range" id="epT1" min="100" max="2000" step="10" value="400"></div>
+        <div class="ctl"><label class="check"><input type="checkbox" id="blOn" checked> Baseline to 0 ms from <span class="val" id="blV"></span></label><input type="range" id="bl0" min="-1000" max="-10" step="10" value="-100"></div>
+        <div class="ctl"><label class="check"><input type="checkbox" id="rjOn"> Reject epochs beyond <span class="val" id="rjV"></span></label><input type="range" id="rj" min="0" max="2" step="0.01" value="0.6"></div>
+      </div>
+      <div class="checks" id="avgConds"></div>
+      <div class="readouts" id="avgReadouts"></div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>The evoked field emerging from the noise</h2>
+        <div class="btnrow" style="margin-bottom:8px">
+          <button class="small" id="avgPlay">Play</button>
+          <button class="ghost small" id="avgStep">+1 trial</button>
+          <button class="ghost small" id="avgAll">All trials</button>
+          <button class="ghost small" id="avgReset">Reset</button>
+          <div style="flex:1;min-width:140px"><label class="lbl" for="avgN">Trials per condition <span class="val" id="avgNV"></span></label><input type="range" id="avgN" min="1" max="100" step="1" value="1"></div>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="avgButterfly" checked> All sensors (butterfly)</label>
+          <label class="check"><input type="checkbox" id="avgSingle"> Latest single trial</label>
+          <label class="check"><input type="checkbox" id="avgTruth" checked> True evoked field</label>
+          <label class="check"><input type="checkbox" id="avgDiff"> Difference wave</label>
+        </div>
+        <canvas id="cvERP"></canvas>
+        <div class="legend" id="erpLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Signal to noise grows as &radic;N</h2>
+        <canvas id="cvSNR"></canvas>
+        <div class="legend" id="snrLegend"></div>
+        <p class="cap">Noise is the RMS of the average in the baseline (what you can measure) and the RMS of the average minus the true evoked
+          field over the whole epoch (what only a simulation can measure). Signal is the true field's largest absolute value after the stimulus.
+          On a log-log plot &radic;N is a straight line of slope one half.</p>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Trial by trial <span class="hint">an image of every epoch</span></h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="imgCond">Condition</label><select id="imgCond"></select></div>
+          <div class="ctl"><label for="imgSort">Sort trials by</label><select id="imgSort"><option value="order">Order in the session</option><option value="jitter">True latency jitter</option><option value="amp">Peak amplitude</option></select></div>
+          <div class="ctl"><label for="imgSmooth">Smooth across</label><select id="imgSmooth"><option value="1">No smoothing</option><option value="5">5 neighbouring trials</option><option value="11" selected>11 neighbouring trials</option><option value="21">21 neighbouring trials</option></select></div>
+        </div>
+        <canvas id="cvERPImage"></canvas>
+        <p class="cap">One row per epoch of the selected sensor, colour for field. A single trial is mostly noise, so each row is usually
+          averaged with its neighbours, as in the ERP images of EEG and MEG papers; rejected epochs are left raw and marked on the left. Sorting
+          by the true latency jitter, which the simulator knows and an experimenter does not, shows how the average blurs a response that
+          wanders in time.</p>
+      </div>
+      <div class="panel">
+        <h2>Field maps of the average <span class="hint" id="latLabel">click the plot of the average to choose a latency</span></h2>
+        <canvas id="cvERPTopo"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 10. SOURCE ESTIMATION ================= -->
+  <section role="tabpanel" id="tab-estimation" aria-labelledby="t-estimation" hidden>
+    <details class="concept">
+      <summary>Forward and inverse problems</summary>
+      <div><p>The <strong>forward problem</strong>, from a known source to the field at the sensors, has exactly one answer, and physics supplies
+        it. The <strong>inverse problem</strong>, from the field back to the sources, has infinitely many: Helmholtz showed in 1853 that
+        infinitely many current distributions inside a conductor produce the same field outside. Every inverse method adds an assumption to
+        pick one. <strong>Dipole fitting</strong> assumes one or a few point sources. <strong>Minimum norm</strong> spreads the current over
+        the whole brain and picks the distribution with the least total power. A <strong>beamformer</strong> assumes the sources are
+        uncorrelated in time. Before any of that the head must be put in the same frame as an MRI, because a source is only as well placed on
+        the anatomy as the coregistration that put it there.</p></div>
+    </details>
+    <div class="panel">
+      <h2>1 · Coregistration with a structural MRI <span class="hint">click a slice to place the selected landmark</span></h2>
+      <div class="btnrow" style="margin-bottom:8px">
+        <span class="lbl" style="margin:0">Landmark</span>
+        <div class="seg" id="coFid"><button data-f="NAS" aria-pressed="true">Nasion</button><button data-f="LPA" aria-pressed="false">Left ear</button><button data-f="RPA" aria-pressed="false">Right ear</button></div>
+        <button class="ghost small" id="coExact">Mark all exactly</button>
+        <button class="ghost small" id="coCareless">Mark all carelessly</button>
+        <button class="ghost small" id="coNudge">Nasion 5 mm too high</button>
+      </div>
+      <div class="checks" style="margin-bottom:8px">
+        <label class="check"><input type="checkbox" id="coICP"> Refine with the head shape (ICP)</label>
+        <label class="check"><input type="checkbox" id="coNose" checked> The head shape includes the nose</label>
+        <label class="check"><input type="checkbox" id="coPoints" checked> Show the digitized head shape</label>
+      </div>
+      <div class="grid3"><canvas id="cvMriAx"></canvas><canvas id="cvMriCor"></canvas><canvas id="cvMriSag"></canvas></div>
+      <div class="legend" id="coLegend"></div>
+      <div class="controls tight">
+        <div class="ctl"><label for="coSlice">Slices through</label><select id="coSlice"><option value="fid">the selected landmark</option><option value="src">the true source</option><option value="centre">the centre of the head</option></select></div>
+      </div>
+      <div class="readouts" id="coReadouts"></div>
+      <p class="cap">A synthetic T1-weighted MRI in the scanner's own coordinates, where the head is tilted and off centre. The three
+        landmarks were digitized on the participant before the recording; marking the same three points on the MRI gives the transform
+        between the two frames. The dots are the digitized head shape placed with that transform: where they float off the scalp or sink into
+        it, the transform is wrong. The preauricular points lie just in front of each ear and are the hardest to mark the same way twice.
+        Every source estimate below is drawn on the anatomy through this transform, so its error moves them all.</p>
+    </div>
+    <div class="panel">
+      <h2>2 · The data: the forward model plus noise <span class="hint">click a waveform to choose the latency</span></h2>
+      <div class="btnrow" style="margin-bottom:8px">
+        <span class="lbl" style="margin:0">Data</span>
+        <div class="seg" id="invData"><button data-d="scenario" aria-pressed="true">A controlled scenario</button><button data-d="recording" aria-pressed="false">This recording's average</button></div>
+      </div>
+      <div id="invScenario">
+        <div class="controls tight">
+          <div class="ctl"><label for="invPreset">Scenario</label><select id="invPreset">
+            <option value="aud1">Left auditory cortex</option><option value="som">Hand area of somatosensory cortex</option>
+            <option value="deep">A deep source, 5 cm under C3</option><option value="aud2">Both auditory cortices</option>
+            <option value="near">Two sources 3.5 cm apart</option><option value="custom">Custom</option></select></div>
+          <div class="ctl"><label for="invAt1">Source 1 beneath</label><select id="invAt1"></select></div>
+          <div class="ctl"><label for="invD1">Source 1 depth below the scalp <span class="val" id="invD1V"></span></label><input type="range" id="invD1" min="1.5" max="7" step="0.1" value="3.2"></div>
+          <div class="ctl"><label for="invAmp">Source strength <span class="val" id="invAmpV"></span></label><input type="range" id="invAmp" min="5" max="80" step="1" value="20"></div>
+          <div class="ctl"><label class="check"><input type="checkbox" id="invTwo"> Source 2 beneath</label><select id="invAt2"></select></div>
+          <div class="ctl"><label for="invD2">Source 2 depth below the scalp <span class="val" id="invD2V"></span></label><input type="range" id="invD2" min="1.5" max="7" step="0.1" value="3.2"></div>
+          <div class="ctl"><label for="invCorr">Correlation of the two time courses <span class="val" id="invCorrV"></span></label><input type="range" id="invCorr" min="0" max="1" step="0.05" value="0"></div>
+          <div class="ctl"><label for="invTrials">Trials averaged <span class="val" id="invTrialsV"></span></label><input type="range" id="invTrials" min="5" max="200" step="5" value="80"></div>
+          <div class="ctl"><label for="invNoise">Noise, brain and sensor <span class="val" id="invNoiseV"></span></label><input type="range" id="invNoise" min="0.1" max="3" step="0.05" value="1"></div>
+        </div>
+      </div>
+      <div id="invRecording" hidden>
+        <p class="note" id="invRecNote"></p>
+        <div class="controls tight">
+          <div class="ctl"><label for="invCond">Condition</label><select id="invCond"></select></div>
+        </div>
+      </div>
+      <div class="controls tight">
+        <div class="ctl"><label for="invLat">Latency for the dipole fit and minimum norm <span class="val" id="invLatV"></span></label><input type="range" id="invLat" min="0" max="400" step="2" value="100"></div>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <div><canvas id="cvInvMap"></canvas><p class="cap" id="invMapCap"></p></div>
+        <div><canvas id="cvInvWave"></canvas><canvas id="cvInvSrc"></canvas><div class="legend" id="invWaveLegend"></div><div class="readouts" id="invDataReadouts"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>3 · Three inverse solutions on the same data</h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="invNDip">Dipoles to fit</label><select id="invNDip"><option value="1">One</option><option value="2">Two</option></select></div>
+        <div class="ctl"><label for="invMNE">Minimum norm</label><select id="invMNE"><option value="mne">Plain minimum norm</option><option value="dspm">dSPM (noise normalized)</option><option value="sloreta" selected>sLORETA (standardized)</option></select></div>
+        <div class="ctl"><label for="invReg">Beamformer regularization <span class="val" id="invRegV"></span></label><input type="range" id="invReg" min="0" max="0.5" step="0.01" value="0.05"></div>
+        <div class="ctl"><label for="invThr">Show above <span class="val" id="invThrV"></span></label><input type="range" id="invThr" min="0" max="0.95" step="0.05" value="0.5"></div>
+        <div class="ctl"><label for="invSlices">Slices through</label><select id="invSlices"><option value="true">the true source</option><option value="peak">each method's peak</option></select></div>
+        <div class="ctl" style="align-self:end"><button id="btnInverse">Estimate</button></div>
+      </div>
+      <div class="progress" id="invProgress"><div></div></div>
+      <p class="note" id="invStatus">Press Estimate to fit, minimum-norm and beamform the data above. The first time takes a few seconds,
+        to compute the field of every point of the source grid; after that the estimates follow the controls.</p>
+      <div class="inv-rows" id="invRows"></div>
+      <div class="legend" id="invLegend"></div>
+      <div class="prose" id="invVerdict"></div>
+    </div>
+  </section>
+
+  <!-- ================= 11. GUIDE ================= -->
+  <section role="tabpanel" id="tab-guide" aria-labelledby="t-guide" hidden>
+    <div class="panel prose">
+      <h2>How to use this in class</h2>
+      <p>The tabs follow the life of an MEG study. The <strong>Instrument</strong> tab is the hardware, from a patch of cortex to a SQUID in
+        liquid helium. The <strong>Experiment</strong> tab is the study, written as a short program; everything else is computed from it.
+        <strong>MEG &amp; EEG fields</strong> is the physics of one dipole, and <strong>Sources</strong> the sources of this recording.
+        <strong>Noise &amp; shielding</strong> is what MEG labs spend most of their effort on. <strong>Recording</strong>,
+        <strong>Spectra</strong>, <strong>Processing</strong> and <strong>Averaging</strong> are the analysis; <strong>Source estimation</strong>
+        runs the problem backwards. The concept boxes at the top of each tab open and close, so a projected screen can stay uncluttered.</p>
+      <h3>Things worth trying</h3>
+      <ul>
+        <li><strong>The 90&deg; rotation.</strong> On <em>MEG &amp; EEG fields</em>, leave the dipole tangential and compare the two maps: the
+          EEG poles lie along the dipole, the MEG poles across it. The third map draws the MEG field as contour lines over the EEG colours.</li>
+        <li><strong>Radial and deep sources.</strong> Tilt the dipole slowly from 90&deg; to 0&deg;. The MEG map fades to nothing while the EEG
+          map turns from a dipolar to a monopolar pattern. Then push a tangential dipole deeper: MEG loses more than EEG, the gradiometers
+          most of all.</li>
+        <li><strong>The skull.</strong> Change the brain to skull conductivity ratio: the EEG map widens and shrinks, the MEG map does not move.</li>
+        <li><strong>What a sensor sees.</strong> In the last panel of the same tab, compare the sensitivity of a magnetometer, a planar
+          gradiometer and an OPM at the same site, and of an EEG electrode.</li>
+        <li><strong>The world outside.</strong> Load <em>No shielded room</em>. The traces are hundreds of picotesla of elevator and traffic.
+          On the Noise tab, switch to axial gradiometers, then turn the room on. Watch the ladder and the budget.</li>
+        <li><strong>Inside versus outside.</strong> Load <em>Dental work and tSSS</em>. Plain SSS removes the environment but keeps the dental
+          artifact, because it is inside the helmet; temporal SSS removes it too.</li>
+        <li><strong>ICA.</strong> In the <em>Noise zoo</em>, run ICA, find the heart, the blinks, the eye movements and the bad sensor from their
+          maps and spectra, remove them and check with "Reveal".</li>
+        <li><strong>&radic;N.</strong> In the <em>Teaching tour</em>, press Play on the Averaging tab and watch the M100 appear out of the noise.
+          Deviants are only 15% of trials, so their average stays noisier than the standards' throughout.</li>
+        <li><strong>Head movement.</strong> Load <em>Head movement and compensation</em>; compare the three maps in the last panel of the
+          Processing tab.</li>
+        <li><strong>Coregistration.</strong> On <em>Source estimation</em>, press "Nasion 5 mm too high". The auditory source moves only
+          3 mm on the anatomy, because the error pivots about the ears, but the front of the brain moves almost a centimetre. Refine with the
+          head shape: ICP brings the worst error under 3 mm, and back to about 7 mm if the head shape leaves out the nose.</li>
+        <li><strong>Three answers.</strong> With the left auditory cortex, all three inverse methods agree within a few millimetres, though
+          minimum norm lights up tens of cubic centimetres. Choose the deep source and switch to plain minimum norm: its peak jumps about 3 cm
+          toward the surface, sLORETA stays on the source, and the beamformer's map goes flat. Lower the trials to 10 and watch the dipole's
+          confidence volume grow.</li>
+        <li><strong>Correlated sources.</strong> Choose both auditory cortices and set the correlation to 1. One dipole explains only about
+          60% of the field, sitting on one source; fitting two finds both. The beamformer's map goes flat: each source's filter cancels the
+          other. The same happens with this recording's average in the <em>Teaching tour</em>, whose two auditory cortices share a waveform.</li>
+      </ul>
+      <h3>What the simulation computes</h3>
+      <ul>
+        <li><strong>Head and fields.</strong> A sphere: brain 8.0 cm, CSF 8.2, skull 8.7, scalp 9.2 cm radius. Magnetic fields outside come
+          from the Sarvas formula, exact for any spherically layered head; EEG potentials from the four-shell series solution. Inside the
+          head the field is the primary current's Biot-Savart field plus the volume currents' field from the Geselowitz surface integral.</li>
+        <li><strong>Sensors.</strong> 105 sites on an ellipsoidal helmet, 2.4 cm or more from the scalp. Magnetometers are one coil; axial
+          gradiometers two coaxial coils 5 cm apart; the planar array has a magnetometer and two orthogonal planar gradiometers (16.8 mm
+          baseline) at each site; OPMs sit 6 mm above the scalp and move with the head. Gradiometers have small random imbalances.
+          Nine reference magnetometers sit high in the dewar.</li>
+        <li><strong>Noise.</strong> Sensor noise is white with a 1/f rise; brain background is fifty random cortical dipoles with 1/f time
+          courses. The environment is magnetic dipoles metres to kilometres away (an elevator, traffic, the city), the mains a dipole a few
+          metres away with harmonics, the heart a magnetic dipole in the chest; the eyes and muscles are current dipoles. The shielded room
+          attenuates outside fields by a factor rising from 500 at DC to about 60 000 above 100 Hz.</li>
+        <li><strong>Noise rejection.</strong> Reference compensation fits a uniform field and its five gradients to the references. SSP
+          projects out the leading eigenvectors of the empty-room covariance or of averaged artifacts. SSS is the multipole expansion of
+          Taulu and Kajola (inside order 8, outside order 3), tSSS removes inside time courses that also appear outside, and movement
+          compensation rebuilds the inside field at the starting head position every second.</li>
+        <li><strong>Inverse.</strong> A 6 mm grid in the brain with two tangential orientations per point; data whitened with the baseline
+          noise covariance in the brain's signal subspace. Dipole fitting is a grid search refined by Nelder-Mead (for two dipoles,
+          alternating searches from several starting points), with a 95% confidence volume from the chi-square of the residual; minimum norm
+          follows MNE's conventions for depth weighting, dSPM and sLORETA; the beamformer is an LCMV filter with the neural activity index,
+          built from the single trials between 50 and 300 ms.</li>
+        <li><strong>Coregistration.</strong> Horn's closed-form rigid fit to the three landmarks, then iterative closest points between the
+          digitized head shape and the MRI's scalp, with the landmarks kept in as three more points.</li>
+      </ul>
+      <h3>What it does not model</h3>
+      <ul>
+        <li>Real head shapes, so the boundary element models of real localization are not needed here; spheres are the classroom model and
+          they get the main ideas right.</li>
+        <li>Extended sources. Every generator is a point dipole; the cancellation within folded patches appears only on the Instrument tab.</li>
+        <li>The SQUID electronics in detail, crosstalk between channels, and the fine structure of real shielded rooms and real OPM arrays.</li>
+        <li>Neural dynamics. Sources are waveforms chosen to look like MEG, not the output of a model of neurons.</li>
+        <li>A real MRI. The structural image is drawn from the same sphere, with a gyral pattern, ventricles, deep nuclei, a brainstem,
+          a cerebellum and a skull base placed by hand: enough to read slices and labels, not an atlas.</li>
+      </ul>
+      <p class="note">Built for NBL 425/625, Methods in Human Neuroimaging. See also the <a href="../eegsim/index.html">EEG simulator</a> and the
+        course's <a href="../nbl425/demos/eeg_vs_meg_dipoles.html">EEG versus MEG</a> and <a href="../nbl425/demos/opm_wearable_meg.html">wearable OPM-MEG</a> demos.</p>
+    </div>
+  </section>
+
+  <footer>MEG simulator. Current dipoles in a spherical head, SQUID and OPM arrays, the noise of a real lab and the methods that remove it. A teaching tool, not a biophysical model.</footer>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/head.js"></script>
+<script src="js/fields.js"></script>
+<script src="js/dsl.js"></script>
+<script src="js/examples.js"></script>
+<script src="js/dsp.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/suppress.js"></script>
+<script src="js/ica.js"></script>
+<script src="js/inverse.js"></script>
+<script src="js/mri.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/views.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tab_instrument.js"></script>
+<script src="js/tab_fields.js"></script>
+<script src="js/tab_sources.js"></script>
+<script src="js/tab_noise.js"></script>
+<script src="js/tab_recording.js"></script>
+<script src="js/tab_spectra.js"></script>
+<script src="js/tab_processing.js"></script>
+<script src="js/tab_averaging.js"></script>
+<script src="js/tab_estimation.js"></script>
+<script>MEG.app.start();</script>
+</body>
+</html>
