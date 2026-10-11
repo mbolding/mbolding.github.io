@@ -868,8 +868,10 @@ sets ph1 from the known acquisition delay (−360°·delay·f) and ph0 by
 maximising the real part of the tallest peak. ppm axis = 4.7 + f/PPM_HZ,
 displayed with ppm increasing to the left.
 
-Measurement: peak windows move by the measured water offset when water is
-found within 0.3 ppm of 4.7 ppm. Heights and areas are taken above a local
+Measurement: peak windows move by `info.waterPeakHz` (the peak of the fully
+relaxed water line) up to `MRI.spectro.followPpm` = 1 ppm, with a note beyond
+that; SpecData without `waterPeakHz` falls back to a strict local-maximum
+search. Heights and areas are taken above a local
 baseline fitted to the lower points around each window (on the spectrum
 smoothed over one original grid step, which cancels zero-fill ripple). A peak
 with no maximum in its window, height ≤ 0, height below 3 noise SD or area ≤ 0
@@ -909,7 +911,8 @@ carry `err.userMessage = true`.
   the spectroscopy acquisition, the summary describes it, and Speed and Auto
   re-scan are hidden. `--console-h` on :root tracks the sticky console's
   height and drives `html { scroll-padding-top }`, so focused controls never
-  hide under it.
+  hide under it. Focus on the console's own controls never scrolls the page
+  (app.js restores the scroll position on focusin).
 - **Tab bar** built from `MRI.ui.tabs` sorted by `order`, with `role=tablist`,
   arrow-key navigation, and the active tab remembered (localStorage + URL
   hash `#tab=<id>`).
@@ -959,7 +962,8 @@ MRI.actions = {
   setRecon(patch) -> Promise,        // state.recon changes at once; one reconstruction per animation frame
   reconstruct() -> ReconResult|null, // synchronous
   runScan({ animate }) -> Promise, stopScan(),
-  showTab(id, {focus}),              // focus: true moves keyboard focus to the panel's first heading
+  showTab(id, {focus, target, fold}), // focus: true moves keyboard focus to the panel's first heading
+  focusPanel(tabId, target, {fold}), // show a tab, fold the concept cards above target, focus and scroll to target
   spectro: { loadPreset(id), setSource(text), setParam(name, v), setPhantom(id), setProcessing(patch), run(), currentSummary() }
 };
 ```
@@ -1149,7 +1153,11 @@ Round 3 details per tab:
   no Acquire button of its own (the scan bar runs it), unresolved peaks as
   "–", "(under lipid)" flags, ratios only when meaningful, and a "shim first"
   callout when water is over 10 Hz wide.
-- **Guide**: Set up uses `showTab(tab, {focus: true})` and the lesson strip.
+- **Guide**: Set up dismisses open toasts, shows the lesson strip, then
+  `focusPanel(tab, heading)` so the panel the first step names is on screen.
+  Steps can carry inline Load buttons (a preset plus parameters) that stay on
+  the current tab. The Preset picker labels presets 'Name (id)', and lessons
+  name presets the same way.
 - **Phantom**: the tissue table sits in an "Edit tissue values" details; the
   coil RSS caption gives the real centre value (about 0.66).
 

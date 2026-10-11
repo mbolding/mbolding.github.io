@@ -22,10 +22,14 @@
 
    Each lesson: the idea in a sentence or two, a goal, a Set up button
    (resets the artifacts, then loads phantom, preset, parameters,
-   coil, reconstruction options and opens the right tab), numbered
-   steps that name the controls students will find, questions with a
-   collapsible "What you should see", and a one-line takeaway. Progress
-   checkmarks are a per-browser convenience kept in localStorage.
+   coil, reconstruction options and opens the right tab at the panel the
+   first step names), numbered steps that name the controls students will
+   find (a step that loads a preset names it as the Preset list does,
+   "Spin echo, T2-weighted (se)", and has a button that loads it, with any
+   parameter the step needs, without a trip to the Sequence tab),
+   questions with a collapsible "What you should see", and a one-line
+   takeaway. Progress checkmarks are a per-browser convenience kept in
+   localStorage.
 
    The tab only reads the state to know which tabs exist; it does no
    work while hidden.
@@ -49,6 +53,12 @@
     function coilName(type) { const t = terms().coil; return (t && t[type]) || (type === 'body' ? 'Body coil' : '8-channel head coil'); }
     function readJSON(key, def) { try { const v = JSON.parse(root.localStorage.getItem(key) || 'null'); return v === null ? def : v; } catch (e) { return def; } }
     function writeJSON(key, v) { try { root.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage blocked: progress lasts for this visit only */ } }
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function presetName(id) { const p = MRI.presets && MRI.presets.get ? MRI.presets.get(id) : null; return p ? p.name : id; }
+    /* A preset as the Sequence tab's Preset list shows it: its name, with the
+       id in parentheses ("Gradient echo, T1-weighted (gre_t1)"). */
+    function P(id) { return '<b>' + esc(presetName(id)) + '</b> (<code>' + esc(id) + '</code>)'; }
+    function Ptext(id) { return presetName(id) + ' (' + id + ')'; }
 
     MRI.ui.addStyle(`
 #tab-lessons .ls-layout { align-items: start; }
@@ -96,7 +106,13 @@
 #tab-lessons .ls-setup .note { margin: 0; flex: 1 1 260px; }
 #tab-lessons .ls-setup svg { width: 11px; height: 11px; }
 #tab-lessons .ls-steps { margin: 0; padding-left: 22px; }
-#tab-lessons .ls-steps li { margin-bottom: 6px; padding-left: 2px; }
+#tab-lessons .ls-steps li { margin-bottom: 6px; padding-left: 2px; border-radius: 4px; }
+#tab-lessons .ls-steps li:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#tab-lessons .ls-steps li:focus:not(:focus-visible) { outline: none; }
+#tab-lessons .ls-runs { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; margin-left: 4px; vertical-align: baseline; }
+#tab-lessons .ls-run { white-space: nowrap; color: var(--accent); border-color: var(--accent-border); background: var(--card); vertical-align: 1px; }
+#tab-lessons .ls-run:hover { background: var(--accent-soft); border-color: var(--accent); }
+#tab-lessons .ls-run svg { width: 9px; height: 9px; margin-right: 4px; }
 #tab-lessons .ls-qs { display: flex; flex-direction: column; gap: 8px; }
 #tab-lessons .ls-q { border-left: 2px solid var(--accent-border); padding: 2px 0 2px 10px; }
 #tab-lessons .ls-q > p { margin: 0 0 4px; }
@@ -143,17 +159,96 @@
         return { ok: true };
     }
     let setupToken = 0;
-    let returnTo = null;           // lesson to open (without moving focus) the next time the Guide is shown
-    /* Set a lesson up, switch to its tab with keyboard focus on the start of
-       that tab's content, and put a lesson strip under the tab bar: "Lesson 3
-       · k-space ... [Back to the steps] [x]". The strip stays (on every tab
-       but the Guide) until it is closed or another lesson is set up, so the
-       way back never times out. */
+    let returnTo = null;           // {n, step}: lesson to open (without moving focus) the next time the Guide is shown
+    let activeLesson = 0;          // the lesson whose set-up was run last
+
+    /* Close the toasts still on screen, so an Undo left over from earlier
+       work cannot replace the sequence a lesson is about to load. */
+    function dismissToasts() {
+        const w = W();
+        if (w && typeof w.dismissToasts === 'function') { w.dismissToasts(); return; }
+        Array.prototype.forEach.call(doc.querySelectorAll('.toasts .toast'), function (t) { if (typeof t.dismiss === 'function') t.dismiss(); });
+    }
+
+    /* The lesson strip under the tab bar: "Lesson 3 · k-space ... [Back to
+       the steps] [x]". It stays (on every tab but the Guide) until it is
+       closed or another lesson is set up, so the way back never times out.
+       Back opens the lesson again at its steps, or at `step` (1-based) when
+       a step's own button brought the student here. Shown before the tab
+       switch, so the console already has its final height when focus moves. */
+    function showStrip(L, step) {
+        returnTo = { n: L.n, step: step || 0 };
+        const back = function () {
+            returnTo = null;
+            A().showTab('lessons');
+            openLesson(L.n, 'steps', step);
+        };
+        if (MRI.ui.lessonStrip && MRI.ui.lessonStrip.show) {
+            MRI.ui.lessonStrip.show({ title: 'Lesson ' + L.n + ' · ' + L.title, onBack: back, backLabel: 'Back to the steps' });
+            return null;
+        }
+        return back;               // no strip: the caller says so in a toast once the tab is shown
+    }
+    function stripFallbackToast(L, tab, back) {
+        if (!back || !W() || !W().toast) return;
+        W().toast(el('span', {}, ['Lesson ' + L.n + ' is set up in the ' + (TAB_NAMES[tab] || tab) + ' tab. ',
+            el('button', { type: 'button', class: 'linklike', onclick: back }, 'Back to the steps')]), 'good');
+    }
+
+    /* Switch to `tab` with keyboard focus on the panel the lesson's first step
+       names (`head` is the id of that panel's heading), brought into view
+       below the sticky console. The shell's focusPanel does this, and folds
+       the tab's concept card; without it the heading is focused here. */
+    function openTabAt(tab, head) {
+        const a = A();
+        if (head && typeof a.focusPanel === 'function') { a.focusPanel(tab, head); return; }
+        a.showTab(tab, { focus: true });
+        if (!head) return;
+        let target = landOnHeading(tab, head, null);
+        // Panels lay out again once the tab is visible (canvases, plots): settle once more.
+        (root.requestAnimationFrame || setTimeout)(function () { if (target !== null) landOnHeading(tab, head, target); });
+    }
+    /* Height the sticky console covers at the top of the viewport. */
+    function consoleCover() {
+        let h = 0;
+        try { h = parseFloat(root.getComputedStyle(doc.documentElement).getPropertyValue('--console-h')) || 0; } catch (e) { h = 0; }
+        const con = doc.getElementById('console');
+        if (con) {
+            let pos = 'sticky';
+            try { pos = root.getComputedStyle(con).position; } catch (e) { /* keep sticky */ }
+            if (pos === 'sticky' || pos === 'fixed') h = Math.max(h, con.offsetHeight);
+        }
+        return h;
+    }
+    /* Focus the heading `head` of tab `tab` and scroll its panel to just
+       below the console. With `prevTop` (a page offset), only scroll again
+       when the target moved since. Returns the page offset scrolled to. */
+    function landOnHeading(tab, head, prevTop) {
+        const panel = doc.getElementById('tab-' + tab);
+        const h = doc.getElementById(head);
+        if (!panel || panel.hidden || !h || !panel.contains(h) || !h.getClientRects().length) return null;
+        if (prevTop === null) {
+            if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
+            try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); }
+        } else if (doc.activeElement !== h) return null;       // the student has moved on
+        const box = h.closest('section') || h;
+        const top = Math.max(0, Math.round(box.getBoundingClientRect().top + (root.pageYOffset || 0) - consoleCover() - 8));
+        if (prevTop !== null && Math.abs(top - prevTop) < 3) return top;
+        try { root.scrollTo({ top: top, behavior: scrollBehavior() }); } catch (e) { root.scrollTo(0, top); }
+        return top;
+    }
+
+    /* Set a lesson up and switch to its tab, at the panel its first step
+       names, with the lesson strip under the tab bar. */
     function runSetup(L) {
         const s = L.setup;
+        dismissToasts();
         const r = applySetup(s);
         if (!r.ok) { toast(r.message, 'bad'); return; }
-        A().showTab(s.tab, { focus: true });
+        activeLesson = L.n;
+        const back = showStrip(L, 0);
+        openTabAt(s.tab, s.focus);
+        stripFallbackToast(L, s.tab, back);
         const tok = ++setupToken;
         if (s.preset) {
             if (s.animate) {
@@ -161,18 +256,51 @@
                 setTimeout(function () { if (tok === setupToken) A().runScan({ animate: true }); }, 320);
             } else if (!S().autoRescan) A().runScan({ animate: false });
         }
-        returnTo = L.n;
-        const back = function () {
-            returnTo = null;
-            A().showTab('lessons');
-            openLesson(L.n, 'steps');
-        };
-        if (MRI.ui.lessonStrip && MRI.ui.lessonStrip.show) {
-            MRI.ui.lessonStrip.show({ title: 'Lesson ' + L.n + ' · ' + L.title, onBack: back, backLabel: 'Back to the steps' });
-        } else if (W() && W().toast) {
-            W().toast(el('span', {}, ['Lesson ' + L.n + ' is set up in the ' + (TAB_NAMES[s.tab] || s.tab) + ' tab. ',
-                el('button', { type: 'button', class: 'linklike', onclick: back }, 'Back to the steps')]), 'good');
+    }
+
+    /* Spectral fat saturation before the excitation, as the Artifacts tab's
+       EPI demonstrations add it. */
+    function addFatSat(src) {
+        if (/^[ \t]*rf\s+\S+\s+fat\b/m.test(src)) return src;
+        return src.replace(/^([ \t]*)(rf 90 slice as exc.*)$/m, function (m, ind, line) {
+            return ind + 'rf 90 fat dur 8 ms                      # fat saturation, added by lesson 9\n' + ind + 'spoil\n' + ind + line;
+        });
+    }
+    /* A step's own button: load a preset (plus the parameters, source edit or
+       reconstruction option the step needs) without a trip to the Sequence
+       tab, then go to the tab where the step's result shows. When another
+       lesson (or none) is set up, or the phantom has been changed since
+       (an Artifacts demonstration, say), this lesson's set-up runs first, so
+       the phantom and coil are right. Back returns to this step. */
+    function runLoad(L, stepNo, act) {
+        const a = A();
+        dismissToasts();
+        if (activeLesson !== L.n || (L.setup.preset && S().phantomId !== (L.setup.phantom || 'brain'))) {
+            const r0 = applySetup(L.setup);
+            if (!r0.ok) { toast(r0.message, 'bad'); return; }
+            activeLesson = L.n;
         }
+        if (!a.loadPreset(act.preset)) { toast('The preset "' + act.preset + '" is missing.', 'bad'); return; }
+        if (typeof act.edit === 'function') a.setSource(act.edit(S().source));
+        Object.keys(act.params || {}).forEach(function (k) { a.setParam(k, act.params[k]); });
+        if (act.recon) a.setRecon(act.recon);
+        const st = S();
+        if (!(st.program && st.program.ok)) {
+            const e = st.program && st.program.errors && st.program.errors[0];
+            toast('The step\'s sequence does not compile' + (e ? ' (line ' + e.line + ': ' + e.msg + ')' : '') + '.', 'bad');
+            return;
+        }
+        const tab = act.tab || L.tab;
+        const back = showStrip(L, stepNo);
+        openTabAt(tab, act.focus || L.setup.focus);
+        stripFallbackToast(L, tab, back);
+        ++setupToken;              // a pending animated scan from the set-up is out of date
+        if (!st.autoRescan) a.runScan({ animate: false });
+    }
+    function loadTitle(L, act) {
+        const tab = act.tab || L.tab;
+        return 'Load ' + Ptext(act.preset) + (act.what ? ' with ' + act.what : '') + ' and open the ' + (TAB_NAMES[tab] || tab) +
+            ' tab (if lesson ' + L.n + ' is not set up, this sets it up first)';
     }
 
     /* ============================================================
@@ -183,11 +311,11 @@
             n: 1, id: 'larmor', title: 'The scanner and the Larmor frequency', tab: 'scanner', minutes: 5,
             concept: 'Protons precess at the Larmor frequency f = γ̄B, with γ̄ = 42.58 MHz per tesla: 127.73 MHz at 3 T. The gradient coils add a field that changes with position, so the frequency becomes a ruler.',
             goal: 'Name the main parts of the scanner, work out the Larmor frequency with and without a gradient, and follow the signal from the RF pulse to the image.',
-            setup: { phantom: 'brain', preset: 'se', tab: 'scanner' },
-            loads: 'the brain and the default spin echo, and opens the Scanner tab.',
+            setup: { phantom: 'brain', preset: 'se', tab: 'scanner', focus: 'scnr-fig-title' },
+            loads: 'the brain and the default ' + Ptext('se') + ', and opens the Scanner tab at its schematic.',
             steps: [
                 'In the <b>Scanner</b> tab, click parts of the schematic (the superconducting magnet, the gradient coils, the RF body coil) and read <b>Component details</b>: what each does, its 3 T numbers, and what goes wrong.',
-                'In the <b>Larmor calculator</b>, with <b>Gradient strength G</b> at 0 every position precesses at 127.73 MHz. Set G to 10 mT/m and <b>Position x</b> to 100 mm.',
+                'In the <b>Larmor calculator</b>, <b>Gradient strength G</b> starts at 0 (drag it back to 0 if you have moved it): every position then precesses at 127.73 MHz. Set G to 10 mT/m and <b>Position x</b> to 100 mm, and read the <b>Offset from f0</b>.',
                 'Set the scan bar\'s <b>Speed</b> to Slow and press <b>Acquire</b>. Watch which parts light up: the RF chain during each pulse, a gradient amplifier while its gradient plays, the receive chain while the ADC records.',
                 'In <b>Follow the signal</b>, press <b>Start</b> and step with <b>Next</b>, from the operator console to the image.',
                 'Switch the <b>Receive coil</b> (above the schematic) between ' + coilName('body') + ' and ' + coilName('head8') + ', and compare the image thumbnail (or the Image tab).'
@@ -203,10 +331,10 @@
             n: 2, id: 'echo', title: 'From FID to echo: what one k-space line is', tab: 'sequence', minutes: 8,
             concept: 'After the excitation, a gradient winds the spins\' phase across the object, so at each moment the signal measures one spatial frequency, k = γ̄∫G dt. One readout sweeps k along a line; the echo is where that line crosses k = 0.',
             goal: 'Read a minimal gradient-echo sequence and see how the prephasing and readout gradients move through k-space, one line per TR.',
-            setup: { phantom: 'brain', preset: 'first', tab: 'sequence' },
-            loads: '"Your first sequence" (a commented 64 × 64 gradient echo) on the brain, and opens the Sequence tab.',
+            setup: { phantom: 'brain', preset: 'first', tab: 'sequence', focus: 'seq-ed-title' },
+            loads: Ptext('first') + ', a commented 64 × 64 gradient echo, on the brain, and opens the Sequence tab at its editor.',
             steps: [
-                'Read the source of <b>Your first sequence</b>: every line is commented. Find <code>rf</code>, <code>gz rephase</code>, <code>gx prephase</code>, <code>gy encode</code>, <code>gx readout</code>, <code>adc</code> and <code>spoil</code>.',
+                'Read the source of <b>Your first sequence</b> in the editor: every line is commented. In the <code>for</code> loop at the end (scroll the editor if it is cut off), find <code>rf</code>, <code>gz rephase</code>, <code>gx prephase</code>, <code>gy encode</code>, <code>gx readout</code>, <code>adc</code> and <code>spoil</code>.',
                 'Click in the <b>Timing diagram</b> a few milliseconds after an RF pulse and drag the cursor through the repetition. In <b>k-space trajectory</b>, the prephaser (negative gx lobe) moves k to the left edge, the readout sweeps it to the right, and the gy lobe sets the height of the line.',
                 'Watch <b>Spin phase across the FOV</b> as you move the cursor: the phase winds into a helix during the prephaser, is uniform at the echo (TE), and winds the other way after it.',
                 'Use <b>‹ Prev</b> and <b>Next ›</b> above the diagram: each repetition encodes a different line (a different gy area).',
@@ -223,8 +351,8 @@
             n: 3, id: 'kspace', title: 'k-space: centre is contrast, edges are detail', tab: 'kspace', minutes: 8,
             concept: 'Each k-space sample says how much of one stripe pattern the object contains. Samples near the centre (broad stripes) carry most of the signal and the contrast; samples near the edges (fine stripes) carry edges and detail.',
             goal: 'Edit k-space and find out which part of the image each region holds.',
-            setup: { phantom: 'brain', preset: 'se', tab: 'kspace' },
-            loads: 'the default spin echo on the brain, and opens the k-space tab.',
+            setup: { phantom: 'brain', preset: 'se', tab: 'kspace', focus: 'ks-title' },
+            loads: 'the default ' + Ptext('se') + ' on the brain, and opens the k-space tab.',
             steps: [
                 'Look at k-space shown as <b>log |S|</b>: a bright centre and weak edges. Hover to read k in 1/mm.',
                 'Under <b>One sample, one stripe pattern</b>, press <b>Pick:</b> k = 0, then Low, Middle, Edge and Corner, and look at the wave each sample adds to the image.',
@@ -243,8 +371,8 @@
             n: 4, id: 'fov', title: 'FOV, matrix, resolution and aliasing', tab: 'image', minutes: 8,
             concept: 'The spacing of the k-space samples sets the field of view (FOV = 1/Δk), and the matrix sets the pixel size (Δx = FOV/N). Anything outside the FOV along the phase-encode direction folds back in.',
             goal: 'Change FOV and matrix, predict pixel size, scan time and SNR, and make the head wrap.',
-            setup: { phantom: 'brain', preset: 'gre_t1', tab: 'image' },
-            loads: 'the T1-weighted gradient echo on the brain, and opens the Image tab.',
+            setup: { phantom: 'brain', preset: 'gre_t1', tab: 'image', focus: 'ir-title' },
+            loads: Ptext('gre_t1') + ' on the brain, and opens the Image tab.',
             steps: [
                 'In the <b>Sequence</b> tab\'s Parameters (or the Artifacts tab\'s Aliasing card), set <b>FOV</b> to 180 mm. In the <b>Image</b> tab the back of the head folds onto the forehead and the front onto the back.',
                 'Set FOV to 150 mm: the head (160 mm wide) is now wider than the FOV too, yet nothing wraps left to right. In the Image tab open <b>Advanced</b> and untick <b>Crop readout oversampling</b> to see the full width the ADC recorded.',
@@ -262,8 +390,8 @@
             n: 5, id: 'weighting', title: 'T1, T2 and PD weighting with spin echo', tab: 'contrast', minutes: 8,
             concept: 'TR controls how much longitudinal magnetisation recovers between excitations (T1 weighting); TE controls how much transverse magnetisation has decayed at the echo (T2 weighting). Long TR with short TE leaves mainly proton density.',
             goal: 'Make T2-, PD- and T1-weighted spin-echo images by choosing TR and TE, and explain each tissue\'s brightness.',
-            setup: { phantom: 'brain', preset: 'se', tab: 'contrast' },
-            loads: 'the spin echo (TR 3000 ms, TE 90 ms) on the brain, and opens the Contrast tab.',
+            setup: { phantom: 'brain', preset: 'se', tab: 'contrast', focus: 'ct-bars-title' },
+            loads: Ptext('se') + ', TR 3000 ms and TE 90 ms, on the brain, and opens the Contrast tab.',
             steps: [
                 'The default spin echo is T2-weighted. Read the <b>Signal at the k-space centre</b> bars in the Contrast tab, then look at the image (thumbnail or Image tab).',
                 'In the <b>Sequence</b> tab\'s Parameters, set <b>TE</b> to 12 ms and keep TR at 3000 ms: proton-density weighting.',
@@ -281,18 +409,20 @@
             n: 6, id: 'ir', title: 'Inversion recovery: nulling CSF and fat', tab: 'contrast', minutes: 8,
             concept: 'An inversion pulse turns Mz to −M0, and each tissue recovers through zero at its own moment, about T1·ln 2 when TR ≫ T1. Exciting at that moment (TI) removes that tissue from the image.',
             goal: 'Null fat with STIR and CSF with FLAIR, find the null point yourself, and see why STIR is not used after gadolinium.',
-            setup: { phantom: 'brain', preset: 'stir', tab: 'contrast' },
-            loads: 'STIR (TI 260 ms) on the brain, and opens the Contrast tab.',
+            setup: { phantom: 'brain', preset: 'stir', tab: 'contrast', focus: 'ct-evo-title' },
+            loads: Ptext('stir') + ', TI 260 ms, on the brain, and opens the Contrast tab.',
             steps: [
                 'In <b>Magnetisation of each tissue</b>, each inversion flips Mz to minus whatever had recovered since the last repetition (−1 for fully relaxed tissue, only about −0.5 for CSF at TR 3000 ms), and Mz climbs back from there; fat crosses zero near TI. In the image the scalp fat is dark.',
                 'Under <b>Sweep a parameter</b> choose <b>TI</b> and switch <b>Show sign</b> on: fat\'s signal changes sign at about 263 ms, right at the preset\'s TI of 260 ms. Switch Show sign off to see the magnitude, which is what the image shows.',
-                'Load <b>FLAIR</b> (Sequence tab, Preset). TI 2400 ms nulls CSF and the ventricles go dark. In the <b>Phantom</b> tab switch on <b>Lesions</b>: the periventricular lesions stand out.',
-                'Load STIR again. With Lesions on, set <b>Gadolinium in enhancing tissue</b> to 0.5 mM (Phantom tab). Then compare with the T1-weighted gradient echo (<code>gre_t1</code>).'
+                { html: 'Load ' + P('flair') + ' from the Sequence tab\'s Preset list. TI 2400 ms nulls CSF and the ventricles go dark. In the <b>Phantom</b> tab switch on <b>Lesions</b>: the periventricular lesions stand out.',
+                    load: [{ preset: 'flair', label: 'Load flair' }] },
+                { html: 'Load ' + P('stir') + ' again. With Lesions on, set <b>Gadolinium in enhancing tissue</b> to 0.5 mM (Phantom tab). Then compare with ' + P('gre_t1') + '.',
+                    load: [{ preset: 'stir', label: 'Load stir' }, { preset: 'gre_t1', label: 'Load gre_t1' }] }
             ],
             questions: [
                 { q: 'Why does a short TI null fat but a long TI null CSF?', a: 'The null comes at about T1·ln 2: fat\'s T1 of 0.38 s gives about 260 ms, CSF\'s T1 of 4 s about 2.8 s.' },
                 { q: 'FLAIR uses TI 2400 ms, not 2.8 s. Why is the null earlier?', a: 'TR (9 s) is not much longer than CSF\'s T1, so CSF has not fully recovered when the next inversion comes; starting from less than +M0, it reaches zero sooner: TI ≈ T1·ln(2 / (1 + e<sup>−TR/T1</sup>)) ≈ 2.4 s.' },
-                { q: 'After gadolinium, what happens to the enhancing lesions on STIR, and why?', a: 'They go dark, exactly where gre_t1 shows them bright. Gadolinium shortens their T1 to about that of fat (at 0.5 mM, 1/T1 ≈ 1/1.6 s + 4 × 0.5 ≈ 2.6 s⁻¹, so T1 ≈ 0.38 s), and STIR nulls everything with that T1. That is why fat is suppressed spectrally, not with STIR, after contrast.' }
+                { q: 'After gadolinium, what happens to the enhancing lesions on STIR, and why?', a: 'They go dark, exactly where the T1-weighted gradient echo (gre_t1) shows them bright. Gadolinium shortens their T1 to about that of fat (at 0.5 mM, 1/T1 ≈ 1/1.6 s + 4 × 0.5 ≈ 2.6 s⁻¹, so T1 ≈ 0.38 s), and STIR nulls everything with that T1. That is why fat is suppressed spectrally, not with STIR, after contrast.' }
             ],
             takeaway: 'TI picks which T1 to erase: about T1·ln 2, earlier when TR is not much longer than T1.'
         },
@@ -300,13 +430,14 @@
             n: 7, id: 't2star', title: 'Gradient echo, T2* and susceptibility', tab: 'image', minutes: 7,
             concept: 'Without a refocusing pulse, field differences within a voxel keep dephasing the spins until the echo, so a gradient echo decays with T2*, shorter than T2. Next to air (the frontal sinus) the field varies steeply and the signal drops out.',
             goal: 'See susceptibility dropout grow with TE, and vanish with a spin echo.',
-            setup: { phantom: 'brain', preset: 'gre_t2s', tab: 'image' },
-            loads: 'the T2*-weighted gradient echo (TE 20 ms) on the brain, and opens the Image tab.',
+            setup: { phantom: 'brain', preset: 'gre_t2s', tab: 'image', focus: 'ir-title' },
+            loads: Ptext('gre_t2s') + ', TE 20 ms, on the brain, and opens the Image tab.',
             steps: [
                 'Look at the front of the head, above the frontal sinus: the orbitofrontal region is dark.',
                 'In the <b>Phantom</b> tab choose <b>Map: Off-resonance (Hz)</b>: up to about +120 Hz next to the sinus, smaller offsets near the ears.',
                 'In the Sequence tab\'s Parameters set <b>TE</b> to 40 ms, then 60 ms. The dropout grows.',
-                'Load the spin echo (<code>se</code>) and set TE to 40 ms: the frontal region is back.',
+                { html: 'Load ' + P('se') + ' and set TE to 40 ms: the frontal region is back.',
+                    load: [{ preset: 'se', params: { TE: 0.040 }, label: 'Load se at TE 40 ms' }] },
                 'In the <b>Artifacts</b> tab\'s B0 card, raise <b>Susceptibility field</b> to 2 and repeat with both sequences.'
             ],
             questions: [
@@ -321,17 +452,20 @@
             n: 8, id: 'fat', title: 'Chemical shift and fat suppression', tab: 'image', minutes: 8,
             concept: 'Fat precesses 3.4 ppm (about 434 Hz at 3 T) slower than water. Along the readout that becomes a shift of 434 Hz ÷ BW pixels; in a gradient echo it is also a phase difference of 434 Hz × TE cycles.',
             goal: 'Measure the fat shift, see in-phase and opposed-phase echoes, and suppress fat.',
-            setup: { phantom: 'waterfat', preset: 'se', coil: 'body', tab: 'image' },
-            loads: 'the water-and-fat phantom with the spin echo and the body coil, and opens the Image tab.',
+            setup: { phantom: 'waterfat', preset: 'se', coil: 'body', tab: 'image', focus: 'ir-title' },
+            loads: 'the water-and-fat phantom with ' + Ptext('se') + ' and the body coil, and opens the Image tab.',
             steps: [
                 'Spin echo at 150 Hz/px: the oil ring and the oil vial sit shifted along x relative to the water. The Sequence tab\'s <b>Numbers</b> table lists the <b>Fat shift</b>.',
                 'Set <b>BW</b> to 50 Hz/px: an 8.7-pixel shift. Then 600 Hz/px: under one pixel, but a noisier image.',
-                'Load <code>gre_t1</code> (Preset) and set <b>TE</b> to 3.45 ms, then 4.6 ms (or use the TE buttons in the Artifacts tab\'s Chemical shift card). Watch the boundary between water and the oil ring.',
-                'Load <code>gre_fatsat</code>: the oil goes dark. In the Artifacts tab\'s B0 card set <b>Susceptibility field</b> to 3 and <b>Unshimmed residual field</b> to 1: fat saturation fails along one edge.'
+                { html: 'Load ' + P('gre_t1') + ' from the Preset list, set <b>BW</b> to 1000 Hz/px first, so the fat shift is under half a pixel, and set <b>TE</b> to 3.45 ms, then 4.6 ms (or use the TE buttons in the Artifacts tab\'s Chemical shift card). Watch the boundary between water and the oil ring.',
+                    load: [{ preset: 'gre_t1', params: { BW: 1000, TE: 0.00345 }, label: 'Load gre_t1 at TE 3.45 ms', what: 'BW 1000 Hz/px and TE 3.45 ms' },
+                        { preset: 'gre_t1', params: { BW: 1000, TE: 0.0046 }, label: 'Load gre_t1 at TE 4.6 ms', what: 'BW 1000 Hz/px and TE 4.6 ms' }] },
+                { html: 'Load ' + P('gre_fatsat') + ': the oil goes dark. In the Artifacts tab\'s B0 card set <b>Susceptibility field</b> to 3 and <b>Unshimmed residual field</b> to 1: fat saturation fails along one edge.',
+                    load: [{ preset: 'gre_fatsat', label: 'Load gre_fatsat' }] }
             ],
             questions: [
                 { q: 'Why does fat shift along the readout but not along the phase-encode direction?', a: 'The readout encodes position by frequency while the echo is recorded, so a frequency offset becomes a position offset. Phase encoding uses the same TE for every line, so fat\'s extra phase is the same in every line and moves nothing (EPI, which spreads phase encoding over time, is the exception).' },
-                { q: 'Why does the water-oil boundary turn black at TE 3.45 ms but not at 4.6 ms?', a: '434 Hz × 3.45 ms = 1.5 cycles: in voxels holding both, fat and water point in opposite directions and cancel. At 4.6 ms (2.0 cycles) they add again.' },
+                { q: 'Why does the water-oil boundary turn black at TE 3.45 ms but not at 4.6 ms?', a: '434 Hz × 3.45 ms = 1.5 cycles: in voxels holding both, fat and water point in opposite directions and cancel. At 4.6 ms (2.0 cycles) they add again. (At the default 400 Hz/px a thin dark line stays along one side at both TEs: that is the one-pixel fat shift, a gap between the water and the displaced oil, not cancellation. That is why the step raises BW first.)' },
                 { q: 'Why does fat saturation fail where the field is off?', a: 'The saturation pulse covers a narrow band (about 200 Hz) centred 434 Hz below water. Where B0 moves the fat resonance out of that band the fat is not saturated, and where it moves water into the band the water would be.' }
             ],
             takeaway: 'Fat shift = 434 Hz ÷ BW per pixel; opposed phase at 1.15, 3.45, 5.75 ms; spectral fat suppression needs a good shim.'
@@ -340,19 +474,23 @@
             n: 9, id: 'fast', title: 'Fast imaging: turbo spin echo and EPI', tab: 'kspace', minutes: 8,
             concept: 'Recording several k-space lines per excitation shortens the scan: a turbo spin echo uses a train of 180° pulses, EPI a train of gradient echoes. Each line then has its own echo time, and the line at the centre of k-space sets the contrast.',
             goal: 'Compare scan times, see the echo-time ordering in k-space, and see why EPI is so sensitive to off-resonance.',
-            setup: { phantom: 'brain', preset: 'tse', tab: 'kspace' },
-            loads: 'the turbo spin echo (ETL 16, ESP 10 ms) on the brain, and opens the k-space tab.',
+            setup: { phantom: 'brain', preset: 'tse', tab: 'kspace', focus: 'ks-title' },
+            loads: Ptext('tse') + ', ETL 16 and ESP 10 ms, on the brain, and opens the k-space tab.',
             steps: [
-                'Read the scan time in the scan bar, then load the spin echo (<code>se</code>, same TR of 3000 ms) and compare. Load <code>tse</code> again.',
+                { html: 'Read the scan time in the scan bar, then load ' + P('se') + ' (same TR of 3000 ms) and compare. Load ' + P('tse') + ' again.',
+                    load: [{ preset: 'se', label: 'Load se' }, { preset: 'tse', label: 'Load tse' }] },
                 'In the k-space tab switch on <b>Time since excitation</b>: 16 horizontal bands, one per echo. The centre band is at TEeff = (ETL/2 + 1) × ESP = 90 ms.',
                 'In the Sequence tab\'s Parameters set <b>ETL</b> to 32 and <b>ESP</b> to 8 ms. Note the scan time and the new TEeff.',
-                'Load <code>epi</code>: one excitation, 64 lines in 51 ms. In the Sequence tab\'s <b>Numbers</b>, read <b>Phase-encode BW / pixel</b>, then look at the front of the head in the image.',
+                { html: 'Load ' + P('epi') + ': one excitation, 64 lines in 51 ms. In the Sequence tab\'s <b>Numbers</b>, read <b>Phase-encode BW / pixel</b> and <b>Fat shift</b>, then look at the image. The front of the head is pulled out of shape next to the sinus, and the bright curved band across the middle of the brain is scalp and skull-marrow fat from the back of the head, shifted about 22 pixels along y (the phase-encode direction).',
+                    load: [{ preset: 'epi', tab: 'image', label: 'Load epi' }] },
+                { html: 'Load the same EPI with fat saturation (an <code>rf 90 fat</code> pulse and a <code>spoil</code> before the excitation, as in the Artifacts tab\'s EPI demonstrations): the bright band is gone, and the distortion at the front of the head stays.',
+                    load: [{ preset: 'epi', edit: addFatSat, tab: 'image', label: 'Load epi with fat saturation', what: 'an rf 90 fat pulse and a spoil added before the excitation' }] },
                 'Back in the k-space tab, with Time since excitation on, the EPI time runs continuously from one edge of k-space to the other.'
             ],
             questions: [
                 { q: 'How much faster is the TSE with ETL 16 than the spin echo, and what limits the echo train?', a: '16 times fewer TRs: 27 s against 6.5 min here. Longer trains blur short-T2 tissue, push the effective TE around and deposit more RF power (the SAR limit, which the simulator does not model).' },
                 { q: 'What is the effective TE of the default TSE, and why is it not ESP?', a: 'With this linear ordering the centre of k-space is recorded by echo number ETL/2, at (ETL/2 + 1) × ESP = 90 ms. The contrast is set by whichever echo fills the centre.' },
-                { q: 'Why is EPI so sensitive to off-resonance along the phase-encode direction?', a: 'Successive lines are 0.8 ms apart, so the phase direction spans 51 ms: the bandwidth per pixel along phase is 1/(64 × 0.8 ms) ≈ 20 Hz. The 120 Hz next to the sinus moves signal about 6 pixels, and fat (434 Hz) would move 22, which is why EPI uses fat suppression.' }
+                { q: 'Why is EPI so sensitive to off-resonance along the phase-encode direction?', a: 'Successive lines are 0.8 ms apart, so the phase direction spans 51 ms: the bandwidth per pixel along phase is 1/(64 × 0.8 ms) ≈ 20 Hz. The 120 Hz next to the sinus moves signal about 6 pixels, and fat (434 Hz) moves 22 (the bright band), which is why EPI uses fat suppression.' }
             ],
             takeaway: 'More lines per excitation means faster scans, at the price of echo-time differences across k-space: effective TE, blurring and, in EPI, distortion.'
         },
@@ -360,14 +498,15 @@
             n: 10, id: 'motion', title: 'Motion and flow', tab: 'image', minutes: 8,
             concept: 'A readout lasts milliseconds but successive lines are a TR apart, so motion between lines makes the lines disagree. The disagreement is along k<sub>y</sub>, so the artifact spreads along the phase-encode direction, whichever way the object moves.',
             goal: 'Make motion and flow ghosts, predict their spacing, and see radial sampling blur instead of ghosting.',
-            setup: { phantom: 'brain', preset: 'se', tab: 'image', artifacts: { motion: { on: true, kind: 'periodic', amp: 0.004, period: 4, axis: 'y' } } },
-            loads: 'the spin echo on the brain with periodic motion (4 mm front to back every 4 s), and opens the Image tab.',
+            setup: { phantom: 'brain', preset: 'se', tab: 'image', focus: 'ir-title', artifacts: { motion: { on: true, kind: 'periodic', amp: 0.004, period: 4, axis: 'y' } } },
+            loads: Ptext('se') + ' on the brain with periodic motion (4 mm front to back every 4 s), and opens the Image tab.',
             steps: [
                 'Look at the ghosts of the head along y (the phase-encode direction).',
                 'In the <b>Artifacts</b> tab\'s Motion card, set <b>Direction of motion</b> to Left-right (x). The ghosts still run along y.',
                 'Change the <b>Period</b> from 4 s to 5 s, read the predicted ghost spacing under the controls, and check it in the image.',
                 'Try <b>Kind of motion</b>: Sudden step, then Random jitter.',
-                'With motion still on, load the <code>radial</code> preset (Sequence tab): streaks and blur instead of discrete ghosts.',
+                { html: 'With motion still on, load ' + P('radial') + ' from the Sequence tab\'s Preset list: streaks and blur instead of discrete ghosts.',
+                    load: [{ preset: 'radial', label: 'Load radial' }] },
                 'In the Artifacts tab\'s Pulsatile flow card, press <b>Show me</b>: copies of the enhancing superior sagittal sinus along y.'
             ],
             questions: [
@@ -381,8 +520,8 @@
             n: 11, id: 'hardware', title: 'Hardware faults: spikes, zipper and Nyquist ghosts', tab: 'image', minutes: 7,
             concept: 'Some artifacts come from the equipment, not the patient: a burst of noise corrupts one sample (spike), a radio signal leaks into the receiver (zipper), or the gradients lag their commands (the EPI Nyquist ghost).',
             goal: 'Recognise each fault in the image and find it in k-space.',
-            setup: { phantom: 'brain', preset: 'se', tab: 'image', artifacts: { spike: { on: true, amp: 4, at: 0.37 } } },
-            loads: 'the spin echo on the brain with one corrupt sample (an RF spike), and opens the Image tab.',
+            setup: { phantom: 'brain', preset: 'se', tab: 'image', focus: 'ir-title', artifacts: { spike: { on: true, amp: 4, at: 0.37 } } },
+            loads: Ptext('se') + ' on the brain with one corrupt sample (an RF spike), and opens the Image tab.',
             steps: [
                 'Fine stripes cover the whole image. In the <b>k-space</b> tab (log |S|), find the single bright dot.',
                 'In the <b>Artifacts</b> tab\'s Spike card, move <b>When</b>: the stripes change spacing and angle. Then switch the spike off.',
@@ -400,13 +539,15 @@
             n: 12, id: 'recon', title: 'Reconstruction choices: filtering, partial Fourier, SENSE', tab: 'image', minutes: 8,
             concept: 'The image is the inverse Fourier transform of k-space, plus choices: how to taper the edge of k-space (filtering), how to fill what was skipped (partial Fourier) and how to unfold undersampled data (SENSE). Each trades resolution, noise and artifacts.',
             goal: 'Use the Image tab\'s reconstruction controls and judge each one against the noise-free truth.',
-            setup: { phantom: 'brain', preset: 'gre_pf', tab: 'image', recon: { partialFourier: 'zero' } },
-            loads: 'the 5/8 partial-Fourier gradient echo on the brain, missing lines filled with zeros, and opens the Image tab.',
+            setup: { phantom: 'brain', preset: 'gre_pf', tab: 'image', focus: 'ir-title', recon: { partialFourier: 'zero' } },
+            loads: Ptext('gre_pf') + ' on the brain, missing lines filled with zeros, and opens the Image tab.',
             steps: [
-                '<code>gre_pf</code> records 5/8 of the lines. Under <b>Partial Fourier</b>, Zero blurs along y; switch to Conjugate, then Homodyne.',
+                P('gre_pf') + ' records 5/8 of the lines. Under <b>Partial Fourier</b>, Zero blurs along y; switch to Conjugate, then Homodyne.',
                 'Switch on <b>Truth and difference</b> to see what each choice costs against the noise-free image.',
-                'Load <code>gre_r2</code> (every other line) and set <b>Parallel imaging</b> to None: the head folds. Choose SENSE: it unfolds, and the <b>Receive coils</b> panel shows the g-factor map.',
-                'Load <code>gre_t1</code>, set <b>N</b> to 64 in the Sequence tab, and choose the <b>k-space filter</b> Hamming: the ringing at the skull fades and edges soften. Compare the <b>Row profile</b>.',
+                { html: 'Load ' + P('gre_r2') + ' and set <b>Parallel imaging</b> to None: the head folds. Choose SENSE: it unfolds, and the <b>Receive coils</b> panel shows the g-factor map.',
+                    load: [{ preset: 'gre_r2', recon: { parallel: 'none' }, label: 'Load gre_r2 with Parallel imaging None', what: 'Parallel imaging set to None' }] },
+                { html: 'Load ' + P('gre_t1') + ', set <b>N</b> to 64 in the Sequence tab, and choose the <b>k-space filter</b> Hamming: the ringing at the skull fades and edges soften. Compare the <b>Row profile</b>.',
+                    load: [{ preset: 'gre_t1', params: { N: 64 }, label: 'Load gre_t1 at N 64', what: 'N = 64' }] },
                 'Try <b>Zero-fill</b> ×2: smaller pixels and a smoother look, but no new detail.'
             ],
             questions: [
@@ -420,13 +561,13 @@
             n: 13, id: 'mrs', title: 'Spectroscopy: chemical shift, water suppression, shimming', tab: 'spectro', minutes: 10,
             concept: 'Without gradients the Fourier transform of the FID is a spectrum: one peak per chemical environment, at a shift measured in ppm. Water has to be suppressed to see the metabolites, and the field has to be uniform (shimmed) for the lines to be narrow.',
             goal: 'Acquire a spectrum, suppress water, and shim the magnet by hand and automatically, including the part no shim can fix.',
-            setup: { tab: 'spectro', spectro: { phantom: 'braino', preset: 'fid' } },
-            loads: 'the pulse-acquire FID on the MRS phantom with default processing and a well-shimmed magnet, and opens the Spectroscopy tab.',
+            setup: { tab: 'spectro', focus: 'spec-spectrum-title', spectro: { phantom: 'braino', preset: 'fid' } },
+            loads: Ptext('fid') + ' on the MRS phantom with default processing and a well-shimmed magnet, and opens the Spectroscopy tab.',
             steps: [
                 'The <b>Pulse-acquire FID</b> on the <b>MRS phantom</b>. Set <b>Range</b> to Water, then Full spectral width: the water peak at 4.7 ppm dwarfs everything else.',
-                'Choose <b>FID + water suppression</b>: NAA (2.0 ppm), creatine (3.0 ppm) and choline (3.2 ppm) appear. Read <b>Peaks and metrics</b>.',
+                'Choose <b>FID + water suppression</b>: the water peak shrinks and NAA (2.0 ppm), creatine (3.0 ppm) and choline (3.2 ppm) rise out of the baseline. Set <b>Range</b> back to Metabolites 0.5–4.5 ppm to see them clearly, and read <b>Peaks and metrics</b>.',
                 'Open the <b>Shim: make B0 uniform</b> panel and press <b>Start unshimmed</b>: the water line broadens and the metabolite peaks smear.',
-                'Shim by hand: <b>Z0</b> first (centre the line), then <b>X</b> and <b>Y</b>, then the second-order terms, watching the <b>Field map</b>, the <b>Field histogram</b> and the <b>Water line</b>. Then press <b>Auto-shim</b>.',
+                'Shim by hand: <b>Z0</b> first, to put the water line back at 4.70 ppm: set it to minus the offset the warning under the spectrum gives (its <b>Correct Z0</b> button does the same). The Shim panel\'s <b>Frequency offset</b> tile shows the mean field instead, which differs from the water peak by a few hertz while the field is lopsided. Then <b>X</b> and <b>Y</b>, then the second-order terms, watching the <b>Field map</b>, the <b>Field histogram</b> and the <b>Water line</b>. Then press <b>Auto-shim</b>.',
                 'Switch the <b>Phantom</b> to Brain, press Start unshimmed, then Auto-shim over <b>Whole object</b> and over <b>Centre, 60 mm radius</b>. Look at the frontal sinus in the field map. Compare the two auto-shim methods: <b>Least squares</b> lets the large sinus field pull the fit, <b>Robust</b> (the default) ignores it.'
             ],
             questions: [
@@ -434,6 +575,7 @@
                 { q: 'How is the linewidth related to the field?', a: 'Linewidth ≈ 1/(π T2*). A spread of field across the object adds directly, in Hz, to the width of every line; shimming narrows the field histogram and with it the lines.' },
                 { q: 'Why can auto-shim not remove the field next to the frontal sinus?', a: 'Shim coils make smooth, low-order fields (a constant, linear and quadratic terms). The sinus field changes over a few millimetres, which would need much higher orders. Shimming a smaller central region helps the centre but leaves the sinus field.' }
             ],
+            simpl: 'The simulated receiver has unlimited dynamic range, which is why, on the Metabolites range, NAA, creatine and choline are visible even without water suppression. On a real scanner the water signal, thousands of times larger, sets the receiver gain, and its wings and sidebands bury the small peaks: that is why water is suppressed.',
             takeaway: 'δ (ppm) = (f − f<sub>ref</sub>) / f<sub>ref</sub> × 10⁶. Suppress water, shim for narrow lines: shims fix smooth fields, not local susceptibility.'
         }
     ];
@@ -501,7 +643,17 @@
         const missing = el('p', { class: 'callout callout-warn ls-missing', hidden: true });
         body.appendChild(missing);
         body.appendChild(el('h3', { class: 'ls-h-steps', text: 'Steps' }));
-        body.appendChild(el('ol', { class: 'ls-steps' }, L.steps.map(function (s) { return el('li', { html: s }); })));
+        body.appendChild(el('ol', { class: 'ls-steps' }, L.steps.map(function (s, i) {
+            const li = el('li', { html: typeof s === 'string' ? s : s.html });
+            if (s && s.load && s.load.length) {
+                li.appendChild(doc.createTextNode(' '));
+                li.appendChild(el('span', { class: 'ls-runs' }, s.load.map(function (act) {
+                    return el('button', { type: 'button', class: 'btn btn-xs ls-run', title: loadTitle(L, act), html: playIcon() + esc(act.label),
+                        onclick: function () { runLoad(L, i + 1, act); } });
+                })));
+            }
+            return li;
+        })));
         body.appendChild(el('h3', { text: 'Questions' }));
         body.appendChild(el('div', { class: 'ls-qs' }, L.questions.map(function (q) {
             return el('div', { class: 'ls-q' }, [
@@ -526,17 +678,20 @@
     }
 
     /* Open lesson n. scroll: true scrolls to it and focuses its summary;
-       'steps' scrolls to its Steps heading and focuses that (the lesson
-       strip's "Back to the steps"); 'view' scrolls without moving focus. */
-    function openLesson(n, scroll) {
+       'steps' scrolls to its Steps heading, or to step `step` (1-based) when
+       given, and focuses that (the lesson strip's "Back to the steps");
+       'view' scrolls there without moving focus. */
+    function openLesson(n, scroll, step) {
         const L = LESSONS[n - 1];
         if (!L) return;
         const ui = V.lessons[L.id];
         ui.el.open = true;
         if (scroll) {
             const run = function () {
-                const target = scroll === 'steps' ? (ui.el.querySelector('.ls-h-steps') || ui.el) : ui.el;
-                try { target.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }); } catch (e) { target.scrollIntoView(); }
+                const li = step ? ui.el.querySelectorAll('.ls-steps > li')[step - 1] : null;
+                const target = li && scroll !== true ? li : scroll === 'steps' ? (ui.el.querySelector('.ls-h-steps') || ui.el) : ui.el;
+                // a single step sits mid-screen, with the steps around it in view
+                try { target.scrollIntoView({ behavior: scrollBehavior(), block: target === li ? 'center' : 'start' }); } catch (e) { target.scrollIntoView(); }
                 if (scroll === 'view') return;
                 const f = scroll === 'steps' ? target : ui.el.querySelector('summary');
                 if (!f) return;
@@ -649,7 +804,7 @@
         checkMissingTabs();
         // Back on the Guide after a set-up: open that lesson and bring it into
         // view, but leave focus where the student put it (the tab bar).
-        if (returnTo) { const n = returnTo; returnTo = null; openLesson(n, 'view'); }
+        if (returnTo) { const r = returnTo; returnTo = null; openLesson(r.n, 'view', r.step); }
     }
     function onHide() {}
 

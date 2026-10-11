@@ -143,6 +143,7 @@
 #tab-spectro .spec-notes { display: grid; gap: 8px; margin-top: 12px; }
 #tab-spectro .spec-notes .callout { margin: 0; }
 #tab-spectro .spec-notes .callout .btn { margin: 6px 6px 0 0; }
+#tab-spectro .spec-simpl { margin: 12px 0 0; }
 #tab-spectro .spec-err { margin: 10px 0 0; }
 #tab-spectro .spec-plotwrap { position: relative; }
 #tab-spectro .spec-empty { margin-top: 0; }
@@ -302,7 +303,7 @@
         shim: {
             open: false, draft: zeros(), dragging: false, region: 'object', method: 'robust', win: 30,
             ui: {}, lastWL: 0, wlTimer: null, xr: null, ideal: new WeakMap(), result: null, disp: null,
-            committedKey: '', committedLine: null
+            committedKey: '', committedLine: null, committedMean: null, liveMean: null, livePeak: null
         },
         refs: {}
     };
@@ -449,6 +450,9 @@
         specPanel.appendChild(R.specErr);
         R.notes = el('div', { class: 'spec-notes', 'aria-live': 'polite' });
         specPanel.appendChild(R.notes);
+        specPanel.appendChild(el('p', { class: 'simplification spec-simpl', text: 'Simplification: the simulated receiver has unlimited dynamic range, ' +
+            'which is why NAA, creatine and choline are visible here even without water suppression. On a real scanner the receiver gain is set by water, ' +
+            'thousands of times larger, and the analogue-to-digital converter would struggle to record the small peaks beside it.' }));
         row1.appendChild(specPanel);
         syncPlotView();
 
@@ -925,16 +929,22 @@
         // Where water appears on the ppm axis: the receiver reference plus the field offset.
         if (line && s.data && Math.abs(refNow + line.peakHz / PPM_HZ - WATER_PPM) > 5 / PPM_HZ) {
             const off = line.peakHz, ppmNow = refNow + off / PPM_HZ;
-            // The table moves its windows only when it finds the water line in the
-            // measured spectrum (metrics.waterOffsetPpm), which a suppressed or very
-            // broad water line can prevent: say which happened.
+            // The table moves its windows to follow this same water line
+            // (metrics.waterOffsetPpm), up to MRI.spectro.followPpm: say which happened.
             const m = s.spectrum && s.spectrum.metrics;
             const followed = !!(m && isNum(m.waterOffsetPpm) && Math.abs(m.waterOffsetPpm) >= 0.02);
-            const tableTxt = Math.abs(ppmNow - WATER_PPM) > 0.3 ? ' and the peak windows miss them. '
-                : followed ? ' (the peak table follows the shift; the labels on the plot do not). '
-                : ' (the peak table could not find the water line to follow, so its windows stay at the nominal ppm). ';
-            const box = W().callout('The water line sits at ' + ppmNow.toFixed(2) + ' ppm instead of 4.70' +
-                (Math.abs(off) > 5 ? ': the scanner frequency is ' + hz(off) + ' Hz off water' : ': the reference is set to ' + refNow.toFixed(2) + ' ppm') +
+            const follow = isNum(MRI.spectro.followPpm) ? MRI.spectro.followPpm : 1;
+            const tableTxt = followed ? ' (the peak table follows the shift; the labels on the plot do not). '
+                : Math.abs(ppmNow - WATER_PPM) > follow ? ' and the peak windows, which follow water only up to ' + U.fmtNum(follow, 2) + ' ppm, miss them. '
+                : ' (the peak table could not follow the water line, so its windows stay at the nominal ppm). ';
+            // The Shim panel's Frequency offset tile shows the mean field; on a
+            // lopsided (poorly shimmed) field the water line peaks elsewhere.
+            const mean = S.shim.committedMean;
+            const meanTxt = isNum(mean) && Math.abs(mean - off) >= 1
+                ? ' (the mean field over the object, the Shim panel\'s Frequency offset tile, is ' + hz(mean) + ' Hz: the field is lopsided, so its mean and the water peak differ)'
+                : '';
+            const box = W().callout('The water line peaks at ' + ppmNow.toFixed(2) + ' ppm instead of 4.70' +
+                (Math.abs(off) > 5 ? ': the receiver frequency is ' + hz(off) + ' Hz off the water peak' + meanTxt : ': the reference is set to ' + refNow.toFixed(2) + ' ppm') +
                 ', so every peak sits off its nominal ppm' + tableTxt +
                 (Math.abs(off) > 5 ? 'Set Z0 in the Shim panel (or auto-shim), or re-reference the spectrum.' : 'Re-reference the spectrum.'), 'warn');
             box.appendChild(el('div', {}, [
@@ -1295,8 +1305,12 @@
         const key = ph.id + '|' + JSON.stringify(ph.opts || {}) + '|' + JSON.stringify(b0);
         if (S.shim.committedKey !== key) {
             S.shim.committedKey = key;
-            try { S.shim.committedLine = MRI.spectro.waterLine(ph, { b0Map: MRI.fields.b0Map(ph, b0), artifacts: st().artifacts }); }
-            catch (e) { S.shim.committedLine = null; }
+            S.shim.committedMean = null;
+            try {
+                const map = MRI.fields.b0Map(ph, b0);
+                S.shim.committedLine = MRI.spectro.waterLine(ph, { b0Map: map, artifacts: st().artifacts });
+                S.shim.committedMean = MRI.fields.fieldStats(ph, map, { region: 'object' }).mean;
+            } catch (e) { S.shim.committedLine = null; }
         }
         return S.shim.committedLine;
     }
@@ -1612,7 +1626,8 @@
 
         R.sField.set(fs.fwhmHz < 0.1 ? '< 0.1' : hz(fs.fwhmHz), 'Hz', fsc ? 'centre: ' + (fsc.fwhmHz < 0.1 ? '< 0.1' : hz(fsc.fwhmHz)) + ' Hz' : 'spread of the field itself');
         R.sSd.set(hz(fs.sd), 'Hz', fsc ? 'centre: ' + hz(fsc.sd) + ' Hz' : 'proton-weighted');
-        R.sMean.set(hz(fs.mean), 'Hz', 'mean field: centre-frequency error', Math.abs(fs.mean) > 5 ? 'warn' : null);
+        S.shim.liveMean = fs.mean;
+        setOffsetTile();
         R.mapNote.textContent = (ph.id === 'brain' ? 'Red near the front is the frontal sinus field: watch it stay while the rest flattens. ' : '') +
             'Air is transparent. The ' + (S.shim.region === 'center' ? 'solid' : 'dashed') + ' circle is the central auto-shim region.';
 
@@ -1625,12 +1640,24 @@
             S.shim.wlTimer = setTimeout(function () { S.shim.wlTimer = null; scheduleShimLive(); }, 140);
         }
     }
+    /* The centre-frequency error, two ways: the tile's value is the mean
+       field over the object (what Z0 cancels on average), and its caption
+       the peak of the water line, which the spectrum shows and the
+       spectrum's own note quotes. On a lopsided field they differ. */
+    function setOffsetTile() {
+        const mean = S.shim.liveMean, peak = S.shim.livePeak;
+        const hasPeak = isNum(peak);
+        R.sMean.set(hz(mean), 'Hz', hasPeak ? 'mean field; water peak ' + hz(peak) + ' Hz' : 'mean field: centre-frequency error',
+            Math.abs(mean) > 5 || (hasPeak && Math.abs(peak) > 5) ? 'warn' : null);
+    }
     function renderWaterLine(ph, map, xr) {
         let line = null;
         try { line = MRI.spectro.waterLine(ph, { b0Map: map, artifacts: st().artifacts }); } catch (e) { line = null; }
         const ideal = idealLine(ph);
         let norm = null;
         if (ideal) { norm = 0; for (let k = 0; k < ideal.re.length; k++) if (ideal.re[k] > norm) norm = ideal.re[k]; }
+        S.shim.livePeak = line ? line.peakHz : null;
+        setOffsetTile();
         if (!line || !(norm > 0)) { R.plotLine.draw([], {}); R.sWater.set('–', '', ''); return; }
         const y = new Float64Array(line.re.length);
         for (let k = 0; k < y.length; k++) y[k] = line.re[k] / norm;

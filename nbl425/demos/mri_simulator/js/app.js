@@ -392,8 +392,8 @@
             // image next to the new acquisition.
             partialRecon(acq, 0);
             const r = await playback(acq, prog, shouldAbort);
-            playing = false;
             if (r.aborted) {
+                playing = false;
                 // Keep what was revealed. When the student pressed Stop, show
                 // exactly that much (also when it is nothing); when a newer
                 // scan took over, it will replace everything anyway.
@@ -410,6 +410,11 @@
             reconNotice(true);
             await nextPaint();
         }
+        // Playback counts as running until here: a setRecon in its last frame
+        // must not reconstruct the half-revealed scan (state.acqUpTo is still
+        // 0) while this one waits for the paint; the line below uses the
+        // latest options anyway.
+        playing = false;
         state.acq = acq;
         state.acqUpTo = null;
         state.scanning = false;
@@ -675,7 +680,8 @@
             let result = null;
             if (fresh) { result = state.reconResult; reconNotice(false); }
             else result = reconstruct();
-            if (!result) reconNotice(false);
+            // Nothing ran (playback, or a scan finishing): the scan clears its own notice.
+            if (!result && !state.scanning) reconNotice(false);
             q.resolve(result);
         };
         if (slow) nextPaint().then(run);
@@ -872,8 +878,28 @@
         stopScan: stopScan,
         /* showTab(id, {focus: true}) also moves keyboard focus to the
            destination panel's first heading (use it after an action button
-           that switches tabs, so focus does not fall back to the page). */
-        showTab: function (id, opts) { return showTab(id, { focusPanel: !!(opts && opts.focus) }); },
+           that switches tabs, so focus does not fall back to the page).
+           showTab(id, {focus: true, target, fold}) focuses `target` instead
+           (an element, an element id, or a selector inside the tab) and
+           scrolls its panel to just below the console; fold: true also
+           folds the concept cards above it. */
+        showTab: function (id, opts) {
+            opts = opts || {};
+            return showTab(id, { focusPanel: !!(opts.focus || opts.target), target: opts.target || null, fold: !!opts.fold });
+        },
+        /* focusPanel(tabId, target, {fold}) opens a tab at one of its panels:
+           shows the tab, folds the concept cards above `target` (unless
+           fold: false), focuses `target` (made focusable when it is a
+           heading) and scrolls its panel to just below the sticky console.
+           `target` is an element, an element id or a selector inside the
+           tab. Returns true when the target was found; otherwise focus goes
+           to the tab's first heading, as showTab(id, {focus: true}) does. */
+        focusPanel: function (id, target, opts) {
+            opts = opts || {};
+            if (!showTab(id, { focusPanel: true, target: target, fold: opts.fold !== false })) return false;
+            const t = tabById(activeTab);
+            return !!(t && t.id === id && panelTarget(t.panel, target) === doc.activeElement);
+        },
 
         /* Extensions used by the scan bar (and handy for lessons). */
         setAutoRescan: function (on) {
@@ -1510,7 +1536,11 @@
        opts.focusTab focuses the tab button (arrow keys in the tab bar);
        opts.focusPanel moves focus to the panel's first heading, for action
        buttons that switch tabs, so keyboard and screen-reader users land at
-       the start of the new content instead of on <body>. */
+       the start of the new content instead of on <body>. With opts.target
+       (an element, an element id or a selector inside the panel) focus
+       goes there instead and its panel is scrolled to just below the
+       console; opts.fold also folds the concept cards above it, so that
+       panel is on the first screen. */
     function showTab(id, opts) {
         opts = opts || {};
         if (!doc || !tabs.length) return false;
@@ -1528,35 +1558,115 @@
         t.panel.hidden = false;
         t.button.setAttribute('aria-selected', 'true');
         t.button.tabIndex = 0;
-        if (opts.focusTab) t.button.focus();
-        try { t.button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { /* old browsers */ }
+        // The lesson strip shows on every tab but the Guide: settle it first,
+        // so everything below measures the console at its final height.
+        syncLessonStrip();
+        if (opts.focusTab) { try { t.button.focus({ preventScroll: true }); } catch (e) { t.button.focus(); } }
+        revealTabButton(t.button);
         storeSet('mriSim.tab', t.id);
         writeHash(t.id);
+        const target = opts.focusPanel && opts.target ? panelTarget(t.panel, opts.target) : null;
+        if (target && opts.fold) foldConceptsAbove(t.panel, target);
         if (changed && !opts.initial) keepPanelInView();
         if (changed || opts.initial) {
             callTab(t, 'onShow');
             bus.emit('tab:shown', { id: t.id });
             if (t.id === 'spectro' && state.spectro.stale) scheduleSpectro();
         }
-        syncLessonStrip();
-        if (opts.focusPanel) focusPanelHeading(t.panel);
+        if (target) focusTarget(target);
+        else if (opts.focusPanel) focusPanelHeading(t.panel);
         return true;
     }
+    /* Scroll the tab bar sideways (only) so the active tab is in view on a
+       narrow screen. scrollIntoView would also scroll the page, because the
+       tab bar sits in the strip that html's scroll-padding-top marks as
+       covered. */
+    function revealTabButton(btn) {
+        const list = btn && btn.parentElement;
+        if (!list || !(list.scrollWidth > list.clientWidth + 1)) return;
+        const lr = list.getBoundingClientRect(), br = btn.getBoundingClientRect();
+        const edge = 24;                          // clear of the faded ends of the strip
+        let dx = 0;
+        if (br.left < lr.left + edge) dx = br.left - lr.left - edge;
+        else if (br.right > lr.right - edge) dx = br.right - lr.right + edge;
+        if (!dx) return;
+        try { list.scrollBy({ left: dx, behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); }
+        catch (e) { list.scrollLeft += dx; }
+    }
+    /* An element of a panel from an element, an element id or a selector. */
+    function panelTarget(panel, target) {
+        if (!panel || !target) return null;
+        let el = null;
+        if (typeof target === 'string') {
+            el = doc.getElementById(target.charAt(0) === '#' ? target.slice(1) : target);
+            if (!el) { try { el = panel.querySelector(target); } catch (e) { el = null; } }
+        } else if (target.nodeType === 1) el = target;
+        return el && panel.contains(el) ? el : null;
+    }
+    /* Fold the open concept cards that come before `el` in the panel. A
+       fold made here is not remembered as the student's choice (the
+       concept widget only stores toggles made on its summary). */
+    function foldConceptsAbove(panel, el) {
+        Array.prototype.forEach.call(panel.querySelectorAll('details.concept'), function (card) {
+            if (card.open && !card.contains(el) && (card.compareDocumentPosition(el) & 4 /* el follows */)) card.open = false;
+        });
+    }
+    /* The box to line up under the console when `el` gets focus: its
+       panel or concept card, as long as `el` then stays on screen. */
+    function revealBox(el) {
+        const box = el.closest ? el.closest('.concept, .panel') : null;
+        if (!box || box === el) return el;
+        const room = (root.innerHeight || 800) - consoleHeight() - 16;
+        return el.getBoundingClientRect().bottom - box.getBoundingClientRect().top <= room ? box : el;
+    }
+    /* Scroll so `box` starts just below the sticky console. The console is
+       measured here rather than read from --console-h, so a console that
+       has just grown (the lesson strip appearing) is accounted for. */
+    function scrollBelowConsole(box) {
+        const dy = Math.round(box.getBoundingClientRect().top - consoleHeight() - 8);
+        if (Math.abs(dy) < 2) return;
+        try { root.scrollBy({ top: dy, behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); }
+        catch (e) { root.scrollBy(0, dy); }
+    }
+    function focusQuietly(el) {
+        if (!/^(a|button|input|select|textarea|summary)$/i.test(el.tagName) && !el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+    }
     /* Focus the first heading of a panel (made focusable with tabindex -1),
-       or the panel itself when it has none. */
+       or the panel itself when it has none. If the heading is then under
+       the console or off the bottom of the screen, scroll it clear. */
     function focusPanelHeading(panel) {
         if (!panel) return;
         let h = null;
         const all = panel.querySelectorAll('h1, h2, h3, h4, [role="heading"]');
         for (let i = 0; i < all.length; i++) { if (all[i].getClientRects().length) { h = all[i]; break; } }
         const target = h || panel;
-        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
-        try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
-        // Bring it into view below the sticky console (html scroll-padding-top accounts for it).
+        focusQuietly(target);
         const r = target.getBoundingClientRect();
-        if (r.top < consoleHeight() || r.top > (root.innerHeight || 800) - 40) {
-            try { target.scrollIntoView({ block: 'start', behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { /* old browsers */ }
-        }
+        if (r.top < consoleHeight() + 4 || r.top > (root.innerHeight || 800) - 40) scrollBelowConsole(revealBox(target));
+    }
+    /* Focus a given element of the visible panel and line its panel up
+       just below the console; once more on the next frame if the layout
+       moved it (plots and canvases draw when a tab is shown). */
+    function focusTarget(el) {
+        focusQuietly(el);
+        const box = revealBox(el);
+        scrollBelowConsole(box);
+        const top0 = box.getBoundingClientRect().top + (root.pageYOffset || 0);
+        onNextFrame(function () {
+            if (doc.activeElement !== el || !el.getClientRects().length) return;      // the student has moved on
+            const top1 = box.getBoundingClientRect().top + (root.pageYOffset || 0);
+            if (Math.abs(top1 - top0) >= 3) scrollBelowConsole(box);
+        });
+    }
+    /* Focus stays where it was when the console changes height (the lesson
+       strip shown or closed): if the console grew over the focused content,
+       which was clear of the old console (oldH high), scroll it clear. */
+    function keepFocusClear(oldH) {
+        const a = doc.activeElement, panels = $('panels');
+        if (!a || !panels || !panels.contains(a)) return;
+        const r = a.getBoundingClientRect(), ch = consoleHeight();
+        if (r.bottom > 0 && r.top < ch + 4 && r.top >= oldH - 4) scrollBelowConsole(revealBox(a));
     }
     /* After switching tabs, if the page was scrolled into the old tab, jump
        to the top of the new one rather than landing in its middle. */
@@ -1593,6 +1703,28 @@
         if (con && root.ResizeObserver) new root.ResizeObserver(syncConsoleHeight).observe(con);
         root.addEventListener('resize', syncConsoleHeight);
         root.addEventListener('orientationchange', syncConsoleHeight);
+        pinConsoleFocus();
+    }
+    /* The console's own controls are always on screen, but html's
+       scroll-padding-top marks the band the console covers as hidden, so
+       a click, a tap or Tab onto Speed, Auto or a lesson-strip button
+       would scroll the page by hundreds of pixels to "reveal" them, and a
+       student watching the scanner schematic would lose it. Browsers do
+       that scroll before 'focusin' fires, in the same task, so the handler
+       puts the page back where it was before the click, key or tap (no
+       frame is painted in between). The padding thus only ever applies to
+       content. */
+    function pinConsoleFocus() {
+        const con = $('console');
+        if (!con) return;
+        let x = root.pageXOffset || 0, y = root.pageYOffset || 0;
+        const note = function () { x = root.pageXOffset || 0; y = root.pageYOffset || 0; };
+        root.addEventListener('scroll', note, { passive: true });
+        ['pointerdown', 'mousedown', 'keydown', 'click'].forEach(function (t) { doc.addEventListener(t, note, { capture: true, passive: true }); });
+        con.addEventListener('focusin', function () {
+            if (!consoleHeight()) return;          // the console scrolls with the page (short landscape screens)
+            if ((root.pageYOffset || 0) !== y || (root.pageXOffset || 0) !== x) root.scrollTo(x, y);
+        });
     }
 
     /* ----- lesson strip -----
@@ -1622,7 +1754,7 @@
                     lessonStrip.hide();
                     // Focus would fall to <body>; put it on the active tab instead.
                     const t = tabById(activeTab);
-                    if (hadFocus && t && t.button) t.button.focus();
+                    if (hadFocus && t && t.button) { try { t.button.focus({ preventScroll: true }); } catch (e) { t.button.focus(); } }
                 });
                 con.appendChild(el);
                 strip = { el: el, text: text, back: back, close: close, onBack: null };
@@ -1644,7 +1776,15 @@
     };
     function syncLessonStrip() {
         if (!strip) return;
-        strip.el.hidden = !!strip.dismissed || activeTab === 'lessons';
+        const hide = !!strip.dismissed || activeTab === 'lessons';
+        if (strip.el.hidden === hide) return;
+        const oldH = consoleHeight();
+        strip.el.hidden = hide;
+        // The console changed height: update --console-h (html scroll-padding-top)
+        // now, not when the ResizeObserver reports it, so a focus move or scroll
+        // in this same task already stops below the new console.
+        syncConsoleHeight();
+        keepFocusClear(oldH);
     }
     MRI.ui = MRI.ui || {};
     MRI.ui.lessonStrip = lessonStrip;

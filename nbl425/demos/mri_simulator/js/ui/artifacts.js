@@ -413,7 +413,7 @@
         why: 'At 127.7 MHz the RF wavelength in tissue is only about 25 to 30 cm, comparable to the head, so the transmit field B1 forms a standing-wave pattern: it is stronger in the middle and weaker at the edges. The flip angle, and with it the signal, follows that pattern.',
         kspace: 'Nowhere in particular: it multiplies the image by a smooth map, so it changes the low spatial frequencies at the centre of k-space (the contrast itself).',
         fix: 'High-permittivity dielectric pads around the head, multi-channel parallel transmit (B1 shimming), adiabatic pulses (insensitive to B1) for inversion, and sequences whose signal depends little on the flip angle.',
-        simpl: 'Simplification: the simulator applies the pattern b1 = 1 + a(0.6 − (r/90 mm)²) to the transmit field only, in 9 levels; on a real scanner the receive field adds its own pattern. With a spin echo, too large a flip loses signal just as too small a flip does, so the centre can turn darker instead.',
+        simpl: 'Simplification: the simulator applies the pattern b1 = 1 + a(0.6 − (r/90 mm)²) to the transmit field only (tracked at 9 B1 values and interpolated between them, so the shading is smooth); on a real scanner the receive field adds its own pattern. With a spin echo, too large a flip loses signal just as too small a flip does, so the centre can turn darker instead.',
         build: function (box) {
             const sl = W().slider({ label: 'Dielectric effect a', unit: '', min: 0, max: 0.5, step: 0.01, value: 0,
                 hint: 'Strength of the standing-wave pattern of the transmit field (0 = uniform)',

@@ -465,9 +465,54 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
     ok(worst < 0.1, 'and with the same heights (worst ' + (100 * worst).toFixed(1) + '%)');
     ok(s1.notes.some(t => /moved by \+0\.16 ppm/.test(t)), 'a note says the windows moved: ' + s1.notes.join(' | '));
     ok(s0.notes.length === 0 && Math.abs(s0.metrics.waterOffsetPpm) < 0.01, 'no shift and no note when water is on 4.7 ppm');
-    // Beyond 0.3 ppm water is not found and the windows stay put.
-    const far = proc(sim(FIDWS, braino, art({ b0: { susceptibility: 1, shim: 0, shimCoeffs: { z0: 60 } } })));
-    ok(far.metrics.waterOffsetPpm === 0, 'water 0.47 ppm off is not followed');
+}
+
+/* ---------- 15b. The windows follow water over the whole Z0 range ----------
+   Z0 reaches +/-100 Hz (0.78 ppm). Water just outside a +/-0.3 ppm search
+   window used to let the rising tail of the line pass for water (a false
+   +0.29 ppm shift, NAA "dominated by water"). The windows now follow the
+   water line the simulator knows. */
+{
+    const PPM_HZ = C.PPM_HZ;
+    const z0art = z0 => art({ b0: { susceptibility: 1, shim: 0, shimCoeffs: { z0: z0 } } });
+    const s0 = proc(sim(FIDWS, braino, art()));
+    for (const z0 of [60, 90, 100, -100]) {
+        for (const [name, prog, ph] of [['braino fid_ws', FIDWS, braino], ['braino fid', FID, braino], ['brain fid', FID, brain]]) {
+            const d = sim(prog, ph, z0art(z0)), sp = proc(d);
+            const w = comp(sp, 'water');
+            const truth = maxIn(w.re.map(Math.abs), sp.ppm, 4.7 - 1.2, 4.7 + 1.2).ppm - 4.7;
+            // (the brain's own susceptibility field moves its water line by about 2 Hz)
+            near(d.info.waterPeakHz, z0, 3, name + ' Z0 ' + z0 + ' Hz: info.waterPeakHz = ' + d.info.waterPeakHz.toFixed(2) + ' Hz');
+            near(sp.metrics.waterOffsetPpm, truth, 0.01, name + ' Z0 ' + z0 + ' Hz: windows moved by ' + sp.metrics.waterOffsetPpm.toFixed(3) +
+                ' ppm, water line at ' + truth.toFixed(3));
+            if (prog === FIDWS) {
+                const off = sp.metrics.waterOffsetPpm;
+                for (const id of ['NAA', 'Cr', 'Cho']) {
+                    const a = peak(s0, id), b = peak(sp, id);
+                    ok(b.resolved && !b.contaminatedBy && Math.abs(b.ppm - off - a.ppm) < 0.01,
+                        name + ' Z0 ' + z0 + ' Hz: ' + id + ' found at ' + (b.ppm === null ? '-' : b.ppm.toFixed(3)) + ' ppm, ' + (b.contaminatedBy || 'clean'));
+                }
+                ok(sp.metrics.snrPeak === 'NAA', name + ' Z0 ' + z0 + ' Hz: SNR from NAA (' + sp.metrics.snrPeak + ')');
+            }
+        }
+    }
+    // Beyond the range the windows can follow (1 ppm) they stay at the nominal ppm, and a note says why.
+    const far = proc(sim(FIDWS, braino, z0art(140)));
+    ok(far.metrics.waterOffsetPpm === 0 && far.notes.some(t => /too far from 4\.70/.test(t)), 'water 1.1 ppm off is not followed, with a note: ' + far.notes.join(' | '));
+    // A re-referenced spectrum (water put back on 4.70 ppm) needs no shift.
+    const d100 = sim(FIDWS, braino, z0art(100));
+    const reref = proc(d100, { refPpm: 4.7 - d100.info.waterPeakHz / PPM_HZ });
+    ok(Math.abs(reref.metrics.waterOffsetPpm) < 0.005 && peak(reref, 'NAA').resolved, 're-referenced: no shift, NAA found (' + reref.metrics.waterOffsetPpm.toFixed(4) + ')');
+    // SpecData without info.waterPeakHz: detection is the fallback, and either finds the water line or leaves the windows alone.
+    for (const z0 of [20, 40, 60, 80, 90, 100, -100]) {
+        for (const [name, prog, ov] of [['fid', 'fid', {}], ['fid NP 256', 'fid', { NP: 256 }], ['fid_ws', 'fid_ws', {}]]) {
+            const d = sim(compile(prog, ov), braino, z0art(z0));
+            const water = d.info.waterPeakHz / PPM_HZ;
+            delete d.info.waterPeakHz;
+            const off = proc(d).metrics.waterOffsetPpm;
+            ok(off === 0 || Math.abs(off - water) < 0.02, 'fallback, braino ' + name + ' Z0 ' + z0 + ' Hz: shift ' + off.toFixed(3) + ' ppm (water at ' + water.toFixed(3) + ')');
+        }
+    }
 }
 
 /* ---------- 16. NAA under scalp lipid ---------- */
@@ -519,8 +564,12 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
             'unshimmed braino ' + label + ': every metabolite row not resolved, "too broad" (' + metab.filter(q => q.resolved).map(q => q.id).join(' ') + ')');
         ok(sp.metrics.snr === null && /too broad/.test(sp.metrics.snrPeak), 'unshimmed braino ' + label + ': no NAA SNR (' + sp.metrics.snrPeak + ')');
     }
+    // (The windows follow the true water line, 25 Hz off here; the scalp lipid sits in a
+    // different part of the unshimmed field, so its 1.3 ppm row may fall at its window's edge.)
     const ub = proc(sim(FID, brain, unshim));
-    ok(peak(ub, 'lipid13').resolved && !peak(ub, 'NAA').resolved, 'unshimmed brain: lipid still measured, NAA not');
+    const ul = peak(ub, 'lipid13');
+    ok(peak(ub, 'water').resolved && !peak(ub, 'NAA').resolved && /too broad/.test(peak(ub, 'NAA').reason) && (ul.resolved || /no maximum/.test(ul.reason)),
+        'unshimmed brain: water still measured, NAA not ("too broad"); lipid 1.3 ' + (ul.resolved ? 'measured' : ul.reason));
     const okBrain = proc(sim(FID, brain, art()));
     ok(peak(okBrain, 'Cho').resolved && okBrain.metrics.snr > 0, 'shimmed brain (7.6 Hz): metabolites still reported, NAA SNR ' + okBrain.metrics.snr.toFixed(1));
 }

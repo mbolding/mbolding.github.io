@@ -29,7 +29,8 @@
      Shell      --console-h: height of the sticky scan bar + tab bar, kept
                 current by app.js (0 when the console scrolls away). html has
                 scroll-padding-top from it, so focus and scrollIntoView stop
-                below the console; use it for any sticky offset in a tab.
+                below the console (content only: focusing a console control
+                never scrolls the page); use it for any sticky offset in a tab.
      Canvas code reads these with MRI.util.cssVar('--c1') and redraws
      on the 'theme:changed' bus event.
 
@@ -287,7 +288,9 @@
 *, *::before, *::after { box-sizing: border-box; }
 html {
     -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
-    /* Focus moves and scripted scrolls stop below the sticky console (WCAG 2.4.11). */
+    /* Focus moves and scripted scrolls stop below the sticky console (WCAG 2.4.11).
+       This is for content: app.js keeps focus moves onto the console's own
+       controls (always on screen) from scrolling the page. */
     scroll-padding-top: calc(var(--console-h, 110px) + 12px);
 }
 body {

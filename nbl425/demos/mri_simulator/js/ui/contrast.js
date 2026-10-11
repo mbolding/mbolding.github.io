@@ -403,6 +403,11 @@
     }
 
     /* ---------- concept card ---------- */
+    /* A preset as the Sequence tab's Preset list names it: "Spin echo, T2-weighted (se)". */
+    function presetRef(id) {
+        const p = MRI.presets && MRI.presets.get ? MRI.presets.get(id) : null;
+        return (p ? '<strong>' + escapeHTML(p.name) + '</strong> ' : '') + '(<code>' + escapeHTML(id) + '</code>)';
+    }
     /* Load the preset if needed (or always, when alwaysPreset and another
        preset is loaded), set any parameters the experiment needs (SI), then
        sweep `param`. */
@@ -431,15 +436,15 @@
                 '<div class="note" style="font-family: var(--font-sans); font-size: 0.8rem; margin-top: 4px">spin echo with TE &#8810; TR; ' +
                 'an inversion nulls a tissue at TI = T1 ln 2 when TR &#8811; T1</div>',
             tryThis: [
-                { html: 'Sweep <strong>TE</strong> on the spin echo (<code>se</code>): long-T2 CSF overtakes grey and white matter as TE grows.',
+                { html: 'Sweep <strong>TE</strong> on ' + presetRef('se') + ': long-T2 CSF overtakes grey and white matter as TE grows.',
                     label: TRY_IT, run: function () { setupSweep('se', 'TE', true); } },
-                { html: 'Set TE to 12 ms on the spin echo and sweep <strong>TR</strong>. The short TE keeps T2 out of it, so only T1 weighting ' +
+                { html: 'Set TE to 12 ms on ' + presetRef('se') + ' and sweep <strong>TR</strong>. The short TE keeps T2 out of it, so only T1 weighting ' +
                     'changes: at short TR the short-T1 tissues (fat, white matter) lead; at long TR the curves approach proton density. ' +
                     '(At TE 90 ms long TR would be T2-weighted instead.)',
                     label: TRY_IT, run: function () { setupSweep('se', 'TR', true, { TE: 0.012 }); } },
-                { html: 'On <code>flair</code> sweep <strong>TI</strong> and find the CSF null (about 2.4 s with TR = 9 s).',
+                { html: 'On ' + presetRef('flair') + ' sweep <strong>TI</strong> and find the CSF null (about 2.4 s with TR = 9 s).',
                     label: TRY_IT, run: function () { setupSweep('flair', 'TI', true); } },
-                { html: 'On <code>gre_t1</code> sweep the <strong>flip angle</strong> and find the Ernst angle of white matter, the flip that ' +
+                { html: 'On ' + presetRef('gre_t1') + ' sweep the <strong>flip angle</strong> and find the Ernst angle of white matter, the flip that ' +
                     'gives it the most signal.', label: TRY_IT, run: function () { setupSweep('gre_t1', 'flip', true); } }
             ]
         });

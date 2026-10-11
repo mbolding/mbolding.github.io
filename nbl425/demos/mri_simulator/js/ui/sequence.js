@@ -82,10 +82,17 @@
 #tab-sequence .seq-summary { font-size: 0.86rem; color: var(--muted); margin: 0 0 10px; }
 #tab-sequence .seq-edtools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
-/* the editor: a transparent textarea exactly over a highlighted <pre> */
+/* the editor: a transparent textarea exactly over a highlighted <pre>.
+   At least the usual box; it grows to fit a sequence of up to 32 lines
+   (--ed-lines, set from the source), so a whole preset shows without an
+   inner scroll, but never past the screen space below the console. */
 #tab-sequence .seq-editor {
+    --ed-lines: 0; --ed-chrome: 18px;   /* a horizontal scrollbar and the border */
     position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr);
-    height: clamp(260px, 46vh, 520px); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    height: clamp(260px, 46vh, 520px);
+    height: max(clamp(260px, 46vh, 520px), min(calc(var(--ed-lines) * var(--ed-lh) + 2 * var(--ed-pad-y) + var(--ed-chrome)),
+        calc(32 * var(--ed-lh) + 2 * var(--ed-pad-y) + var(--ed-chrome)), calc(100vh - var(--console-h, 0px) - 40px)));
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
     background: var(--card); overflow: hidden;
 }
 #tab-sequence .seq-editor:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px var(--focus-ring); }
@@ -424,7 +431,8 @@
         typing: null, flashLine: 0, flashTimer: null,
         playing: false, tick: null, frame: 0,
         dirty: { editor: true, params: true, timing: true, k: true, phase: true, stats: true },
-        kStatic: null, escTab: false
+        kStatic: null, escTab: false,
+        undoToast: null           // the one Undo toast this tab keeps on screen
     };
     const E = {};      // DOM references
 
@@ -465,14 +473,29 @@
     }
 
     /* ---------- source edits from tools (concept buttons, reset) ---------- */
+    /* Show `message` with an Undo action. Only the latest edit can be undone,
+       so a new Undo toast replaces the previous one; the toast closes when
+       Undo is used, and when the tab is left (onHide), so a stale Undo can
+       never replace a sequence loaded since (a lesson's set-up, say). */
+    function dismissUndo() {
+        if (S.undoToast && typeof S.undoToast.dismiss === 'function') S.undoToast.dismiss();
+        S.undoToast = null;
+    }
+    function undoToast(message, kind, undo) {
+        dismissUndo();
+        const t = toast(message, kind || 'info', { action: { label: 'Undo', run: function () {
+            if (S.undoToast === t) S.undoToast = null;
+            flushTyping();
+            undo();
+        } } });
+        S.undoToast = t || null;
+    }
     function applySource(newSrc, message, kind) {
         flushTyping();
         const prev = MRI.state.source;
         if (newSrc === prev) return;
         MRI.actions.setSource(newSrc);
-        const undo = el('button', { type: 'button', class: 'linklike', style: { marginLeft: '8px', color: '#93c5fd' },
-            onclick: function () { flushTyping(); MRI.actions.setSource(prev); if (t && t.dismiss) t.dismiss(); } }, 'Undo');
-        const t = toast(el('span', {}, [message, undo]), kind || 'info', { timeout: 6000 });
+        undoToast(message, kind, function () { MRI.actions.setSource(prev); });
     }
     function swapAxes() {
         flushTyping();                      // include what was typed in the last 400 ms
@@ -521,9 +544,7 @@
         else if (has('ESP')) { MRI.actions.setParam('ESP', 0.002); what = 'ESP = 2 ms'; }
         else if (has('TR')) { MRI.actions.setParam('TR', 0.001); what = 'TR = 1 ms'; }
         if (!what) { toast('This sequence has no TE, ESP or TR parameter to shorten.', 'warn'); return; }
-        const undo = el('button', { type: 'button', class: 'linklike', style: { marginLeft: '8px', color: '#93c5fd' },
-            onclick: function () { flushTyping(); MRI.actions.setSource(before); } }, 'Undo');
-        toast(el('span', {}, ['Set ' + what + '. Read the error under the editor.', undo]), 'warn', { timeout: 6000 });
+        undoToast('Set ' + what + '. Read the error under the editor.', 'warn', function () { MRI.actions.setSource(before); });
         if (E.msgs && E.msgs.firstChild) {
             try { E.msgs.scrollIntoView({ block: 'nearest', behavior: U.scrollBehavior() }); } catch (e) { /* old browsers */ }
         }
@@ -541,12 +562,13 @@
         E.hl.style.transform = 'translate(' + (-x) + 'px,' + (-y) + 'px)';
         E.gutterIn.style.transform = 'translateY(' + (-y) + 'px)';
     }
-    let gutterCount = -1, gutterErrKey = '';
+    let gutterCount = -1, gutterErrKey = '', edLines = -1;
     function renderHighlight() {
         const errs = currentErrors();
         const h = highlight(E.ta.value, errs, S.flashLine);
         E.hl.innerHTML = h.html;
         const errKey = Array.from(h.errLines).join(',');
+        if (E.editor && h.nLines !== edLines) { edLines = h.nLines; E.editor.style.setProperty('--ed-lines', String(h.nLines)); }
         if (h.nLines !== gutterCount || errKey !== gutterErrKey) {
             gutterCount = h.nLines; gutterErrKey = errKey;
             let g = '';
@@ -714,7 +736,8 @@
         const st = MRI.state;
         const list = imagingPresets();
         const known = list.some(function (p) { return p.id === st.presetId; });
-        const opts = list.map(function (p) { return { value: p.id, label: p.name }; });
+        // the id too, as the lessons and concept cards name presets ("Spin echo, T2-weighted (se)")
+        const opts = list.map(function (p) { return { value: p.id, label: p.name + ' (' + p.id + ')' }; });
         if (!known) opts.unshift({ value: '__custom', label: 'Custom sequence' });
         E.preset.setOptions(opts, known ? st.presetId : '__custom');
         const pr = getPreset(st.presetId);
@@ -1405,6 +1428,7 @@
     function onHide() {
         S.visible = false;
         flushTyping();
+        dismissUndo();
     }
 
     /* ============================================================
@@ -1421,14 +1445,16 @@
         E.preset = W.select({ label: 'Preset', inline: true, options: [], onChange: function (id) {
             if (id === '__custom') return;
             flushTyping();
-            const prev = MRI.state.source, prevPreset = getPreset(MRI.state.presetId);
+            const prev = MRI.state.source, prevId = MRI.state.presetId, prevPreset = getPreset(prevId);
             const wasEdited = !prevPreset || prev !== prevPreset.source;
-            MRI.actions.loadPreset(id);
+            if (!MRI.actions.loadPreset(id)) return;
             if (wasEdited && prev.trim()) {
-                const undo = el('button', { type: 'button', class: 'linklike', style: { marginLeft: '8px', color: '#93c5fd' },
-                    onclick: function () { flushTyping(); MRI.actions.setSource(prev); } }, 'Undo');
-                toast(el('span', {}, ['Loaded "' + (getPreset(id) || {}).name + '". Your edited version was replaced.', undo]), 'info', { timeout: 7000 });
-            }
+                undoToast('Loaded "' + (getPreset(id) || {}).name + '" (' + id + '). Your edited version was replaced.', 'info', function () {
+                    // Back to the edited version, under its own preset's name.
+                    if (prevPreset && prevPreset.group === 'imaging') MRI.actions.loadPreset(prevId);
+                    if (MRI.state.source !== prev) MRI.actions.setSource(prev);
+                });
+            } else dismissUndo();
         } });
         E.edited = W.badge('edited', 'accent');
         E.edited.hidden = true;

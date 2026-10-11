@@ -700,6 +700,7 @@
                 waterSuppression: waterSuppression,
                 waterResidual: waterResidual,
                 linewidthHz: wl ? wl.fwhmHz : null,
+                waterPeakHz: wl ? wl.peakHz : null,     // where the water line peaks, Hz from the receiver frequency
                 relativeSignal: rel,
                 tr: program.stats && program.stats.TR != null ? program.stats.TR : null,
                 adcSkipped: W.nSkipped,
@@ -788,6 +789,7 @@
 
     /* ---------- Notes for the student ---------- */
     const BROAD_HZ = 10;             // water FWHM above which metabolite peaks cannot be measured
+    const FOLLOW_PPM = 1.0;          // the largest water offset the peak windows follow (128 Hz at 3 T)
     function buildNotes(o) {
         const notes = [];
         const amp0 = {};
@@ -802,7 +804,13 @@
                 : 'Lipid dominates the metabolite region: non-selective excitation sees every bit of fat in the coil, and its signal is far larger than the metabolites.');
         }
         if (!o.hasWaterSat && water > 0 && metab > 0 && water > 100 * (naa || metab)) {
-            notes.push('Water is about ' + U.fmtNum(water / (naa || metab), 2) + ' times larger than ' + (naa ? 'NAA' : 'the metabolites') +
+            // The concept card and the peak table compare water with NAA's methyl peak, which holds 3 of its 6 protons: say which this is.
+            const nl = naa && MRI.tissues.metabolites.NAA ? MRI.tissues.metabolites.NAA.lines : [];
+            let nH = 0, nHmain = 0;
+            for (const l of nl) { nH += l.nH; if (l.nH > nHmain) nHmain = l.nH; }
+            const ratio = water / (naa || metab);
+            notes.push('Water is about ' + U.fmtNum(ratio, 2) + ' times larger than ' + (naa ? 'NAA' : 'the metabolites') +
+                (naa && nH > nHmain ? ' (all ' + nH + ' of its protons; about ' + U.fmtNum(ratio * nH / nHmain, 2) + ' times its methyl peak at 2.01 ppm alone)' : '') +
                 ', so the metabolites sit on the tails of the water line. Water suppression (the CHESS preset) removes most of it.');
         }
         if (o.hasWaterSat && o.waterSuppression !== null) {
@@ -1209,18 +1217,43 @@
         }
 
         /* Follow the water line. A centre-frequency (Z0) error moves every
-           line by the same number of Hz, so when water is present and found
-           within 0.3 ppm of 4.7 ppm, every window moves by the same offset
-           and the table still finds the peaks. Water is found on the real
-           spectrum (as in the table), or, if it is not upright there (the
-           phase is set by the tallest line, and suppressed water can be
-           left inverted), on the magnitude spectrum. */
-        let off = 0;
+           line by the same number of Hz, so when water is present every
+           window moves by the same offset and the table still finds the
+           peaks. Where water is comes from the simulator (info.waterPeakHz,
+           the peak of the fully relaxed water line of this field, the same
+           number the Spectroscopy tab quotes), not from the spectrum, where
+           a suppressed or truncated water line, or the rising tail of a
+           line just outside a search window, can pass for it. The offset is
+           followed up to FOLLOW_PPM, which covers the Z0 range (+/-100 Hz,
+           0.78 ppm) plus an unshimmed field's own offset; beyond that the
+           windows stay at their nominal ppm.
+           SpecData without info.waterPeakHz: water is searched for over the
+           same range, on the real spectrum or, if it is not upright there
+           (suppressed water can be left inverted), the magnitude spectrum,
+           and only a clear maximum counts: a local maximum of the spectrum
+           itself, at least 3 points inside the search range, taller than
+           the spectrum at both ends of the range and than 5 noise SDs. */
+        let off = 0, offFar = null;
         if (byId.water) {
-            const found = function (w) { return w && !w.atEdge && w.height > (noisy ? 5 * sd : 0); };
-            let w = windowPeak(total.re, ppm, WATER_PPM - 0.3, WATER_PPM + 0.3, step, tol, zf);
-            if (!found(w)) w = windowPeak(mag, ppm, WATER_PPM - 0.3, WATER_PPM + 0.3, step, tol, zf);
-            if (found(w)) off = w.ppm - WATER_PPM;
+            const info = spec.info || {};
+            if (Number.isFinite(info.waterPeakHz)) {
+                const o = refPpm + info.waterPeakHz / PPM_HZ - WATER_PPM;
+                if (abs(o) <= FOLLOW_PPM) off = o; else offFar = o;
+            } else {
+                const r = ppmRange(ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM);
+                const found = function (w, y) {
+                    if (!w || w.atEdge || !(w.height > (noisy ? 5 * sd : 0))) return false;
+                    const k = w.index;
+                    if (k - r[0] < 3 || r[1] - k < 3) return false;
+                    return y[k] >= y[k - 1] && y[k] >= y[k + 1] && y[r[0]] < y[k] && y[r[1]] < y[k];
+                };
+                let w = windowPeak(total.re, ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM, step, tol, zf);
+                if (found(w, total.re)) off = w.ppm - WATER_PPM;
+                else {
+                    w = windowPeak(mag, ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM, step, tol, zf);
+                    if (found(w, mag)) off = w.ppm - WATER_PPM;
+                }
+            }
         }
 
         /* Each peak: position, height and area above the local baseline, SNR
@@ -1312,6 +1345,9 @@
         if (abs(off) >= 0.02) {
             notes.push('Water is at ' + (WATER_PPM + off).toFixed(2) + ' ppm rather than ' + WATER_PPM.toFixed(2) + ': every peak window was moved by ' +
                 (off > 0 ? '+' : '') + off.toFixed(2) + ' ppm to follow it.');
+        } else if (offFar !== null) {
+            notes.push('Water is at ' + (WATER_PPM + offFar).toFixed(2) + ' ppm, too far from ' + WATER_PPM.toFixed(2) +
+                ' for the peak windows to follow, so they stay at their nominal ppm and miss the shifted peaks. Correct the centre frequency (Z0) or re-reference the spectrum.');
         }
 
         /* NAA/Cr and Cho/Cr from integrals over fixed windows (moved with
@@ -1364,6 +1400,7 @@
         process: process,
         defaults: defaults,
         waterLine: waterLine,
+        followPpm: FOLLOW_PPM,             // the largest water offset the peak windows follow
         NOISE_REF: NOISE_REF,
         peakWindows: PEAKS.map(function (P) { return Object.assign({}, P, P.of ? { of: P.of.slice() } : {}); }),
         ratioWindows: JSON.parse(JSON.stringify(RATIO_WIN)),

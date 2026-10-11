@@ -457,11 +457,13 @@ const hasNex = (prog) => !!(prog && prog.params && prog.params.some(p => p.name 
         S.speed = 'slow';
         events.length = 0; calls.recon.length = 0;
         const p = A.runScan({ animate: true });
-        await sleep(40);
+        // Stop once playback has started (a fixed delay could land in the
+        // compute stage on a loaded machine), still inside the dummy TRs.
+        for (let t = 0; t < 3000 && !events.some(e => e.evt === 'playback:tick'); t += 2) await sleep(2);
         A.stopScan();
         await p;
         const err = events.filter(e => e.evt === 'scan:error').pop();
-        ok(err && err.p.aborted && err.p.readoutsDone === 0 && S.acqUpTo === 0, 'stopped with 0 readouts (' + (err && err.p.readoutsDone) + ')');
+        ok(err && err.p.aborted && err.p.stage === 'playback' && err.p.readoutsDone === 0 && S.acqUpTo === 0, 'stopped with 0 readouts (' + (err && err.p.readoutsDone) + ')');
         ok(S.reconResult !== oldResult && S.reconResult.info.acq === S.acq && S.reconResult.info.upTo === 0,
             'the views show the new, empty acquisition, not the previous image');
         await A.setRecon({ filter: 'hann' });
@@ -572,6 +574,28 @@ const hasNex = (prog) => !!(prog && prog.params && prog.params.some(p => p.name 
         ok(bad.ok === false && bad.name === null && bad.errors === 1, 'spectro summary of a broken program');
     }
 
+    /* ---------- a recon option changed in the last playback frame ----------
+       The final reconstruction uses the new option, and nothing in between
+       reconstructs the half-revealed scan as empty (upTo 0). */
+    {
+        const { MRI, calls } = makeSim({ reconMs: 20 });
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        MRI.app.playbackSeconds.fast = 0.4;
+        A.loadPreset('se');
+        await A.runScan({ animate: false });                 // learns how long a reconstruction takes
+        let fired = false;
+        MRI.bus.on('playback:tick', function (e) { if (!fired && e.frac >= 1) { fired = true; A.setRecon({ filter: 'hann' }); } });
+        calls.recon.length = 0;
+        await A.runScan({ animate: true });
+        await sleep(120);
+        const ups = calls.recon.map(c => c.upTo);
+        const last = calls.recon[calls.recon.length - 1];
+        ok(fired && ups[0] === 0 && ups.slice(1).every(u => u !== 0), 'no empty reconstruction after the first frame (' + ups.join(', ') + ')');
+        ok(last && last.upTo === undefined && last.filter === 'hann' && S.reconResult && S.acqUpTo === null && !S.scanning,
+            'the final reconstruction is full and uses the option set in the last frame');
+    }
+
     /* ---------- shell extensions exist without a document ---------- */
     {
         const { MRI } = makeSim();
@@ -579,6 +603,9 @@ const hasNex = (prog) => !!(prog && prog.params && prog.params.some(p => p.name 
             'MRI.ui.lessonStrip.show / hide exist');
         ok(MRI.ui.lessonStrip.show({ title: 'Lesson 3' }) === null && MRI.ui.lessonStrip.isShown() === false, 'lessonStrip is a no-op without a page');
         ok(MRI.actions.showTab('image', { focus: true }) === false, 'showTab with options is harmless without a page');
+        ok(MRI.actions.showTab('image', { focus: true, target: 'ir-title', fold: true }) === false, 'showTab with a target is harmless without a page');
+        ok(typeof MRI.actions.focusPanel === 'function' && MRI.actions.focusPanel('image', 'ir-title') === false,
+            'MRI.actions.focusPanel exists and returns false without a page');
     }
 
     /* ---------- helpers ---------- */

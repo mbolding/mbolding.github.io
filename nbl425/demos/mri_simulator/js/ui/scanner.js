@@ -552,7 +552,7 @@
             nums: [['Maximum gradient', '45 mT/m'], ['Slew rate', '200 T/m/s (0 to 45 mT/m in 225 µs)'], ['Output (typical)', 'several hundred amperes, up to about 2000 V']],
             live: liveGrad,
             wrong: 'If the current lags the request (limited amplifier bandwidth, eddy currents), the real k-space trajectory lags the nominal one. Echoes read with alternating gradient polarity, as in EPI, then shift back and forth, giving a ghost displaced by half the field of view (Nyquist ghost).',
-            sim: 'EPI Nyquist ghost: add a gradient delay in the Artifacts tab and acquire with the epi preset.',
+            sim: 'EPI Nyquist ghost: add a gradient delay in the Artifacts tab and acquire with the Gradient-echo EPI (epi) preset.',
             links: [art('ghost', 'the EPI Nyquist ghost')]
         },
         gradcoils: {
@@ -1628,7 +1628,8 @@
     }
 
     /* ---------- Larmor calculator ---------- */
-    const LC = { G: 0.010, x: 0.100 };
+    // Starts with no gradient (every position at f0); lesson 1 then sets G = 10 mT/m at x = 100 mm.
+    const LC = { G: 0, x: 0.100 };
     function readoutGradient() {
         const p = goodProgram();
         if (!p || !p.image || !p.image.hasImaging) return null;

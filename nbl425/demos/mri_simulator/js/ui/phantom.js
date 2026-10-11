@@ -549,7 +549,12 @@
         view.onHover(frameThrottleArg(onHover));
         // The well's idle hint talks about window/level, which the label map does not use.
         ui.readout = view.el.querySelector('.well-readout');
-        view.canvas.addEventListener('pointerleave', function () { idleHint(); });
+        // A touch or pen lifting off the image also "leaves" it, right after a tap has
+        // pinned a readout (before the frame-throttled hover arrives): keep that readout.
+        view.canvas.addEventListener('pointerleave', function (ev) {
+            if (ev && (ev.pointerType === 'touch' || ev.pointerType === 'pen')) return;
+            idleHint();
+        });
 
         ui.legend = el('div', { class: 'pt-legend' });
         panel.appendChild(ui.legend);
@@ -760,15 +765,21 @@
         T.lastKey = key; T.lastMapId = T.mapId; T.lastPhId = ph.id;
         ui.view.setWL(d.wl !== false);
         ui.view.setTitle(d.title);
-        ui.view.canvas.setAttribute('aria-label', d.title + ' of the ' + ph.name + ' phantom. Hover to read values; the tissue table below lists them.');
+        ui.view.canvas.setAttribute('aria-label', d.title + ' of the ' + ph.name + ' phantom. ' + (coarsePointer() ? 'Tap' : 'Hover') + ' to read values; the tissue table below lists them.');
         ui.view.setData(d.data, ph.n, ph.n, { min: d.min, max: d.max, cmap: d.cmap, fovX: ph.fov, fovY: ph.fov, resetWindow: reset });
         ui.caption.innerHTML = d.caption || '';
         idleHint();
         if (T.hover) onHover(T.hover);
     }
+    function coarsePointer() {
+        try { return !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; }
+    }
     function idleHint() {
         if (!ui.readout || T.hover) return;
-        ui.readout.textContent = T.mapId === 'labels' ? 'Hover over the image to name a tissue' : 'Drag: window/level \u00b7 double-click: reset';
+        const touch = coarsePointer();
+        ui.readout.textContent = T.mapId === 'labels'
+            ? (touch ? 'Tap the image to name a tissue' : 'Hover over the image to name a tissue')
+            : (touch ? 'Tap: read a value \u00b7 hold, then drag: window/level' : 'Drag: window/level \u00b7 double-click: reset');
     }
 
     function renderLegend() {

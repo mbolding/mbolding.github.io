@@ -672,7 +672,7 @@
                 ({ zero: 'Zero: missing lines stay zero, so the image blurs along the phase direction.',
                    conjugate: 'Conjugate: fills them from S(−k) = S*(k), assuming one overall phase.',
                    homodyne: 'Homodyne: removes the slowly varying image phase first, then uses conjugate symmetry.' })[o.partialFourier || 'homodyne']
-                : 'Applies when one side of k-space was skipped (gre_pf preset, or Keep half in the k-space tab).');
+                : 'Applies when one side of k-space was skipped (preset Gradient echo, partial Fourier (gre_pf), or Keep half in the k-space tab).');
 
         // parallel imaging
         C.par.set(o.parallel || 'sense');
@@ -681,7 +681,7 @@
         setNote(C.parNote, R > 1,
             R > 1 ? 'Every ' + nth(R) + ' phase-encode line recorded (R = ' + R + '), so the FOV along phase is 1/' + R + ' and the image folds. ' +
                 ((o.parallel || 'sense') === 'sense' ? (senseActive(r) ? 'SENSE unfolds it with the coil maps (known exactly here; a scanner measures them in a short calibration scan).' : 'SENSE needs at least R coils.') : 'Choose SENSE to unfold it.')
-                : 'Applies to regularly undersampled data (gre_r2 preset).');
+                : 'Applies to regularly undersampled data (preset Gradient echo, every other line (gre_r2)).');
 
         // coil combination
         const nC = acq ? acq.nCoils : nCoilsOf(r);
