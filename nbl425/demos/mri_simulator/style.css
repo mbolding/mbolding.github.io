@@ -12,7 +12,9 @@
      Lines      --border --border-strong --border-subtle --grid --axis
      Accent     --accent (text, focus, indicators) --accent-strong (button fill)
                 --accent-soft (tinted background) --accent-border --on-accent
-     Status     --good --warn --bad (+ -soft and -border variants)
+                --accent-ink (small accent text on a tint: >= 4.5:1 there)
+     Status     --good --warn --bad (+ -soft and -border variants);
+                --good-ink (small green text on a tint, as --accent-ink)
      Scopes     --scope-bg --scope-fg --scope-muted --scope-grid --scope-axis
                 --scope-border. Images and oscilloscope-like plots sit on
                 these near-black values in BOTH themes.
@@ -24,6 +26,10 @@
      Type       --font-sans --font-mono --font-math
      Shape      --radius (10px cards) --radius-sm (6px controls) --ctl-h (32px)
                 --shadow-1 --shadow-2 --gutter (16px) --maxw (1280px)
+     Shell      --console-h: height of the sticky scan bar + tab bar, kept
+                current by app.js (0 when the console scrolls away). html has
+                scroll-padding-top from it, so focus and scrollIntoView stop
+                below the console; use it for any sticky offset in a tab.
      Canvas code reads these with MRI.util.cssVar('--c1') and redraws
      on the 'theme:changed' bus event.
 
@@ -115,11 +121,13 @@
     --accent-strong-hover: #1d4ed8;
     --accent-soft: rgba(37, 99, 235, 0.08);
     --accent-border: rgba(37, 99, 235, 0.28);
+    --accent-ink: #1d4ed8;
     --on-accent: #ffffff;
     --focus: #2563eb;
     --focus-ring: rgba(37, 99, 235, 0.35);
 
     --good: #15803d;
+    --good-ink: #166534;      /* #15803d on its own tint measured 4.49:1 in a panel; this is above 6:1 */
     --good-soft: rgba(22, 163, 74, 0.10);
     --good-border: rgba(22, 163, 74, 0.32);
     --warn: #b45309;
@@ -164,6 +172,7 @@
     --ctl-h: 32px;
     --gutter: 16px;
     --maxw: 1280px;
+    --console-h: 110px;
     --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.05);
     --shadow-2: 0 6px 20px -6px rgba(16, 24, 40, 0.25), 0 2px 6px rgba(16, 24, 40, 0.08);
 }
@@ -190,10 +199,12 @@
         --accent-strong-hover: #3b82f6;
         --accent-soft: rgba(96, 165, 250, 0.10);
         --accent-border: rgba(96, 165, 250, 0.30);
+        --accent-ink: #60a5fa;
         --on-accent: #ffffff;
         --focus: #60a5fa;
         --focus-ring: rgba(96, 165, 250, 0.40);
         --good: #4ade80;
+        --good-ink: #4ade80;
         --good-soft: rgba(74, 222, 128, 0.10);
         --good-border: rgba(74, 222, 128, 0.30);
         --warn: #fbbf24;
@@ -240,10 +251,12 @@
     --accent-strong-hover: #3b82f6;
     --accent-soft: rgba(96, 165, 250, 0.10);
     --accent-border: rgba(96, 165, 250, 0.30);
+    --accent-ink: #60a5fa;
     --on-accent: #ffffff;
     --focus: #60a5fa;
     --focus-ring: rgba(96, 165, 250, 0.40);
     --good: #4ade80;
+    --good-ink: #4ade80;
     --good-soft: rgba(74, 222, 128, 0.10);
     --good-border: rgba(74, 222, 128, 0.30);
     --warn: #fbbf24;
@@ -272,7 +285,11 @@
 
 /* ---------- base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    /* Focus moves and scripted scrolls stop below the sticky console (WCAG 2.4.11). */
+    scroll-padding-top: calc(var(--console-h, 110px) + 12px);
+}
 body {
     margin: 0;
     background: var(--bg);
@@ -364,8 +381,13 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .btn-acquire svg, .btn-stop svg { width: 12px; height: 12px; flex: none; }
 .scan-speed { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); }
 .scan-speed .select { height: 30px; }
+/* On the Spectroscopy tab the bar runs the spectrum (app.js adds .is-spectro):
+   playback speed and automatic re-scans are imaging settings, so they step aside. */
+.scanbar.is-spectro .scan-speed, .scanbar.is-spectro .scan-actions > .toggle { display: none; }
 .scan-line { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.84rem; }
 .scan-state { font-weight: 650; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.scan-pct { font-weight: 650; font-variant-numeric: tabular-nums; margin-left: -4px; white-space: nowrap; }
+.scan-pct:empty { display: none; }
 .scan-msg {
     min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     color: var(--muted);
@@ -373,7 +395,14 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .scan-msg[data-kind="bad"] { color: var(--bad); font-weight: 600; }
 .scan-msg[data-kind="warn"] { color: var(--warn); font-weight: 600; }
 .scan-msg[data-kind="good"] { color: var(--good); }
-.scan-msg .linklike { margin-left: 6px; }
+/* A problem may need two lines; the rest of the text stays in the title. */
+.scan-msg[data-kind="bad"], .scan-msg[data-kind="warn"] {
+    white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
+    line-height: 1.3;
+}
+/* The action sits beside the message, never inside its ellipsis. */
+.scan-action { flex: none; display: inline-flex; }
+.scan-action-btn { color: var(--accent-ink); border-color: var(--accent-border); white-space: nowrap; }
 .scan-summary {
     font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
@@ -445,6 +474,17 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .tab:focus-visible { outline-offset: -3px; }
 .tab .tab-flag { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
+/* Lesson strip: the lesson in progress, under the tab bar (MRI.ui.lessonStrip). */
+.lesson-strip { border-top: 1px solid var(--border-subtle); background: var(--accent-soft); }
+.lesson-strip-inner { display: flex; align-items: center; gap: 8px; padding-top: 5px; padding-bottom: 5px; font-size: 0.82rem; }
+.lesson-strip-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--fg); }
+.lesson-strip-back { flex: none; color: var(--accent-ink); border-color: var(--accent-border); }
+.lesson-strip-close {
+    flex: none; appearance: none; border: 0; background: none; color: var(--muted); cursor: pointer;
+    width: 28px; height: 28px; border-radius: 6px; font-size: 1.1rem; line-height: 1;
+}
+.lesson-strip-close:hover { color: var(--fg); background: var(--hover); }
+
 /* ---------- main area ---------- */
 .panels { padding-top: 20px; padding-bottom: 40px; }
 .tab-panel { min-width: 0; }
@@ -505,7 +545,24 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .concept-eyebrow {
     font-size: 0.66rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent);
 }
-.concept-title { font-size: 1.02rem; font-weight: 650; }
+.concept-title { font-size: 1.02rem; font-weight: 650; margin: 0; line-height: 1.3; display: inline; }
+.concept-title:focus { outline: none; }
+.concept-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* Folded: eyebrow, title and the formula on one line. */
+.concept-peek { display: none; }
+.concept:not([open]) > .concept-head { flex-wrap: nowrap; align-items: baseline; }
+.concept:not([open]) > .concept-head > .concept-title { flex: none; max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.concept:not([open]) > .concept-head > .concept-peek {
+    display: block; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: var(--font-math); font-size: 0.95rem; color: var(--muted);
+}
+.concept-peek * { display: inline !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; }
+.concept-peek br { display: none !important; }
+@media (max-width: 520px) {
+    .concept:not([open]) > .concept-head { flex-wrap: wrap; }
+    .concept:not([open]) > .concept-head > .concept-title { max-width: 100%; white-space: normal; }
+    .concept:not([open]) > .concept-head > .concept-peek { flex-basis: 100%; }
+}
 .concept-content {
     display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 12px 28px; padding: 0 16px 14px;
 }
@@ -569,7 +626,7 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .btn-danger { color: var(--bad); }
 .btn-danger:hover { background: var(--bad-soft); border-color: var(--bad-border); }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 0.8rem; }
-.btn-xs { height: 22px; padding: 0 8px; font-size: 0.74rem; border-radius: 5px; }
+.btn-xs { height: 24px; padding: 0 8px; font-size: 0.74rem; border-radius: 5px; }   /* 24 px: the WCAG 2.5.8 minimum */
 .btn-block { display: flex; width: 100%; }
 .btn-icon { display: inline-flex; }
 .btn-icon svg { width: 14px; height: 14px; }
@@ -693,7 +750,7 @@ output.ctl-value { color: var(--fg); }
 .seg > button[aria-checked="true"] { background: var(--card); color: var(--fg); box-shadow: 0 0 0 1px var(--border-strong), 0 1px 2px rgba(0, 0, 0, 0.12); }
 .seg > button:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
 .seg > button:disabled { opacity: 0.45; cursor: not-allowed; }
-.seg-sm > button { height: 22px; padding: 0 8px; font-size: 0.75rem; }
+.seg-sm > button { height: 24px; padding: 0 8px; font-size: 0.75rem; }
 .ctl-seg > .seg { justify-self: start; }
 
 /* ---------- data display ---------- */
@@ -724,8 +781,8 @@ output.ctl-value { color: var(--fg); }
     font: 600 0.72rem/1 var(--font-sans); white-space: nowrap;
     background: var(--card-2); color: var(--fg); border: 1px solid var(--border);
 }
-.badge-accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
-.badge-good { background: var(--good-soft); color: var(--good); border-color: var(--good-border); }
+.badge-accent { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-border); }
+.badge-good { background: var(--good-soft); color: var(--good-ink); border-color: var(--good-border); }
 .badge-warn { background: var(--warn-soft); color: var(--warn); border-color: var(--warn-border); }
 .badge-bad { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-border); }
 .badge-muted { color: var(--muted); }
@@ -761,8 +818,27 @@ output.ctl-value { color: var(--fg); }
 }
 .scope, canvas.scope { background: var(--scope-bg); border-radius: 6px; }
 .iv-stage { position: relative; display: flex; justify-content: center; align-items: center; min-height: 60px; }
-.iv-canvas { display: block; border-radius: 3px; image-rendering: pixelated; cursor: crosshair; }
+.iv-canvas {
+    display: block; border-radius: 3px; image-rendering: pixelated; cursor: crosshair;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
 .iv-canvas.wl { touch-action: none; }
+/* On touch screens a swipe over an image scrolls the page; window/level
+   waits for a long press (MRI.ui.w.imageView). */
+@media (any-pointer: coarse) {
+    .iv-canvas, .iv-canvas.wl { touch-action: pan-y pinch-zoom; }
+}
+.iv-canvas.iv-wl-active { outline: 2px solid var(--sc4, #c98500); outline-offset: 1px; }
+.iv-canvas:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.iv-foot { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 8px; }
+.iv-foot .well-readout { margin-top: 0; flex: 1; min-width: 0; }
+.iv-foot-bare { justify-content: flex-end; }
+.iv-reset {
+    flex: none; appearance: none; height: 20px; padding: 0 7px; border-radius: 4px; cursor: pointer;
+    font: 600 0.68rem/1 var(--font-sans); color: var(--scope-fg); background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--scope-axis);
+}
+.iv-reset:hover { background: rgba(255, 255, 255, 0.16); }
 .iv-wl {
     position: absolute; top: 6px; right: 6px; padding: 2px 6px; border-radius: 4px;
     font: 0.68rem var(--font-mono); background: rgba(0, 0, 0, 0.65); color: #e2e8f0; pointer-events: none;
@@ -830,6 +906,10 @@ details.adv > summary:hover { background: var(--hover); }
 details.adv[open] { padding-bottom: 12px; }
 details.adv[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(--border); border-radius: 8px 8px 0 0; }
 
+/* Stale banner (MRI.ui.w.staleBanner) */
+.stale-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.stale-banner-text { flex: 1 1 16em; min-width: 0; }
+
 /* ---------- toasts ---------- */
 .toasts {
     position: fixed; right: 16px; bottom: 16px; z-index: 300;
@@ -848,9 +928,10 @@ details.adv[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(
 .toast-msg { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .toast-close {
     appearance: none; border: 0; background: none; color: #94a3b8; cursor: pointer;
-    font-size: 1.1rem; line-height: 1; padding: 0 2px; border-radius: 4px;
+    font-size: 1.1rem; line-height: 1; padding: 0 2px; border-radius: 4px; min-width: 24px; min-height: 24px;
 }
 .toast-close:hover { color: #fff; }
+.toast .linklike { color: #93c5fd; }
 .toast-out { opacity: 0; transform: translateY(6px); transition: opacity 0.2s ease, transform 0.2s ease; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
@@ -898,6 +979,46 @@ details.adv[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(
 /* On short landscape screens the console would eat the viewport: let it scroll away. */
 @media (max-height: 520px) and (orientation: landscape) {
     .console { position: static; }
+    :root { --console-h: 0px; }
+}
+
+/* Buttons inside panels may wrap rather than overflow a narrow screen
+   (reflow at 320 px, WCAG 1.4.10); one-line buttons look as before. */
+.panel .btn, .concept .btn {
+    white-space: normal; height: auto; min-height: var(--ctl-h); line-height: 1.2;
+    padding-top: 4px; padding-bottom: 4px; text-align: center;
+}
+.panel .btn-sm, .concept .btn-sm { min-height: 28px; padding-top: 3px; padding-bottom: 3px; }
+.panel .btn-xs, .concept .btn-xs { min-height: 24px; padding-top: 2px; padding-bottom: 2px; }
+@media (max-width: 640px) {
+    .scan-line { flex-wrap: wrap; row-gap: 4px; }
+    .scan-msg { flex: 1 1 12em; }
+}
+/* Segmented controls wrap on small phones, so every option stays visible. */
+@media (max-width: 420px) {
+    .seg { flex-wrap: wrap; overflow-x: visible; }
+    .seg > button { flex: 1 1 auto; }
+}
+
+/* Touch screens: targets about 40 px tall (WCAG 2.5.8 asks for 24; touch
+   guidelines for 40-44). Only the sticky console stays at 36 px, so it does
+   not take more of a phone's screen. */
+@media (pointer: coarse) {
+    .btn, button:not([class]) { min-height: 40px; }
+    .console .btn { min-height: 36px; }        /* keep the sticky console compact on a phone */
+    .btn-sm, .btn-xs, .panel .btn-sm, .panel .btn-xs, .concept .btn-sm, .concept .btn-xs { min-height: 40px; height: auto; }
+    .console .btn-sm, .console .btn-xs { min-height: 36px; }
+    .seg > button, .seg-sm > button { min-height: 40px; height: auto; }
+    .toggle { min-height: 40px; }
+    .check { min-height: 40px; }
+    .check input, input[type="checkbox"]:not([role="switch"]) { width: 22px; height: 22px; }
+    select, .select, .select-sm, .scan-speed .select { min-height: 36px; }
+    input[type="range"] { height: 32px; }
+    .iv-reset { height: 32px; padding: 0 10px; font-size: 0.74rem; }
+    .lesson-strip-close { width: 40px; height: 40px; }
+    .toast-close { min-width: 40px; min-height: 40px; }
+    .theme-toggle { min-width: 40px; }
+    .linklike { padding-top: 4px; padding-bottom: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

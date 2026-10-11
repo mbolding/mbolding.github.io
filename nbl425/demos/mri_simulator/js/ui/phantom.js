@@ -36,6 +36,12 @@
     function el(tag, attrs, children) { return U.el(tag, attrs, children); }
     function w() { return MRI.ui.w; }
     function state() { return MRI.state; }
+    const TERMS = MRI.ui.terms || {};
+    const TRY_IT = TERMS.tryIt || 'Try it', SHOW_ME = TERMS.showMe || 'Show me';
+    function combineName(id) { return (TERMS.combine && TERMS.combine[id]) || ({ sos: 'Root-sum-of-squares', roemer: 'Roemer' })[id] || id; }
+    /* Blood is stationary tissue in this model (said wherever vessels appear). */
+    const BLOOD_NOTE = 'Blood is treated as stationary tissue here: there is no flow void on spin echo and no inflow enhancement on ' +
+        'gradient echo. Only its pulsation is modelled (Artifacts tab, Pulsatile flow).';
     function hexToRgb(hex) {
         const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim());
         return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [160, 160, 160];
@@ -165,7 +171,7 @@
         { value: 'df', label: 'Off-resonance (Hz)' },
         { value: 'b1', label: 'B1 transmit (× nominal)' },
         { value: 'coil', label: 'Receive coil sensitivity' },
-        { value: 'rss', label: 'Coil root-sum-of-squares' }
+        { value: 'rss', label: 'Receive coils, root-sum-of-squares' }
     ];
     const RELAX_NAME = { t1: 'T1', t2: 'T2', t2s: 'T2*' };
 
@@ -305,7 +311,7 @@
     }
     function scrollToMap() {
         if (ui.mapPanel && ui.mapPanel.scrollIntoView) {
-            try { ui.mapPanel.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { ui.mapPanel.scrollIntoView(); }
+            try { ui.mapPanel.scrollIntoView({ block: 'start', behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { ui.mapPanel.scrollIntoView(); }
         }
     }
     function showMap(id, opts) {
@@ -333,28 +339,30 @@
             formula: 'S(<b>r</b>) &prop; PD(<b>r</b>) &middot; f<sub>sequence</sub>(T1, T2, T2*) &nbsp; at &nbsp; f<sub>0</sub> + &Delta;f(<b>r</b>)',
             tryThis: [
                 { html: 'Show the <strong>T1 map</strong> and hover over white matter and cortex. White matter recovers faster (shorter T1), ' +
-                    'which is why it is brighter on a T1-weighted image.', label: 'Show T1 map',
+                    'which is why it is brighter on a T1-weighted image.', label: TRY_IT,
                     run: function () { showMap('t1', { scroll: true }); } },
                 { html: 'Turn on the <strong>lesion</strong> and some <strong>gadolinium</strong>, then run the T1-weighted gradient echo ' +
-                    '(<code>gre_t1</code>): the enhancing lesion lights up.', label: 'Set it up',
+                    '(<code>gre_t1</code>): the enhancing lesion lights up.', label: SHOW_ME,
                     run: function () {
                         const s = state();
                         MRI.actions.setPhantom('brain', { lesion: true, gad: 0.3, overrides: s.phantomOpts.overrides || {} });
                         MRI.actions.loadPreset('gre_t1');
                         if (!s.autoRescan) MRI.actions.runScan({ animate: false });
-                        MRI.actions.showTab('image');
+                        MRI.actions.showTab('image', { focus: true });
                     } },
                 { html: 'Look at the <strong>field map</strong> near the frontal sinus: air in the sinus raises the field in the ' +
-                    'orbitofrontal cortex behind it by up to about +120 Hz at 3 T.', label: 'Show field map',
+                    'orbitofrontal cortex behind it by up to about +120 Hz at 3 T.', label: TRY_IT,
                     run: function () { ensureBrain(); T.withCS = false; if (ui.csToggle) ui.csToggle.set(false); showMap('df', { landmarks: true, scroll: true }); } },
                 { html: 'In the tissue table give white matter the T1 of cortex (' + v('gm', 't1') + ' ms) and compare them in the ' +
-                    'Contrast tab on a T1-weighted sequence. Reset the row afterwards.', label: 'Do it',
+                    'Contrast tab on a T1-weighted sequence. Reset the row afterwards (Edit tissue values, below).', label: SHOW_ME,
                     run: function () {
                         ensureBrain();
                         const ov = Object.assign({}, state().phantomOpts.overrides || {});
                         ov.wm = Object.assign({}, ov.wm || {}, { t1: lib.gm ? lib.gm.t1 : 1.35 });
                         MRI.actions.setPhantomOpts({ overrides: ov });
-                        MRI.actions.showTab('contrast');
+                        // the edited row is waiting in the tissue table when the student comes back
+                        if (ui.tableDet) ui.tableDet.open = true;
+                        MRI.actions.showTab('contrast', { focus: true });
                     } }
             ]
         });
@@ -478,7 +486,7 @@
         ui.gdTry = w().button({ label: 'Load the T1-weighted gradient echo', size: 'sm', onClick: function () {
             MRI.actions.loadPreset('gre_t1');
             if (!state().autoRescan) MRI.actions.runScan({ animate: false });
-            MRI.actions.showTab('image');
+            MRI.actions.showTab('image', { focus: true });
         } });
         gd.appendChild(el('div', {}, [ui.gdTry]));
         panel.appendChild(gd);
@@ -554,7 +562,7 @@
         panel.appendChild(el('p', { class: 'simplification', text:
             'The phantom is a single 2D slice with hard labels: one tissue per raster pixel (0.28 m / ' +
             'n pixels). Partial volume appears only when the image matrix is coarser than this raster. Real tissue also varies ' +
-            'by 10 to 20 percent from person to person, so do not read the third digit.' }));
+            'by 10 to 20 percent from person to person, so do not read the third digit. ' + BLOOD_NOTE }));
         renderProbe(null);
         return panel;
     }
@@ -591,7 +599,9 @@
         if (ui.coilSel.dataset.key !== key) {
             ui.coilSel.dataset.key = key;
             if (T.coil >= names.length) T.coil = 0;
-            ui.coilSel.setOptions(names.map(function (nm, i) { return { value: i, label: (i + 1) + ': ' + nm }; }), T.coil);
+            ui.coilSel.setOptions(names.map(function (nm, i) {
+                return { value: i, label: TERMS.coilLabel ? TERMS.coilLabel(i, { names: names }) : 'Coil ' + (i + 1) + ' · ' + nm };
+            }), T.coil);
         }
     }
 
@@ -692,21 +702,30 @@
                 data = new Float32Array(N);
                 for (let i = 0; i < N; i++) data[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
             } else data = rssOf(maps);
-            let mx = 0;
-            for (let i = 0; i < N; i++) if (data[i] > mx) mx = data[i];
+            let mx = 0, mxIn = 0;
+            for (let i = 0; i < N; i++) { if (data[i] > mx) mx = data[i]; if (label[i] && data[i] > mxIn) mxIn = data[i]; }
             const body = cs.type === 'body' || nC === 1;
+            const h = Math.floor(n / 2), centre = data[h * n + h];
+            /* The body coil's own noise, relative to one element of the array
+               (fields.js noiseFactor), for the SNR comparison in the captions. */
+            let bodyNoise = 2.4;
+            try { const nf = MRI.fields.coilSet('body').noiseFactor; if (nf > 0) bodyNoise = nf; } catch (e) { /* keep 2.4 */ }
             let cap;
             if (body) {
                 cap = 'The <strong>body coil</strong> (the large birdcage in the bore) is taken as perfectly uniform: sensitivity 1 everywhere. ' +
+                    'Uniform is not the same as good: it picks up thermal noise from the whole head, neck and shoulders, about ' + fnum(bodyNoise, 2) +
+                    ' times the noise of one head-coil element, so its SNR is lower than the head array\'s everywhere in the head. ' +
                     'Choose the 8-channel head coil on the Scanner tab to see loop-coil sensitivities.';
             } else if (id === 'coil') {
                 cap = '<strong>Receive sensitivity</strong> |C| of element ' + (Math.min(T.coil, nC - 1) + 1) + ' of ' + nC + ' (marked). A small loop ' +
                     'sees tissue close to it strongly and the far side of the head weakly (the white line is the outline of the object). The simulator knows these maps exactly; a real ' +
-                    'scanner measures them in a short calibration scan (needed for SENSE).';
+                    'scanner measures them in a short calibration scan, needed for SENSE and for the ' + combineName('roemer') + ' combination (the default here).';
             } else {
-                cap = '<strong>Root-sum-of-squares</strong> of the ' + nC + ' element sensitivities: the shading of a magnitude-combined image. ' +
-                    'Near the coils it is bright, in the middle of the head about 1. Surface coils buy SNR near the surface at the price of ' +
-                    'uneven brightness.';
+                cap = '<strong>' + combineName('sos') + '</strong> of the ' + nC + ' element sensitivities: about ' + fnum(centre, 2) + ' at the centre of the head, ' +
+                    'rising to about ' + fnum(mxIn, 2) + ' next to the coils. This is the relative sensitivity: the shading a root-sum-of-squares combination ' +
+                    'leaves in the image (the default ' + combineName('roemer') + ' combination divides it out). It is not the SNR. Each small loop also picks up far ' +
+                    'less noise than the body coil (about ' + fnum(bodyNoise, 2) + ' times less), so the array has the higher SNR everywhere in the head: about ' +
+                    fnum(bodyNoise * centre, 2) + ' times the body coil\'s at the centre and most near the cortex.';
             }
             return { data: data, min: 0, max: body ? 1.2 : niceCeil(mx), cmap: 'hot',
                 title: id === 'coil' ? (body ? 'Body coil sensitivity' : 'Coil ' + (Math.min(T.coil, nC - 1) + 1) + ' sensitivity |C|') : 'Coil RSS',
@@ -885,6 +904,7 @@
         const grid = el('div', { class: 'pt-probe-grid' });
         items.forEach(function (it) { grid.appendChild(el('div', {}, [el('span', { class: 'k', text: it[0] }), el('span', { class: 'v', text: it[1] })])); });
         box.appendChild(grid);
+        if (t.pulsatile) box.appendChild(el('p', { class: 'note mt-1 mb-0', text: BLOOD_NOTE }));
     }
 
     /* ----- tissue table ----- */
@@ -914,11 +934,16 @@
         const panel = el('section', { class: 'panel', 'aria-labelledby': 'pt-tab-title' });
         panel.appendChild(el('div', { class: 'panel-head' }, [
             el('h2', { class: 'panel-title', id: 'pt-tab-title', text: 'Tissue properties' }),
-            el('span', { class: 'panel-sub', text: 'at 3 T; edit a value and press Enter' })
+            el('span', { class: 'panel-sub', text: 'PD, T1, T2 and T2* of every tissue in this phantom at 3 T (hover the map to read them at a point)' })
         ]));
+        /* The 36 inputs stay one click away: most visits only read the maps. */
+        const det = ui.tableDet = el('details', { class: 'adv pt-edit' }, [el('summary', { text: 'Edit tissue values' })]);
+        panel.appendChild(det);
+        const body = el('div', { class: 'adv-body' });
+        det.appendChild(body);
         const tools = el('div', { class: 'pt-table-tools' });
         tools.appendChild(el('p', { class: 'note', html:
-            'PD is relative to pure water; times are in milliseconds. These are the <strong>intrinsic</strong> values (before gadolinium); ' +
+            'Edit a value and press Enter. PD is relative to pure water; times are in milliseconds. These are the <strong>intrinsic</strong> values (before gadolinium); ' +
             'the value with gadolinium is shown underneath for tissue that enhances. Rules every tissue obeys: T2* &le; T2 &le; T1. ' +
             'Leave a box empty to restore the default.' }));
         ui.resetAll = w().button({ label: 'Reset all tissues', size: 'sm', onClick: function () {
@@ -926,7 +951,7 @@
             setMsg('All tissues are back to their library values.', 'good');
         } });
         tools.appendChild(ui.resetAll);
-        panel.appendChild(tools);
+        body.appendChild(tools);
         const table = el('table', { class: 'pt-table' });
         const thead = el('thead', {}, [el('tr', {}, [
             el('th', { scope: 'col', text: 'Tissue' }),
@@ -940,9 +965,9 @@
         ui.tbody = el('tbody');
         table.appendChild(thead);
         table.appendChild(ui.tbody);
-        panel.appendChild(el('div', { class: 'pt-table-wrap' }, [table]));
+        body.appendChild(el('div', { class: 'pt-table-wrap' }, [table]));
         ui.msg = el('p', { class: 'pt-msg', role: 'status', 'aria-live': 'polite' });
-        panel.appendChild(ui.msg);
+        body.appendChild(ui.msg);
         return panel;
     }
     let msgTimer = null;

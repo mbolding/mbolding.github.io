@@ -395,7 +395,137 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
     ok(sk.metrics.noiseSd > 2 * sk0.metrics.noiseSd, 'spike raises the baseline noise: ' + sk0.metrics.noiseSd.toFixed(4) + ' -> ' + sk.metrics.noiseSd.toFixed(4));
 }
 
-/* ---------- 13. Speed ---------- */
+/* ---------- 13. User errors are marked for the app ---------- */
+{
+    const errOf = (fn) => { try { fn(); } catch (e) { return e; } return null; };
+    const e1 = errOf(() => sim(compile('se'), braino, art()));
+    const e2 = errOf(() => S.simulate({ ok: false }, braino, {}, {}));
+    const noAdc = MRI.dsl.compile('sequence "x"\nrepeat 2 every 1000 ms\n    rf 90 hard dur 0.1 ms\nend');
+    const e3 = errOf(() => sim(noAdc, braino, art()));
+    const e4 = errOf(() => S.simulate(FID, null, {}, {}));
+    ok([e1, e2, e3, e4].every(e => e && e.userMessage === true),
+        'user-facing errors carry userMessage (imaging sequence, failed compile, no ADC, no phantom): ' + [e1, e2, e3, e4].map(e => e && e.message.slice(0, 30)).join(' / '));
+}
+
+/* ---------- 14. The peak table never shows a negative height, area or SNR ----------
+   A peak that cannot be measured (no maximum inside its window, not above
+   the local baseline, a negative area, or under 3 noise SD) has null
+   height, area and snr and a reason. Swept over settings that used to give
+   negative numbers: truncation (NP 256), a long delay, a 5 degree flip, a
+   poor shim, the brain and the water-and-fat phantom, with and without noise. */
+{
+    const settings = [['fid', {}], ['fid', { NP: 256 }], ['fid', { delay: 0.005 }], ['fid', { flip: 5 }], ['fid_ws', {}], ['fid_ws', { NP: 512 }]];
+    let bad = [], checked = 0, nullRows = 0;
+    for (const [id, ov] of settings) for (const ph of [braino, brain, phantom('waterfat')]) for (const shim of [0, 1]) for (const noise of [0, 1]) {
+        const d = sim(compile(id, ov), ph, art({ noise: noise, b0: { susceptibility: 1, shim: shim } }));
+        const sp = proc(d);
+        for (const q of sp.peaks) {
+            checked++;
+            const vals = [q.height, q.area, q.snr];
+            if (vals.some(v => v !== null && !(v > 0))) bad.push(id + JSON.stringify(ov) + ' ' + ph.id + ' shim ' + shim + ' noise ' + noise + ' ' + q.id + ': ' + vals.join(', '));
+            if (q.resolved !== (q.height !== null) || (q.resolved && q.area === null) || (!q.resolved && !q.reason)) bad.push(q.id + ': resolved flag inconsistent');
+            if (noise && q.resolved && q.height < 3 * sp.metrics.noiseSd) bad.push(q.id + ': resolved below 3 SD');
+            if (!q.resolved) nullRows++;
+        }
+        const r = sp.metrics.ratios, rc = sp.metrics.componentRatios;
+        for (const v of [r.NAA_Cr, r.Cho_Cr, rc.NAA_Cr, rc.Cho_Cr]) if (v !== null && !(v > 0)) bad.push(id + ' ' + ph.id + ': ratio ' + v);
+        if (sp.metrics.snr !== null && !(sp.metrics.snr > 0)) bad.push(id + ' ' + ph.id + ': snr ' + sp.metrics.snr);
+    }
+    ok(bad.length === 0, 'no negative or zero height, area, SNR or ratio in ' + checked + ' peak rows (' + nullRows + ' not resolved)' + (bad.length ? ': ' + bad.slice(0, 4).join(' | ') : ''));
+    // No metabolites, no metabolite ratios.
+    const wf = proc(sim(FID, phantom('waterfat'), art()));
+    ok(wf.metrics.ratios.NAA_Cr === null && wf.metrics.ratios.Cho_Cr === null && wf.metrics.componentRatios.NAA_Cr === null,
+        'water and fat phantom: no NAA/Cr or Cho/Cr (no metabolites)');
+    // Glx: the flanks of its window hold NAA lines; the area is positive and near the Glu + Gln lines' own integral.
+    const q = proc(sim(FIDWS, braino, art({ noise: 0 })));
+    const g = peak(q, 'Glx');
+    let own = 0;
+    const glx = ['Glu', 'Gln'].map(id => comp(q, id)).filter(Boolean);          // braino has no glutamine
+    for (let k = 0; k < q.n; k++) if (q.ppm[k] >= g.window[0] && q.ppm[k] <= g.window[1]) for (const c of glx) own += c.re[k];
+    own *= q.hz[1] - q.hz[0];
+    ok(g.resolved && g.area > 0.75 * own && g.area < 1.1 * own, 'Glx area positive and close to the glutamate lines\' own integral: ' + g.area.toFixed(3) + ' vs ' + own.toFixed(3));
+    // Truncation sinc ripple does not drag the baseline down: a centre frequency between grid points changes nothing.
+    const at0 = proc(sim(FID, braino, art({ noise: 0 }))), at20 = proc(sim(FID, braino, art({ noise: 0, b0: { susceptibility: 1, shim: 0, shimCoeffs: { z0: 20 } } })));
+    near(peak(at20, 'Glx').area / peak(at0, 'Glx').area, 1, 0.08, 'Glx area does not depend on where the lines fall on the frequency grid');
+    near(at20.metrics.ratios.NAA_Cr / at0.metrics.ratios.NAA_Cr, 1, 0.06, 'nor does the window NAA/Cr');
+}
+
+/* ---------- 15. Peak windows follow water (a Z0 error) ---------- */
+{
+    const off = 20 / C.PPM_HZ;                    // a 20 Hz centre-frequency error
+    const b0 = { susceptibility: 1, shim: 0, shimCoeffs: { z0: 20 } };
+    const s0 = proc(sim(FIDWS, braino, art())), s1 = proc(sim(FIDWS, braino, art({ b0: b0 })));
+    near(s1.metrics.waterOffsetPpm, off, 0.01, 'water found ' + s1.metrics.waterOffsetPpm.toFixed(3) + ' ppm off (Z0 20 Hz = ' + off.toFixed(3) + ' ppm)');
+    let worst = 0;
+    for (const id of ['NAA', 'Cr', 'Cho', 'Cr2']) {
+        const a = peak(s0, id), b = peak(s1, id);
+        ok(b.resolved && Math.abs(b.ppm - off - a.ppm) < 0.005, id + ' found at its shifted position (' + b.ppm.toFixed(3) + ' ppm)');
+        worst = Math.max(worst, Math.abs(b.height / a.height - 1));
+    }
+    ok(worst < 0.1, 'and with the same heights (worst ' + (100 * worst).toFixed(1) + '%)');
+    ok(s1.notes.some(t => /moved by \+0\.16 ppm/.test(t)), 'a note says the windows moved: ' + s1.notes.join(' | '));
+    ok(s0.notes.length === 0 && Math.abs(s0.metrics.waterOffsetPpm) < 0.01, 'no shift and no note when water is on 4.7 ppm');
+    // Beyond 0.3 ppm water is not found and the windows stay put.
+    const far = proc(sim(FIDWS, braino, art({ b0: { susceptibility: 1, shim: 0, shimCoeffs: { z0: 60 } } })));
+    ok(far.metrics.waterOffsetPpm === 0, 'water 0.47 ppm off is not followed');
+}
+
+/* ---------- 16. NAA under scalp lipid ---------- */
+{
+    const d = sim(FID, brain, art()), sp = proc(d);
+    const naa = peak(sp, 'NAA');
+    const own = maxIn(comp(sp, 'NAA').re, sp.ppm, 1.9, 2.1).height;
+    ok(naa.contaminatedBy === 'lipid' && sp.metrics.snrPeak === 'NAA (under lipid)', 'brain: the NAA window is flagged as lipid-dominated');
+    near(sp.metrics.snr, own / sp.metrics.noiseSd, 0.06 * sp.metrics.snr, 'brain: SNR is the NAA component height over the noise SD (' + sp.metrics.snr.toFixed(1) + ')');
+    ok(naa.height / sp.metrics.noiseSd > 10 * sp.metrics.snr, 'and far below the SNR of the lipid peak in the window (' + (naa.height / sp.metrics.noiseSd).toFixed(0) + ')');
+    ok(sp.notes.some(t => /lipid/.test(t) && /SNR/.test(t)), 'a note explains the SNR');
+    ok(peak(sp, 'Lac').contaminatedBy === 'lipid' && peak(sp, 'Cr').contaminatedBy === null, 'Lac sits under lipid 1.3; Cr (CH3) does not');
+    ok(sp.metrics.ratios.NAA_Cr === null && sp.metrics.componentRatios.NAA_Cr > 1, 'window NAA/Cr withheld when lipid fills the window; the per-metabolite ratio stays');
+    const b = proc(sim(FID, braino, art()));
+    ok(peak(b, 'NAA').contaminatedBy === null && b.metrics.snrPeak === 'NAA' && b.notes.length === 0, 'MRS phantom: NAA is NAA');
+}
+
+/* ---------- 17. Notes: T1, truncation, broad lines ---------- */
+{
+    const t1 = (d) => d.info.notes.filter(t => /short compared with T1|T1-weighted/.test(t));
+    // CHESS suppresses water; that is not T1 saturation.
+    const wf = phantom('waterfat');
+    const ws = sim(FIDWS, wf, art());
+    ok(t1(ws).length === 0, 'water and fat with CHESS: no T1 note blaming T1 for the suppressed water (' + t1(ws).join('') + ')');
+    // Without NAA the note uses the lipid (oil T1 0.28 s at TR 300 ms).
+    const short = sim(compile('fid', { TR: 0.3, NP: 1024 }), wf, art());
+    ok(t1(short).length === 1 && /lipid at/.test(t1(short)[0]), 'water and fat at TR 300 ms: the T1 note names lipid: ' + t1(short).join(''));
+    // A small flip leaves Mz nearly fully relaxed: no T1 note at TR 3 s.
+    const f30 = sim(compile('fid', { flip: 30 }), braino, art());
+    ok(t1(f30).length === 0, 'flip 30 degrees at TR 3 s: no T1 note (the small signal is the flip angle, not saturation)');
+    const s300 = sim(compile('fid', { TR: 0.3, NP: 1024 }), braino, art());
+    ok(t1(s300).length === 1 && /NAA at 1\d percent/.test(t1(s300)[0]), 'TR 300 ms on braino: NAA at about 19 percent: ' + t1(s300).join(''));
+    // Truncation.
+    const trunc = (d) => d.info.notes.some(t => /truncated/.test(t) && /sinc/.test(t));
+    ok(trunc(sim(compile('fid', { NP: 256 }), braino, art())), 'NP 256 (64 ms): truncation note');
+    ok(!trunc(sim(FID, braino, art())), 'NP 2048 (512 ms): no truncation note');
+    // Broad lines.
+    const broad = (d) => d.info.notes.some(t => /too broad/.test(t) && /[Ss]him first/.test(t));
+    ok(broad(sim(FID, braino, art({ b0: { susceptibility: 1, shim: 1 } }))), 'unshimmed: "lines too broad, shim first"');
+    ok(!broad(sim(FID, braino, art())) && !broad(sim(FID, brain, art())), 'shimmed braino and the brain (7.6 Hz): no such note');
+    // ... and the peak table agrees with that note: with the water line over 10 Hz
+    // no metabolite is reported (CHESS on, water not found, the NAA hump used to be
+    // credited to Glx), while water and lipid rows are still measured.
+    const unshim = art({ b0: { susceptibility: 1, shim: 1 } });
+    for (const [label, p] of [['fid', FID], ['fid_ws', FIDWS]]) {
+        const sp = proc(sim(p, braino, unshim));
+        const metab = sp.peaks.filter(q => ['Cr2', 'mI', 'Cho', 'Cr', 'Glx', 'NAA', 'Lac'].includes(q.id));
+        ok(metab.every(q => !q.resolved && q.height === null && q.snr === null && /too broad/.test(q.reason)),
+            'unshimmed braino ' + label + ': every metabolite row not resolved, "too broad" (' + metab.filter(q => q.resolved).map(q => q.id).join(' ') + ')');
+        ok(sp.metrics.snr === null && /too broad/.test(sp.metrics.snrPeak), 'unshimmed braino ' + label + ': no NAA SNR (' + sp.metrics.snrPeak + ')');
+    }
+    const ub = proc(sim(FID, brain, unshim));
+    ok(peak(ub, 'lipid13').resolved && !peak(ub, 'NAA').resolved, 'unshimmed brain: lipid still measured, NAA not');
+    const okBrain = proc(sim(FID, brain, art()));
+    ok(peak(okBrain, 'Cho').resolved && okBrain.metrics.snr > 0, 'shimmed brain (7.6 Hz): metabolites still reported, NAA SNR ' + okBrain.metrics.snr.toFixed(1));
+}
+
+/* ---------- 18. Speed ---------- */
 {
     const ctx = { b0Map: MRI.fields.b0Map(braino, { susceptibility: 1, shim: 0 }), artifacts: art() };
     let t = Date.now();

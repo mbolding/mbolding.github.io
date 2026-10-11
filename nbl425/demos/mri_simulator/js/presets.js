@@ -46,7 +46,8 @@ fov FOV                 # the image covers FOV in x and in y
 matrix N                # N x N pixels: N samples per line and N lines
 slice 5 mm              # slice thickness, set by the slice-select gradient
 bandwidth BW            # how fast the ADC samples, expressed per image pixel
-dummies 4               # 4 unrecorded TRs first, so the signal has settled
+dummies 4               # 4 unrecorded TRs first, so the signal approaches its steady
+                        # state before the centre of k-space is recorded
 
 for line in 0 .. N-1 every TR               # one phase-encode line per repetition
     rf flip slice as exc                    # tip the spins in one slice; this moment is "exc"
@@ -131,7 +132,8 @@ end
 # Spins then dephase, both from field inhomogeneity and from the gradients
 # we apply. The 180 degree pulse at TE/2 inverts every phase, so the
 # dephasing undoes itself and an echo forms at TE, free of T2* effects.
-# With a long TR all tissues recover (little T1 weighting); with a long
+# A long TR lets the short-T1 tissues recover almost fully (CSF, with a
+# T1 of about 4 s, only about half), so T1 weighting is small; with a long
 # TE the slowly decaying tissues (CSF) stay bright: T2 weighting.
 sequence "Spin echo"
 
@@ -195,12 +197,15 @@ end
 # STIR: short-tau inversion recovery.
 # A 180 degree pulse first turns every tissue's magnetisation upside down.
 # Each then recovers with its own T1, passing through zero at about
-# T1 x ln 2. Exciting at that moment (TI after the inversion) gives that
-# tissue no signal. Fat has the shortest T1, so a short TI nulls fat.
+# T1 x ln 2 when TR is long. Exciting at that moment (TI after the
+# inversion) gives that tissue no signal. Fat has the shortest T1 (380 ms
+# here), so a short TI nulls it: 0.693 x 380 ms = 263 ms, hence TI 260 ms.
+# Clinical 3 T STIR uses 220-250 ms because real fat has several T1
+# components.
 sequence "STIR"
 
 param TR  = 3000 ms   range 1000 ms .. 6000 ms     "repetition time"
-param TI  = 230 ms    range 50 ms .. 1000 ms       "inversion time: inversion to excitation"
+param TI  = 260 ms    range 50 ms .. 1000 ms       "inversion time: inversion to excitation"
 param TE  = 30 ms     range 12 ms .. 120 ms        "echo time"
 param FOV = 240 mm    range 120 mm .. 320 mm       "field of view"
 param N   = 128       range 32 .. 256 step 32      "matrix size"
@@ -215,7 +220,7 @@ dummies 2
 for line in 0 .. N-1 every TR
     rf 180 hard as inv                          # inversion: nothing excited yet in this TR, so this is "invert"
     spoil                                       # clean up any transverse signal an imperfect inversion leaves
-    rf 90 slice at inv + TI as exc              # excite when fat's magnetisation crosses zero
+    rf 90 slice at inv + TI as exc              # excite as fat's magnetisation crosses zero
     gz rephase, gx -prephase, gy -encode line
     rf 180 slice phase 90 at exc + TE/2         # after an excitation, a 180 is a refocusing pulse
     gx readout, adc at exc + TE
@@ -336,10 +341,10 @@ dummies 2               # in fMRI the first volumes are discarded while the sign
 
 repeat 1 every TR
     rf 90 slice as exc
-    gz rephase, gx prephase, gy encode 0    # go to the start of the bottom line of k-space
+    gz rephase, gx prephase, gy encode 0    # go to the start of line 0, the most negative ky
     for line in 0 .. N-1
         gx readout * (-1)^line, adc at exc + TE + (line - N/2)*ESP   # odd lines run backwards
-        gy blip                                                    # step up one line
+        gy blip                                                    # on to the next line: ky one step larger
     end
 end
 `);
@@ -419,10 +424,11 @@ end
         'Records only 5/8 of the phase-encode lines and lets the reconstruction fill in the rest.', `
 # Gradient echo with 5/8 partial Fourier.
 # k-space of a real object is (nearly) conjugate symmetric, so one half
-# almost determines the other. Here lines 3N/8 .. N-1 are recorded: all
-# of the top half plus a band below the centre, which the reconstruction
-# uses to correct the phase. The scan is 5/8 as long; the price is a
-# little SNR and some blurring if the phase is not smooth.
+# almost determines the other. Here lines 3N/8 .. N-1 are recorded: the
+# whole positive-ky half plus a band on the other side of the centre,
+# which the reconstruction uses to correct the phase. The scan is 5/8 as
+# long; the price is a little SNR and some blurring if the phase is not
+# smooth.
 sequence "Gradient echo, partial Fourier"
 
 param TR   = 200 ms    range 20 ms .. 1000 ms     "repetition time"
@@ -438,7 +444,7 @@ slice 5 mm
 bandwidth BW
 dummies 4
 
-for line in 3*N/8 .. N-1 every TR           # skip the first 3/8 of the lines
+for line in 3*N/8 .. N-1 every TR           # skip lines 0 .. 3N/8 - 1, the most negative ky
     rf flip slice as exc
     gz rephase, gx prephase, gy encode line
     gx readout, adc at exc + TE

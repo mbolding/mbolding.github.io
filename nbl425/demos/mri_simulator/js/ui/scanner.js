@@ -186,10 +186,10 @@
 #tab-scanner .sc-side > .panel { margin: 0; }
 #tab-scanner .sc-step-title { font-weight: 650; margin: 0 0 4px; font-size: 0.95rem; }
 #tab-scanner .sc-step-text { font-size: 0.88rem; line-height: 1.55; margin: 0; min-height: 4.6em; }
-#tab-scanner .sc-dots { display: flex; gap: 5px; flex-wrap: wrap; margin: 12px 0 10px; }
+#tab-scanner .sc-dots { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 10px; }
 #tab-scanner .sc-dot {
-    width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid var(--border-strong);
-    background: var(--card); color: var(--muted); font: 600 0.62rem/1 var(--font-sans); cursor: pointer;
+    width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1px solid var(--border-strong);
+    background: var(--card); color: var(--muted); font: 600 0.72rem/1 var(--font-sans); cursor: pointer;
     display: inline-grid; place-items: center;
 }
 #tab-scanner .sc-dot:hover { border-color: var(--accent); color: var(--accent); }
@@ -431,7 +431,11 @@
     const COMP_BY_ID = {};
     COMPS.forEach(function (c) { COMP_BY_ID[c.id] = c; });
 
-    const ART = { label: 'See it in the Artifacts tab', tab: 'artifacts' };
+    /* A link to one card of the Artifacts tab (its id there): runLink opens
+       the tab and emits artifacts:focus, which opens and scrolls to the card. */
+    function art(id, what) {
+        return { label: what ? 'See ' + what + ' in the Artifacts tab' : 'See it in the Artifacts tab', tab: 'artifacts', artifact: id };
+    }
 
     /* Live rows: computed from the current (or last good) program when the
        panel is drawn, shown in the accent colour as "this scan". */
@@ -535,7 +539,7 @@
             live: liveSequencer,
             wrong: 'If the channels drift out of step, for example the ADC window opens a little before or after the echo, the echo moves off the centre of k-space. A constant lag between the programmed and the real gradients is the classic case.',
             sim: 'The gradient delay setting in the Artifacts tab (EPI Nyquist ghost) is this kind of timing error.',
-            links: [{ label: 'Open the Sequence tab', tab: 'sequence', primary: true }, ART]
+            links: [{ label: 'Open the Sequence tab', tab: 'sequence', primary: true }, art('ghost', 'the EPI Nyquist ghost')]
         },
         gradamp: {
             title: 'Gradient amplifier', chain: 'Gradient chain',
@@ -549,7 +553,7 @@
             live: liveGrad,
             wrong: 'If the current lags the request (limited amplifier bandwidth, eddy currents), the real k-space trajectory lags the nominal one. Echoes read with alternating gradient polarity, as in EPI, then shift back and forth, giving a ghost displaced by half the field of view (Nyquist ghost).',
             sim: 'EPI Nyquist ghost: add a gradient delay in the Artifacts tab and acquire with the epi preset.',
-            links: [ART]
+            links: [art('ghost', 'the EPI Nyquist ghost')]
         },
         gradcoils: {
             title: 'Gradient coils (x, y, z)', chain: 'Gradient chain',
@@ -558,7 +562,7 @@
             wrong: 'Switching induces eddy currents in the surrounding metal, which distort the waveforms (actively shielded coils reduce this). Far from the centre the gradient is no longer linear, which stretches the edges of a large field of view; scanners correct this in reconstruction.',
             sim: 'Delay and eddy-current errors appear as the EPI Nyquist ghost.',
             note: 'Here the gradients are perfectly linear and switch exactly as programmed unless you add a delay; nonlinearity and concomitant fields are not modelled.',
-            links: [ART]
+            links: [art('ghost', 'the EPI Nyquist ghost')]
         },
         shim: {
             title: 'Shim coils and shim iron', chain: 'Magnet',
@@ -566,7 +570,7 @@
             nums: [['Error before shimming', 'a few ppm over the head (1 ppm = 128 Hz)'], ['Water line after a good shim', 'about 5 to 10 Hz in a small spectroscopy voxel'], ['Terms in this simulator', 'Z0 (centre frequency), X, Y, XY, X²−Y², Z2']],
             wrong: 'A poor shim spreads the frequencies: fat saturation fails at the edges, EPI is distorted, gradient-echo images lose signal and spectral lines broaden. Fields that change over a few millimetres, such as the one next to the air in the frontal sinus, are too local for low-order shims to cancel.',
             sim: 'B0 inhomogeneity and susceptibility in the Artifacts tab, and the Shim panel in the Spectroscopy tab, where you can shim by hand, auto-shim and see what the shims cannot fix.',
-            links: [{ label: 'Open the Shim panel', shim: true, primary: true }, ART]
+            links: [{ label: 'Open the Shim panel', shim: true, primary: true }, art('b0', 'B0 inhomogeneity')]
         },
         magnet: {
             title: 'Superconducting magnet', chain: 'Magnet',
@@ -574,7 +578,7 @@
             nums: [['B0', '3 T, so f0 = 127.73 MHz'], ['Current (typical)', 'a few hundred amperes, persistent'], ['Stored energy (typical)', 'several megajoules'], ['0.5 mT (5 gauss) line', 'a few metres from the centre'], ['Proton polarisation, 37 °C', 'about 1 in 100 000 (10 ppm)']],
             wrong: 'In a quench part of the wire stops superconducting, the stored energy heats it, and the field decays within about a minute while the helium boils off through the quench pipe. The everyday danger is the field itself: iron objects are pulled in as projectiles, and the field is never switched off.',
             sim: 'B0 is perfect here apart from the susceptibility and shim terms you control (B0 inhomogeneity in the Artifacts tab).',
-            links: [ART]
+            links: [art('b0', 'B0 inhomogeneity')]
         },
         cryo: {
             title: 'Liquid helium, cold head and compressor', chain: 'Cryogenics',
@@ -591,16 +595,16 @@
             nums: [['Frequency', '127.73 MHz'], ['Peak B1 (typical)', 'about 15 to 25 µT'], ['90° in 1 ms, rectangular pulse', 'B1 = 1 / (4 γ̄ · 1 ms) = 5.9 µT'], ['RF wavelength in tissue', 'about 25 to 30 cm']],
             wrong: 'At 3 T the RF wavelength in tissue is close to the size of the head, so B1 is stronger in the centre and weaker at the edges (the dielectric effect). Flip angles are then wrong away from the centre, which shades the image in a way that no receive-coil correction removes. In the abdomen it is worse.',
             sim: 'B1 (dielectric) shading in the Artifacts tab.',
-            links: [ART]
+            links: [art('b1', 'B1 shading')]
         },
         headcoil: {
             title: '8-channel receive head coil', chain: 'Receive chain',
             what: 'Eight small receive loops around the head. A small loop close to the tissue collects a strong signal and picks up noise from only a small volume, so SNR near the coil is high, and each element sees mainly the tissue nearest to it. While the body coil transmits, the elements are detuned (by PIN diodes) so that B1 does not drive currents in them.',
-            nums: [['Channels', '8 here (clinical head coils have 20, 32 or 64)'], ['Combination', 'root-sum-of-squares or Roemer (Image tab)'], ['Parallel imaging', 'SENSE with R = 2 or 3, using the coil sensitivities']],
-            wrong: 'The combined image is brighter near the elements than in the centre of the head (coil shading). A failed element leaves a dark, noisy patch. Accelerating too far with SENSE amplifies noise where the coils cannot separate the folded pixels (g-factor).',
+            nums: [['Channels', '8 here (clinical head coils have 20, 32 or 64)'], ['Combination', 'Roemer (the default) or root-sum-of-squares, in the Image tab'], ['SNR against the body coil', 'about 1.6× at the centre of the head, about 3× near the cortex'], ['Parallel imaging', 'SENSE with R = 2 or 3, using the coil sensitivities']],
+            wrong: 'A root-sum-of-squares image is brighter near the elements than in the centre of the head (coil shading); Roemer combination with the measured sensitivities removes it. A failed element leaves a dark, noisy patch. Accelerating too far with SENSE amplifies noise where the coils cannot separate the folded pixels (g-factor).',
             sim: 'Coil shading, partial Fourier and undersampling with SENSE (Artifacts tab). The coil sensitivity maps are in the Phantom tab.',
             note: 'The simulator knows the true coil sensitivities; a scanner measures them in a short calibration scan.',
-            links: [ART, { label: 'Coil maps in the Phantom tab', tab: 'phantom' }]
+            links: [art('coil', 'coil shading'), art('under', 'SENSE'), { label: 'Coil maps in the Phantom tab', tab: 'phantom' }]
         },
         trsw: {
             title: 'T/R switch', chain: 'RF transmit chain',
@@ -616,7 +620,7 @@
             nums: [['Noise figure (typical)', 'about 0.5 dB'], ['Gain (typical)', 'about 25 to 30 dB'], ['Channels', 'one per coil element']],
             wrong: 'A failing preamplifier lowers the SNR of its channel or makes it oscillate. With good preamplifiers the noise at 3 T comes mainly from the patient’s own tissue, not from the electronics.',
             sim: 'Noise and SNR in the Artifacts tab: the noise level scales every channel together.',
-            links: [ART]
+            links: [art('noise', 'noise and SNR')]
         },
         demod: {
             title: 'Demodulator and ADC', chain: 'Receive chain',
@@ -625,7 +629,7 @@
             live: liveDemod,
             wrong: 'One corrupted sample (a spike from static discharge or arcing) puts a striped pattern across the whole image, because one point of k-space is one spatial frequency. Interference at one fixed frequency makes a zipper line instead.',
             sim: 'RF spike and zipper in the Artifacts tab.',
-            links: [ART]
+            links: [art('spike', 'the RF spike'), art('zipper', 'the zipper')]
         },
         kspace: {
             title: 'Raw data: k-space', chain: 'Receive chain',
@@ -634,7 +638,7 @@
             live: liveKspace,
             wrong: 'Anything that changes between lines (motion, flow, a drifting field) makes the lines inconsistent, which spreads ghosts along the phase-encoding direction.',
             sim: 'Motion and pulsatile flow in the Artifacts tab; watch k-space fill in the k-space tab.',
-            links: [{ label: 'Open the k-space tab', tab: 'kspace', primary: true }, ART]
+            links: [{ label: 'Open the k-space tab', tab: 'kspace', primary: true }, art('motion', 'motion')]
         },
         recon: {
             title: 'Reconstruction computer', chain: 'Data',
@@ -651,7 +655,7 @@
             nums: [['Carrier', '127.73 MHz'], ['Slice 20 mm off centre at Gz = 10 mT/m', 'Δf = 8.5 kHz'], ['Fat relative to water', '−434 Hz (−3.4 ppm)']],
             wrong: 'If the transmitter is set off resonance the slice moves and spectrally selective pulses miss: fat saturation starts to saturate water instead. Phase that jitters from pulse to pulse produces ghosts.',
             sim: 'The Z0 term in the Shim panel is the centre-frequency setting; the chemical shift and fat suppression cards in the Artifacts tab show what a frequency error does.',
-            links: [{ label: 'Open the Shim panel', shim: true }, ART]
+            links: [{ label: 'Open the Shim panel', shim: true }, art('chem', 'chemical shift')]
         },
         rfamp: {
             title: 'RF power amplifier', chain: 'RF transmit chain',
@@ -661,7 +665,7 @@
             wrong: 'If the amplifier cannot deliver the requested power, every flip angle is too small: contrast changes and SNR falls. At 3 T many turbo spin echo protocols are limited by SAR rather than by the amplifier, so they need a longer TR, lower refocusing flip angles or fewer slices.',
             sim: 'Flip-angle errors appear as B1 (dielectric) shading in the Artifacts tab.',
             note: 'SAR is not modelled in this simulator.',
-            links: [ART]
+            links: [art('b1', 'B1 shading')]
         },
         patient: {
             title: 'The patient’s protons (spins)', chain: 'Signal source',
@@ -670,7 +674,7 @@
             wrong: 'The patient is the most common source of artifacts: motion, breathing and swallowing, pulsatile flow, and the susceptibility differences between tissue, bone and air.',
             sim: 'Motion, flow and susceptibility in the Artifacts tab; the tissues and their T1, T2 and PD are in the Phantom tab.',
             note: 'The simulated object is one 2D slice; effects across the slice thickness are approximated.',
-            links: [{ label: 'Open the Phantom tab', tab: 'phantom', primary: true }, ART]
+            links: [{ label: 'Open the Phantom tab', tab: 'phantom', primary: true }, art('motion', 'motion')]
         },
         liner: {
             title: 'Bore and bore liner', chain: 'Magnet',
@@ -686,7 +690,7 @@
             nums: [['Shielding (typical)', 'about 100 dB at 128 MHz'], ['Door', 'part of the shield: it must be closed to scan']],
             wrong: 'A leak (a door not quite closed, a broken filter, an unfiltered device in the room) lets interference at one fixed frequency into every readout. It appears as a bright zipper line across the image along the phase-encoding direction, at the position that matches its frequency.',
             sim: 'Zipper in the Artifacts tab.',
-            links: [ART]
+            links: [art('zipper', 'the zipper')]
         }
     };
 
@@ -1414,9 +1418,8 @@
         const rect = R.info.getBoundingClientRect();
         const vh = root.innerHeight || 800;
         if (rect.top >= 0 && rect.top < vh - 120) return;
-        const con = doc.getElementById('console');
-        const top = rect.top + (root.pageYOffset || 0) - (con ? con.offsetHeight : 0) - 12;
-        try { root.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch (e) { root.scrollTo(0, Math.max(0, top)); }
+        // html { scroll-padding-top } keeps the panel clear of the sticky console (--console-h).
+        try { R.info.scrollIntoView({ block: 'start', behavior: U.scrollBehavior() }); } catch (e) { R.info.scrollIntoView(); }
     }
 
     function runLink(l) {
@@ -1426,7 +1429,13 @@
             MRI.bus.emit('shim:open', {});
             return;
         }
-        if (l.tab && act.showTab) act.showTab(l.tab);
+        if (l.artifact) {
+            // Open the tab first (its onShow lays the cards out), then ask it to open the card.
+            if (act.showTab) act.showTab('artifacts', { focus: true });
+            MRI.bus.emit('artifacts:focus', { id: l.artifact });
+            return;
+        }
+        if (l.tab && act.showTab) act.showTab(l.tab, { focus: true });
     }
 
     function renderInfo() {
@@ -1659,7 +1668,7 @@
         R.lc.note.innerHTML = fatTxt;
         if (ro) {
             R.lc.use.hidden = false;
-            R.lc.use.textContent = 'Use this sequence’s readout gradient (' + fmt(ro.G * 1e3, 3) + ' mT/m)';
+            R.lc.use.title = 'Set G to the readout gradient of the current sequence, ' + fmt(ro.G * 1e3, 3) + ' mT/m, and x to the edge of its field of view';
             const match = Math.abs(G - ro.G) < 0.02e-3;
             R.lc.ro.innerHTML = match
                 ? 'This is the readout gradient of <b>' + esc(ro.name || 'the current sequence') + '</b>: its receiver window of ±' + fmt(ro.win / 2e3, 3) +
@@ -1731,16 +1740,16 @@
                     label: 'Acquire', run: function () {
                         if (S().speed === 'instant' && act.setSpeed) act.setSpeed('fast');
                         if (act.runScan) act.runScan({ animate: true });
-                        if (R.figPanel) { try { R.figPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* old browsers */ } }
+                        if (R.figPanel) { try { R.figPanel.scrollIntoView({ behavior: U.scrollBehavior(), block: 'start' }); } catch (e) { /* old browsers */ } }
                     } },
                 { html: '<b>Follow the signal</b> in twelve steps, from the pulse program at the console to the image.',
-                    label: 'Start', run: function () { setStep(0); if (R.stepPanel) { try { R.stepPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* ignore */ } } } },
+                    label: 'Start', run: function () { setStep(0); if (R.stepPanel) { try { R.stepPanel.scrollIntoView({ behavior: U.scrollBehavior(), block: 'nearest' }); } catch (e) { /* ignore */ } } } },
                 { html: 'In the <b>Larmor calculator</b>, set G = 10 mT/m: across a 160 mm head the frequency now spans about 68 kHz, 426 Hz per millimetre. That spread is what frequency encoding reads.',
                     label: 'Set 10 mT/m', run: function () {
                         LC.G = 0.010; LC.x = 0.080; if (R.lcG) R.lcG.set(LC.G); if (R.lcX) R.lcX.set(LC.x); updateLarmor();
-                        if (R.lcPanel) { try { R.lcPanel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ } }
+                        if (R.lcPanel) { try { R.lcPanel.scrollIntoView({ behavior: U.scrollBehavior(), block: 'center' }); } catch (e) { /* ignore */ } }
                     } },
-                { html: 'Switch the <b>receive coil</b> between the body coil and the 8-channel head array, then compare the images: the array gives more signal near the coils and less noise.',
+                { html: 'Switch the <b>receive coil</b> between the body coil and the 8-channel head coil, and measure the SNR each time (Image tab, <b>Place both</b>). The array’s small loops pick up far less noise than the big body coil, so its SNR is higher everywhere in the head: about 1.6 times at the centre and about three times near the cortex.',
                     label: 'Switch coil', run: function () { if (act.setCoil) act.setCoil(S().coilType === 'body' ? 'head8' : 'body'); } }
             ]
         }));
@@ -1754,7 +1763,7 @@
         head.appendChild(el('span', { class: 'panel-sub', text: 'Click a part for details' }));
         head.appendChild(el('span', { class: 'spacer' }));
         R.coilSeg = w.segmented({
-            options: [{ value: 'body', label: 'Body coil' }, { value: 'head8', label: '8-channel head' }],
+            options: (MRI.ui.terms && MRI.ui.terms.coilOptions) || [{ value: 'body', label: 'Body coil' }, { value: 'head8', label: '8-channel head coil' }],
             value: S().coilType === 'body' ? 'body' : 'head8', ariaLabel: 'Receive coil', size: 'sm',
             onChange: function (v) { if (act.setCoil) act.setCoil(v); }
         });
@@ -1839,6 +1848,8 @@
         side.appendChild(R.info);
         top.appendChild(side);
         panel.appendChild(top);
+        // While the sequence does not compile, the diagram, playback and calculator show the last one that did.
+        if (w.staleBanner) w.staleBanner(panel, { what: 'scan', before: top });
 
         // Larmor calculator and the spec table
         const bottom = el('div', { class: 'split sc-bottom' });
@@ -1849,7 +1860,9 @@
             el('span', { class: 'panel-sub', text: 'how a gradient turns position into frequency' })
         ]));
         const ctr = el('div', { class: 'controls' });
-        R.lcG = w.slider({ label: 'Gradient strength G', min: 0, max: GMAX, step: 0.0005, value: LC.G, unit: 'mT/m', scale: 1000,
+        // 0.01 mT/m steps, so the box can show a sequence's exact readout
+        // gradient (1.88 mT/m for the spin echo) rather than snap to 2.0
+        R.lcG = w.slider({ label: 'Gradient strength G', min: 0, max: GMAX, step: 0.00001, value: LC.G, unit: 'mT/m', scale: 1000,
             onInput: function (v) { LC.G = v; updateLarmor(); } });
         R.lcX = w.slider({ label: 'Position x', min: -0.15, max: 0.15, step: 0.001, value: LC.x, unit: 'mm', scale: 1000,
             onInput: function (v) { LC.x = v; updateLarmor(); } });
@@ -1882,7 +1895,7 @@
         lc.appendChild(R.lc.note);
         R.lc.ro = el('p', { class: 'note mb-1' });
         lc.appendChild(R.lc.ro);
-        R.lc.use = w.button({ label: 'Use this sequence’s readout gradient', size: 'sm', onClick: function () {
+        R.lc.use = w.button({ label: 'Use this sequence’s gradient', size: 'sm', onClick: function () {
             const ro = readoutGradient();
             if (!ro) return;
             LC.G = U.clamp(ro.G, 0, GMAX);
@@ -1906,7 +1919,7 @@
             ['RF transmit', 'body coil, peak B1 about 15 to 25 µT'],
             ['RF amplifier', 'about 30 to 35 kW peak'],
             ['SAR limits, normal mode', '2 W/kg whole body, 3.2 W/kg head'],
-            ['Receive', '8-channel head array or the body coil'],
+            ['Receive', '8-channel head coil or the body coil'],
             ['Cryogen', 'about 1500 L liquid helium, 4.2 K'],
             ['Proton polarisation', 'about 1 in 100 000 at 3 T'],
             ['Acoustic noise', 'often above 100 dB(A)']
@@ -1927,8 +1940,9 @@
     function renderCoilNote() {
         if (!R.coilNote) return;
         const body = S().coilType === 'body';
-        R.coilNote.innerHTML = (body ? '<strong>Body coil receiving:</strong> ' : '<strong>8-channel head array receiving:</strong> ') +
-            'the array’s small loops sit close to the head, so they collect more signal and less noise (and make SENSE possible), but the combined image is brighter near the elements than in the centre; the body coil is uniform but noisier.';
+        R.coilNote.innerHTML = body
+            ? '<strong>Body coil receiving:</strong> one large birdcage with a uniform sensitivity, but it picks up thermal noise from the head, neck and shoulders, so the SNR is lower than with the 8-channel head coil everywhere in the head: about 1.6 times lower at the centre and about three times lower near the cortex.'
+            : '<strong>8-channel head coil receiving:</strong> each small loop sits close to the head and picks up noise from only a small volume, so the SNR is higher than with the body coil everywhere in the head: about 1.6 times at the centre and about three times near the cortex. The array also makes SENSE possible. A root-sum-of-squares image is brighter near the elements than in the centre; Roemer combination (the default in the Image tab) removes that shading.';
     }
 
     /* ---------- events ---------- */

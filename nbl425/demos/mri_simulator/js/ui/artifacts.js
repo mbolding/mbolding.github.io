@@ -45,6 +45,14 @@
     function storeGet() { try { return JSON.parse(root.localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { return null; } }
     function storeSet(v) { try { root.localStorage.setItem(STORE_KEY, JSON.stringify(v)); } catch (e) { /* storage blocked */ } }
     function toast(msg, kind) { if (W() && W().toast) W().toast(msg, kind); }
+    function terms() { return (MRI.ui && MRI.ui.terms) || {}; }
+    function combineName(id) { const c = terms().combine; return (c && c[id]) || ({ sos: 'Root-sum-of-squares', roemer: 'Roemer', single: 'Single coil' })[id] || id; }
+    function coilName(type) { const c = terms().coil; return (c && c[type]) || (type === 'body' ? 'Body coil' : '8-channel head coil'); }
+    function scrollBehavior() { return U.scrollBehavior ? U.scrollBehavior() : 'auto'; }
+    /* A demonstration's "Loads:" text; a function when it is computed from the sequences. */
+    function loadsText(d) {
+        try { return typeof d.loads === 'function' ? d.loads() : d.loads; } catch (e) { return ''; }
+    }
     function frameThrottle(fn) {
         let pending = false;
         return function () {
@@ -77,7 +85,11 @@
 }
 #tab-artifacts .af-group[open] > summary::before { transform: rotate(45deg); top: 16px; }
 #tab-artifacts .af-group > summary:hover { background: var(--hover); }
-#tab-artifacts .af-group-title { font-size: 1rem; font-weight: 650; }
+#tab-artifacts .af-group-title { font-size: 1rem; font-weight: 650; margin: 0; line-height: 1.35; }
+#tab-artifacts .af-more { margin: 2px 0 0; font-size: 0.875rem; }
+#tab-artifacts .af-more > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 0.84rem; width: fit-content; border-radius: 4px; padding: 2px 0; }
+#tab-artifacts .af-more > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#tab-artifacts .af-more[open] > summary { margin-bottom: 6px; }
 #tab-artifacts .af-group-list { flex: 1 1 220px; min-width: 0; color: var(--muted); font-size: 0.82rem; }
 #tab-artifacts .af-group-badges { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 #tab-artifacts .af-group-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; }
@@ -210,8 +222,9 @@
     let demoToken = 0;
     function runDemo(demo) {
         const r = applySetup(demo.setup);
-        if (!r.ok) { toast(r.message, 'bad'); A().showTab('sequence'); return; }
-        A().showTab(demo.setup.tab || 'image');
+        if (!r.ok) { toast(r.message, 'bad'); A().showTab('sequence', { focus: true }); return; }
+        // keyboard focus moves to the start of the destination tab, not to <body>
+        A().showTab(demo.setup.tab || 'image', { focus: true });
         const tok = ++demoToken;
         setTimeout(function () {
             if (tok !== demoToken) return;
@@ -431,42 +444,42 @@
     /* ---------- Coil shading ---------- */
     CARDS.push({
         id: 'coil', group: 'signal', title: 'Receive coil shading', list: 'coil shading',
-        see: 'With the 8-channel head coil the tissue near the surface is much brighter than the middle of the head, although the object is uniform.',
-        why: 'Each small loop sees mainly the tissue within about its own diameter. Root-sum-of-squares combination keeps that sensitivity profile in the image. The higher SNR near the coils is real; the brightness gradient is not anatomy.',
+        see: 'With the 8-channel head coil combined by root-sum-of-squares, the tissue near the surface is much brighter than the middle of the head, although the object is uniform.',
+        why: 'Each small loop sees mainly the tissue within about its own diameter. Root-sum-of-squares combination keeps that sensitivity profile in the image. The higher SNR near the coils is real; the brightness gradient is not anatomy. The array also picks up much less noise than the body coil (each loop hears only a small volume of the patient), so its SNR is higher everywhere in the head, most of all near the cortex.',
         kspace: 'Like B1 shading, a smooth multiplication of the image. Each coil\'s k-space is the object\'s k-space blurred by the small spectrum of its sensitivity map, so it stays near the centre.',
-        fix: 'Combine the coils with their sensitivity maps (Roemer), or normalise with a body-coil reference scan (prescan normalise). Both even out the brightness; neither raises the lower SNR in the centre.',
+        fix: 'Combine the coils with their sensitivity maps (Roemer, the default here), or normalise with a body-coil reference scan (prescan normalise). Both even out the brightness without changing the SNR, which stays highest near the coils and, even in the middle of the head, above the body coil\'s.',
         build: function (box) {
             const coil = W().segmented({ label: 'Receive coil', size: 'sm', value: S().coilType,
-                options: [{ value: 'body', label: 'Body coil (1)' }, { value: 'head8', label: 'Head coil (8)' }],
+                options: terms().coilOptions || [{ value: 'body', label: coilName('body') }, { value: 'head8', label: coilName('head8') }],
                 onChange: function (v) { A().setCoil(v); } });
-            const comb = W().segmented({ label: 'Coil combination', size: 'sm', value: S().recon.coilCombine || 'sos',
-                options: [{ value: 'sos', label: 'Sum of squares' }, { value: 'roemer', label: 'Roemer' }],
+            const comb = W().segmented({ label: 'Coil combination', size: 'sm', value: S().recon.coilCombine === 'sos' ? 'sos' : 'roemer',
+                options: [{ value: 'sos', label: combineName('sos') }, { value: 'roemer', label: combineName('roemer') }],
                 onChange: function (v) { A().setRecon({ coilCombine: v }); } });
             const live = el('p', { class: 'af-live' });
             box.appendChild(coil); box.appendChild(comb); box.appendChild(live);
             return {
                 sync: function () {
-                    const st = S(), cc = st.recon.coilCombine || 'sos';
+                    const st = S(), cc = st.recon.coilCombine || 'roemer';
                     coil.set(st.coilType);
-                    comb.set(cc === 'roemer' ? 'roemer' : 'sos');
+                    comb.set(cc === 'sos' ? 'sos' : 'roemer');
                     comb.setDisabled(st.coilType !== 'head8');
                     const r = st.reconResult;
-                    live.textContent = st.coilType !== 'head8' ? 'One uniform coil: no receive shading (and lower SNR).'
+                    live.textContent = st.coilType !== 'head8' ? 'The body coil: uniform, so no receive shading, but noisier than the head array (it picks up noise from the whole head, neck and shoulders), so the SNR is lower everywhere in the head.'
                         : r && r.gfactor ? 'SENSE is unfolding this scan and combines the coils itself.'
                         : cc === 'single' ? 'One coil element on its own (set in the Image tab).'
-                        : cc === 'roemer' ? 'Roemer: weighted by the coil maps, so the brightness is even.' : 'Root-sum-of-squares: bright near the coils.';
+                        : cc === 'roemer' ? combineName('roemer') + ' (the default): weighted by the coil maps, so the brightness is even.' : combineName('sos') + ': bright near the coils.';
                 }
             };
         },
         status: function () {
             const st = S(), r = st.reconResult;
-            if (st.coilType === 'head8' && (st.recon.coilCombine || 'sos') === 'sos' && !(r && r.gfactor)) return { kind: 'present', text: '8 coils, sum of squares' };
+            if (st.coilType === 'head8' && st.recon.coilCombine === 'sos' && !(r && r.gfactor)) return { kind: 'present', text: '8 coils, root-sum-of-squares' };
             return null;
         },
         demos: [{
             label: 'Show me',
-            loads: 'The uniform MRS phantom, T1-weighted gradient echo, 8-channel head coil, root-sum-of-squares. Then choose Roemer above.',
-            setup: { phantom: 'braino', preset: 'gre_t1', coil: 'head8' }
+            loads: 'The uniform MRS phantom, T1-weighted gradient echo, 8-channel head coil, combined by root-sum-of-squares (the default is Roemer): a bright rim. Then choose Roemer above.',
+            setup: { phantom: 'braino', preset: 'gre_t1', coil: 'head8', recon: { coilCombine: 'sos' } }
         }]
     });
 
@@ -775,7 +788,7 @@
         why: 'Blood signal follows the cardiac cycle: inflow changes its magnitude and velocity along the gradients adds a phase. The heart rate has nothing to do with TR, so each phase-encode line catches the blood at a different moment: periodic motion, but confined to the vessel.',
         kspace: 'Along k<sub>y</sub>: the vessel\'s share of every line is modulated in magnitude and phase with the cardiac period, so the ghosts sit N·TR/T<sub>cardiac</sub> pixels apart (folded into the FOV).',
         fix: 'Cardiac gating (each line at the same moment of the cycle), flow compensation (gradient moment nulling), saturation bands upstream, and swapping the phase direction to move the ghosts off the anatomy.',
-        simpl: 'Simplification: the vessel\'s signal is modulated as (1 + depth·sin 2πt/T)·e<sup>i·phase·sin 2πt/T</sup>; real flow also displaces and blurs the vessel itself.',
+        simpl: 'Simplification: blood is treated as stationary tissue here: there is no flow void on spin echo (on a real scanner fast blood leaves the slice between the 90° and the 180° and the sinus looks dark) and no inflow enhancement on gradient echo. Only its pulsation is modelled: the vessel\'s signal is modulated as (1 + depth·sin 2πt/T)·e<sup>i·phase·sin 2πt/T</sup>. Real flow also displaces and blurs the vessel itself.',
         build: function (box) {
             const st = S();
             const on = W().toggle({ label: 'Pulsatile flow on', checked: !!st.artifacts.flow.on,
@@ -1012,10 +1025,31 @@
             setup: { phantom: 'brain', preset: 'tse', edits: [EDIT.centreOut], params: { ETL: 32, ESP: 0.01 } }
         }, {
             label: 'Compare: ETL 4',
-            loads: 'The same centre-out turbo spin echo with ETL 4: four times the scan time, much less blurring.',
+            loads: function () { return 'The same centre-out turbo spin echo with ETL 4: ' + etlCompareText() + ', and much less blurring.'; },
             setup: { phantom: 'brain', preset: 'tse', edits: [EDIT.centreOut], params: { ETL: 4, ESP: 0.01 } }
         }]
     });
+
+    /* The scan-time ratio of the two echo-train demonstrations, read from the
+       two compiled sequences (dummy repetitions included), so the text says
+       what the scan bar will show. */
+    let etlCompare = null;
+    function etlCompareText() {
+        if (etlCompare) return etlCompare;
+        let txt = 'about seven times the scan time (32 shots instead of 4, plus a dummy repetition each)';
+        try {
+            const pr = MRI.presets.get('tse');
+            const src = EDIT.centreOut(pr.source);
+            const a = MRI.dsl.compile(src, { overrides: { ETL: 32, ESP: 0.01 } }), b = MRI.dsl.compile(src, { overrides: { ETL: 4, ESP: 0.01 } });
+            if (a.ok && b.ok && a.scanTime > 0 && b.scanTime > 0) {
+                const dum = (a.image && a.image.dummies) || 0;
+                const shots = function (p) { return (p.periods || []).filter(function (q) { return !q.dummy; }).length; };
+                txt = 'about ' + U.fmtNum(b.scanTime / a.scanTime, 2) + ' times the scan time (' + U.fmtTime(b.scanTime) + ' against ' + U.fmtTime(a.scanTime) +
+                    ': ' + shots(b) + ' shots instead of ' + shots(a) + (dum ? ', plus ' + dum + ' dummy repetition' + (dum > 1 ? 's' : '') + ' each' : '') + ')';
+            }
+        } catch (e) { /* keep the round number */ }
+        return (etlCompare = txt);
+    }
 
     /* Point-spread functions along phase from the last scan's echo times.
        The weight of every phase-encode line is the decay its tissue has
@@ -1256,18 +1290,26 @@
     }
     const requestPreview = frameThrottle(function () { if (T.visible) drawPreview(); else T.previewDirty = true; });
 
-    /* Open a card's group and scroll it into view. */
+    /* Open one group and close the others (the groups are an accordion). */
+    function openGroup(gid) {
+        GROUPS.forEach(function (g) {
+            const d = V.groups[g.id].el;
+            if (g.id === gid) { if (!d.open) d.open = true; } else if (d.open) d.open = false;
+        });
+    }
+    /* Open a card's group, scroll the card into view and put keyboard focus
+       on its heading. Used by the summary chips and by artifacts:focus. */
     function reveal(id) {
         const c = CARDS.find(function (x) { return x.id === id; });
-        if (!c) return;
-        const g = V.groups[c.group];
-        if (!g.el.open) g.el.open = true;
+        if (!c) return false;
+        openGroup(c.group);
         const card = V.cards[id].card;
         raf(function () {
-            try { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { card.scrollIntoView(); }
+            try { card.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }); } catch (e) { card.scrollIntoView(); }
             const h = card.querySelector('h3');
             if (h) { h.tabIndex = -1; try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); } }
         });
+        return true;
     }
 
     function measureSticky() {
@@ -1284,18 +1326,23 @@
         const card = el('article', { class: 'af-card', id: 'af-card-' + c.id, 'aria-labelledby': titleId });
         const badge = el('span', { class: 'badge', hidden: true });
         card.appendChild(el('header', { class: 'af-card-head' }, [el('h3', { id: titleId, text: c.title }), badge]));
-        const facts = el('dl', { class: 'af-facts' });
-        const addFact = function (label, html, extra) {
+        const addFact = function (facts, label, html, extra) {
             facts.appendChild(el('dt', { text: label }));
             const dd = el('dd', { html: html });
             if (extra) dd.appendChild(extra);
             facts.appendChild(dd);
         };
-        addFact('What you see', c.see);
-        addFact('Why', c.why, c.eq ? el('div', { class: 'af-eq', html: c.eq }) : null);
-        addFact('Where it lives in k-space', c.kspace);
-        addFact('How to fix it', c.fix);
-        const text = el('div', { class: 'af-text' }, [facts]);
+        /* What you see stays in view with the controls and Show me; the
+           explanation is one click away, so an open group is not a wall of text. */
+        const facts = el('dl', { class: 'af-facts' });
+        addFact(facts, 'What you see', c.see);
+        const more = el('dl', { class: 'af-facts' });
+        addFact(more, 'Why', c.why, c.eq ? el('div', { class: 'af-eq', html: c.eq }) : null);
+        addFact(more, 'Where it lives in k-space', c.kspace);
+        addFact(more, 'How to fix it', c.fix);
+        const why = el('details', { class: 'af-more' }, [el('summary', { text: 'Why it happens and how to fix it' }), more]);
+        const text = el('div', { class: 'af-text' }, [facts, why]);
+        // The honest-simplification note stays visible: it is what keeps a careful student from being misled.
         if (c.simpl) text.appendChild(el('p', { class: 'simplification', html: c.simpl }));
         const ctlBox = el('div', { class: 'af-ctl', role: 'group', 'aria-label': 'Controls for ' + c.title });
         let ctl = null;
@@ -1309,14 +1356,16 @@
             const loads = el('p', { class: 'af-loads', id: 'af-loads-' + c.id });
             c.demos.forEach(function (d, i) {
                 const b = el('button', { type: 'button', class: 'btn btn-sm ' + (i === 0 ? 'btn-primary' : ''),
-                    title: 'Loads: ' + d.loads.replace(/<[^>]+>/g, ''), 'aria-describedby': 'af-loads-' + c.id,
-                    html: (i === 0 ? playIcon() : '') + d.label });
+                    'aria-describedby': 'af-loads-' + c.id, html: (i === 0 ? playIcon() : '') + d.label });
+                // computed texts (the echo-train comparison compiles two sequences) are filled in on first use
+                const show = function () { loads.textContent = 'Loads: ' + loadsText(d); };
                 b.addEventListener('click', function () { runDemo(d); });
-                b.addEventListener('mouseenter', function () { loads.textContent = 'Loads: ' + d.loads; });
-                b.addEventListener('focus', function () { loads.textContent = 'Loads: ' + d.loads; });
+                b.addEventListener('mouseenter', function () { show(); if (!b.title) b.title = 'Loads: ' + loadsText(d).replace(/<[^>]+>/g, ''); });
+                b.addEventListener('focus', show);
+                if (typeof d.loads !== 'function') b.title = 'Loads: ' + d.loads.replace(/<[^>]+>/g, '');
                 btns.appendChild(b);
             });
-            loads.textContent = 'Loads: ' + c.demos[0].loads;
+            loads.textContent = 'Loads: ' + loadsText(c.demos[0]);
             show.appendChild(btns);
             show.appendChild(loads);
             ctlBox.appendChild(show);
@@ -1345,7 +1394,7 @@
 
         const layout = el('div', { class: 'split af-layout' });
         const main = el('div', { class: 'af-main' });
-        const side = el('aside', { class: 'af-side', 'aria-label': 'Live preview of the current scan' });
+        const side = el('div', { class: 'af-side', role: 'group', 'aria-label': 'Live preview of the current scan' });
         layout.appendChild(main); layout.appendChild(side);
         panel.appendChild(layout);
 
@@ -1355,23 +1404,27 @@
         V.resetBtn = Wd.button({ label: 'Reset all artifacts', kind: 'danger', size: 'sm',
             title: 'Switch off every artifact setting (noise, motion, flow, fields, delay, spike, zipper). The sequence, coil and reconstruction stay as they are.',
             onClick: function () { A().resetArtifacts(); toast('All artifact settings are back to the clean defaults.', 'good'); } });
-        const expand = Wd.button({ label: 'Open all', size: 'sm', kind: 'ghost', onClick: function () { setAllGroups(true); } });
         const collapse = Wd.button({ label: 'Close all', size: 'sm', kind: 'ghost', onClick: function () { setAllGroups(false); } });
-        bar.appendChild(el('div', { class: 'af-toolbar' }, [V.summary, el('div', { class: 'row' }, [expand, collapse, V.resetBtn])]));
+        bar.appendChild(el('div', { class: 'af-toolbar' }, [V.summary, el('div', { class: 'row' }, [collapse, V.resetBtn])]));
         main.appendChild(bar);
 
-        // Groups and cards.
+        // Groups and cards. The groups are an accordion: opening one (by its
+        // summary) closes the others, so the page never holds all fifteen cards.
         const saved = storeGet() || {};
-        GROUPS.forEach(function (g, gi) {
+        let firstOpen = null;
+        GROUPS.forEach(function (g) { if (!firstOpen && saved[g.id]) firstOpen = g.id; });
+        if (!firstOpen && !GROUPS.some(function (g) { return saved[g.id] === false; })) firstOpen = GROUPS[0].id;
+        GROUPS.forEach(function (g) {
             const cs = CARDS.filter(function (c) { return c.group === g.id; });
             const det = el('details', { class: 'af-group', id: 'af-group-' + g.id });
             const badgeOn = el('span', { class: 'badge badge-warn', hidden: true });
             const badgePr = el('span', { class: 'badge badge-accent', hidden: true });
-            det.appendChild(el('summary', {}, [
-                el('span', { class: 'af-group-title', text: g.title }),
+            const summary = el('summary', {}, [
+                el('h2', { class: 'af-group-title', text: g.title }),
                 el('span', { class: 'af-group-list', text: cs.map(function (c) { return c.list; }).join(', ') }),
                 el('span', { class: 'af-group-badges' }, [badgeOn, badgePr])
-            ]));
+            ]);
+            det.appendChild(summary);
             const body = el('div', { class: 'af-group-body' });
             det.appendChild(body);
             cs.forEach(function (c) {
@@ -1379,8 +1432,13 @@
                 V.cards[c.id] = ui;
                 body.appendChild(ui.card);
             });
-            det.open = saved[g.id] !== undefined ? !!saved[g.id] : gi === 0;
+            det.open = g.id === firstOpen;
+            // a click on the summary (or Enter / Space on it) is the student opening this group
+            let byUser = false;
+            summary.addEventListener('click', function () { byUser = true; });
             det.addEventListener('toggle', function () {
+                if (det.open && byUser) openGroup(g.id);
+                byUser = false;
                 const st = storeGet() || {};
                 st[g.id] = det.open;
                 storeSet(st);
@@ -1407,8 +1465,9 @@
         V.prevInfo = el('p', { class: 'af-prev-info' });
         pv.appendChild(V.prevInfo);
         pv.appendChild(el('div', { class: 'af-prev-links' }, [
-            Wd.button({ label: 'Open the Image tab', size: 'sm', onClick: function () { A().showTab('image'); } }),
-            Wd.button({ label: 'k-space tab', size: 'sm', kind: 'ghost', onClick: function () { A().showTab('kspace'); } })
+            Wd.button({ label: 'Open the Image tab', size: 'sm', onClick: function () { A().showTab('image', { focus: true }); } }),
+            // one wording for every "go to a tab" button (scan bar, stale banners, Scanner links)
+            Wd.button({ label: 'Open the k-space tab', size: 'sm', kind: 'ghost', onClick: function () { A().showTab('kspace', { focus: true }); } })
         ]));
         side.appendChild(pv);
 
@@ -1428,6 +1487,16 @@
             if (!T.visible) return;
             const tr = V.cards.train && V.cards.train.ctl;
             if (tr && tr.redraw) tr.redraw();
+        });
+        /* artifacts:focus {id}: another tab (the Scanner's component panel)
+           sends the student to one card: open its group, scroll to it and
+           focus its heading. Card ids: noise, b1, coil, alias, gibbs, chem,
+           b0, motion, flow, ghost, spike, zipper, under, train, dummies. */
+        bus.on('artifacts:focus', function (e) {
+            const id = e && e.id;
+            if (!id || !V.cards[id]) return;
+            if (MRI.app && MRI.app.activeTab && MRI.app.activeTab() !== 'artifacts') A().showTab('artifacts');
+            reveal(id);
         });
     }
 

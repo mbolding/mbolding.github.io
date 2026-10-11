@@ -32,6 +32,7 @@ function makeSim(opts) {
             calls.lastCtx = ctx; calls.lastPhantom = phantom; calls.lastOpts = o;
             try {
                 if (opts.engineThrows) throw new Error('engine exploded');
+                if (opts.engineUserError) { const e = new Error('This sequence has no spatial encoding. Use the Spectroscopy tab.'); e.userMessage = true; throw e; }
                 const chunks = opts.chunks || 4;
                 for (let i = 0; i < chunks; i++) {
                     await sleep(opts.chunkMs || 5);
@@ -53,11 +54,12 @@ function makeSim(opts) {
         defaults: { filter: 'none', filterParam: 0.5, zeroFill: 1, partialFourier: 'homodyne', parallel: 'sense',
             coilCombine: 'sos', coil: 0, densityComp: true, epiGhostCorr: false, cropOversampling: true, userMask: null },
         run: function (acq, o, extra) {
-            calls.recon.push({ upTo: extra && extra.upTo, filter: o.filter });
+            calls.recon.push({ upTo: extra && extra.upTo, filter: o.filter, zeroFill: o.zeroFill, t: performance.now() });
+            if (opts.reconMs) { const t0 = performance.now(); while (performance.now() - t0 < opts.reconMs) { /* a slow reconstruction */ } }
             const nx = acq.grid.nx, ny = acq.grid.ny;
             return { kspace: { nx, ny, re: [new Float32Array(nx * ny)], im: [new Float32Array(nx * ny)] },
                 image: { nx, ny, fovX: 0.24, fovY: 0.24, mag: new Float32Array(nx * ny) },
-                info: { upTo: extra && extra.upTo } };
+                info: { upTo: extra && extra.upTo, acq: acq } };
         }
     };
     if (!opts.noSpectro) MRI.spectro = {
@@ -73,7 +75,7 @@ function makeSim(opts) {
     const events = [];
     ['phantom:changed', 'program:compiled', 'artifacts:changed', 'coil:changed', 'scan:start', 'scan:progress',
         'playback:tick', 'scan:done', 'scan:error', 'recon:done', 'tab:shown', 'spectro:compiled', 'spectro:done',
-        'spectro:error', 'theme:changed'].forEach(evt => MRI.bus.on(evt, p => events.push({ evt, p })));
+        'spectro:error', 'theme:changed', 'scan:skipped'].forEach(evt => MRI.bus.on(evt, p => events.push({ evt, p })));
 
     // Run app.js with a window that has no document (state and actions only).
     // Expected warnings (unknown preset, engine failure, ...) are collected
@@ -86,6 +88,7 @@ function makeSim(opts) {
     return { MRI, calls, events, win };
 }
 const names = (events, filter) => events.filter(e => !filter || filter(e)).map(e => e.evt);
+const hasNex = (prog) => !!(prog && prog.params && prog.params.some(p => p.name === 'NEX'));
 
 (async function main() {
     /* ---------- state and actions exist with the contract's defaults ---------- */
@@ -182,7 +185,9 @@ const names = (events, filter) => events.filter(e => !filter || filter(e)).map(e
         ok(cs.ok === false && cs.errors === 1 && cs.name === 'Spin echo', 'summary falls back to the last good program');
         const r = await A.runScan({ animate: false });
         const err = events.filter(e => e.evt === 'scan:error').pop();
-        ok(r === null && err && /line 3/.test(err.p.message) && err.p.tab === 'sequence', 'scanning a broken program reports the error and points at the Sequence tab');
+        ok(r === null && err && /[Ll]ine 3/.test(err.p.message) && err.p.tab === 'sequence', 'scanning a broken program reports the error and points at the Sequence tab');
+        const hintAt = err.p.message.indexOf(S.compileErrors[0].hint), msgAt = err.p.message.indexOf(S.compileErrors[0].msg);
+        ok(S.compileErrors[0].hint && hintAt > 0 && msgAt > hintAt, 'the compiler hint comes before the message: ' + err.p.message);
     }
 
     /* ---------- instant scan: event order and results ---------- */
@@ -216,10 +221,30 @@ const names = (events, filter) => events.filter(e => !filter || filter(e)).map(e
         // setRecon re-runs only the reconstruction.
         const nSim = calls.simulate;
         events.length = 0;
-        const res = A.setRecon({ filter: 'hann' });
-        ok(res && calls.simulate === nSim && calls.recon.pop().filter === 'hann', 'setRecon reconstructs with the new options without re-scanning');
+        const pr = A.setRecon({ filter: 'hann' });
+        ok(pr && typeof pr.then === 'function' && S.recon.filter === 'hann', 'setRecon returns a promise and updates state.recon at once');
+        const res = await pr;
+        ok(res && res === S.reconResult && calls.simulate === nSim && calls.recon.pop().filter === 'hann', 'setRecon reconstructs with the new options without re-scanning');
         ok(JSON.stringify(names(events)) === JSON.stringify(['recon:done']) && events[0].p.partial === false, 'setRecon emits recon:done only');
         ok(S.recon.filter === 'hann' && S.recon.zeroFill === 1, 'setRecon merges');
+
+        // A burst of setRecon calls costs one reconstruction with the final options (E2E-3).
+        events.length = 0;
+        const nRecon = calls.recon.length;
+        const p1 = A.setRecon({ filter: 'hamming' }), p2 = A.setRecon({ zeroFill: 2 }), p3 = A.setRecon({ filter: 'tukey' });
+        ok(calls.recon.length === nRecon, 'setRecon does not reconstruct synchronously');
+        const [q1, q2, q3] = await Promise.all([p1, p2, p3]);
+        ok(calls.recon.length === nRecon + 1 && calls.recon[nRecon].filter === 'tukey' && calls.recon[nRecon].zeroFill === 2,
+            'three quick setRecon calls give one reconstruction with the last options (' + (calls.recon.length - nRecon) + ')');
+        ok(q1 === q2 && q2 === q3 && q3 === S.reconResult, 'every caller gets the same result');
+        ok(names(events).filter(n => n === 'recon:done').length === 1, 'one recon:done for the burst');
+        // A scan that already reconstructed the same inputs is not repeated.
+        const p4 = A.setRecon({ filter: 'none' });
+        await A.runScan({ animate: false });
+        const before = calls.recon.length;
+        await p4;
+        ok(calls.recon.length === before, 'a queued setRecon after a scan that used the same options does not reconstruct again');
+        S.recon = Object.assign({}, S.recon, { zeroFill: 1 });
     }
 
     /* ---------- the debounced auto re-scan ---------- */
@@ -313,7 +338,11 @@ const names = (events, filter) => events.filter(e => !filter || filter(e)).map(e
         const partials = events.filter(e => e.evt === 'recon:done' && e.p.partial === true);
         ok(partials.length >= 1, 'partial reconstructions during playback (' + partials.length + ')');
         const ups = calls.recon.filter(r => r.upTo !== undefined).map(r => r.upTo);
-        ok(ups.every((u, i) => u > 0 && u <= 128 && (i === 0 || u > ups[i - 1])), 'partial recons use a growing upTo: ' + ups.join(','));
+        ok(ups[0] === 0, 'playback starts by clearing the views with an empty (0 readout) reconstruction');
+        ok(ups.slice(1).every((u, i, a) => u > 0 && u <= 128 && (i === 0 || u > a[i - 1])), 'partial recons use a growing upTo: ' + ups.join(','));
+        const firstPartial = events.find(e => e.evt === 'recon:done');
+        ok(firstPartial && firstPartial.p.partial === true && firstPartial.p.result.info.upTo === 0 &&
+           events.indexOf(firstPartial) < events.findIndex(e => e.evt === 'playback:tick'), 'the empty reconstruction comes before the first tick');
         const pp = events.filter(e => e.evt === 'scan:progress' && e.p.stage === 'playback');
         ok(pp.length === ticks.length && pp[pp.length - 1].p.frac === 1, 'playback progress events');
 
@@ -331,7 +360,7 @@ const names = (events, filter) => events.filter(e => !filter || filter(e)).map(e
         const last = calls.recon[calls.recon.length - 1];
         ok(last && last.upTo === S.acqUpTo, 'the stopped state is reconstructed from exactly those readouts');
         events.length = 0;
-        A.setRecon({ filter: 'hamming' });
+        await A.setRecon({ filter: 'hamming' });
         const rd = events.filter(e => e.evt === 'recon:done').pop();
         ok(rd && rd.p.partial === true && calls.recon.pop().upTo === S.acqUpTo, 'later recon changes keep the partial data');
         await A.runScan({ animate: false });
@@ -413,6 +442,143 @@ const names = (events, filter) => events.filter(e => !filter || filter(e)).map(e
         ok(S.spectro.program.ok === false && S.spectro.compileErrors.length === 1, 'spectro compile errors');
         const bad = await A.spectro.run();
         ok(bad === null && events.filter(e => e.evt === 'spectro:error').length >= 1, 'running a broken spectro program reports an error');
+    }
+
+    /* ---------- Stop before the first readout clears every view (C2) ---------- */
+    {
+        const { MRI, events, calls } = makeSim();
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        A.loadPreset('se');
+        await A.runScan({ animate: false });
+        const oldResult = S.reconResult;
+        // Slow playback: the 2 dummy TRs (6 s of 390 s) take over 100 ms of wall time.
+        MRI.app.playbackSeconds.slow = 15;
+        S.speed = 'slow';
+        events.length = 0; calls.recon.length = 0;
+        const p = A.runScan({ animate: true });
+        await sleep(40);
+        A.stopScan();
+        await p;
+        const err = events.filter(e => e.evt === 'scan:error').pop();
+        ok(err && err.p.aborted && err.p.readoutsDone === 0 && S.acqUpTo === 0, 'stopped with 0 readouts (' + (err && err.p.readoutsDone) + ')');
+        ok(S.reconResult !== oldResult && S.reconResult.info.acq === S.acq && S.reconResult.info.upTo === 0,
+            'the views show the new, empty acquisition, not the previous image');
+        await A.setRecon({ filter: 'hann' });
+        ok(S.reconResult.info.acq === S.acq && S.reconResult.info.upTo === 0, 'later recon changes stay on the empty acquisition');
+        S.speed = 'fast';
+    }
+
+    /* ---------- playback reconstructs less often when recon is slow (K3) ---------- */
+    {
+        const { MRI, calls } = makeSim({ reconMs: 80 });
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        MRI.app.playbackSeconds.fast = 1.5;
+        A.loadPreset('se');
+        calls.recon.length = 0;
+        await A.runScan({ animate: true });
+        const partial = calls.recon.filter(r => r.upTo !== undefined && r.upTo > 0);
+        const gaps = partial.slice(1).map((r, i) => r.t - partial[i].t);
+        const minGap = gaps.length ? Math.min.apply(null, gaps) : Infinity;
+        // 3 x 80 ms = 240 ms between starts at least (allow timer jitter).
+        ok(partial.length >= 2 && minGap >= 230, 'partial recons are spaced by 3x their cost: ' + partial.length + ' recons, min gap ' + minGap.toFixed(0) + ' ms');
+        ok(partial.length <= 8, 'a slow recon is not repeated every 200 ms (' + partial.length + ' in 1.5 s)');
+        MRI.app.playbackSeconds.fast = 4;
+    }
+
+    /* ---------- very large scans are not re-scanned automatically (C6) ---------- */
+    {
+        const { MRI, events, calls } = makeSim();
+        const A = MRI.actions, S = MRI.state;
+        A.loadPreset('gre_t1');
+        await sleep(350);
+        const n0 = calls.simulate;
+        ok(n0 === 1 && A.currentSummary().large === false, 'a 128 matrix re-scans automatically');
+        A.setParam('N', 256);
+        await sleep(350);
+        ok(calls.simulate === n0 + 1, '256 x 256 still re-scans automatically');
+        A.setParam('TE', 0.012);                    // a 512 readout needs a longer TE
+        A.setParam('N', 512);
+        ok(S.program.ok && S.program.image.nx === 512 && A.currentSummary().large === true, 'N = 512 compiles and is marked large');
+        events.length = 0;
+        await sleep(350);
+        const sk = events.filter(e => e.evt === 'scan:skipped').pop();
+        ok(calls.simulate === n0 + 1 && sk && sk.p.reason === 'large' && /Large scan: press Acquire/.test(sk.p.message) && S.stale === true,
+            'N = 512 is not re-scanned automatically; scan:skipped says why');
+        const acq = await A.runScan({ animate: false });
+        ok(acq && calls.simulate === n0 + 2 && S.stale === false, 'Acquire still runs the large scan');
+        A.setParam('N', 128);
+        A.setCoil('body');
+        ok(A.currentSummary().coil === '8-channel head coil' || A.currentSummary().coil === 'Body coil', 'summary names the coil');
+        ok(A.currentSummary().coil === 'Body coil' && A.currentSummary().coilType === 'body', 'coil name follows setCoil');
+    }
+
+    /* ---------- NEX: playback says it shows one average (C9) ---------- */
+    {
+        const { MRI, events } = makeSim();
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        MRI.app.playbackSeconds.fast = 0.3;
+        A.loadPreset('gre_t1');
+        ok(hasNex(S.program), 'gre_t1 declares NEX');
+        A.setParam('NEX', 4);
+        ok(S.program.image.averages === 4 && A.currentSummary().averages === 4, 'NEX 4 compiles to 4 averages');
+        events.length = 0;
+        await A.runScan({ animate: true });
+        const tk = events.filter(e => e.evt === 'playback:tick');
+        ok(tk.length && tk.every(e => e.p.averages === 4), 'playback:tick carries averages');
+        near(tk[tk.length - 1].p.duration, S.program.duration, 1e-9, 'playback covers one average (the scan time counts all of them)');
+        MRI.app.playbackSeconds.fast = 4;
+    }
+
+    /* ---------- the student's mistakes are not console errors (C10, E2E-10) ---------- */
+    {
+        const { MRI, events, calls } = makeSim({ engineUserError: true });
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        A.loadPreset('se');
+        calls.logs.length = 0;
+        await A.runScan({ animate: false });
+        const err = events.filter(e => e.evt === 'scan:error').pop();
+        ok(err && /no spatial encoding/.test(err.p.message) && calls.logs.length === 0, 'a user error is reported in the UI only (logs: ' + calls.logs.length + ')');
+    }
+    {
+        const { MRI, calls } = makeSim({ engineThrows: true });
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        A.loadPreset('se');
+        calls.logs.length = 0;
+        await A.runScan({ animate: false });
+        ok(calls.logs.length === 1, 'a real failure is still logged for the developer');
+    }
+    {
+        const { MRI, events, calls } = makeSim();
+        const A = MRI.actions, S = MRI.state;
+        S.autoRescan = false;
+        A.spectro.loadPreset('fid');
+        MRI.spectro.simulate = function () { const e = new Error('This sequence plays a gradient on gx while the ADC is sampling.'); e.userMessage = true; throw e; };
+        calls.logs.length = 0;
+        await A.spectro.run();
+        const se = events.filter(e => e.evt === 'spectro:error').pop();
+        ok(se && se.p.message === 'This sequence plays a gradient on gx while the ADC is sampling.' && S.spectro.error === se.p.message,
+            'spectro errors carry the message without a "Spectroscopy failed" prefix');
+        ok(calls.logs.length === 0, 'a spectro user error is not logged');
+        const sum = A.spectro.currentSummary();
+        ok(sum.ok && sum.name === 'Pulse-acquire FID' && sum.phantomId === 'braino' && sum.NA === 16 && sum.TR === 3 && sum.scanTime === 54,
+            'spectro summary: ' + JSON.stringify(sum));
+        A.spectro.setSource('frobnicate');
+        const bad = A.spectro.currentSummary();
+        ok(bad.ok === false && bad.name === null && bad.errors === 1, 'spectro summary of a broken program');
+    }
+
+    /* ---------- shell extensions exist without a document ---------- */
+    {
+        const { MRI } = makeSim();
+        ok(MRI.ui.lessonStrip && typeof MRI.ui.lessonStrip.show === 'function' && typeof MRI.ui.lessonStrip.hide === 'function',
+            'MRI.ui.lessonStrip.show / hide exist');
+        ok(MRI.ui.lessonStrip.show({ title: 'Lesson 3' }) === null && MRI.ui.lessonStrip.isShown() === false, 'lessonStrip is a no-op without a page');
+        ok(MRI.actions.showTab('image', { focus: true }) === false, 'showTab with options is harmless without a page');
     }
 
     /* ---------- helpers ---------- */

@@ -80,7 +80,10 @@
        Thermal noise enters every ADC sample of every coil as complex white
        Gaussian noise. Its standard deviation, separately for the real and
        the imaginary part, is
-           sigma = NOISE_REF * noiseScale * sqrt(1 / dwell) / sqrt(averages).
+           sigma = NOISE_REF * noiseFactor * noiseScale * sqrt(1 / dwell) / sqrt(averages).
+       noiseFactor belongs to the coil set (CoilSet.noiseFactor in fields.js:
+       1 for an element of the head array, about 2.4 for the body coil,
+       which picks up noise from a much larger volume of the patient).
        sqrt(1/dwell) is the square root of the receiver bandwidth: sampling
        faster lets in a wider slice of the noise spectrum. The
        reconstruction (section 3) makes each pixel dkx dky times a sum over
@@ -88,8 +91,9 @@
            sigma_img = sigma * dkx * dky * sqrt(Nro * Npe).
        NOISE_REF is fixed by the reference scan of section 3 (128 x 128,
        FOV 240 mm, readout oversampling 2 so dkx = 1/(2 FOV) and Nro = 256,
-       250 Hz/px, 5 mm slice, one uniform coil): there sigma_img must be
-       0.01, an SNR of 100 for an object with m = 1. tests/test_engine.js
+       250 Hz/px, 5 mm slice, one uniform coil of noise factor 1): there
+       sigma_img must be 0.01, an SNR of 100 for an object with m = 1
+       (the body coil, being 2.4 times noisier, gives about 42). tests/test_engine.js
        checks the value by reconstructing pure noise. Every other scan gets
        its SNR from the same equation, so SNR follows voxel volume (through
        the image scaling), the square root of the sampling time and the
@@ -264,15 +268,25 @@
         return { R1, R2, R2p, pd, pulsatile };
     }
 
-    /* Group the phantom's points into classes (tissue, B1 bin, df bin).
-       B1: 9 equal bins over the range the object sees (1 when uniform).
+    /* Group the phantom's points into classes (tissue, B1 node, df bin).
+       B1: the transmit field varies smoothly across the object, and so
+       does every flip angle. Tracking every point would be exact but slow,
+       so the magnetisation is tracked at 9 B1 values ("nodes") spread
+       evenly over the range the object sees (1 node when B1 is uniform),
+       and each point takes its amplitude by linear interpolation between
+       the two nodes on either side of its own B1: pw is its weight on the
+       upper node (pcls1). Signal varies slowly with flip angle, so this is
+       accurate to a fraction of a percent, and the shading stays smooth
+       instead of breaking into rings of constant brightness.
        df: 16 bins of each tissue's own range of total off-resonance, but
        only when a spectrally selective pulse makes the magnetisation
-       history depend on frequency; otherwise 1. Every class carries the
-       mean B1 and df of its members. The exact df of every point is kept
-       as well, because the signal phase uses it point by point.
+       history depend on frequency; otherwise 1. A class carries its node's
+       B1 and the mean df of its tissue's points in its df bin. The exact df
+       of every point is kept as well, because the signal phase uses it
+       point by point.
        Points are listed in raster order (row by row), so rowStart[iy] ..
        rowStart[iy + 1] are the points of row iy. */
+    const B1_NODES = 9;
     function buildModel(phantom, b0Map, b1Map, spectral) {
         const n = phantom.n, NN = n * n, label = phantom.label, tissues = phantom.tissues;
         const nT = tissues.length;
@@ -291,25 +305,36 @@
             if (d < dlo[L]) dlo[L] = d;
             if (d > dhi[L]) dhi[L] = d;
         }
-        const nb1 = b1hi - b1lo > 1e-6 ? 9 : 1;
+        const nb1 = b1hi - b1lo > 1e-6 ? B1_NODES : 1;
         const NDF = spectral ? 16 : 1;
         const nKeys = nT * nb1 * NDF;
-        const keyOf = new Int32Array(P), count = new Int32Array(nKeys);
+        const keyOf = new Int32Array(P), keyUp = new Int32Array(P), pw = new Float32Array(P), used = new Uint8Array(nKeys);
+        const dfSum = new Float64Array(nT * NDF), dfCnt = new Int32Array(nT * NDF);
         const pix = new Int32Array(P), pxi = new Int32Array(P), pyi = new Int32Array(P), pdf = new Float64Array(P);
         const rowStart = new Int32Array(n + 1);
+        const b1step = nb1 > 1 ? (b1hi - b1lo) / (nb1 - 1) : 1;
         let p = 0;
         for (let iy = 0; iy < n; iy++) {
             rowStart[iy] = p;
             for (let ix = 0; ix < n; ix++) {
                 const i = iy * n + ix, L = label[i];
                 if (!use[L]) continue;
-                const b = b1Map ? b1Map[i] : 1;
                 const d = (b0Map ? b0Map[i] : 0) + csHz[L];
-                const ib = nb1 === 1 ? 0 : min(nb1 - 1, floor((b - b1lo) / (b1hi - b1lo) * nb1));
                 const span = dhi[L] - dlo[L];
                 const id = NDF === 1 || !(span > 1e-6) ? 0 : min(NDF - 1, floor((d - dlo[L]) / span * NDF));
+                // fractional node position of this point's B1: node ib below, weight w on node ib + 1
+                let ib = 0, w = 0;
+                if (nb1 > 1) {
+                    const bv = b1Map[i], u = bv - bv === 0 ? (bv - b1lo) / b1step : 0;
+                    ib = max(0, min(nb1 - 2, floor(u)));
+                    w = min(1, max(0, u - ib));
+                }
                 const key = (L * nb1 + ib) * NDF + id;
-                keyOf[p] = key; count[key]++;
+                keyOf[p] = key; used[key] = 1;
+                keyUp[p] = w > 0 ? key + NDF : key;
+                if (w > 0) used[key + NDF] = 1;
+                pw[p] = w;
+                dfSum[L * NDF + id] += d; dfCnt[L * NDF + id]++;
                 pix[p] = i; pxi[p] = ix; pyi[p] = iy; pdf[p] = d;
                 p++;
             }
@@ -319,27 +344,36 @@
         // classes of one tissue are contiguous.
         const compact = new Int32Array(nKeys).fill(-1);
         let nCls = 0;
-        for (let k = 0; k < nKeys; k++) if (count[k]) compact[k] = nCls++;
-        const clsTissue = new Int32Array(nCls), clsB1 = new Float64Array(nCls), clsDf = new Float64Array(nCls), clsCount = new Int32Array(nCls);
-        const pcls = new Int32Array(P);
-        for (let q = 0; q < P; q++) {
-            const c = compact[keyOf[q]];
-            pcls[q] = c;
-            clsTissue[c] = floor(keyOf[q] / (nb1 * NDF));
-            clsB1[c] += b1Map ? b1Map[pix[q]] : 1;
-            clsDf[c] += pdf[q];
-            clsCount[c]++;
+        for (let k = 0; k < nKeys; k++) if (used[k]) compact[k] = nCls++;
+        const clsTissue = new Int32Array(nCls), clsB1 = new Float64Array(nCls), clsDf = new Float64Array(nCls), clsUp = new Int32Array(nCls);
+        for (let k = 0; k < nKeys; k++) {
+            const c = compact[k];
+            if (c < 0) continue;
+            const L = floor(k / (nb1 * NDF)), ib = floor(k / NDF) % nb1, id = k % NDF;
+            clsTissue[c] = L;
+            clsB1[c] = b1Map ? (nb1 > 1 ? b1lo + ib * b1step : b1lo) : 1;
+            clsDf[c] = dfCnt[L * NDF + id] ? dfSum[L * NDF + id] / dfCnt[L * NDF + id] : 0;
+            // the class one B1 node up (same tissue and df bin), or itself if that node is not used
+            clsUp[c] = ib + 1 < nb1 && compact[k + NDF] >= 0 ? compact[k + NDF] : c;
         }
-        for (let c = 0; c < nCls; c++) { clsB1[c] /= clsCount[c]; clsDf[c] /= clsCount[c]; }
+        const pcls = new Int32Array(P), pcls1 = new Int32Array(P);
+        for (let q = 0; q < P; q++) { pcls[q] = compact[keyOf[q]]; pcls1[q] = compact[keyUp[q]]; }
         const cStart = new Int32Array(nT), cEnd = new Int32Array(nT);
         for (let c = nCls - 1; c >= 0; c--) cStart[clsTissue[c]] = c;
         for (let c = 0; c < nCls; c++) cEnd[clsTissue[c]] = c + 1;
         const rates = tissueRates(tissues);
         return Object.assign({
-            n: n, dx: phantom.dx, P: P, pix: pix, pxi: pxi, pyi: pyi, pdf: pdf, pcls: pcls, rowStart: rowStart,
-            nT: nT, nCls: nCls, clsTissue: clsTissue, clsB1: clsB1, clsDf: clsDf, clsCount: clsCount,
-            cStart: cStart, cEnd: cEnd, nb1: nb1, ndf: NDF
+            n: n, dx: phantom.dx, P: P, pix: pix, pxi: pxi, pyi: pyi, pdf: pdf, pcls: pcls, pcls1: pcls1, pw: pw, rowStart: rowStart,
+            nT: nT, nCls: nCls, clsTissue: clsTissue, clsB1: clsB1, clsDf: clsDf, clsUp: clsUp,
+            cStart: cStart, cEnd: cEnd, nb1: nb1, ndf: NDF, b1Interp: nb1 > 1
         }, rates);
+    }
+
+    /* A point's class amplitude: its lower B1 node's, moved a fraction pw
+       of the way to the upper node's. */
+    function pointAmp(model, A, o, p) {
+        const a0 = A[o + model.pcls[p]], w = model.pw[p];
+        return w ? a0 + w * (A[o + model.pcls1[p]] - a0) : a0;
     }
 
     /* The magnetisation tracker (section 9.1, item 2). Walks the timeline
@@ -626,7 +660,7 @@
         }
         const buf = buffers(S, M), gr = buf.gr, gi = buf.gi;
         gr.fill(0); gi.fill(0);
-        const pxi = m.pxi, pcls = m.pcls, rs = m.rowStart, bin = pos.bin, frac = pos.frac;
+        const pxi = m.pxi, pcls = m.pcls, pcls1 = m.pcls1, pw = m.pw, interp = m.b1Interp, rs = m.rowStart, bin = pos.bin, frac = pos.frac;
         const pcr = S.pcr, pci = S.pci;
         const tr = tph ? tph.re : null, ti = tph ? tph.im : null;
         for (let iy = 0; iy < nr; iy++) {
@@ -638,7 +672,12 @@
                 const xr = exr[ix], xi = exi[ix];
                 let vr = xr * yr - xi * yi, vi = xr * yi + xi * yr;
                 if (tr !== null) { const a = tr[p], b = ti[p], t = vr * a - vi * b; vi = vr * b + vi * a; vr = t; }
-                const ar = Ar[c], ai = Ai[c];
+                let ar = Ar[c], ai = Ai[c];
+                if (interp) {
+                    // between the two B1 nodes that bracket this point's transmit field
+                    const w = pw[p];
+                    if (w) { const c1 = pcls1[p]; ar += w * (Ar[c1] - ar); ai += w * (Ai[c1] - ai); }
+                }
                 const ur = vr * ar - vi * ai, ui = vr * ai + vi * ar;
                 const b0 = bin[p], b1 = (b0 + 1) & mask, f1 = frac[p], f0 = 1 - f1;
                 for (let k = 0, o = p * nC, base = 0; k < nC; k++, o++, base += M) {
@@ -735,10 +774,19 @@
             }
         });
         const E = ux.length;
+        /* Summed coil sensitivity of each entry, split between the entry's
+           lower B1 node (weights 1 - pw) and the node above it (weights pw),
+           so the B1 interpolation of the fast path holds here too. */
+        const interp = m.b1Interp, pw = m.pw;
         const qr = new Float64Array(E * nC), qi = new Float64Array(E * nC);
+        const q1r = interp ? new Float64Array(E * nC) : null, q1i = interp ? new Float64Array(E * nC) : null;
         for (let p = 0; p < P; p++) {
-            const o = entryOf[p] * nC, s = p * nC;
-            for (let k = 0; k < nC; k++) { qr[o + k] += S.pcr[s + k]; qi[o + k] += S.pci[s + k]; }
+            const o = entryOf[p] * nC, s = p * nC, w = interp ? pw[p] : 0;
+            for (let k = 0; k < nC; k++) {
+                const cr = S.pcr[s + k], ci = S.pci[s + k];
+                qr[o + k] += (1 - w) * cr; qi[o + k] += (1 - w) * ci;
+                if (w) { q1r[o + k] += w * cr; q1i[o + k] += w * ci; }
+            }
         }
         const nh = 2 * n - 1;                 // half-pixel grid: index u at x = (u/2 - floor(n/2)) dx
         return {
@@ -746,7 +794,8 @@
             ux: Int32Array.from(ux), uy: Int32Array.from(uy), lx: Int32Array.from(lx), ly: Int32Array.from(ly),
             cls: Int32Array.from(ecls), df: Float64Array.from(dfSum.map(function (s, i) { return s / cnt[i]; })),
             gz: Float64Array.from(gzSum.map(function (s, i) { return s / cnt[i]; })),
-            qr: qr, qi: qi,
+            qr: qr, qi: qi, q1r: q1r, q1i: q1i,
+            er: new Float64Array(E * nC), ei: new Float64Array(E * nC),
             pr: new Float64Array(E), pi: new Float64Array(E), sr: new Float64Array(E), si: new Float64Array(E),
             exr: new Float64Array(nh), exi: new Float64Array(nh), eyr: new Float64Array(nh), eyi: new Float64Array(nh),
             dx: new Float64Array(f + 1), dy: new Float64Array(f + 1),
@@ -778,16 +827,25 @@
     function synthGeneral(S, rd, Ar, Ai, mot, outRe, outIm, kxOut, kyOut) {
         const G = S.general, prog = S.program, area = MRI.dsl.gradientArea, gAt = MRI.dsl.gradientAt;
         const n = rd.n, h = floor(n / 2), dwell = rd.dwell, nC = S.nC, E = G.E, f = G.f, dx = S.dx, hr = floor(S.n / 2);
-        const ux = G.ux, uy = G.uy, lx = G.lx, ly = G.ly, ecls = G.cls, edf = G.df, qr = G.qr, qi = G.qi;
+        const ux = G.ux, uy = G.uy, lx = G.lx, ly = G.ly, ecls = G.cls, edf = G.df, qr = G.er, qi = G.ei;
         const pr = G.pr, pi = G.pi, sr = G.sr, si = G.si, Dx = G.dx, Dy = G.dy;
         const exr = G.exr, exi = G.exi, eyr = G.eyr, eyi = G.eyi, accR = G.accR, accI = G.accI;
-        // Each entry starts at the tau of the first sample, with its class
-        // amplitude and the through-plane dephasing at the echo folded in.
+        /* Each entry's coil weights for this readout: its class amplitude
+           (and, between B1 nodes, the node above's) times the summed coil
+           sensitivity. Its phase starts at the tau of the first sample,
+           with the through-plane dephasing at the echo folded in. */
+        const q0r = G.qr, q0i = G.qi, q1r = G.q1r, q1i = G.q1i, up = S.model.clsUp;
         const tau0 = rd.tau - h * dwell, egz = G.gz, wt = S.thickness * rd.tau;
         for (let e = 0; e < E; e++) {
-            const a0 = -TWO_PI * edf[e] * tau0, c = ecls[e], w = S.gz ? sincn(egz[e] * wt) : 1;
-            const cr = w * cos(a0), ci = w * sin(a0), ar = Ar[c], ai = Ai[c];
-            pr[e] = cr * ar - ci * ai; pi[e] = cr * ai + ci * ar;
+            const c = ecls[e], ar = Ar[c], ai = Ai[c];
+            const c1 = q1r ? up[c] : c, br = Ar[c1], bi = Ai[c1];
+            for (let k = 0, o = e * nC; k < nC; k++, o++) {
+                let r = ar * q0r[o] - ai * q0i[o], i = ar * q0i[o] + ai * q0r[o];
+                if (q1r) { r += br * q1r[o] - bi * q1i[o]; i += br * q1i[o] + bi * q1r[o]; }
+                qr[o] = r; qi[o] = i;
+            }
+            const a0 = -TWO_PI * edf[e] * tau0, w = S.gz ? sincn(egz[e] * wt) : 1;
+            pr[e] = w * cos(a0); pi[e] = w * sin(a0);
             const as = -TWO_PI * edf[e] * dwell;
             sr[e] = cos(as); si[e] = sin(as);
         }
@@ -913,9 +971,17 @@
             if (F) b1Map = F.b1Map(phantom, art.b1);
             else { b1Map = new Float32Array(NN); b1Map.fill(1); }
         }
-        if (!coilSet) coilSet = F ? F.coilSet('body') : { type: 'body', n: 1, names: ['Body coil'], positions: [{ x: 0, y: 0 }], radius: 0.3 };
+        if (!coilSet) coilSet = F ? F.coilSet('body') : { type: 'body', n: 1, names: ['Body coil'], positions: [{ x: 0, y: 0 }], radius: 0.3, noiseFactor: 1 };
         if (typeof coilSet === 'string') coilSet = F.coilSet(coilSet);
         const nC = coilSet.n || 1;
+        /* Receive noise of this coil set relative to NOISE_REF (one head-array
+           element is 1, the body coil about 2.4: see fields.js). A coil set
+           built by hand without the field takes the value for its type. */
+        let noiseFactor = Number(coilSet.noiseFactor);
+        if (!(noiseFactor > 0) || !isFinite(noiseFactor)) {
+            const table = F && F.noiseFactors;
+            noiseFactor = table && table[coilSet.type] > 0 ? table[coilSet.type] : 1;
+        }
         if (!coilMaps || !coilMaps.re || coilMaps.re.length !== nC || coilMaps.re[0].length !== NN) {
             if (F) coilMaps = F.coilMaps(coilSet, n, n, phantom.fov, phantom.fov);
             else {
@@ -923,12 +989,24 @@
                 coilMaps = { re: [r], im: [new Float32Array(NN)] };
             }
         }
-        return { b0Map: b0Map, b1Map: b1Map, coilSet: coilSet, coilMaps: coilMaps, nC: nC };
+        return { b0Map: b0Map, b1Map: b1Map, coilSet: coilSet, coilMaps: coilMaps, nC: nC, noiseFactor: noiseFactor };
     }
 
     function checkProgram(program) {
         if (!program || !program.ok) throw userError('The sequence does not compile, so there is nothing to simulate.');
         if (!MRI.dsl || typeof MRI.dsl.gradientArea !== 'function') throw new Error('The sequence module (js/dsl.js) did not load.');
+    }
+
+    /* Without an excitation there is no transverse magnetisation, and an
+       ADC records only noise. Say so (naming the ADC's line) rather than
+       return a black image whose k-space positions mean nothing: with no
+       excitation to reset it, the pathway's k position just accumulates
+       every gradient lobe of the scan. */
+    function noExcitationError(rd) {
+        const line = rd && rd.adc && rd.adc.line;
+        return userError('No excitation before this ADC' + (line ? ' at line ' + line : '') + ': no RF pulse has tipped the ' +
+            'magnetisation into the transverse plane (since the start, or since the last spoil), so there is no signal to record. ' +
+            'Add an rf pulse that excites before the readout, for example "rf 90 slice as exc".');
     }
 
     /* A sequence encodes space if some readout either moves through
@@ -976,6 +1054,7 @@
         const ev = buildTimeline(program);
         const reads = walkPathway(program, ev);
         if (!reads.length) throw userError('This sequence never switches the ADC on (outside the dummy scans), so it records nothing to image.');
+        if (!reads.some(function (r) { return r.tExc === r.tExc; })) throw noExcitationError(reads[0]);
         if (!hasEncoding(reads)) throw userError('This sequence has no spatial encoding. Use the Spectroscopy tab.');
         const nR = reads.length;
 
@@ -984,6 +1063,8 @@
         const model = buildModel(phantom, fi.b0Map, fi.b1Map, spectral);
         const amps = track(program, ev, model, reads, null);
         const nCls = model.nCls;
+        // Excitations that a spoiler always wipes out before the ADC leave nothing to record either.
+        if (nCls > 0 && amps.every(function (a) { return a === 0; })) throw noExcitationError(reads[0]);
         if (onProgress) onProgress(0.05);
         await breathe(0.05);
 
@@ -1111,12 +1192,15 @@
            complex sample takes one Box-Muller pair, m (cos a, sin a), from
            the seeded generator: exactly the pair that two calls of
            MRI.util.rng(seed).randn() would return, written out here because
-           this loop runs millions of times. */
+           this loop runs millions of times. The coil set's noise factor
+           scales it: the body coil collects noise from far more tissue than
+           one loop of the head array. */
         const avg = max(1, numOr(img.averages, 1));
+        const noiseRef = NOISE_REF * fi.noiseFactor * art.noise;
         if (art.noise > 0) {
             const rng = U.rng(seed);
             for (let i = 0; i < nR; i++) {
-                const rd = reads[i], sigma = NOISE_REF * art.noise * sqrt(1 / rd.dwell) / sqrt(avg);
+                const rd = reads[i], sigma = noiseRef * sqrt(1 / rd.dwell) / sqrt(avg);
                 for (let k = 0; k < nC; k++) {
                     const R = out[i].re[k], I = out[i].im[k];
                     for (let j = 0; j < rd.n; j++) {
@@ -1144,7 +1228,7 @@
 
         // Truth: the class amplitudes of the k-centre readout, on the raster, box-averaged.
         const raster = new Float64Array(model.n * model.n);
-        for (let p = 0; p < model.P; p++) raster[model.pix[p]] = amps[ci * nCls + model.pcls[p]] * sliceFactor;
+        for (let p = 0; p < model.P; p++) raster[model.pix[p]] = pointAmp(model, amps, ci * nCls, p) * sliceFactor;
         const truth = { nx: img.nx, ny: img.ny, fovX: img.fovX, fovY: img.fovY,
             data: boxAverage(raster, model.n, model.dx, img.nx, img.ny, img.fovX, img.fovY) };
 
@@ -1152,7 +1236,8 @@
         stats.scanTime = program.scanTime;
         stats.nReadouts = nR;
         stats.signalScale = ref;
-        stats.noiseSigma = art.noise > 0 ? NOISE_REF * art.noise * sqrt(1 / cRd.dwell) / sqrt(avg) : 0;
+        stats.noiseSigma = art.noise > 0 ? noiseRef * sqrt(1 / cRd.dwell) / sqrt(avg) : 0;
+        stats.noiseFactor = fi.noiseFactor;
         stats.nClasses = nCls;
         stats.nPoints = model.P;
         stats.path = nGeneral === 0 ? 'fast' : (nGeneral === nR ? 'general' : 'mixed');

@@ -41,17 +41,21 @@
     function el(tag, attrs, children) { return U.el(tag, attrs, children); }
     function w() { return MRI.ui.w; }
     function state() { return MRI.state; }
-    function fnum(v, sig) { return isFinite(v) ? U.fmtNum(v, sig || 3).replace('-', '−') : '-'; }
+    const TRY_IT = (MRI.ui.terms && MRI.ui.terms.tryIt) || 'Try it';
+    /* Number.isFinite, not the global isFinite: analyse() leaves a value
+       null when the sequence has no such thing (no excitation, no
+       inversion), and the global one would treat null as 0. */
+    function fnum(v, sig) { return Number.isFinite(v) ? U.fmtNum(v, sig || 3).replace('-', '−') : '–'; }
     function fsig3(v) {
-        if (!isFinite(v)) return '-';
+        if (!Number.isFinite(v)) return '–';
         const a = abs(v);
         if (a < 1e-6) return '0';
         const s = a >= 0.1 ? v.toFixed(3) : (a >= 0.001 ? v.toFixed(4) : (a === 0 ? '0' : v.toExponential(1)));
         return s.replace('-', '−');
     }
-    function fms(sec) { return isFinite(sec) ? U.fmtNum(sec * 1000, 4) : '-'; }
+    function fms(sec) { return Number.isFinite(sec) ? U.fmtNum(sec * 1000, 4) : '–'; }
     function fparamDisplay(p, vSI) {
-        if (!p) return '-';
+        if (!p || !Number.isFinite(vSI)) return '–';
         const d = vSI / (p.scale || 1);
         return U.fmtNum(d, 4) + (p.unit ? ' ' + p.unit : '');
     }
@@ -61,26 +65,104 @@
     let idCounter = 0;
     function idOf(o) { if (!o) return 0; let k = ids.get(o); if (!k) { k = ++idCounter; ids.set(o, k); } return k; }
 
-    /* Tissue colours are chosen for the label map; a few (vial 1 of the
-       relaxometry series, cortical bone) are too dark to read as a line on
-       the near-black scope. Lift those toward white until the relative
-       luminance reaches a readable level. */
-    const colorCache = {};
-    function scopeColor(hex) {
-        if (colorCache[hex]) return colorCache[hex];
-        const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
-        if (!m) return (colorCache[hex] = '#9aa8bc');
+    /* ---------- telling the tissues apart ----------
+       The label-map colours of grey matter, white matter, deep grey
+       matter and fat are all warm beiges: fine for a map, unreadable as
+       four lines on the scope. On this tab every tissue gets one of the
+       eight scope colours (--sc1 .. --sc8, validated on the near-black
+       scope surface) instead, the same in the chips, the curves, the bars
+       and the tables. The pairs this tab compares most get the colours
+       that stay furthest apart for colour-blind viewers (white matter
+       blue, grey matter amber); the rest take the free slots in order,
+       and past eight a colour repeats with a different dash. Curves also
+       carry a short label at their right end, the student's chosen pair
+       is drawn thick and solid, and every other tissue thin, dashed and
+       slightly transparent. The Phantom tab keeps the label colours. */
+    const SLOT_PREF = { wm: 1, gm: 4, deepgm: 5, csf: 8, fat: 6, lesion: 2, vessel: 3, muscle: 7, water: 1, oil: 4, braino: 1 };
+    const SLOT_FALLBACK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
+    const DASHES = [[6, 3], [2, 2.5], [9, 3, 2, 3], [4, 4], [1.5, 3.5], [12, 4]];
+    const ABBR = { wm: 'WM', gm: 'GM', deepgm: 'Deep GM', csf: 'CSF', fat: 'Fat', lesion: 'Lesion', vessel: 'Blood', muscle: 'Muscle',
+        marrow: 'Marrow', bone: 'Bone', water: 'Water', oil: 'Oil', braino: 'Solution' };
+    function slotColor(slot) { return U.cssVar('--sc' + slot, SLOT_FALLBACK[slot - 1]); }
+    /* Slots for the tissues of an evolution (stable for a phantom: they
+       depend only on the tissue list, not on which tissues are shown). */
+    function assignStyles(tissues) {
+        const out = {}, used = {};
+        let order = 0;
+        tissues.forEach(function (t) {
+            const p = SLOT_PREF[t.id];
+            if (p && !used[p]) { used[p] = true; out[t.id] = { slot: p, variant: 0, order: order++ }; }
+        });
+        let next = 1, variant = 0;
+        tissues.forEach(function (t) {
+            if (out[t.id]) return;
+            let tries = 0;
+            while (used[next] && tries < 8) { next = next % 8 + 1; tries++; }
+            if (tries >= 8) {                    // all eight taken: start again with a new dash
+                variant++;
+                Object.keys(used).forEach(function (k) { delete used[k]; });
+                next = 1;
+            }
+            used[next] = true;
+            out[t.id] = { slot: next, variant: variant, order: order++ };
+            next = next % 8 + 1;
+        });
+        return out;
+    }
+    function tissueColor(id) {
+        const s = C.styles && C.styles[id];
+        return slotColor(s ? s.slot : 1);
+    }
+    function withAlpha(hex, a) {
+        const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim());
+        if (!m) return hex;
+        return 'rgba(' + parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) + ', ' + a + ')';
+    }
+    /* Text in a curve's colour (the end labels) must reach 4.5:1 on the
+       near-black scope, more than a line needs: lift a dark colour (the
+       dark green of slot 6) toward white until its relative luminance
+       does, keeping its hue. */
+    const textColorCache = {};
+    function labelColor(hex) {
+        if (textColorCache[hex]) return textColorCache[hex];
+        const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim());
+        if (!m) return (textColorCache[hex] = hex);
         let r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
         const lum = function (R, G, B) {
             const f = function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
             return 0.2126 * f(R) + 0.7152 * f(G) + 0.0722 * f(B);
         };
-        let k = 0;
-        while (lum(r, g, b) < 0.16 && k < 12) {
-            r = r + (255 - r) * 0.12; g = g + (255 - g) * 0.12; b = b + (255 - b) * 0.12; k++;
+        for (let k = 0; k < 20 && lum(r, g, b) < 0.22; k++) { r += (255 - r) * 0.1; g += (255 - g) * 0.1; b += (255 - b) * 0.1; }
+        const hx = function (v) { const t = Math.round(v).toString(16); return t.length < 2 ? '0' + t : t; };
+        return (textColorCache[hex] = '#' + hx(r) + hx(g) + hx(b));
+    }
+    function isPair(id) { return id === C.pair.a || id === C.pair.b; }
+    /* How to draw one tissue's line: the pair thick and solid, the rest thin,
+       translucent and dashed (each its own dash, so even a repeated colour
+       stays distinguishable). */
+    function lineStyle(id) {
+        const s = (C.styles && C.styles[id]) || { slot: 1, variant: 0, order: 0 };
+        const col = slotColor(s.slot);
+        // a phantom of one tissue (the MRS phantom) has nothing to set it against: draw it solid
+        const solo = C.ev && C.ev.tissues && C.ev.tissues.length < 2;
+        if (isPair(id) || solo) return { color: col, stroke: col, width: 2.5, dash: [], pair: true };
+        return { color: col, stroke: withAlpha(col, 0.62), width: 1.3, dash: DASHES[(s.order + s.variant) % DASHES.length], pair: false };
+    }
+    function abbr(t) { return ABBR[t.id] || shortName(t.name); }
+
+    /* Spread end-of-line labels so they do not overlap: each wants to sit at
+       its curve's last value (item.y); push them apart by `gap`, keeping
+       them inside [top, bottom]. Sets item.ly. */
+    function stackLabels(items, top, bottom, gap) {
+        items.sort(function (a, b) { return a.y - b.y; });
+        let prev = -Infinity;
+        items.forEach(function (it) { it.ly = max(it.y, prev + gap, top + gap / 2); prev = it.ly; });
+        let lim = bottom - gap / 2;
+        for (let i = items.length - 1; i >= 0; i--) {
+            if (items[i].ly > lim) items[i].ly = lim;
+            lim = items[i].ly - gap;
         }
-        const hx = function (v) { const s = Math.round(v).toString(16); return s.length < 2 ? '0' + s : s; };
-        return (colorCache[hex] = '#' + hx(r) + hx(g) + hx(b));
+        return items;
     }
 
     MRI.ui.addStyle(`
@@ -116,7 +198,9 @@
 #tab-contrast .ct-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; min-width: 1px; }
 #tab-contrast .ct-bar-fill.neg { background-image: repeating-linear-gradient(-45deg, rgba(5, 8, 15, 0.55) 0 3px, transparent 3px 7px); }
 #tab-contrast .ct-bar-val { font: 0.76rem var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--scope-fg); white-space: nowrap; }
-#tab-contrast .ct-bar.is-off { opacity: 0.45; }
+/* tissues hidden in the plots: the bar fades, the text stays readable (muted, 4.5:1 on the scope) */
+#tab-contrast .ct-bar.is-off .ct-bar-track, #tab-contrast .ct-bar.is-off .swatch { opacity: 0.4; }
+#tab-contrast .ct-bar.is-off .ct-bar-name, #tab-contrast .ct-bar.is-off .ct-bar-val { color: var(--scope-muted); }
 #tab-contrast .ct-bars-note { margin-top: 10px; font-size: 0.74rem; color: var(--scope-muted); line-height: 1.45; }
 #tab-contrast .ct-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 #tab-contrast .ct-table th { text-align: left; font-weight: 600; font-size: 0.74rem; color: var(--muted); padding: 4px 8px 6px 0; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -140,6 +224,14 @@
 #tab-contrast .ct-progress-bar { flex: 0 0 120px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
 #tab-contrast .ct-progress-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.1s linear; }
 #tab-contrast .ct-sweep-plot .plot-canvas { cursor: crosshair; }
+#tab-contrast .ct-sweep-plot .plot-stage { margin-right: 66px; }
+#tab-contrast .ct-endlabels { position: absolute; top: 0; right: 0; bottom: 0; width: 62px; pointer-events: none; }
+#tab-contrast .ct-endlabel { position: absolute; left: 4px; max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 0.7rem/14px var(--font-sans); }
+#tab-contrast .ct-endlabel.is-pair { font-weight: 700; }
+#tab-contrast .ct-chip.is-pair { font-weight: 750; border-color: var(--axis); }
+#tab-contrast .ct-bar.is-pair .ct-bar-name { font-weight: 700; }
+#tab-contrast .ct-key .ct-key-line { width: 22px; height: 0; border-top: 2.5px solid var(--scope-fg); flex: none; }
+#tab-contrast .ct-key .ct-key-line.is-thin { border-top: 1.5px dashed var(--scope-muted); }
 #tab-contrast .ct-sweep-plot .plot-canvas:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 #tab-contrast .ct-check { margin: 10px 0 0; font-size: 0.84rem; }
 #tab-contrast .ct-check:empty { display: none; }
@@ -170,7 +262,8 @@
         hoverX: null,
         evoView: null, evoWin: null,       // null: overview on wide screens, first repetitions on narrow ones
         sweep: { name: null, wanted: null, token: 0, running: false, cache: new Map(), result: null, signed: false, plotFor: null },
-        pair: { a: null, b: null }
+        pair: { a: null, b: null, chosen: false },
+        styles: null, stylesFor: null
     };
     const ui = {};
 
@@ -186,14 +279,17 @@
        the excitation before the centre echo, an inversion before that,
        and how many refocusing pulses the repetition has. */
     function analyse(prog, ev) {
-        const info = { family: 'none', TR: null, TE: null, TI: null, flip: null, refFlip: null, nRef: 0, sat: false, cp: null, nPrior: 0 };
+        // reason, when the family is 'none': 'noreadout', 'noexcite' or 'notr'
+        const info = { family: 'none', reason: 'noreadout', TR: null, TE: null, TI: null, flip: null, refFlip: null, nRef: 0, sat: false, cp: null, nPrior: 0 };
         if (!ev || !ev.center) return info;
         const cp = ev.center.period, tc = ev.center.t;
         info.cp = cp;
+        info.reason = 'noexcite';
         let rfs = (prog.rf || []).filter(function (r) { return r.period === cp; });
         if (!rfs.length) rfs = (prog.rf || []).filter(function (r) { return !r.dummy; });
         const exc = rfs.filter(function (r) { return r.role === 'excite' && r.t <= tc + 1e-9; }).pop() || null;
         if (!exc) return info;
+        info.reason = null;
         const inv = rfs.filter(function (r) { return r.role === 'invert' && r.t < exc.t; }).pop() || null;
         const refs = rfs.filter(function (r) { return r.role === 'refocus' && r.t > exc.t; });
         info.nRef = refs.length;
@@ -209,7 +305,7 @@
         else if (refs.length) info.family = refs.length > 1 ? 'tse' : 'se';
         else if (inv) info.family = 'ir-gre';
         else info.family = 'gre';
-        if (!(info.TR > 0)) info.family = 'none';
+        if (!(info.TR > 0)) { info.family = 'none'; info.reason = 'notr'; }
         return info;
     }
     const FAMILY_NAME = {
@@ -221,7 +317,7 @@
     /* Textbook steady-state signal of one tissue (fraction of M0). */
     function textbook(info, t) {
         const TR = info.TR, TE = info.TE, T1 = t.t1;
-        if (!(T1 > 0) || !(TR > 0) || !isFinite(TE)) return NaN;
+        if (!(T1 > 0) || !(TR > 0) || !Number.isFinite(TE)) return NaN;
         switch (info.family) {
             case 'gre': {
                 const a = info.flip * PI / 180, E1 = exp(-TR / T1);
@@ -247,12 +343,49 @@
         }
     }
 
+    /* The receive coil's share of the noise, at the centre of the head and
+       60 mm out. Each coil set has its own noise (fields.js noiseFactor:
+       1 for one element of the head array, about 2.4 for the body coil,
+       which picks up thermal noise from far more of the patient). A
+       sensitivity-weighted (Roemer) combination of the array then has
+       image noise sigma / RSS(r), where RSS is the root-sum-of-squares of
+       the element sensitivities: about 0.66 at the centre of the head and
+       more near the coils. The body coil is uniform (sensitivity 1). */
+    const coilCache = {};
+    function coilNoise(type) {
+        type = type === 'body' ? 'body' : 'head8';
+        if (coilCache[type]) return coilCache[type];
+        const F = MRI.fields, out = { type: type, nf: type === 'body' ? 2.4 : 1, centre: 1, at60: 1 };
+        try {
+            const cs = F.coilSet(type);
+            if (cs && cs.noiseFactor > 0) out.nf = cs.noiseFactor;
+            if (type !== 'body') {
+                // three pixels 60 mm apart along x: -60 mm, the centre, +60 mm
+                const m = F.coilMaps(cs, 3, 1, 0.18, 0.06), rss = function (i) {
+                    let s = 0;
+                    for (let k = 0; k < m.re.length; k++) s += m.re[k][i] * m.re[k][i] + m.im[k][i] * m.im[k][i];
+                    return sqrt(s);
+                };
+                out.centre = rss(1); out.at60 = 0.5 * (rss(0) + rss(2));
+            }
+        } catch (e) { /* fields missing: a uniform coil */ }
+        return (coilCache[type] = out);
+    }
+
     /* Image noise for this protocol (section 3 noise model), so a signal
        difference can be quoted as a contrast-to-noise ratio. Each pixel
        of a Cartesian reconstruction is dkx dky times a sum over all
        samples, so sigma_img = sigma dkx dky sqrt(Nsamples) with
-       sigma = NOISE_REF noise sqrt(1/dwell) / sqrt(NEX). Only for fully
-       sampled Cartesian scans; SENSE and partial Fourier change it. */
+       sigma = NOISE_REF noise sqrt(1/dwell) / sqrt(NEX), for one coil of
+       noise factor 1 and sensitivity 1. noiseAtCentre() adds the coil.
+       Only for fully sampled Cartesian scans; SENSE and partial Fourier
+       change it. */
+    function noiseAtCentre(prog) {
+        const sigma = imageNoise(prog);
+        if (!(sigma > 0)) return sigma;
+        const c = coilNoise(state().coilType);
+        return sigma * c.nf / (c.centre > 0 ? c.centre : 1);
+    }
     function imageNoise(prog) {
         const im = prog && prog.image, E = MRI.engine;
         if (!im || !E || !(E.NOISE_REF > 0) || (im.readoutAxis !== 'x' && im.readoutAxis !== 'y')) return null;
@@ -262,7 +395,7 @@
         let nS = 0;
         adcs.forEach(function (a) { nS += a.n; });
         if (abs(nS - os * im.nx * im.ny) > 0.01 * nS) return null;      // undersampled or partial: not this simple estimate
-        const noise = (state().artifacts && isFinite(state().artifacts.noise)) ? state().artifacts.noise : 1;
+        const noise = (state().artifacts && Number.isFinite(state().artifacts.noise)) ? state().artifacts.noise : 1;
         if (!(noise > 0)) return 0;
         const fovRO = im.readoutAxis === 'x' ? im.fovX : im.fovY, fovPE = im.readoutAxis === 'x' ? im.fovY : im.fovX;
         const sigma = E.NOISE_REF * noise * sqrt(1 / adcs[0].dwell) / sqrt(im.averages || 1);
@@ -270,15 +403,21 @@
     }
 
     /* ---------- concept card ---------- */
-    function setupSweep(presetId, param, alwaysPreset) {
+    /* Load the preset if needed (or always, when alwaysPreset and another
+       preset is loaded), set any parameters the experiment needs (SI), then
+       sweep `param`. */
+    function setupSweep(presetId, param, alwaysPreset, params) {
         const s = state();
         const prog = s.program && s.program.ok ? s.program : null;
-        const has = prog && prog.params && prog.params.some(function (p) { return p.name === param && isFinite(p.min) && isFinite(p.max); });
+        const has = prog && prog.params && prog.params.some(function (p) { return p.name === param && Number.isFinite(p.min) && Number.isFinite(p.max); });
         C.sweep.wanted = param;
+        const before = s.source;
         if (!has || (alwaysPreset && s.presetId !== presetId)) MRI.actions.loadPreset(presetId);
-        else { C.sweep.name = param; recomputeNow(); }
+        Object.keys(params || {}).forEach(function (k) { MRI.actions.setParam(k, params[k]); });
+        // Nothing changed, so no program:compiled will come: sweep now.
+        if (s.source === before) { C.sweep.name = param; recomputeNow(); }
         if (ui.sweepPanel) {
-            try { ui.sweepPanel.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { ui.sweepPanel.scrollIntoView(); }
+            try { ui.sweepPanel.scrollIntoView({ block: 'start', behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { ui.sweepPanel.scrollIntoView(); }
         }
     }
     function buildConcept() {
@@ -293,13 +432,15 @@
                 'an inversion nulls a tissue at TI = T1 ln 2 when TR &#8811; T1</div>',
             tryThis: [
                 { html: 'Sweep <strong>TE</strong> on the spin echo (<code>se</code>): long-T2 CSF overtakes grey and white matter as TE grows.',
-                    label: 'Set it up', run: function () { setupSweep('se', 'TE', true); } },
-                { html: 'Sweep <strong>TR</strong>: at short TR the short-T1 tissues (fat, white matter) lead; at long TR proton density takes over.',
-                    label: 'Sweep TR', run: function () { setupSweep('se', 'TR', false); } },
+                    label: TRY_IT, run: function () { setupSweep('se', 'TE', true); } },
+                { html: 'Set TE to 12 ms on the spin echo and sweep <strong>TR</strong>. The short TE keeps T2 out of it, so only T1 weighting ' +
+                    'changes: at short TR the short-T1 tissues (fat, white matter) lead; at long TR the curves approach proton density. ' +
+                    '(At TE 90 ms long TR would be T2-weighted instead.)',
+                    label: TRY_IT, run: function () { setupSweep('se', 'TR', true, { TE: 0.012 }); } },
                 { html: 'On <code>flair</code> sweep <strong>TI</strong> and find the CSF null (about 2.4 s with TR = 9 s).',
-                    label: 'Set it up', run: function () { setupSweep('flair', 'TI', true); } },
+                    label: TRY_IT, run: function () { setupSweep('flair', 'TI', true); } },
                 { html: 'On <code>gre_t1</code> sweep the <strong>flip angle</strong> and find the Ernst angle of white matter, the flip that ' +
-                    'gives it the most signal.', label: 'Set it up', run: function () { setupSweep('gre_t1', 'flip', true); } }
+                    'gives it the most signal.', label: TRY_IT, run: function () { setupSweep('gre_t1', 'flip', true); } }
             ]
         });
     }
@@ -322,13 +463,36 @@
             line.appendChild(el('span', { class: 'badge badge-accent', title: 'Sequence family detected from the RF pulses', text: fam }));
         }
         const chips = el('span', { class: 'ct-chips' });
-        if (info && info.TR) chips.appendChild(el('span', { class: 'ct-pchip', text: 'TR ' + fms(info.TR) + ' ms' }));
-        if (info && info.TI) chips.appendChild(el('span', { class: 'ct-pchip', text: 'TI ' + fms(info.TI) + ' ms' }));
-        if (info && isFinite(info.TE)) chips.appendChild(el('span', { class: 'ct-pchip', text: (info.nRef > 1 ? 'TEeff ' : 'TE ') + fms(info.TE) + ' ms' }));
-        if (info && isFinite(info.flip)) chips.appendChild(el('span', { class: 'ct-pchip', text: 'α ' + fnum(info.flip, 3) + '°' }));
+        if (info && Number.isFinite(info.TR) && info.TR > 0) chips.appendChild(el('span', { class: 'ct-pchip', text: 'TR ' + fms(info.TR) + ' ms' }));
+        if (info && Number.isFinite(info.TI) && info.TI > 0) chips.appendChild(el('span', { class: 'ct-pchip', text: 'TI ' + fms(info.TI) + ' ms' }));
+        if (info && Number.isFinite(info.TE)) chips.appendChild(el('span', { class: 'ct-pchip', text: (info.nRef > 1 ? 'TEeff ' : 'TE ') + fms(info.TE) + ' ms' }));
+        if (info && info.flip !== null && Number.isFinite(info.flip)) chips.appendChild(el('span', { class: 'ct-pchip', text: 'α ' + fnum(info.flip, 3) + '°' }));
         line.appendChild(chips);
         if (C.ph) line.appendChild(el('span', { class: 'muted', text: 'on the ' + C.ph.name + ' phantom' }));
         box.appendChild(line);
+        // Say why there is nothing to compare, rather than show empty plots without a word.
+        if (C.ev && info && info.family === 'none') {
+            const why = info.reason === 'noexcite'
+                ? 'This sequence has no excitation pulse before its readout, so no transverse magnetisation is created and every tissue gives zero signal. Add an <code>rf</code> that excites (for example <code>rf 90 slice</code>).'
+                : info.reason === 'notr' ? 'No repetition time could be read from this sequence, so there is no steady state to compare.'
+                    : 'This sequence records no readout, so there is no echo to measure.' +
+                        ((C.prog && C.prog.rf && C.prog.rf.length) ? ' The curves still show what its RF pulses do to Mz.' : '');
+            box.appendChild(w().callout(why, 'info'));
+        }
+    }
+    /* Shown instead of the tab's content when drawing it failed, so the
+       plots never keep showing an older sequence. */
+    function showRenderError(e) {
+        const msg = e && e.message ? e.message : String(e);
+        C.ev = null; C.info = null; C.err = 'this sequence could not be shown';
+        cancelSweep(); C.sweep.result = null;
+        const clear = function (n) { if (n) n.textContent = ''; };
+        [ui.status, ui.toggles, ui.bars, ui.barsHead, ui.pairs, ui.pairNote, ui.eq, ui.progress, ui.sweepCheck].forEach(clear);
+        if (ui.pairPick) ui.pairPick.hidden = true;
+        if (ui.status) ui.status.appendChild(w().callout('The Contrast tab could not show this sequence (' + escapeHTML(msg) + '). ' +
+            'Its curves have been cleared rather than left showing an earlier sequence.', 'warn'));
+        try { drawEvolution(); } catch (e2) { /* the message above is enough */ }
+        try { drawSweep(); } catch (e2) { /* idem */ }
     }
     function escapeHTML(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
@@ -347,15 +511,15 @@
         if (!ev) return;
         box.appendChild(el('span', { class: 'ct-toggles-label', text: 'Tissues:' }));
         ev.tissues.forEach(function (t) {
-            const b = el('button', { type: 'button', class: 'ct-chip', 'aria-pressed': isShown(t.id) ? 'true' : 'false',
-                title: (isShown(t.id) ? 'Hide ' : 'Show ') + t.name }, [
-                el('span', { class: 'ct-dot', style: { background: scopeColor(t.color) }, 'aria-hidden': 'true' }), t.name
+            const b = el('button', { type: 'button', class: 'ct-chip' + (isPair(t.id) ? ' is-pair' : ''), 'aria-pressed': isShown(t.id) ? 'true' : 'false',
+                title: (isShown(t.id) ? 'Hide ' : 'Show ') + t.name + (isPair(t.id) ? ' (one of your pair: thick line)' : '') }, [
+                el('span', { class: 'ct-dot', style: { background: tissueColor(t.id) }, 'aria-hidden': 'true' }), t.name
             ]);
             b.addEventListener('click', function () {
                 C.hidden[t.id] = isShown(t.id);
                 C.userToggled[t.id] = true;
                 b.setAttribute('aria-pressed', isShown(t.id) ? 'true' : 'false');
-                b.title = (isShown(t.id) ? 'Hide ' : 'Show ') + t.name;
+                b.title = (isShown(t.id) ? 'Hide ' : 'Show ') + t.name + (isPair(t.id) ? ' (one of your pair: thick line)' : '');
                 drawEvolution(); renderBars(); drawSweep();
             });
             box.appendChild(b);
@@ -393,7 +557,7 @@
         if (!base.length) base.push({ kind: 'start', t0: ev.t[0], t1: max(ev.t[ev.t.length - 1], ev.t[0] + 1e-3), i0: 0, i1: ev.t.length });
         const out = { start: base[0], steady: base.length > 1 ? base[1] : null, echo: null };
         const cen = ev.center;
-        if (cen && isFinite(cen.te) && cen.te > 0) {
+        if (cen && Number.isFinite(cen.te) && cen.te > 0) {
             const tc = cen.t, tx = tc - cen.te;
             const parent = base.find(function (s) { return tc >= s.t0 - 1e-9 && tc <= s.t1 + 1e-9; });
             if (parent) {
@@ -443,7 +607,8 @@
         if (!W) return;
         const narrow = W < 560;
         const mzH = narrow ? 112 : 136, mxyH = narrow ? 84 : 104;
-        const top = 34, gapP = 22, bottom = 34, left = narrow ? 40 : 46, right = 10;
+        const top = 34, gapP = 22, bottom = 34, left = narrow ? 40 : 46;
+        let right = 10;
         const H = top + mzH + gapP + mxyH + bottom;
         const r = U.setupCanvas(cv, W, H), ctx = r.ctx;
         const c = scopeColors();
@@ -454,10 +619,16 @@
         syncViewControl(W);
         if (!ev || !ev.t || !ev.t.length) {
             ctx.fillStyle = c.muted; ctx.font = '13px ' + c.font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(C.err ? 'No curves: ' + C.err : 'No sequence to follow yet.', W / 2, H / 2);
+            ctx.fillText(fitText(ctx, C.err ? 'No curves: ' + C.err : 'No sequence to follow yet.', W - 16), W / 2, H / 2);
             snapshot(cv);
             return;
         }
+        // Room on the right for a label at the end of each curve.
+        const labFont = (narrow ? 10 : 11) + 'px ' + c.font;
+        ctx.font = '700 ' + labFont;
+        let labW = 0;
+        ev.tissues.forEach(function (t) { if (isShown(t.id)) labW = max(labW, ctx.measureText(abbr(t)).width); });
+        if (labW > 0) right = Math.min(narrow ? 66 : 86, Math.ceil(labW) + 12);
         const win = C.evoWin, view = evoView(W);
         let segs;
         if (view === 'start') segs = [win.start];
@@ -608,22 +779,24 @@
                 ctx.beginPath(); ctx.moveTo(xx, mzTop); ctx.lineTo(xx, mxyBot); ctx.stroke(); ctx.restore();
                 ctx.font = '600 10px ' + c.font; ctx.fillStyle = c.fg; ctx.textBaseline = 'top';
                 const lab = s.kind === 'echo' ? 'TE' : 'k = 0 echo', tw = ctx.measureText(lab).width;
-                const rightOk = xx + 4 + tw < (s === segs[segs.length - 1] ? W - 2 : s.x1 + 10);
+                const rightOk = xx + 4 + tw < (s === segs[segs.length - 1] ? s.x1 - 2 : s.x1 + 10);
                 ctx.textAlign = rightOk ? 'left' : 'right';
                 ctx.fillText(lab, rightOk ? xx + 4 : xx - 4, mxyTop + 2);
             });
         }
 
-        // curves
+        // curves: the other tissues first (thin, dashed), the student's pair on top (thick, solid)
         const pdOf = pdLookup();
+        const shownK = ev.tissues.map(function (t, k) { return k; }).filter(function (k) { return isShown(ev.tissues[k].id); })
+            .sort(function (a, b) { return (isPair(ev.tissues[a].id) ? 1 : 0) - (isPair(ev.tissues[b].id) ? 1 : 0); });
         segs.forEach(function (s) {
             ctx.save();
             ctx.beginPath(); ctx.rect(s.x0, mzTop - 2, s.x1 - s.x0, mxyBot - mzTop + 4); ctx.clip();
-            ev.tissues.forEach(function (t, k) {
-                if (!isShown(t.id)) return;
+            shownK.forEach(function (k) {
+                const t = ev.tissues[k], st = lineStyle(t.id);
                 const f = C.pdScale ? pdOf(k) : 1;
-                const col = scopeColor(t.color), tz = ev.mz[k], txy = ev.mxy[k];
-                ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+                const tz = ev.mz[k], txy = ev.mxy[k];
+                ctx.strokeStyle = st.stroke; ctx.lineWidth = st.width; ctx.lineJoin = 'round'; ctx.setLineDash(st.dash);
                 ctx.beginPath();
                 for (let i = s.i0; i < s.i1; i++) { const xx = X(s, ev.t[i]), yy = Ymz(f * tz[i]); if (i === s.i0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy); }
                 ctx.stroke();
@@ -638,15 +811,34 @@
             const centre = ev.center && j === ev.center.index;
             segsOf(a.t).forEach(function (s) {
                 const xx = X(s, a.t);
-                ev.tissues.forEach(function (t, k) {
-                    if (!isShown(t.id)) return;
+                shownK.forEach(function (k) {
+                    const t = ev.tissues[k];
                     const pd = pdOf(k);
                     const v = C.pdScale ? abs(a.amp[k]) : (pd > 0 ? abs(a.amp[k]) / pd : NaN);
-                    if (!isFinite(v)) return;
-                    ctx.fillStyle = scopeColor(t.color);
+                    if (!Number.isFinite(v)) return;
+                    ctx.fillStyle = isPair(t.id) ? tissueColor(t.id) : withAlpha(tissueColor(t.id), 0.75);
                     ctx.beginPath(); ctx.arc(xx, Ymxy(min(1, v)), centre ? 3.4 : 2.2, 0, 2 * PI); ctx.fill();
                     if (centre) { ctx.strokeStyle = c.bg; ctx.lineWidth = 1; ctx.stroke(); }
                 });
+            });
+        });
+        // a label at the right end of every curve, in its colour, spread so they do not overlap
+        const last = segs[segs.length - 1], iEnd = last.i1 - 1, xEnd = last.x1;
+        const mzLab = [], mxyLab = [];
+        shownK.forEach(function (k) {
+            const t = ev.tissues[k], f = C.pdScale ? pdOf(k) : 1;
+            const vz = f * ev.mz[k][iEnd], vxy = f * abs(ev.mxy[k][iEnd]);
+            if (Number.isFinite(vz)) mzLab.push({ y: Ymz(U.clamp(vz, -1, 1)), t: t });
+            if (Number.isFinite(vxy)) mxyLab.push({ y: Ymxy(U.clamp(vxy, 0, 1)), t: t });
+        });
+        const gap = narrow ? 11 : 12.5;
+        [[mzLab, mzTop, mzBot], [mxyLab, mxyTop, mxyBot]].forEach(function (g) {
+            stackLabels(g[0], g[1], g[2], gap).forEach(function (it) {
+                const col = tissueColor(it.t.id), pair = isPair(it.t.id);
+                ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([]);
+                ctx.beginPath(); ctx.moveTo(xEnd + 1, it.y); ctx.lineTo(xEnd + 4, it.ly); ctx.stroke();
+                ctx.fillStyle = labelColor(col); ctx.font = (pair ? '700 ' : '500 ') + labFont; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.fillText(fitText(ctx, abbr(it.t), W - xEnd - 7), xEnd + 6, it.ly);
             });
         });
         snapshot(cv);
@@ -716,7 +908,7 @@
         const rows = [];
         ev.tissues.forEach(function (tt, k) {
             if (!isShown(tt.id)) return;
-            const f = C.pdScale ? pdOf(k) : 1, mz = f * ev.mz[k][i], mxy = f * abs(ev.mxy[k][i]), col = scopeColor(tt.color);
+            const f = C.pdScale ? pdOf(k) : 1, mz = f * ev.mz[k][i], mxy = f * abs(ev.mxy[k][i]), col = tissueColor(tt.id);
             ctx.fillStyle = col;
             ctx.beginPath(); ctx.arc(L.X(s, ti), L.Ymz(mz), 3, 0, 2 * PI); ctx.fill();
             ctx.beginPath(); ctx.arc(L.X(s, ti), L.Ymxy(mxy), 3, 0, 2 * PI); ctx.fill();
@@ -762,9 +954,9 @@
         order.forEach(function (k) {
             const t = ev.tissues[k], v = amp[k], neg = v < -1e-6;
             anyNeg = anyNeg || neg;
-            const col = scopeColor(t.color);
+            const col = tissueColor(t.id);
             const pct = mx > 0 ? 100 * abs(v) / mx : 0;
-            const row = el('div', { class: 'ct-bar' + (isShown(t.id) ? '' : ' is-off'), role: 'listitem',
+            const row = el('div', { class: 'ct-bar' + (isShown(t.id) ? '' : ' is-off') + (isPair(t.id) ? ' is-pair' : ''), role: 'listitem',
                 'aria-label': t.name + ': ' + fsig3(v) + (neg ? ' (negative: Mz was still inverted at the excitation)' : '') }, [
                 el('span', { class: 'ct-bar-name', 'aria-hidden': 'true', title: t.name }, [el('span', { class: 'swatch', style: { background: col } }), el('span', { text: shortName(t.name) })]),
                 el('span', { class: 'ct-bar-track', 'aria-hidden': 'true' }, [el('span', { class: 'ct-bar-fill' + (neg ? ' neg' : ''), style: { width: pct.toFixed(1) + '%', backgroundColor: col } })]),
@@ -777,11 +969,31 @@
             'Signal as a fraction of the magnetisation of fully relaxed pure water (M<sub>0</sub> = 1), before coil sensitivity and noise. ' +
             (anyNeg ? 'Striped bars are negative: that tissue\'s Mz was still inverted when it was excited. A magnitude image shows |S|, so a ' +
                 'negative tissue looks just as bright as a positive one of the same size. ' : '') +
-            'Faded rows are hidden in the plots.' }));
+            'Faded rows are hidden in the plots; bold rows are your pair.' }));
         renderPairs();
     }
 
     const PAIRS = [['gm', 'wm'], ['deepgm', 'wm'], ['wm', 'csf'], ['lesion', 'wm'], ['fat', 'wm'], ['oil', 'water']];
+    /* The pair drawn thick in the plots and marked "yours" in the table: the
+       student's choice while both tissues exist, otherwise the first common
+       pair of this phantom (grey and white matter on the brain), otherwise
+       the first two tissues shown. */
+    function ensurePair(ev) {
+        if (!ev || !ev.tissues || ev.tissues.length < 2) return;
+        const has = {};
+        ev.tissues.forEach(function (t) { has[t.id] = true; });
+        if (C.pair.chosen && has[C.pair.a] && has[C.pair.b]) return;
+        C.pair.chosen = false;
+        const common = PAIRS.find(function (p) { return has[p[0]] && has[p[1]]; });
+        if (common) { C.pair.a = common[0]; C.pair.b = common[1]; return; }
+        const shown = ev.tissues.filter(function (t) { return isShown(t.id); });
+        const list = shown.length >= 2 ? shown : ev.tissues;
+        C.pair.a = list[0].id; C.pair.b = list[1].id;
+    }
+    function pairChanged() {
+        C.pair.chosen = true;
+        renderToggles(); drawEvolution(); renderBars(); drawSweep();
+    }
     function renderPairs() {
         const box = ui.pairs;
         box.textContent = '';
@@ -792,12 +1004,11 @@
         const idx = {};
         ev.tissues.forEach(function (t, k) { idx[t.id] = k; });
         const amp = ev.center.amp;
-        const sigma = imageNoise(C.prog);
+        const sigma = noiseAtCentre(C.prog);
         const pairs = PAIRS.filter(function (p) { return idx[p[0]] !== undefined && idx[p[1]] !== undefined; });
         // the student's own pair: two persistent selects (rebuilt only when the tissues change, so focus stays)
         if (ev.tissues.length >= 2) {
-            if (idx[C.pair.a] === undefined) C.pair.a = ev.tissues[0].id;
-            if (idx[C.pair.b] === undefined) C.pair.b = ev.tissues[ev.tissues[1].id === C.pair.a ? 0 : 1].id;
+            ensurePair(ev);
             const key = ev.tissues.map(function (t) { return t.id; }).join(',');
             const opts = ev.tissues.map(function (t) { return { value: t.id, label: t.name }; });
             if (ui.pairPick.dataset.key !== key) {
@@ -829,20 +1040,23 @@
             else if (sigma > 0) cnr = fnum(d / sigma, 3);
             const name = el('td', { class: 'ct-pair-name' }, [
                 mine ? el('span', { class: 'badge badge-muted ct-mine', text: 'yours' }) : null,
-                el('span', { class: 'swatch', style: { background: tHi.color }, 'aria-hidden': 'true' }),
+                el('span', { class: 'swatch', style: { background: tissueColor(tHi.id) }, 'aria-hidden': 'true' }),
                 el('strong', { text: shortName(tHi.name) }),
                 el('span', { class: 'ct-rel', text: tie ? ' = ' : ' > ' }),
-                el('span', { class: 'swatch', style: { background: tLo.color }, 'aria-hidden': 'true' }), shortName(tLo.name)
+                el('span', { class: 'swatch', style: { background: tissueColor(tLo.id) }, 'aria-hidden': 'true' }), shortName(tLo.name)
             ]);
             tb.appendChild(el('tr', {}, [
                 name,
                 el('td', { class: 'num', text: fsig3(d) }),
-                el('td', { class: 'num', text: tie ? '1.00' : (isFinite(ratio) ? (ratio >= 100 ? '> 100' : ratio.toFixed(2)) + '×' : '∞') }),
+                el('td', { class: 'num', text: tie ? '1.00' : (Number.isFinite(ratio) ? (ratio >= 100 ? '> 100' : ratio.toFixed(2)) + '×' : '∞') }),
                 el('td', { class: 'num', text: cnr })
             ]));
         };
-        pairs.forEach(function (p) { row(p[0], p[1]); });
-        if (ev.tissues.length >= 2 && C.pair.a !== C.pair.b) row(C.pair.a, C.pair.b, true);
+        // the student's pair is marked where it is one of the common pairs, else added as its own row
+        const mineIs = function (p) { return (p[0] === C.pair.a && p[1] === C.pair.b) || (p[0] === C.pair.b && p[1] === C.pair.a); };
+        let mineShown = false;
+        pairs.forEach(function (p) { const m = mineIs(p); mineShown = mineShown || m; row(p[0], p[1], m); });
+        if (!mineShown && ev.tissues.length >= 2 && C.pair.a !== C.pair.b) row(C.pair.a, C.pair.b, true);
         table.appendChild(tb);
         if (ev.tissues.length < 2) {
             box.appendChild(el('p', { class: 'note', text: 'This phantom has a single tissue, so there is nothing to contrast.' }));
@@ -853,8 +1067,20 @@
         const thick = C.prog && C.prog.image ? C.prog.image.thickness : 0.005;
         ui.pairNote.innerHTML = 'Each row names the brighter tissue first. Difference and ratio use |S|, as in a magnitude image. ' +
             (sigma > 0 ? 'CNR = difference / image noise, estimated for this voxel (' + voxelText(C.prog) + ', slice ' + U.fmtNum(thick * 1000, 3) +
-                ' mm), bandwidth and NEX with a single uniform coil; the head coil gives about this in the middle of the head and more near the coils.'
+                ' mm), bandwidth and NEX, ' + coilNoteText()
                 : (sigma === 0 ? 'Noise is switched off on the Artifacts tab.' : 'CNR is estimated only for fully sampled Cartesian scans (SENSE, partial Fourier and non-Cartesian trajectories change the noise).'));
+    }
+    /* CNR depends on the receive coil: say which one the column assumes and
+       how the other compares (numbers from the coil model, coilNoise). */
+    function coilNoteText() {
+        const body = coilNoise('body'), head = coilNoise('head8');
+        const atC = body.nf / head.nf * head.centre, at60 = body.nf / head.nf * head.at60;
+        const cmp = 'about ' + U.fmtNum(atC, 2) + ' times the body coil\'s CNR at the centre of the head and ' + U.fmtNum(at60, 2) + ' times 60 mm out';
+        return state().coilType === 'body'
+            ? 'with the body coil (uniform, but ' + U.fmtNum(body.nf / head.nf, 2) + ' times noisier than one element of the head array). ' +
+                'CNR depends on the coil: the 8-channel head coil would give ' + cmp.replace('the body coil\'s CNR', 'this') + '.'
+            : 'with the 8-channel head coil at the centre of the head, where the array is least sensitive. CNR depends on the coil: ' +
+                'the head array gives ' + cmp + ', towards the cortex.';
     }
     function shortName(n) { return String(n).replace(/\s*\(.*\)\s*$/, ''); }
     function voxelText(prog) {
@@ -906,11 +1132,11 @@
             const T = tissues[t.id];
             if (!T) return;
             const S = textbook(info, T), sim = ev.center.amp[k], d = sim - S;
-            const okk = isFinite(d) && abs(d) <= tolOf(S);
-            if (isFinite(d) && abs(d) > worst) { worst = abs(d); worstName = t.name; }
+            const okk = Number.isFinite(d) && abs(d) <= tolOf(S);
+            if (Number.isFinite(d) && abs(d) > worst) { worst = abs(d); worstName = t.name; }
             if (!okk) mism[t.id] = true;
             tb.appendChild(el('tr', {}, [
-                el('td', {}, [el('span', { class: 'swatch', style: { background: t.color }, 'aria-hidden': 'true' }), t.name]),
+                el('td', {}, [el('span', { class: 'swatch', style: { background: tissueColor(t.id) }, 'aria-hidden': 'true' }), t.name]),
                 el('td', { class: 'num', text: fsig3(S) }),
                 el('td', { class: 'num', text: fsig3(sim) }),
                 okk ? el('td', { class: 'num' }, [el('span', { class: 'good', text: 'agrees' })]) : el('td', { class: 'num warn', text: (d > 0 ? '+' : '') + fsig3(d) })
@@ -974,7 +1200,7 @@
 
     /* ---------- the sweep ---------- */
     function sweepableParams(prog) {
-        return (prog && prog.params ? prog.params : []).filter(function (p) { return isFinite(p.min) && isFinite(p.max) && p.max > p.min; });
+        return (prog && prog.params ? prog.params : []).filter(function (p) { return Number.isFinite(p.min) && Number.isFinite(p.max) && p.max > p.min; });
     }
     const PREF = { gre: ['flip', 'TR', 'TE'], se: ['TE', 'TR'], tse: ['ESP', 'TR', 'ETL'], 'ir-se': ['TI', 'TR', 'TE'], 'ir-tse': ['TI', 'TR', 'ESP'], 'ir-gre': ['TI', 'flip', 'TR'] };
     function chooseParam(prog) {
@@ -1096,15 +1322,43 @@
         if (ui.sweepPlot && C.sweep.plotFor === label) return ui.sweepPlot;
         if (ui.sweepPlot && ui.sweepPlot.el.parentNode) ui.sweepPlot.el.parentNode.removeChild(ui.sweepPlot.el);
         C.sweep.plotFor = label;
-        const plot = w().plot(null, { height: 260, scope: true, xlabel: label, ylabel: 'signal (× M0)' });
+        const plot = w().plot(null, { height: 260, scope: true, xlabel: label, ylabel: 'signal (× M0)', legend: false });
         plot.el.classList.add('ct-sweep-plot');
         ui.sweepHost.appendChild(plot.el);
         const cv = plot.canvas;
         cv.tabIndex = 0;
         cv.addEventListener('click', function (ev) { onSweepClick(ev); });
         cv.addEventListener('keydown', onSweepKey);
+        // End-of-line labels: an HTML layer in a column to the right of the
+        // plot (the stage gives up that width), placed from the plot's layout.
+        plot.labels = el('div', { class: 'ct-endlabels', 'aria-hidden': 'true' });
+        plot.el.appendChild(plot.labels);
+        const stage = cv.parentNode;
+        if (root.ResizeObserver && stage) {
+            // the plot redraws on the next frame after a resize; place the labels after that
+            new root.ResizeObserver(function () { raf(function () { raf(placeSweepLabels); }); }).observe(stage);
+        }
         ui.sweepPlot = plot;
         return plot;
+    }
+    /* Put a label at the right end of each sweep curve, in its colour, spread
+       so they do not overlap. */
+    function placeSweepLabels() {
+        const plot = ui.sweepPlot, items = C.sweepLabels || [];
+        if (!plot || !plot.labels) return;
+        const box = plot.labels;
+        box.textContent = '';
+        const L = plot.layout(), stage = plot.canvas.parentNode;
+        if (!L || !items.length || !stage || !stage.clientWidth) return;
+        const top = stage.offsetTop + L.top, list = [];
+        items.forEach(function (it) {
+            if (!Number.isFinite(it.v)) return;
+            list.push({ y: top + L.Y(U.clamp(it.v, L.ylo, L.yhi)), it: it });
+        });
+        stackLabels(list, top, top + L.ph, 14).forEach(function (q) {
+            box.appendChild(el('span', { class: 'ct-endlabel' + (q.it.pair ? ' is-pair' : ''), text: q.it.text,
+                style: { top: (q.ly - 7) + 'px', color: q.it.color } }));
+        });
     }
     function currentParam() {
         const prog = C.prog;
@@ -1162,27 +1416,38 @@
         const plot = ensureSweepPlot(p || (r && r.param));
         ui.sweepCheck.textContent = '';
         if (!r || !p || r.param.name !== p.name) {
+            C.sweepLabels = [];
             plot.draw([], {});
+            placeSweepLabels();
             plot.canvas.setAttribute('aria-label', 'Sweep plot: no parameter to sweep.');
             return;
         }
         const scale = p.scale || 1, xs = r.xs.map(function (v) { return v / scale; });
         const ev = C.ev, ph = C.ph;
-        const colorOf = {}, nameOf = {};
-        if (ph) ph.tissues.forEach(function (t) { colorOf[t.id] = t.color; nameOf[t.id] = t.name; });
+        const tisOf = {};
+        if (ph) ph.tissues.forEach(function (t) { tisOf[t.id] = t; });
         const signed = C.sweep.signed;
-        const series = [];
-        r.ids.forEach(function (id, k) {
-            if (!isShown(id) || !colorOf[id]) return;
+        const series = [], labels = [];
+        // the other tissues first (thin, dashed), the pair last so it is drawn on top
+        const ks = r.ids.map(function (id, k) { return k; }).filter(function (k) { return isShown(r.ids[k]) && tisOf[r.ids[k]]; })
+            .sort(function (a, b) { return (isPair(r.ids[a]) ? 1 : 0) - (isPair(r.ids[b]) ? 1 : 0); });
+        ks.forEach(function (k) {
+            const id = r.ids[k], st = lineStyle(id);
             const ys = Array.from(r.ys[k], function (v) { return signed ? v : abs(v); });
-            series.push({ x: xs, y: ys, color: scopeColor(colorOf[id]), label: shortName(nameOf[id]), width: 2, points: xs.length <= 9 ? 3 : false });
+            series.push({ x: xs, y: ys, color: st.stroke, dash: st.dash.length ? st.dash : false, label: shortName(tisOf[id].name), width: st.width,
+                points: xs.length <= 9 ? 3 : false });
+            let vEnd = NaN;
+            for (let j = ys.length - 1; j >= 0; j--) if (Number.isFinite(ys[j])) { vEnd = ys[j]; break; }
+            labels.push({ v: vEnd, text: abbr(tisOf[id]), color: labelColor(st.color), pair: st.pair });
         });
+        C.sweepLabels = labels;
         const cur = p.value / scale;
         plot.draw(series, {
             xlim: [p.min / scale, p.max / scale], includeZero: true,
             markers: [{ x: cur, label: 'now ' + U.fmtNum(cur, 4) + (p.unit ? ' ' + p.unit : ''), color: 'var(--scope-fg)' }],
             hlines: signed ? [{ y: 0, color: 'var(--scope-axis)', dash: false }] : []
         });
+        placeSweepLabels();
         plot.canvas.setAttribute('aria-label', 'Signal of each tissue against ' + p.name + ' from ' + fparamDisplay(p, p.min) + ' to ' + fparamDisplay(p, p.max) +
             '; the current value ' + fparamDisplay(p, p.value) + ' is marked. Click the plot, or use the arrow keys, to set ' + p.name + '.');
         if (r.done === r.xs.length) renderSweepCheck(p, r);
@@ -1208,7 +1473,7 @@
                 const k = r.ids.indexOf(id), T = tis[id];
                 const ae = acos(exp(-info.TR / T.t1)) * 180 / PI;
                 let bj = -1, bv = -Infinity;
-                r.ys[k].forEach(function (v, j) { if (isFinite(v) && abs(v) > bv) { bv = abs(v); bj = j; } });
+                r.ys[k].forEach(function (v, j) { if (Number.isFinite(v) && abs(v) > bv) { bv = abs(v); bj = j; } });
                 parts.push(shortName(T.name) + ' ' + fnum(ae, 3) + '°' + (bj >= 0 ? ' (sweep peak near ' + fnum(r.xs[bj] / (p.scale || 1), 3) + '°)' : ''));
             });
             if (parts.length) {
@@ -1223,7 +1488,7 @@
                 let zc = null;
                 const ys = r.ys[k];
                 for (let j = 0; j + 1 < ys.length; j++) {
-                    if (isFinite(ys[j]) && isFinite(ys[j + 1]) && ys[j] <= 0 && ys[j + 1] > 0) { zc = r.xs[j] + (r.xs[j + 1] - r.xs[j]) * (-ys[j]) / (ys[j + 1] - ys[j]); break; }
+                    if (Number.isFinite(ys[j]) && Number.isFinite(ys[j + 1]) && ys[j] <= 0 && ys[j + 1] > 0) { zc = r.xs[j] + (r.xs[j + 1] - r.xs[j]) * (-ys[j]) / (ys[j + 1] - ys[j]); break; }
                 }
                 const inRange = tn >= p.min && tn <= p.max;
                 parts.push(shortName(T.name) + ' ' + fms(tn) + ' ms' + (zc !== null ? ' (sweep: ' + fms(zc) + ' ms)' : (inRange ? '' : ', outside the range')));
@@ -1270,17 +1535,30 @@
             if (phChanged) C.userToggled = {};
             C.togglesFor = C.ev.tissues.map(function (t) { return t.id; }).join(',');
         }
-        renderStatus();
-        renderToggles();
-        ui.evoCanvas.setAttribute('aria-label', C.ev
-            ? 'Longitudinal (Mz) and transverse (|Mxy|) magnetisation of each tissue over the first repetitions and the repetition that records the k-space centre. ' +
-              'The values at the k-space centre are listed in the bar chart below.'
-            : 'No magnetisation curves.');
-        drawEvolution();
-        renderBars();
-        renderEquation();
-        if (C.prog) renderSweepTools();
-        startSweep();
+        // colours (stable per tissue list) and the pair drawn thick
+        if (C.ev) {
+            const key = C.ev.tissues.map(function (t) { return t.id; }).join(',');
+            if (C.stylesFor !== key) { C.styles = assignStyles(C.ev.tissues); C.stylesFor = key; }
+            ensurePair(C.ev);
+        }
+        /* Drawing: if any part of it fails, clear the tab and say so, rather
+           than leave curves of an earlier sequence on screen. */
+        try {
+            renderStatus();
+            renderToggles();
+            ui.evoCanvas.setAttribute('aria-label', C.ev
+                ? 'Longitudinal (Mz) and transverse (|Mxy|) magnetisation of each tissue over the first repetitions and the repetition that records the k-space centre. ' +
+                  'The values at the k-space centre are listed in the bar chart below.'
+                : 'No magnetisation curves.');
+            drawEvolution();
+            renderBars();
+            renderEquation();
+            if (C.prog) renderSweepTools();
+            startSweep();
+        } catch (e) {
+            if (root.console) root.console.warn('[contrast tab] drawing failed:', e);
+            showRenderError(e);
+        }
     }
     const scheduleRecompute = U.debounce(recompute, 120);
     function recomputeNow() { recompute(); }
@@ -1317,7 +1595,9 @@
             el('span', { html: svg('<path d="M0 -5 L4 0 L0 5 L-4 0 Z" fill="var(--sc4)"/>') + 'saturation' }),
             el('span', { html: svg('<path d="M-3 -3 L3 3 M3 -3 L-3 3" stroke="var(--scope-muted)" stroke-width="1.3"/>') + 'spoiler' }),
             el('span', { html: svg('<rect x="-1.2" y="-3.5" width="2.5" height="7" fill="var(--seq-adc)"/>') + 'readout (ADC)' }),
-            el('span', { html: svg('<circle r="3" fill="var(--scope-fg)"/>') + 'dots: signal detected at each readout' })
+            el('span', { html: svg('<circle r="3" fill="var(--scope-fg)"/>') + 'dots: signal detected at each readout' }),
+            el('span', {}, [el('span', { class: 'ct-key-line', 'aria-hidden': 'true' }), 'thick: your pair']),
+            el('span', {}, [el('span', { class: 'ct-key-line is-thin', 'aria-hidden': 'true' }), 'thin, dashed: other tissues'])
         ]));
         panel.appendChild(fig);
         panel.appendChild(el('p', { class: 'simplification', html:
@@ -1352,10 +1632,10 @@
         ]));
         ui.pairs = el('div');
         panel.appendChild(ui.pairs);
-        ui.pairA = w().select({ ariaLabel: 'First tissue of your pair', options: [], onChange: function (v) { C.pair.a = v; renderPairs(); } });
-        ui.pairB = w().select({ ariaLabel: 'Second tissue of your pair', options: [], onChange: function (v) { C.pair.b = v; renderPairs(); } });
+        ui.pairA = w().select({ ariaLabel: 'First tissue of your pair', options: [], onChange: function (v) { C.pair.a = v; pairChanged(); } });
+        ui.pairB = w().select({ ariaLabel: 'Second tissue of your pair', options: [], onChange: function (v) { C.pair.b = v; pairChanged(); } });
         ui.pairA.select.classList.add('select-sm'); ui.pairB.select.classList.add('select-sm');
-        ui.pairPick = el('div', { class: 'ct-custom', hidden: true }, [el('span', { text: 'Your pair:' }), ui.pairA, el('span', { text: 'and' }), ui.pairB]);
+        ui.pairPick = el('div', { class: 'ct-custom', hidden: true }, [el('span', { text: 'Your pair (thick lines in the plots):' }), ui.pairA, el('span', { text: 'and' }), ui.pairB]);
         panel.appendChild(ui.pairPick);
         ui.pairNote = el('p', { class: 'note mt-1' });
         panel.appendChild(ui.pairNote);
@@ -1419,6 +1699,8 @@
                 });
             });
             MRI.bus.on('theme:changed', function () { if (C.visible) { drawEvolution(); } });
+            // the CNR column and its note depend on the receive coil
+            MRI.bus.on('coil:changed', function () { if (C.visible && C.ev) renderPairs(); });
             if (root.ResizeObserver) {
                 let lastW = -1;
                 new root.ResizeObserver(function () {
@@ -1433,7 +1715,8 @@
             C.visible = true;
             if (C.dirty || !C.ev) recompute();
             else {
-                drawEvolution(); drawSweep();
+                try { drawEvolution(); drawSweep(); }
+                catch (e) { if (root.console) root.console.warn('[contrast tab] drawing failed:', e); showRenderError(e); return; }
                 const r = C.sweep.result;
                 // a resize also calls onShow: let a running sweep finish rather than restart it
                 if (!C.sweep.running && (!r || r.done < r.xs.length)) startSweep();

@@ -32,6 +32,14 @@
     const MAX_BLOCKS = 20000;
     const MAX_ADC = 8192;
     const MAX_ITER = 2000000;          // loop passes, guards loops with empty bodies
+    /* Sizes the simulator can still handle interactively. The imaging
+       engine, the reconstruction and the spectroscopy simulator are
+       synchronous or near enough, so a larger matrix or a huge ADC would
+       freeze the page for seconds on every keystroke. */
+    const MAX_MATRIX = 512;
+    const MAX_ADC_SAMPLES = 65536;     // samples in one ADC window
+    const MAX_SAMPLES = 4194304;       // recorded (non-dummy) samples in the whole sequence
+    const fmtCount = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
     /* ---------- Kinds (physical dimensions) ----------
        Kinds are small integers internally and strings in the output. */
@@ -723,6 +731,7 @@
             this.rf = []; this.grad = { x: [], y: [], z: [] }; this.adc = []; this.spoil = [];
             this.blocks = []; this.periods = [];
             this.nAdcReal = 0;
+            this.nSamplesReal = 0;
         }
 
         run() {
@@ -968,7 +977,12 @@
                 case 'matrix': {
                     const chk = (node) => {
                         const m = this.evalInt(node, 'The matrix size');
-                        if (m < 2 || m > 1024) fail('The matrix size must be between 2 and 1024 (got ' + m + ').', node);
+                        if (m < 2) fail('The matrix size must be at least 2 (got ' + m + ').', node);
+                        if (m > MAX_MATRIX) {
+                            const deps = this.paramOrder(node, [], 0);
+                            fail('The matrix size can be at most ' + MAX_MATRIX + ', the limit of the simulator (got ' + m + ').', node,
+                                deps.length ? 'It comes from ' + deps.join(', ') + ': choose ' + MAX_MATRIX + ' or less.' : 'Choose ' + MAX_MATRIX + ' or less.');
+                        }
                         return m;
                     };
                     img.nx = chk(a[0]);
@@ -1143,6 +1157,7 @@
                     const n = adcN.n ? this.evalInt(adcN.n, 'The number of ADC samples') : r.n;
                     const dwell = adcN.dwell ? this.evalKind(adcN.dwell, TIME, 'dwell') : r.dwell;
                     if (n < 1) fail('The ADC needs at least one sample.', adcN);
+                    this.checkAdcSize(n, adcN);
                     if (!(dwell > 0)) fail('dwell must be greater than zero.', adcN.dwell);
                     if (n * dwell > r.flat * (1 + 1e-9)) this.warnings.push({ line: s.line, msg: 'The ADC (' + fmtMs(n * dwell) + ') is longer than the readout flat top (' + fmtMs(r.flat) + ').' });
                     adc = { off: ro.rise, n, dwell, anchor: 'center', axis: roAxes.length > 1 ? 'radial' : roAxes };
@@ -1151,6 +1166,7 @@
                     const n = this.evalInt(adcN.n, 'The number of ADC samples');
                     const dwell = this.evalKind(adcN.dwell, TIME, 'dwell');
                     if (n < 1) fail('The ADC needs at least one sample.', adcN);
+                    this.checkAdcSize(n, adcN);
                     if (!(dwell > 0)) fail('dwell must be greater than zero.', adcN.dwell);
                     adc = { off: 0, n, dwell, anchor: 'start', axis: null };
                 }
@@ -1196,6 +1212,10 @@
             if (adc) {
                 const t0 = q1(start + adc.off);
                 if (!dm && ++this.nAdcReal > MAX_ADC) fail('This sequence records more than ' + MAX_ADC + ' ADC windows, the limit of the simulator.', s, 'Reduce the matrix size or the number of repetitions.');
+                if (!dm && (this.nSamplesReal += adc.n) > MAX_SAMPLES) {
+                    fail('This sequence records more than ' + fmtCount(MAX_SAMPLES) + ' samples in all, the limit of the simulator.', s,
+                        'Reduce the matrix size, the number of samples per ADC or the number of repetitions.');
+                }
                 this.adc.push({ t0, n: adc.n, dwell: adc.dwell, tc: t0 + Math.floor(adc.n / 2) * adc.dwell, anchor: adc.anchor,
                     dummy: dm, block: bi, line: s.line, period: per, vars: this.snapshotVars(), axis: adc.axis });
             }
@@ -1215,6 +1235,14 @@
                 if (rfE.trap) this.lastSliceExc = { amp: rfE.trap.amp, flat: rfE.trap.flat, fall: rfE.trap.fall };
             }
             if (isSpoil) this.excited = false;
+        }
+
+        // One ADC window may hold at most MAX_ADC_SAMPLES samples.
+        checkAdcSize(n, node) {
+            if (n <= MAX_ADC_SAMPLES) return;
+            const deps = node.n ? this.paramOrder(node.n, [], 0) : [];
+            fail('This ADC records ' + fmtCount(n) + ' samples; one ADC can record at most ' + fmtCount(MAX_ADC_SAMPLES) + ', the limit of the simulator.', node,
+                deps.length ? 'It comes from ' + deps.join(', ') + ': choose fewer samples.' : 'Use fewer samples.');
         }
 
         buildRF(ev) {
@@ -1517,6 +1545,7 @@
             }
             if (img.dummies > 0 && !this.dummiesUsed) this.warnings.push({ line: this.settingLine.dummies || 1, msg: 'dummies has no effect: there is no "every" loop to repeat.' });
             if (!this.adc.length) this.warnings.push({ line: 1, msg: 'This sequence never switches the ADC on, so it records nothing.' });
+            this.checkExcitedBeforeAdc();
 
             let axes = '';
             for (const a of this.adc) if (a.axis && axes.indexOf(a.axis) < 0) axes += a.axis + ',';
@@ -1538,6 +1567,34 @@
             };
             prog.stats = computeStats(prog, this.TR);
             return prog;
+        }
+
+        /* Signal needs an excitation first. Without an excitation pulse
+           before the ADC in its repetition, there is no transverse
+           magnetisation to record (a 180 on its own only inverts, and an
+           excitation after the ADC comes too late), so the image would be
+           black with no explanation. Checked on the first recorded ADC of
+           each repetition; an excitation outside every "every" loop counts
+           for all of them. One warning, at the first ADC that has none. */
+        checkExcitedBeforeAdc() {
+            const first = new Map();       // period -> time of its first excitation
+            let global = Infinity;
+            for (const r of this.rf) {
+                if (r.role !== 'excite') continue;
+                if (!first.has(r.period)) first.set(r.period, r.t);
+                if (r.t < global) global = r.t;
+            }
+            const outside = first.has(-1) ? first.get(-1) : Infinity;
+            const seen = new Set();
+            for (const a of this.adc) {
+                if (a.dummy || seen.has(a.period)) continue;
+                seen.add(a.period);
+                const tE = a.period === -1 ? global : Math.min(first.has(a.period) ? first.get(a.period) : Infinity, outside);
+                if (tE < a.tc) continue;
+                this.warnings.push({ line: a.line, msg: 'No excitation pulse comes before this ADC in its repetition, so there is no transverse magnetisation to record and the scan gives no signal. ' +
+                    'Put an excitation pulse (for example rf 90 slice) before it.' });
+                return;
+            }
         }
     }
 
@@ -1805,7 +1862,7 @@
         '<div class="dsl-ref">',
         '<p>One statement per line. <code>#</code> starts a comment. Loops close with <code>end</code>. ',
         'Times, lengths, frequencies and gradients always need a unit: write <code>20 ms</code>, not <code>20</code>.</p>',
-        '<h4>Setting up</h4>',
+        '<h3>Setting up</h3>',
         '<table>',
         '<tr><td><code>sequence "Spin echo"</code></td><td>the name shown in the simulator</td></tr>',
         '<tr><td><code>param TE = 90 ms range 12 ms .. 200 ms "echo time"</code></td><td>a value with a slider; range, step and description are optional</td></tr>',
@@ -1814,12 +1871,12 @@
         '<tr><td><code>slice 5 mm</code> <code>bandwidth 250 Hz/px</code></td><td>slice thickness; receiver bandwidth per pixel</td></tr>',
         '<tr><td><code>oversample 2</code> <code>averages 1</code> <code>dummies 2</code></td><td>readout oversampling (1 or 2); NEX; repetitions run first without recording, to reach a steady state</td></tr>',
         '</table>',
-        '<h4>Loops</h4>',
+        '<h3>Loops</h3>',
         '<table>',
         '<tr><td><code>for line in 0 .. N-1 every TR</code> &hellip; <code>end</code></td><td>whole numbers from 0 to N-1 inclusive; add <code>step 2</code> to skip; <code>every TR</code> starts each pass TR after the previous one</td></tr>',
         '<tr><td><code>repeat NA every TR</code> &hellip; <code>end</code></td><td>a loop without a variable</td></tr>',
         '</table>',
-        '<h4>Blocks and events</h4>',
+        '<h3>Blocks and events</h3>',
         '<p>One line of events separated by commas is a <em>block</em>. Its events start together, and the next block starts when the longest one has finished.</p>',
         '<table>',
         '<tr><td><code>rf 90 slice</code></td><td>RF pulse: the flip angle (degrees), then a shape: <code>hard</code> (non-selective, 0.5 ms), <code>slice</code> (sinc with its own slice-select gradient, 2 ms), <code>water</code> or <code>fat</code> (spectrally selective, 20 ms), <code>adiabatic</code> (inversion, 10 ms). Options <code>dur</code>, <code>phase</code>, <code>bw</code>, <code>offset</code>. A role <code>excite</code>, <code>refocus</code>, <code>invert</code> or <code>saturate</code> is normally worked out for you</td></tr>',
@@ -1828,7 +1885,7 @@
         '<tr><td><code>spoil</code></td><td>spoiler gradients on all three axes: no transverse magnetisation survives</td></tr>',
         '<tr><td><code>wait 10 ms</code></td><td>a pause</td></tr>',
         '</table>',
-        '<h4>Gradient shapes</h4>',
+        '<h3>Gradient shapes</h3>',
         '<table>',
         '<tr><td><code>readout</code></td><td>constant gradient while the ADC samples, G = N &times; BW / (&gamma;&#772; &times; FOV)</td></tr>',
         '<tr><td><code>prephase</code></td><td>moves k to the start of the line, so the middle sample lands on k = 0</td></tr>',
@@ -1838,17 +1895,17 @@
         '<tr><td><code>10 mT/m for 2 ms</code></td><td>an explicit trapezoid (ramps are added at the slew limit)</td></tr>',
         '</table>',
         '<p>A minus in front flips the sign (<code>gx -prephase</code>). <code>* expr</code> scales the amplitude and keeps the timing (<code>gx readout * cos(a)</code>, <code>gx readout * (-1)^line</code>).</p>',
-        '<h4>Timing with at and as</h4>',
+        '<h3>Timing with at and as</h3>',
         '<p><code>rf 90 slice as exc</code> names the block&#39;s anchor <code>exc</code>. <code>gx readout, adc at exc + TE</code> places a block so that its anchor falls at that time, measured from the start of the current repetition. ',
         'The anchor is the RF centre; or, for a readout, the echo (the middle ADC sample); or the first sample of a bare ADC; otherwise the block start. ',
         'If a block would have to start before the previous one ends, the error says which parameter to increase and by how much.</p>',
-        '<h4>Units and maths</h4>',
+        '<h3>Units and maths</h3>',
         '<p>time <code>s ms us</code>; length <code>mm cm</code>; angle <code>deg rad</code>; frequency <code>Hz kHz MHz Hz/px</code>; gradient <code>mT/m T/m</code>; slew <code>T/m/s</code>; <code>ppm</code>. ',
         'Operators <code>+ - * / ^</code> (write <code>(-1)^line</code>). Functions <code>sin cos tan sqrt abs floor ceil round min max mod exp log</code>. Constants <code>pi</code>, <code>f0</code>, and <code>Nx</code>, <code>Ny</code> after <code>matrix</code>. ',
         'Adding a time to a length, or to a plain number, is an error: that is how missing units are caught.</p>',
-        '<h4>Example: spoiled gradient echo</h4>',
+        '<h3>Example: spoiled gradient echo</h3>',
         '<pre>param TR = 100 ms\nparam TE = 5 ms\nmatrix 64\nfor line in 0 .. 63 every TR\n    rf 30 slice as exc\n    gz rephase, gx prephase, gy encode line\n    gx readout, adc at exc + TE\n    spoil\nend</pre>',
-        '<h4>Example: pulse-acquire FID</h4>',
+        '<h3>Example: pulse-acquire FID</h3>',
         '<pre>repeat 8 every 3 s\n    rf 90 hard dur 0.1 ms as exc\n    adc 2048 dwell 250 us at exc + 0.25 ms\nend</pre>',
         '</div>'
     ].join('\n');

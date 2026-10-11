@@ -1,5 +1,5 @@
 /* ============================================================
-   MRI Simulator — core
+   MRI Simulator: core
    Namespace, physical constants, the shared FFT, a seeded RNG,
    the event bus, the tab registry and the canvas helpers every
    other module leans on.
@@ -81,17 +81,49 @@
         return r;
     };
 
+    /* p-th percentile (0..100) of the finite values of arr, on a regular
+       sample of at most about 20 000 of them (percentiles only set display
+       windows, so a sample is plenty).
+       Speed matters: a render can ask for a dozen windows per frame during
+       playback. The sample is gathered into one reused Float64Array and the
+       wanted rank is found by quickselect (Hoare partitioning around a
+       median-of-three pivot), which costs a few passes over the sample
+       instead of a full sort. The k-th smallest value is unique, so the
+       result is exactly what sorting the sample would give. */
+    var pctBuf = null;
+    function selectKth(a, n, k) {
+        var l = 0, r = n - 1;
+        while (r > l) {
+            var x = a[l], y = a[(l + r) >> 1], z = a[r], pivot;
+            if (x < y) pivot = y < z ? y : (x < z ? z : x);
+            else pivot = x < z ? x : (y < z ? z : y);
+            var i = l, j = r;
+            while (i <= j) {
+                while (a[i] < pivot) i++;
+                while (a[j] > pivot) j--;
+                if (i <= j) { var t = a[i]; a[i] = a[j]; a[j] = t; i++; j--; }
+            }
+            // Now a[l..j] <= pivot <= a[i..r], and anything between equals the pivot.
+            if (k <= j) r = j;
+            else if (k >= i) l = i;
+            else return a[k];
+        }
+        return a[k];
+    }
     U.percentile = function (arr, p) {
-        var n = arr.length;
+        var n = arr ? arr.length : 0;
         if (!n) return 0;
-        // Sample for speed on big images; percentiles are only used for display windows.
         var step = Math.max(1, Math.floor(n / 20000));
-        var tmp = [];
-        for (var i = 0; i < n; i += step) { var v = arr[i]; if (isFinite(v)) tmp.push(v); }
-        if (!tmp.length) return 0;
-        tmp.sort(function (a, b) { return a - b; });
-        var idx = U.clamp(Math.round((p / 100) * (tmp.length - 1)), 0, tmp.length - 1);
-        return tmp[idx];
+        var cap = Math.ceil(n / step);
+        if (!pctBuf || pctBuf.length < cap) pctBuf = new Float64Array(Math.max(cap, 40000));
+        var m = 0;
+        for (var i = 0; i < n; i += step) {
+            var v = +arr[i];
+            if (v - v === 0) pctBuf[m++] = v;   // finite (NaN and +-Infinity give NaN here)
+        }
+        if (!m) return 0;
+        var idx = U.clamp(Math.round((p / 100) * (m - 1)), 0, m - 1);
+        return selectKth(pctBuf, m, idx);
     };
 
     /* ---------- FFT ----------
@@ -248,14 +280,27 @@
     };
 
     /* ---------- Formatting ----------
-       Always pick a sensible unit; these strings are what students read. */
+       Always pick a sensible unit; these strings are what students read.
+       A missing value (null, undefined, NaN) prints as an en dash rather
+       than throwing or pretending to be zero ("TE 0 ms" for a sequence
+       with no echo would be a lie). Infinite values print as Infinity. */
+    var MISSING = '–';
+    function numOrNull(x) {
+        if (x === null || x === undefined) return null;
+        var v = typeof x === 'number' ? x : Number(x);
+        return v === v ? v : null;              // NaN -> null
+    }
     function trim(x, sig) {
-        if (!isFinite(x)) return String(x);
-        var s = Number(x.toPrecision(sig || 3));
-        return String(s);
+        var v = numOrNull(x);
+        if (v === null) return MISSING;
+        if (!isFinite(v)) return String(v);
+        return String(Number(v.toPrecision(sig || 3)));
     }
     U.fmtNum = trim;
     U.fmtTime = function (s, sig) {
+        s = numOrNull(s);
+        if (s === null) return MISSING;
+        if (!isFinite(s)) return String(s) + ' s';
         var a = Math.abs(s);
         if (a >= 60) { var m = Math.floor(s / 60), r = Math.round(s - 60 * m); if (r === 60) { m++; r = 0; } return m + ':' + (r < 10 ? '0' : '') + r + ' min'; }
         if (a >= 1) return trim(s, sig) + ' s';
@@ -263,17 +308,24 @@
         return trim(s * 1e6, sig) + ' µs';
     };
     U.fmtFreq = function (hz, sig) {
+        hz = numOrNull(hz);
+        if (hz === null) return MISSING;
         var a = Math.abs(hz);
-        if (a >= 1e6) return trim(hz / 1e6, sig || 5) + ' MHz';
-        if (a >= 1e3) return trim(hz / 1e3, sig) + ' kHz';
+        if (a >= 1e6 && isFinite(a)) return trim(hz / 1e6, sig || 5) + ' MHz';
+        if (a >= 1e3 && isFinite(a)) return trim(hz / 1e3, sig) + ' kHz';
         return trim(hz, sig) + ' Hz';
     };
     U.fmtLen = function (m, sig) {
+        m = numOrNull(m);
+        if (m === null) return MISSING;
         var a = Math.abs(m);
-        if (a >= 0.1) return trim(m * 100, sig) + ' cm';
+        if (a >= 0.1 && isFinite(a)) return trim(m * 100, sig) + ' cm';
         return trim(m * 1e3, sig) + ' mm';
     };
-    U.fmtGrad = function (tpm, sig) { return trim(tpm * 1e3, sig) + ' mT/m'; };
+    U.fmtGrad = function (tpm, sig) {
+        tpm = numOrNull(tpm);
+        return tpm === null ? MISSING : trim(tpm * 1e3, sig) + ' mT/m';
+    };
 
     /* ---------- Colour maps ----------
        Each map takes t in [0,1] and returns [r,g,b] 0-255. */
@@ -408,9 +460,39 @@
     };
 
     /* Yield to the event loop; long computations await this between chunks
-       so the page stays responsive and progress can be drawn. */
+       so the page stays responsive and progress can be drawn.
+       In a browser a message on a MessageChannel queues a new task at once,
+       so input and painting get their turn without the at-least-4 ms clamp
+       that nested setTimeout(0) calls pay (and without the heavy throttling
+       of timers in background tabs). One channel serves every caller: each
+       yield posts one message and the replies resolve the waiters in order.
+       Node (the tests) has no document; there a plain timer is used, which
+       never keeps the process alive the way an open message port would. */
+    var yieldChannel = null, yieldWaiters = [];
     U.yieldFrame = function () {
-        return new Promise(function (resolve) { setTimeout(resolve, 0); });
+        if (!root.document || typeof root.MessageChannel !== 'function') {
+            return new Promise(function (resolve) { setTimeout(resolve, 0); });
+        }
+        if (!yieldChannel) {
+            yieldChannel = new root.MessageChannel();
+            yieldChannel.port1.onmessage = function () {
+                var next = yieldWaiters.shift();
+                if (next) next();
+            };
+        }
+        return new Promise(function (resolve) {
+            yieldWaiters.push(resolve);
+            yieldChannel.port2.postMessage(0);
+        });
+    };
+
+    /* 'auto' (jump) when the visitor asked the system for reduced motion,
+       otherwise 'smooth'. Pass it as the behavior of every scripted scroll:
+       el.scrollIntoView({behavior: MRI.util.scrollBehavior(), block: 'start'}). */
+    U.scrollBehavior = function () {
+        try {
+            return root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        } catch (e) { return 'smooth'; }
     };
 
     /* ---------- Event bus ----------

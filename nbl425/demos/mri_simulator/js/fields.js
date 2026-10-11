@@ -203,54 +203,144 @@
         return x;
     }
 
+    /* Weighted least-squares fit of the six shim terms to the field at
+       the points of a region: the coefficients a minimising
+       sum_p w_p (f_p - sum_k a_k phi_k(p))^2. phi holds the basis values,
+       one Float64Array per term. */
+    function fitTerms(phi, f, w, np) {
+        const K = phi.length;
+        const A = new Float64Array(K * K), rhs = new Float64Array(K);
+        for (let p = 0; p < np; p++) {
+            const wp = w[p];
+            if (!wp) continue;
+            for (let j = 0; j < K; j++) {
+                const wj = wp * phi[j][p];
+                rhs[j] += wj * f[p];
+                for (let k = j; k < K; k++) A[j * K + k] += wj * phi[k][p];
+            }
+        }
+        for (let j = 0; j < K; j++) for (let k = 0; k < j; k++) A[j * K + k] = A[k * K + j];
+        return solveDense(A, rhs, K);
+    }
+
+    /* Weighted median of v (weights w, both length np), from a fine
+       histogram rather than a sort: the auto-shim needs it twice per
+       iteration over tens of thousands of points, and a scale estimate
+       does not need more than 1/8192 of the range. */
+    const MEDIAN_BINS = 8192;
+    const medianHist = new Float64Array(MEDIAN_BINS);
+    function weightedMedian(v, w, np) {
+        let lo = Infinity, hi = -Infinity, W = 0;
+        for (let p = 0; p < np; p++) { if (v[p] < lo) lo = v[p]; if (v[p] > hi) hi = v[p]; W += w[p]; }
+        if (!(hi > lo) || !(W > 0)) return np ? lo : 0;
+        const H = medianHist, scale = MEDIAN_BINS / (hi - lo);
+        H.fill(0);
+        for (let p = 0; p < np; p++) H[Math.min(MEDIAN_BINS - 1, floor((v[p] - lo) * scale))] += w[p];
+        let c = 0;
+        for (let k = 0; k < MEDIAN_BINS; k++) {
+            if (c + H[k] >= W / 2) return lo + (k + (H[k] > 0 ? (W / 2 - c) / H[k] : 0.5)) / scale;
+            c += H[k];
+        }
+        return hi;
+    }
+
     /* Auto-shim: the shim currents that make the field as uniform as
-       possible, by proton-density weighted least squares over the region.
-       The field is fitted with the six terms (Z0 included, so the centre
-       frequency is set too); minus the fit is what the shims must add.
-         autoShim(phantom, b0, {region: 'object'|'center', radius, b0Map})
+       possible over the region. The field is fitted with the six terms
+       (Z0 included, so the centre frequency is set too); minus the fit is
+       what the shims must add.
+         autoShim(phantom, b0, {region: 'object'|'center', radius, b0Map, method: 'robust'|'lsq'})
            -> { shimCoeffs,   the coefficients to ADD to b0.shimCoeffs (Hz at 100 mm)
                 total,        b0.shimCoeffs plus those: the new settings
                 rmsBefore, rmsAfter,   pd-weighted RMS field (about 0 Hz) in the region
-                sdBefore, sdAfter, meanBefore, meanAfter, nPoints, region, radius }
+                sdBefore, sdAfter, meanBefore, meanAfter, nPoints, region, radius,
+                method, iterations }
        A precomputed map for these b0 settings may be passed as opts.b0Map.
-       What remains afterwards is whatever the six terms cannot describe:
-       the local field next to the sinus, and, for the central region, the
-       field outside it. */
+       Two ways to fit:
+       - 'lsq': proton-density weighted least squares. It minimises the RMS
+         field, so every point counts by the square of its offset, and the
+         few points next to the frontal sinus (100 Hz and more) pull the
+         fit: the bulk of the brain ends up a little off resonance and the
+         whole-head water line can get wider, not narrower.
+       - 'robust' (the default): iteratively reweighted least squares with
+         Tukey's bisquare weight. Points whose residual is far beyond the
+         spread of the rest get weight 0, so the fit follows the bulk of
+         the object and ignores the local field it cannot remove anyway.
+         That is closer to what shimming on the water line itself aims for
+         (a narrow, tall peak, as in the classic shim by hand), at the price
+         of a larger RMS.
+       Where the field is described exactly by the six terms (the MRS
+       phantom) the two give the same answer. What remains afterwards is
+       whatever the six terms cannot describe: the local field next to the
+       sinus, and, for the central region, the field outside it. */
+    const BISQUARE_C = 4.685;        // the usual tuning constant (95 % efficiency for Gaussian residuals)
     function autoShim(phantom, b0, opts) {
         opts = opts || {};
         b0 = b0 || {};
+        const method = opts.method === 'lsq' ? 'lsq' : 'robust';
         const N = phantom.n * phantom.n;
         const map = opts.b0Map && opts.b0Map.length === N ? opts.b0Map : b0Map(phantom, b0);
         const K = SHIM_TERMS.length, fns = SHIM_TERMS.map(function (t) { return t.fn; });
-        const A = new Float64Array(K * K), rhs = new Float64Array(K), phi = new Float64Array(K);
-        let W = 0, S1 = 0, S2 = 0, count = 0;
-        const reg = forEachPoint(phantom, opts, function (i, x, y, w) {
-            const f = map[i];
-            for (let k = 0; k < K; k++) phi[k] = fns[k](x, y);
-            for (let j = 0; j < K; j++) {
-                const wj = w * phi[j];
-                rhs[j] += wj * f;
-                for (let k = j; k < K; k++) A[j * K + k] += wj * phi[k];
-            }
-            W += w; S1 += w * f; S2 += w * f * f; count++;
-        });
-        const existing = b0.shimCoeffs || {};
-        const zero = {}, totalZero = {};
-        SHIM_IDS.forEach(function (id) { zero[id] = 0; totalZero[id] = coeffOf(existing, id); });
-        if (!(W > 0)) {
-            return { shimCoeffs: zero, total: totalZero, rmsBefore: 0, rmsAfter: 0, sdBefore: 0, sdAfter: 0,
-                meanBefore: 0, meanAfter: 0, nPoints: 0, region: reg.center ? 'center' : 'object', radius: reg.radius };
+        const reg = regionOf(opts);
+        const P = regionPoints(phantom, opts), idx = P.idx, pd = P.w, np = idx.length;
+        const n = phantom.n, d = phantom.dx, h = floor(n / 2);
+        const f = new Float64Array(np), phi = [];
+        for (let k = 0; k < K; k++) phi.push(new Float64Array(np));
+        let W = 0, S1 = 0, S2 = 0;
+        for (let p = 0; p < np; p++) {
+            const i = idx[p], x = (i % n - h) * d, y = (floor(i / n) - h) * d, w = pd[p];
+            const v = Number(map[i]);
+            f[p] = v - v === 0 ? v : 0;            // a NaN or infinite field value counts as 0
+            for (let k = 0; k < K; k++) phi[k][p] = fns[k](x, y);
+            W += w; S1 += w * f[p]; S2 += w * f[p] * f[p];
         }
-        for (let j = 0; j < K; j++) for (let k = 0; k < j; k++) A[j * K + k] = A[k * K + j];
-        const a = solveDense(A, rhs, K);
-        // Field after shimming, f - fit, accumulated in a second pass.
+        const existing = b0.shimCoeffs || {};
+        const regionName = reg.center ? 'center' : 'object';
+        if (!(W > 0)) {
+            const zero = {}, totalZero = {};
+            SHIM_IDS.forEach(function (id) { zero[id] = 0; totalZero[id] = coeffOf(existing, id); });
+            return { shimCoeffs: zero, total: totalZero, rmsBefore: 0, rmsAfter: 0, sdBefore: 0, sdAfter: 0,
+                meanBefore: 0, meanAfter: 0, nPoints: 0, region: regionName, radius: reg.radius, method: method, iterations: 0 };
+        }
+        let a = fitTerms(phi, f, pd, np), iterations = 1;
+        const res = new Float64Array(np);
+        function residuals(c) {
+            for (let p = 0; p < np; p++) {
+                let fit = 0;
+                for (let k = 0; k < K; k++) fit += c[k] * phi[k][p];
+                res[p] = f[p] - fit;
+            }
+        }
+        if (method === 'robust') {
+            /* IRLS: start from least squares, measure the spread of the
+               residuals robustly (1.4826 x the median absolute deviation,
+               which is the SD for Gaussian residuals but ignores outliers),
+               weight each point by pd x (1 - u^2)^2 with u = residual /
+               (4.685 spread), zero beyond that, refit, and repeat until the
+               coefficients settle. The spread has a floor of 0.05 Hz so a
+               field the terms describe exactly is simply fitted. */
+            const wr = new Float64Array(np), dev = new Float64Array(np);
+            for (let it = 0; it < 50; it++) {
+                residuals(a);
+                const med = weightedMedian(res, pd, np);
+                for (let p = 0; p < np; p++) dev[p] = Math.abs(res[p] - med);
+                const s = Math.max(0.05, 1.4826 * weightedMedian(dev, pd, np));
+                const cs = BISQUARE_C * s;
+                for (let p = 0; p < np; p++) {
+                    const u = res[p] / cs;
+                    wr[p] = u > -1 && u < 1 ? pd[p] * (1 - u * u) * (1 - u * u) : 0;
+                }
+                const b = fitTerms(phi, f, wr, np);
+                iterations++;
+                let change = 0;
+                for (let k = 0; k < K; k++) change = Math.max(change, Math.abs(b[k] - a[k]));
+                a = b;
+                if (change < 5e-3) break;           // Hz at 100 mm
+            }
+        }
+        // Field after shimming, f - fit, over every point of the region (pd weights only).
+        residuals(a);
         let T1 = 0, T2 = 0;
-        forEachPoint(phantom, opts, function (i, x, y, w) {
-            let fit = 0;
-            for (let k = 0; k < K; k++) fit += a[k] * fns[k](x, y);
-            const g = map[i] - fit;
-            T1 += w * g; T2 += w * g * g;
-        });
+        for (let p = 0; p < np; p++) { const w = pd[p], g = res[p]; T1 += w * g; T2 += w * g * g; }
         const delta = {}, total = {};
         SHIM_IDS.forEach(function (id, k) { delta[id] = -a[k]; total[id] = coeffOf(existing, id) - a[k]; });
         const m0 = S1 / W, m1 = T1 / W;
@@ -259,7 +349,7 @@
             rmsBefore: sqrt(S2 / W), rmsAfter: sqrt(Math.max(0, T2 / W)),
             sdBefore: sqrt(Math.max(0, S2 / W - m0 * m0)), sdAfter: sqrt(Math.max(0, T2 / W - m1 * m1)),
             meanBefore: m0, meanAfter: m1,
-            nPoints: count, region: reg.center ? 'center' : 'object', radius: reg.radius
+            nPoints: np, region: regionName, radius: reg.radius, method: method, iterations: iterations
         };
     }
 
@@ -422,13 +512,29 @@
         return 1 / (q * sqrt(q));
     }
 
+    /* Receive noise of each coil set, relative to one element of the head
+       array (the engine multiplies NOISE_REF by it). At 3 T almost all of
+       the noise a receive coil picks up is thermal noise from the patient:
+       random currents in conducting tissue induce voltages in the coil,
+       from everywhere the coil is sensitive. A loop a few centimetres
+       from the scalp is sensitive to a small volume of the head, so it
+       picks up little noise. The body coil is a birdcage about 60 cm
+       across that sees the head, neck and shoulders, so its noise is much
+       larger. A factor of about 2.4 puts the 8-channel array at about 1.6
+       times the body coil's SNR in the centre of the head (2.4 x the RSS
+       of 0.66 there, with Roemer combination) and 2.5 to 4 times near the
+       cortex, as on a real 3 T scanner. */
+    const NOISE_FACTOR = Object.freeze({ body: 2.4, head8: 1 });
+
     function coilSet(type) {
         type = type || 'body';
         if (type === 'body') {
             /* The body coil is the large birdcage built into the bore.
                Over a head it is close to uniform, and here exactly so:
-               sensitivity 1, phase 0. */
-            return { type: 'body', n: 1, names: ['Body coil'], positions: [{ x: 0, y: 0 }], radius: 0.30, scale: 1 };
+               sensitivity 1, phase 0. It is uniform but noisy (see
+               NOISE_FACTOR). */
+            return { type: 'body', n: 1, names: ['Body coil'], positions: [{ x: 0, y: 0 }], radius: 0.30, scale: 1,
+                noiseFactor: NOISE_FACTOR.body };
         }
         if (type !== 'head8') throw new Error('Unknown coil set "' + type + '" (use "body" or "head8")');
         const positions = [], phase0 = [], phaseDir = [];
@@ -446,7 +552,7 @@
             radius: HEAD8.loopRadius,
             ellipse: { a: HEAD8.semiX, b: HEAD8.semiY },
             phase0: phase0, phaseDir: phaseDir, phaseSlope: HEAD8.phaseSlope,
-            scale: 1
+            scale: 1, noiseFactor: NOISE_FACTOR.head8
         };
         /* Normalise: the root-sum-of-squares of the eight magnitudes,
            averaged over a disk of 70 mm radius, is 1. The average is
@@ -544,6 +650,7 @@
         b1Map: b1Map,
         coilSet: coilSet,
         coilMaps: coilMaps,
+        noiseFactors: NOISE_FACTOR,
         rss: rss,
         shimResidual: shimResidual,
         b1At: b1At,

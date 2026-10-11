@@ -44,6 +44,9 @@
     function S() { return MRI.state; }
     function A() { return MRI.actions; }
     function toast(msg, kind) { if (W() && W().toast) W().toast(msg, kind); }
+    function terms() { return (MRI.ui && MRI.ui.terms) || {}; }
+    function scrollBehavior() { return U.scrollBehavior ? U.scrollBehavior() : 'auto'; }
+    function coilName(type) { const t = terms().coil; return (t && t[type]) || (type === 'body' ? 'Body coil' : '8-channel head coil'); }
     function readJSON(key, def) { try { const v = JSON.parse(root.localStorage.getItem(key) || 'null'); return v === null ? def : v; } catch (e) { return def; } }
     function writeJSON(key, v) { try { root.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage blocked: progress lasts for this visit only */ } }
 
@@ -86,7 +89,7 @@
 #tab-lessons .ls-title { font-weight: 650; font-size: 0.98rem; }
 #tab-lessons .ls-meta { font-size: 0.78rem; color: var(--muted); }
 #tab-lessons .ls-body { padding: 2px 18px 16px 56px; font-size: 0.9rem; line-height: 1.55; }
-#tab-lessons .ls-body h4 { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+#tab-lessons .ls-body h3 { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
 #tab-lessons .ls-concept { margin: 0 0 8px; }
 #tab-lessons .ls-goal { margin: 0 0 10px; }
 #tab-lessons .ls-setup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 12px; background: var(--card-2); border: 1px solid var(--border-subtle); border-radius: 8px; }
@@ -140,12 +143,17 @@
         return { ok: true };
     }
     let setupToken = 0;
-    let returnTo = null;           // lesson to scroll back to the next time the Guide is shown
+    let returnTo = null;           // lesson to open (without moving focus) the next time the Guide is shown
+    /* Set a lesson up, switch to its tab with keyboard focus on the start of
+       that tab's content, and put a lesson strip under the tab bar: "Lesson 3
+       · k-space ... [Back to the steps] [x]". The strip stays (on every tab
+       but the Guide) until it is closed or another lesson is set up, so the
+       way back never times out. */
     function runSetup(L) {
         const s = L.setup;
         const r = applySetup(s);
         if (!r.ok) { toast(r.message, 'bad'); return; }
-        A().showTab(s.tab);
+        A().showTab(s.tab, { focus: true });
         const tok = ++setupToken;
         if (s.preset) {
             if (s.animate) {
@@ -154,15 +162,17 @@
             } else if (!S().autoRescan) A().runScan({ animate: false });
         }
         returnTo = L.n;
-        let t = null;
-        const msg = el('span', {}, [
-            'Lesson ' + L.n + ' is set up in the ' + (TAB_NAMES[s.tab] || s.tab) + ' tab. ',
-            el('button', { type: 'button', class: 'linklike', style: { color: '#93c5fd' }, onclick: function () {
-                if (t && t.dismiss) t.dismiss();
-                A().showTab('lessons');
-            } }, 'Back to the steps')
-        ]);
-        if (W() && W().toast) t = W().toast(msg, 'good', { timeout: 8000 });
+        const back = function () {
+            returnTo = null;
+            A().showTab('lessons');
+            openLesson(L.n, 'steps');
+        };
+        if (MRI.ui.lessonStrip && MRI.ui.lessonStrip.show) {
+            MRI.ui.lessonStrip.show({ title: 'Lesson ' + L.n + ' · ' + L.title, onBack: back, backLabel: 'Back to the steps' });
+        } else if (W() && W().toast) {
+            W().toast(el('span', {}, ['Lesson ' + L.n + ' is set up in the ' + (TAB_NAMES[s.tab] || s.tab) + ' tab. ',
+                el('button', { type: 'button', class: 'linklike', onclick: back }, 'Back to the steps')]), 'good');
+        }
     }
 
     /* ============================================================
@@ -180,12 +190,12 @@
                 'In the <b>Larmor calculator</b>, with <b>Gradient strength G</b> at 0 every position precesses at 127.73 MHz. Set G to 10 mT/m and <b>Position x</b> to 100 mm.',
                 'Set the scan bar\'s <b>Speed</b> to Slow and press <b>Acquire</b>. Watch which parts light up: the RF chain during each pulse, a gradient amplifier while its gradient plays, the receive chain while the ADC records.',
                 'In <b>Follow the signal</b>, press <b>Start</b> and step with <b>Next</b>, from the operator console to the image.',
-                'Switch the <b>Receive coil</b> (above the schematic) between Body coil and 8-channel head, and compare the image thumbnail (or the Image tab).'
+                'Switch the <b>Receive coil</b> (above the schematic) between ' + coilName('body') + ' and ' + coilName('head8') + ', and compare the image thumbnail (or the Image tab).'
             ],
             questions: [
                 { q: 'What is the proton Larmor frequency at 1.5 T and at 7 T?', a: 'f = 42.58 MHz/T × B: 63.9 MHz at 1.5 T and 298 MHz at 7 T. The frequency is proportional to the field.' },
                 { q: 'With a 10 mT/m gradient, how much higher is the frequency 100 mm from the centre?', a: 'Δf = γ̄·G·x = 42.58 MHz/T × 0.010 T/m × 0.100 m = 42.6 kHz. That is only 0.03 % of 127.73 MHz, but the receiver measures it easily, and it is what encodes position.' },
-                { q: 'Why does the image change when you swap the body coil for the head coil?', a: 'The eight small loops of the head coil sit close to the head: more signal and less noise near them (higher SNR), and a brighter rim (coil shading). The body coil sees the head uniformly but is noisier.' }
+                { q: 'Why does the image change when you swap the body coil for the head coil?', a: 'The image gets less grainy. Most of the noise is thermal noise from the patient, and each small loop of the head coil sits close to the head and picks it up from only a small volume of tissue, so the array has a higher SNR than the body coil everywhere in the head: about 1.6 times in the centre and most near the cortex, where the loops are closest. Combined by root-sum-of-squares the array also leaves a brighter rim (coil shading); the default Roemer combination evens the brightness out. The body coil sees the head uniformly but picks up noise from the whole head, neck and shoulders, so it is noisier.' }
             ],
             takeaway: 'f = γ̄(B0 + G·x): the magnet sets the frequency, the gradients turn frequency into position, and the RF chain transmits and receives at 127.7 MHz.'
         },
@@ -272,10 +282,10 @@
             concept: 'An inversion pulse turns Mz to −M0, and each tissue recovers through zero at its own moment, about T1·ln 2 when TR ≫ T1. Exciting at that moment (TI) removes that tissue from the image.',
             goal: 'Null fat with STIR and CSF with FLAIR, find the null point yourself, and see why STIR is not used after gadolinium.',
             setup: { phantom: 'brain', preset: 'stir', tab: 'contrast' },
-            loads: 'STIR (TI 230 ms) on the brain, and opens the Contrast tab.',
+            loads: 'STIR (TI 260 ms) on the brain, and opens the Contrast tab.',
             steps: [
-                'In <b>Magnetisation of each tissue</b>, Mz starts at −1 after every inversion and climbs back; fat crosses zero near TI. In the image the scalp fat is dark.',
-                'Under <b>Sweep a parameter</b> choose <b>TI</b> and switch <b>Show sign</b> on: fat\'s signal changes sign at about 260 ms (the preset\'s 230 ms is close enough to leave fat dark). Switch Show sign off to see the magnitude, which is what the image shows.',
+                'In <b>Magnetisation of each tissue</b>, each inversion flips Mz to minus whatever had recovered since the last repetition (−1 for fully relaxed tissue, only about −0.5 for CSF at TR 3000 ms), and Mz climbs back from there; fat crosses zero near TI. In the image the scalp fat is dark.',
+                'Under <b>Sweep a parameter</b> choose <b>TI</b> and switch <b>Show sign</b> on: fat\'s signal changes sign at about 263 ms, right at the preset\'s TI of 260 ms. Switch Show sign off to see the magnitude, which is what the image shows.',
                 'Load <b>FLAIR</b> (Sequence tab, Preset). TI 2400 ms nulls CSF and the ventricles go dark. In the <b>Phantom</b> tab switch on <b>Lesions</b>: the periventricular lesions stand out.',
                 'Load STIR again. With Lesions on, set <b>Gadolinium in enhancing tissue</b> to 0.5 mM (Phantom tab). Then compare with the T1-weighted gradient echo (<code>gre_t1</code>).'
             ],
@@ -417,7 +427,7 @@
                 'Choose <b>FID + water suppression</b>: NAA (2.0 ppm), creatine (3.0 ppm) and choline (3.2 ppm) appear. Read <b>Peaks and metrics</b>.',
                 'Open the <b>Shim: make B0 uniform</b> panel and press <b>Start unshimmed</b>: the water line broadens and the metabolite peaks smear.',
                 'Shim by hand: <b>Z0</b> first (centre the line), then <b>X</b> and <b>Y</b>, then the second-order terms, watching the <b>Field map</b>, the <b>Field histogram</b> and the <b>Water line</b>. Then press <b>Auto-shim</b>.',
-                'Switch the <b>Phantom</b> to Brain, press Start unshimmed, then Auto-shim over <b>Whole object</b> and over <b>Centre, 60 mm radius</b>. Look at the frontal sinus in the field map.'
+                'Switch the <b>Phantom</b> to Brain, press Start unshimmed, then Auto-shim over <b>Whole object</b> and over <b>Centre, 60 mm radius</b>. Look at the frontal sinus in the field map. Compare the two auto-shim methods: <b>Least squares</b> lets the large sinus field pull the fit, <b>Robust</b> (the default) ignores it.'
             ],
             questions: [
                 { q: 'Why are spectra labelled in ppm rather than Hz?', a: 'Chemical shifts scale with B0. In ppm (shift ÷ scanner frequency × 10⁶) the positions are the same at any field: NAA is at 2.0 ppm at 1.5 T and at 3 T, although its 2.7 ppm distance from water is 345 Hz at 3 T and half that at 1.5 T.' },
@@ -490,9 +500,9 @@
         body.appendChild(el('div', { class: 'ls-setup' }, [btn, el('p', { class: 'note', id: 'ls-loads-' + L.n, text: 'Resets the artifacts, loads ' + L.loads })]));
         const missing = el('p', { class: 'callout callout-warn ls-missing', hidden: true });
         body.appendChild(missing);
-        body.appendChild(el('h4', { text: 'Steps' }));
+        body.appendChild(el('h3', { class: 'ls-h-steps', text: 'Steps' }));
         body.appendChild(el('ol', { class: 'ls-steps' }, L.steps.map(function (s) { return el('li', { html: s }); })));
-        body.appendChild(el('h4', { text: 'Questions' }));
+        body.appendChild(el('h3', { text: 'Questions' }));
         body.appendChild(el('div', { class: 'ls-qs' }, L.questions.map(function (q) {
             return el('div', { class: 'ls-q' }, [
                 el('p', { html: q.q }),
@@ -515,6 +525,9 @@
         return { el: det, num: num, check: check, missing: missing };
     }
 
+    /* Open lesson n. scroll: true scrolls to it and focuses its summary;
+       'steps' scrolls to its Steps heading and focuses that (the lesson
+       strip's "Back to the steps"); 'view' scrolls without moving focus. */
     function openLesson(n, scroll) {
         const L = LESSONS[n - 1];
         if (!L) return;
@@ -522,9 +535,13 @@
         ui.el.open = true;
         if (scroll) {
             const run = function () {
-                try { ui.el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { ui.el.scrollIntoView(); }
-                const sum = ui.el.querySelector('summary');
-                if (sum) { try { sum.focus({ preventScroll: true }); } catch (e) { sum.focus(); } }
+                const target = scroll === 'steps' ? (ui.el.querySelector('.ls-h-steps') || ui.el) : ui.el;
+                try { target.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }); } catch (e) { target.scrollIntoView(); }
+                if (scroll === 'view') return;
+                const f = scroll === 'steps' ? target : ui.el.querySelector('summary');
+                if (!f) return;
+                if (f !== ui.el && !f.hasAttribute('tabindex') && f.tagName !== 'SUMMARY') f.setAttribute('tabindex', '-1');
+                try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); }
             };
             (root.requestAnimationFrame || setTimeout)(run);
         }
@@ -547,6 +564,7 @@
         done = readJSON(DONE_KEY, {}) || {};
         if (typeof done !== 'object' || Array.isArray(done)) done = {};
         panel.appendChild(Wd.concept({
+            main: true,                 // the Guide's own content: open on the first visit even on a short screen
             eyebrow: 'Welcome',
             title: 'A teaching MRI scanner at 3 T',
             body: '<p>This is a simulated 3 T scanner for NBL 425/625. You pick or write a pulse sequence, image a phantom, watch k-space fill and the image form, switch artifacts on and off, and record a proton spectrum. Every tab is one idea, and the lessons below walk through them in order.</p>' +
@@ -554,9 +572,9 @@
             formula: 'f = γ̄ (B<sub>0</sub> + <b>G</b>·<b>r</b>), &nbsp; γ̄ = 42.58 MHz/T, &nbsp; f<sub>0</sub> = 127.73 MHz at 3 T',
             tryTitle: 'Start here',
             tryThis: [
-                { html: 'Press <b>Acquire</b> in the scan bar and watch the k-space and image thumbnails fill as the sequence plays.', label: 'Acquire', run: function () { A().runScan({ animate: true }); } },
+                { html: 'Press <b>Acquire</b> in the scan bar and watch the k-space and image thumbnails fill as the sequence plays.', label: terms().tryIt || 'Try it', run: function () { A().runScan({ animate: true }); } },
                 { html: 'Work through <b>Lesson 1</b> below: the scanner and the Larmor frequency.', label: 'Open lesson 1', run: function () { openLesson(1, true); } },
-                { html: 'Or jump to the <b>Artifacts</b> tab and press any <b>Show me</b>.', label: 'Artifacts', run: function () { A().showTab('artifacts'); } }
+                { html: 'Or jump to the <b>Artifacts</b> tab and press any <b>Show me</b>.', label: terms().showMe || 'Show me', run: function () { A().showTab('artifacts', { focus: true }); } }
             ]
         }));
 
@@ -571,13 +589,13 @@
             const b = el('button', { type: 'button', class: 'btn ls-tile', 'aria-label': 'Open the ' + t.name + ' tab: ' + t.desc }, [
                 el('span', { class: 'ls-tile-name', text: t.name }), el('span', { class: 'ls-tile-desc', text: t.desc })
             ]);
-            b.addEventListener('click', function () { A().showTab(t.id); });
+            b.addEventListener('click', function () { A().showTab(t.id, { focus: true }); });
             grid.appendChild(b);
             return { id: t.id, btn: b };
         });
         tabsPanel.appendChild(grid);
         const layout = el('div', { class: 'split ls-layout' });
-        const main = el('div', { class: 'ls-main' }), side = el('aside', { class: 'ls-side', 'aria-label': 'How the simulator is organised' });
+        const main = el('div', { class: 'ls-main' }), side = el('div', { class: 'ls-side', role: 'group', 'aria-label': 'How the simulator is organised' });
         layout.appendChild(main); layout.appendChild(side);
         panel.appendChild(layout);
         side.appendChild(tabsPanel);
@@ -629,7 +647,9 @@
         const top = (con && root.getComputedStyle(con).position === 'sticky' ? con.offsetHeight : 0) + 12;
         if (V.panel) V.panel.style.setProperty('--ls-top', top + 'px');
         checkMissingTabs();
-        if (returnTo) { const n = returnTo; returnTo = null; openLesson(n, true); }
+        // Back on the Guide after a set-up: open that lesson and bring it into
+        // view, but leave focus where the student put it (the tab bar).
+        if (returnTo) { const n = returnTo; returnTo = null; openLesson(n, 'view'); }
     }
     function onHide() {}
 

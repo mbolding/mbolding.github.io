@@ -165,6 +165,39 @@ function pdRms(ph, m, region) {
         'brain: shimming the central region makes the centre more uniform than a whole-object shim');
 }
 
+/* ---------- 4b. Robust (default) and least-squares auto-shim ----------
+   Least squares minimises the RMS field, so the 100 Hz and more next to
+   the frontal sinus pulls the fit and the bulk of the brain moves off
+   resonance: the whole-head water line gets wider. The robust fit
+   (iteratively reweighted, bisquare) ignores what it cannot remove. */
+{
+    const ok0 = F.autoShim(braino, { susceptibility: 1, shim: 1 }, {});
+    ok(ok0.method === 'robust', 'the default method is robust');
+    for (const method of ['robust', 'lsq']) {
+        const r = F.autoShim(braino, { susceptibility: 1, shim: 1 }, { method });
+        ok(r.method === method && r.rmsAfter < 0.5 && IDS.every(id => abs(r.shimCoeffs[id] + RC[id]) < 1e-3),
+            'braino, ' + method + ': RMS after ' + r.rmsAfter.toExponential(2) + ' Hz, the residual removed');
+    }
+    const def = { susceptibility: 1, shim: 0, shimCoeffs: { z0: 0, x: 0, y: 0, xy: 0, x2y2: 0, z2: 0 } };
+    const fw = c => S.waterLine(brain, { b0Map: F.b0Map(brain, Object.assign({}, def, { shimCoeffs: c })), artifacts: {} }).fwhmHz;
+    const w0 = fw(def.shimCoeffs);
+    for (const region of ['object', 'center']) {
+        const rr = F.autoShim(brain, def, { region, method: 'robust' }), rl = F.autoShim(brain, def, { region, method: 'lsq' });
+        const wr = fw(rr.total), wl = fw(rl.total);
+        ok(wr <= w0 + 0.05, 'brain, ' + region + ': robust auto-shim does not widen the whole-head water line (' + w0.toFixed(2) + ' -> ' + wr.toFixed(2) + ' Hz)');
+        ok(wl > wr, 'brain, ' + region + ': least squares widens it more (' + wl.toFixed(2) + ' Hz), pulled by the sinus field');
+        ok(rl.rmsAfter < rr.rmsAfter, 'brain, ' + region + ': least squares gives the lower RMS (' + rl.rmsAfter.toFixed(2) + ' vs ' + rr.rmsAfter.toFixed(2) + ' Hz)');
+        ok(rr.iterations > 1 && rl.iterations === 1, 'brain, ' + region + ': robust iterates (' + rr.iterations + ' fits)');
+    }
+    // From the un-shimmed state the robust fit removes the residual and lands on the same field.
+    const ru = F.autoShim(brain, { susceptibility: 1, shim: 1 }, {});
+    const rd = F.autoShim(brain, def, {});
+    const mu = F.b0Map(brain, { susceptibility: 1, shim: 1, shimCoeffs: ru.total }), md = F.b0Map(brain, Object.assign({}, def, { shimCoeffs: rd.total }));
+    let d = 0;
+    for (let i = 0; i < mu.length; i++) d = max(d, abs(mu[i] - md[i]));
+    ok(d < 0.02, 'brain: robust auto-shim from shim 1 and from shim 0 gives the same field (max diff ' + d.toExponential(2) + ' Hz)');
+}
+
 /* ---------- 5. The engine and the spectroscopy simulator pick the shims up ---------- */
 (async function () {
     // Spectroscopy: the water line narrows after auto-shim.

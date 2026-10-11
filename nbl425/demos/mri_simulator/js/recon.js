@@ -46,19 +46,24 @@
        section 1, principle 4): homodyne and SENSE act only when the
        acquisition is partial-Fourier or regularly undersampled, so they
        change nothing for a fully sampled scan. The lessons switch them off
-       to show what they repair. */
+       to show what they repair. The coils are combined with their
+       sensitivities (Roemer): the image then has no coil shading and is in
+       the units of the object, so the truth and difference panels compare
+       like with like, and its noise is the same in every channel count.
+       Root-sum-of-squares stays one click away to show coil shading. */
     const DEFAULTS = Object.freeze({
         filter: 'none',            // 'none' | 'hamming' | 'hann' | 'tukey' | 'fermi'
         filterParam: 0.5,          // tukey: fraction of k-space radius tapered; fermi: see filterWeights
         zeroFill: 1,               // 1 | 2
         partialFourier: 'homodyne',// 'zero' | 'conjugate' | 'homodyne'
         parallel: 'sense',         // 'none' | 'sense' (used only when regular undersampling is found)
-        coilCombine: 'sos',        // 'sos' | 'roemer' | 'single'
+        coilCombine: 'roemer',     // 'roemer' | 'sos' | 'single'
         coil: 0,                   // the coil shown by 'single'
         densityComp: true,         // non-Cartesian only
         epiGhostCorr: false,
         cropOversampling: true,
-        userMask: null             // Uint8Array(kspace.nx * kspace.ny), 0 = throw that point away
+        userMask: null,            // Uint8Array(kspace.nx * kspace.ny), 0 = throw that point away
+        userMaskGrid: null         // { nx, ny, dkx, dky } of the k-space grid the mask was drawn on
     });
 
     const GRID_TOL = 0.01;         // a sample is "on the grid" within 1 % of a grid step
@@ -85,18 +90,6 @@
         return out;
     }
 
-    /* Keep the central `cols` columns of a rows x COLS array. With the
-       section 3 convention the centre column floor(COLS/2) (x = 0) lands
-       on floor(cols/2), so the physical positions are unchanged. */
-    function cropCols(a, COLS, rows, cols) {
-        const out = new Float32Array(rows * cols), off = (COLS >> 1) - (cols >> 1);
-        for (let r = 0; r < rows; r++) {
-            const s = r * COLS + off, d = r * cols;
-            for (let c = 0; c < cols; c++) out[d + c] = a[s + c];
-        }
-        return out;
-    }
-
     /* Centred 1D transform in place (index i <-> i - floor(n/2)), any
        length, using scratch arrays tr, ti of exactly that length. */
     function fft1c(re, im, inverse, tr, ti) {
@@ -106,30 +99,72 @@
         for (let i = 0; i < n; i++) { let u = i - h; if (u < 0) u += n; re[i] = tr[u]; im[i] = ti[u]; }
     }
 
-    /* Centred 2D inverse FFT in place on Float64Arrays (nx columns, ny
-       rows). Same result as MRI.util.ifft2c (including its 1/(nx ny)),
-       without the intermediate copies; the reconstruction runs this once
-       per coil during playback, so it is worth the few lines. Rows that
-       are entirely zero (zero filling, lines not yet recorded) transform
-       to zero and are skipped. */
-    function ifft2cInPlace(re, im, nx, ny) {
-        const hx = nx >> 1, hy = ny >> 1;
-        let tr = new Float64Array(nx), ti = new Float64Array(nx);
-        for (let y = 0; y < ny; y++) {
-            const o = y * nx;
-            let any = false;
-            for (let i = 0; i < nx; i++) if (re[o + i] !== 0 || im[o + i] !== 0) { any = true; break; }
-            if (!any) continue;
-            for (let u = 0; u < nx; u++) { let i = u + hx; if (i >= nx) i -= nx; tr[u] = re[o + i]; ti[u] = im[o + i]; }
-            U.fft(tr, ti, true);
-            for (let i = 0; i < nx; i++) { let u = i - hx; if (u < 0) u += nx; re[o + i] = tr[u]; im[o + i] = ti[u]; }
+    /* ---------- the 2D inverse transform, in two halves ----------
+       The image is ifft2c(k-space): an inverse transform along the
+       readout, then one along the phase encoding. Doing them as two
+       separate passes lets the reconstruction crop between them. The
+       readout oversampling (and the 2x gridding grid) is thrown away
+       after the transform anyway, so only the columns that are kept go
+       through the second transform and everything after it: about half
+       the work for an oversampled readout, with the same numbers.
+
+       Pass 1 (per k-space row): the caller fills a line tr, ti of W
+       points in transform order, i.e. the sample at readout index j of a
+       row whose centre is c goes to slot (j - c) mod W, which places it
+       in the middle of a zero-filled line and does the centring shift in
+       one step. hybridRow transforms it and stores the Wc image columns
+       from x0 onwards in column-major "hybrid" storage, hy[x * H + row]
+       (x along the readout, still k along the phase encoding), so that
+       pass 2 reads each column from contiguous memory.
+       Pass 2 (per kept column): transform along the phase encoding and
+       write image rows y0 .. y0 + Hc - 1, times `scale`, row-major. */
+    function hybridRow(tr, ti, W, x0, Wc, hyRe, hyIm, H, row) {
+        U.fft(tr, ti, true);
+        gatherRow(tr, ti, W, x0, Wc, hyRe, hyIm, H, row);
+    }
+    function gatherRow(tr, ti, W, x0, Wc, hyRe, hyIm, H, row) {
+        let u = x0 - (W >> 1);                 // image column x sits in slot (x - floor(W/2)) mod W
+        if (u < 0) u += W;
+        for (let x = 0, q = row; x < Wc; x++, q += H) {
+            hyRe[q] = tr[u]; hyIm[q] = ti[u];
+            if (++u === W) u = 0;
         }
-        tr = new Float64Array(ny); ti = new Float64Array(ny);
-        for (let x = 0; x < nx; x++) {
-            for (let u = 0; u < ny; u++) { let i = u + hy; if (i >= ny) i -= ny; tr[u] = re[i * nx + x]; ti[u] = im[i * nx + x]; }
+    }
+    function hybridCols(hyRe, hyIm, H, Wc, y0, Hc, scale, outRe, outIm, tr, ti) {
+        const h = H >> 1;
+        for (let x = 0; x < Wc; x++) {
+            const b = x * H;
+            let u = H - h;                     // row v (ky index v - h) goes to slot (v - h) mod H
+            for (let v = 0; v < H; v++) {
+                if (u === H) u = 0;
+                tr[u] = hyRe[b + v]; ti[u] = hyIm[b + v];
+                u++;
+            }
             U.fft(tr, ti, true);
-            for (let i = 0; i < ny; i++) { let u = i - hy; if (u < 0) u += ny; re[i * nx + x] = tr[u]; im[i * nx + x] = ti[u]; }
+            u = y0 - h;
+            if (u < 0) u += H;
+            for (let i = 0, p = x; i < Hc; i++, p += Wc) {
+                outRe[p] = tr[u] * scale; outIm[p] = ti[u] * scale;
+                if (++u === H) u = 0;
+            }
         }
+    }
+
+    /* Reusable work arrays. The reconstruction runs several times a
+       second during playback and on every option change, so its per-coil
+       scratch space is allocated once and reused across coils and calls,
+       rather than allocated and collected each time. One array per name,
+       at the size last asked for, so a large matrix does not keep its
+       buffers alive after the next smaller scan. Nothing taken from here
+       is ever part of a result. */
+    const scratchStore = new Map();
+    function scratch(name, Type, n) {
+        let a = scratchStore.get(name);
+        if (!a || a.length !== n || !(a instanceof Type)) {
+            a = new Type(n);
+            scratchStore.set(name, a);
+        }
+        return a;
     }
 
     /* ---------- k-space filters ----------
@@ -255,6 +290,23 @@
         }
         return null;
     }
+
+    /* ---------- the k-space tab's edit mask ----------
+       The mask belongs to the k-space grid it was drawn on. When the
+       caller says which grid that was (opts.userMaskGrid), the matrix and
+       the k-space step must both match the grid being built (step within
+       0.1 %), so that a mask from another sequence of the same size is
+       not silently read in a different layout. Without that description
+       only the length can be checked. */
+    function maskFits(o, nx, ny, dkx, dky) {
+        const m = o.userMask;
+        if (!m || m.length !== nx * ny) return false;
+        const g = o.userMaskGrid;
+        if (!g || typeof g !== 'object') return true;
+        const close = (a, b) => isNum(a) && abs(a - b) <= 1e-3 * abs(b);
+        return g.nx === nx && g.ny === ny && close(g.dkx, dkx) && close(g.dky, dky);
+    }
+    const MASK_MISMATCH = 'The edited k-space mask does not match this k-space grid, so it was ignored.';
 
     /* ---------- the result for "nothing to show" ---------- */
 
@@ -407,7 +459,7 @@
             let h = cache.get(key);
             if (!h) {
                 const o = i * nro;
-                h = { re: kre[c].slice(o, o + nro), im: kim[c].slice(o, o + nro) };
+                h = { re: Float64Array.from(kre[c].subarray(o, o + nro)), im: Float64Array.from(kim[c].subarray(o, o + nro)) };
                 fft1c(h.re, h.im, true, tr, ti);
                 cache.set(key, h);
             }
@@ -616,21 +668,28 @@
 
     /* ---------- the Cartesian path ---------- */
 
-    function reconCartesian(acq, o, plan, nUse, nCoils, geo, notes) {
-        const { axis, nRo, nro, npe, dro, dpe, idx } = geo;
-        const NN = nro * npe, cro = nro >> 1, cpe = npe >> 1;
-        const flip = axis === 'y';                       // internal layout is the transpose of the image
-        const knx = flip ? npe : nro, kny = flip ? nro : npe;
-        const physRo = axis, physPe = axis === 'x' ? 'y' : 'x';
-
-        // user mask (k-space tab edits), given in image orientation
-        let um = null;
-        if (o.userMask) {
-            if (o.userMask.length === NN) um = flip ? transpose(o.userMask, nro, npe) : o.userMask;
-            else notes.push('The edited k-space mask does not match this k-space grid, so it was ignored.');
+    /* Fill one line of the first transform pass (see hybridRow) from a
+       k-space row src[so .. so + n), each sample times w (and times the
+       filter weight, when there is a filter). */
+    function fillLine(tr, ti, sr, si, so, n, filt, w, W) {
+        tr.fill(0); ti.fill(0);
+        let u = W - (n >> 1);                 // sample j goes to slot (j - floor(n/2)) mod W
+        for (let j = 0; j < n; j++) {
+            if (u === W) u = 0;
+            const f = filt ? w * filt[so + j] : w;
+            tr[u] = sr[so + j] * f; ti[u] = si[so + j] * f;
+            u++;
         }
+    }
+    function rowNonZero(sr, si, so, n) {
+        for (let j = 0; j < n; j++) if (sr[so + j] !== 0 || si[so + j] !== 0) return true;
+        return false;
+    }
 
-        // --- the plan: which lines the whole acquisition records, and readout polarity
+    /* Which phase-encode lines the whole acquisition records, and the
+       polarity of every readout. Depends only on the acquisition plan (and
+       the edit mask), so without a mask it is kept with the plan. */
+    function planLines(plan, idx, axis, nro, npe, um) {
         const rowPlan = new Uint8Array(npe), colPlan = new Uint8Array(nro);
         const polarity = new Int8Array(plan.length);
         let nPos = 0, nNeg = 0;
@@ -646,12 +705,35 @@
                 rowPlan[(p / nro) | 0] = 1; colPlan[p % nro] = 1;
             }
         }
-        const bipolar = nPos >= 2 && nNeg >= 2;
-        const lines = analyzeLines(rowPlan, npe);
+        return { rowPlan, colPlan, polarity, bipolar: nPos >= 2 && nNeg >= 2, lines: analyzeLines(rowPlan, npe) };
+    }
+
+    function reconCartesian(acq, o, plan, nUse, nCoils, geo, notes) {
+        const { axis, nRo, nro, npe, dro, dpe, idx } = geo;
+        const NN = nro * npe, cpe = npe >> 1;
+        const flip = axis === 'y';                       // internal layout is the transpose of the image
+        const knx = flip ? npe : nro, kny = flip ? nro : npe;
+        const kdx = flip ? dpe : dro, kdy = flip ? dro : dpe;
+        const physRo = axis, physPe = axis === 'x' ? 'y' : 'x';
+
+        // user mask (k-space tab edits), given in image orientation
+        let um = null;
+        if (o.userMask) {
+            if (maskFits(o, knx, kny, kdx, kdy)) um = flip ? transpose(o.userMask, nro, npe) : o.userMask;
+            else notes.push(MASK_MISMATCH);
+        }
+
+        // --- the plan: which lines the whole acquisition records, and readout polarity
+        let pl = um ? null : geo.lineInfo;
+        if (!pl) {
+            pl = planLines(plan, idx, axis, nro, npe, um);
+            if (!um) geo.lineInfo = pl;
+        }
+        const { colPlan, polarity, bipolar, lines } = pl;
 
         // --- grid the readouts recorded so far; repeats of one point are averaged
         const kre = [], kim = [];
-        for (let c = 0; c < nCoils; c++) { kre.push(new Float64Array(NN)); kim.push(new Float64Array(NN)); }
+        for (let c = 0; c < nCoils; c++) { kre.push(new Float32Array(NN)); kim.push(new Float32Array(NN)); }
         const cnt = new Float64Array(NN), tsum = new Float64Array(NN);
         const order = new Float32Array(NN); order.fill(NaN);
         const rowPos = new Int32Array(npe), rowNeg = new Int32Array(npe);
@@ -715,15 +797,13 @@
             notes.push('Readouts alternate in polarity (EPI). If the image has a ghost shifted by half the field of view, try EPI ghost correction.');
         }
 
-        // --- k-space for display: as gridded (after EPI correction), before any filtering
-        const kspRe = [], kspIm = [];
-        for (let c = 0; c < nCoils; c++) {
-            const a = Float32Array.from(kre[c]), b = Float32Array.from(kim[c]);
-            kspRe.push(flip ? transpose(a, npe, nro) : a);
-            kspIm.push(flip ? transpose(b, npe, nro) : b);
-        }
+        /* --- k-space for display: as gridded (after EPI correction), before
+           any filtering. With the readout along x these are the gridding
+           arrays themselves; nothing below writes to them. */
         const kspace = {
-            nx: knx, ny: kny, dkx: flip ? dpe : dro, dky: flip ? dro : dpe, re: kspRe, im: kspIm,
+            nx: knx, ny: kny, dkx: kdx, dky: kdy,
+            re: flip ? kre.map(a => transpose(a, npe, nro)) : kre.slice(),
+            im: flip ? kim.map(a => transpose(a, npe, nro)) : kim.slice(),
             mask: flip ? transpose(mask, npe, nro) : mask,
             tmap: flip ? transpose(tmap, npe, nro) : tmap,
             order: flip ? transpose(order, npe, nro) : order
@@ -759,20 +839,30 @@
         if (lines.gaps) notes.push('Some phase-encode lines are missing irregularly; they are zero, which smears the image along ' + physPe + '.');
         if (lines.sparse) notes.push('Only a few widely spaced lines were recorded; they are zero-filled.');
 
-        // --- parallel imaging decision
+        /* --- the image grid. W x H is the full (zero-filled) grid; the
+           readout oversampling is cropped to Wc columns between the two
+           halves of the transform. Everything after the crop (homodyne,
+           SENSE, coil combination) works along the phase encoding or
+           pixel by pixel, so it gives the same numbers on the kept columns
+           as it would on the full width. */
         const zf = o.zeroFill >= 2 ? 2 : 1;
         const W = nro * zf, H = npe * zf;
+        const Wc = o.cropOversampling ? min(W, nRo * zf) : W;
+        const x0 = (W >> 1) - (Wc >> 1);
+        const roFov = (Wc / W) / dro;                    // field of view of the kept columns
+
+        // --- parallel imaging decision
         let senseOn = false, senseMaps = null, Hs = H;
         if (R > 1) {
             if (o.parallel === 'sense') {
                 if (nCoils < R) notes.push('Undersampled by R = ' + R + ' but SENSE needs at least R receive coils (there ' + (nCoils === 1 ? 'is 1' : 'are ' + nCoils) + '): showing the folded image.');
                 else {
                     Hs = ceil(H / R) * R;
-                    const mp = getMaps(acq, nCoils, flip ? Hs : W, flip ? W : Hs, flip ? 1 / dpe : 1 / dro, flip ? 1 / dro : 1 / dpe);
+                    const mp = getMaps(acq, nCoils, flip ? Hs : Wc, flip ? Wc : Hs, flip ? 1 / dpe : roFov, flip ? roFov : 1 / dpe);
                     if (!mp) { notes.push('Undersampled by R = ' + R + ' but no coil sensitivity maps are available: showing the folded image.'); Hs = H; }
                     else {
                         senseOn = true;
-                        senseMaps = flip ? { re: mp.re.map(a => transpose(a, W, Hs)), im: mp.im.map(a => transpose(a, W, Hs)) } : mp;
+                        senseMaps = flip ? { re: mp.re.map(a => transpose(a, Wc, Hs)), im: mp.im.map(a => transpose(a, Wc, Hs)) } : mp;
                     }
                 }
             } else {
@@ -805,45 +895,53 @@
             for (let i = 0; i < npe; i++) lpRow[i] = abs(i - cpe) <= f.h ? 0.5 + 0.5 * cos(PI * (i - cpe) / (f.h + 1)) : 0;
         }
 
-        // --- per coil: fill, weight, zero-fill, inverse FFT
-        const offRo = (W >> 1) - cro, offPe = (Hs >> 1) - cpe;
+        // --- per coil: fill, weight, zero-fill, inverse FFT (cropping in between)
+        const offPe = (Hs >> 1) - cpe, N = Wc * Hs;
         const scale = W * Hs * dro * dpe * R;    // section 3 scaling; R restores the intensity of a folded image
+        const hyRe = scratch('hyRe', Float64Array, N), hyIm = scratch('hyIm', Float64Array, N);
+        const tr = scratch('lineRe', Float64Array, W), ti = scratch('lineIm', Float64Array, W);
+        const tc = scratch('colRe', Float64Array, Hs), tci = scratch('colIm', Float64Array, Hs);
         const imgRe = [], imgIm = [];
         for (let c = 0; c < nCoils; c++) {
-            const sr = kre[c], si = kim[c];
-            if (pfMethod === 'conjugate') conjugateFill(sr, si, nro, npe, lines.pf);
+            let sr = kre[c], si = kim[c];
+            if (pfMethod === 'conjugate') {
+                // filled on a copy: kre is also the k-space shown on the k-space tab
+                sr = Float64Array.from(sr); si = Float64Array.from(si);
+                conjugateFill(sr, si, nro, npe, lines.pf);
+            }
             let hwRow = null, lr = null, li = null;
             if (hd) {
                 // low-resolution image from the symmetric centre: its phase is the estimate
-                lr = new Float64Array(W * Hs); li = new Float64Array(W * Hs);
+                lr = scratch('lowRe', Float64Array, N); li = scratch('lowIm', Float64Array, N);
+                hyRe.fill(0); hyIm.fill(0);
+                const es = echoStats(W, Hs);
                 for (let i = 0; i < npe; i++) {
                     const w = lpRow[i];
-                    if (!w) continue;
-                    const so = i * nro, d0 = (i + offPe) * W + offRo;
-                    for (let j = 0; j < nro; j++) { lr[d0 + j] = sr[so + j] * w; li[d0 + j] = si[so + j] * w; }
+                    if (!w || !rowNonZero(sr, si, i * nro, nro)) continue;
+                    fillLine(tr, ti, sr, si, i * nro, nro, null, w, W);
+                    U.fft(tr, ti, true);
+                    echoAdd(es, i + offPe, tr, ti);
+                    gatherRow(tr, ti, W, x0, Wc, hyRe, hyIm, Hs, i + offPe);
                 }
-                ifft2cInPlace(lr, li, W, Hs);
-                const mc = echoCentre(lr, li, W, Hs, hd.h);
+                hybridCols(hyRe, hyIm, Hs, Wc, 0, Hs, 1, lr, li, tc, tci);
+                const mc = echoCentre(es, hd.h);
                 hd.shifts.push(mc);
                 hwRow = homodyneWeights(npe, cpe, hd.s, hd.h, mc);
             }
-            const gr = new Float64Array(W * Hs), gi = new Float64Array(W * Hs);
+            hyRe.fill(0); hyIm.fill(0);
             for (let i = 0; i < npe; i++) {
                 const hw = hwRow ? hwRow[i] : 1;
-                if (!hw) continue;
-                const so = i * nro, d0 = (i + offPe) * W + offRo;
-                for (let j = 0; j < nro; j++) {
-                    const w = filt ? hw * filt[so + j] : hw;
-                    gr[d0 + j] = sr[so + j] * w; gi[d0 + j] = si[so + j] * w;
-                }
+                if (!hw || !rowNonZero(sr, si, i * nro, nro)) continue;
+                fillLine(tr, ti, sr, si, i * nro, nro, filt, hw, W);
+                hybridRow(tr, ti, W, x0, Wc, hyRe, hyIm, Hs, i + offPe);
             }
-            ifft2cInPlace(gr, gi, W, Hs);
-            for (let p = 0; p < gr.length; p++) { gr[p] *= scale; gi[p] *= scale; }
+            const gr = new Float32Array(N), gi = new Float32Array(N);
+            hybridCols(hyRe, hyIm, Hs, Wc, 0, Hs, scale, gr, gi, tc, tci);
             if (lr) {
                 // keep Re(image e^-i phase) e^i phase: the real part in the frame of the estimated phase
-                for (let p = 0; p < gr.length; p++) {
-                    const m = hypot(lr[p], li[p]);
-                    const ur = m > 0 ? lr[p] / m : 1, ui = m > 0 ? li[p] / m : 0;
+                for (let p = 0; p < N; p++) {
+                    const a = lr[p], b = li[p], m = sqrt(a * a + b * b);
+                    const ur = m > 0 ? a / m : 1, ui = m > 0 ? b / m : 0;
                     const re = gr[p] * ur + gi[p] * ui;
                     gr[p] = re * ur; gi[p] = re * ui;
                 }
@@ -858,33 +956,34 @@
         // --- SENSE unfolding
         let rho = null, gmap = null;
         if (senseOn) {
-            const s = senseUnfold(imgRe, imgIm, senseMaps.re, senseMaps.im, W, Hs, R, lines.kappa0);
+            const s = senseUnfold(imgRe, imgIm, senseMaps.re, senseMaps.im, Wc, Hs, R, lines.kappa0);
             rho = { re: s.re, im: s.im }; gmap = s.g;
             if (Hs !== H) {
-                rho = resampleRows(rho.re, rho.im, W, Hs, H);
-                gmap = resampleRowsNearest(gmap, W, Hs, H);
+                rho = resampleRows(rho.re, rho.im, Wc, Hs, H);
+                gmap = resampleRowsNearest(gmap, Wc, Hs, H);
                 for (let c = 0; c < nCoils; c++) {
-                    const t = resampleRows(imgRe[c], imgIm[c], W, Hs, H);
+                    const t = resampleRows(imgRe[c], imgIm[c], Wc, Hs, H);
                     imgRe[c] = t.re; imgIm[c] = t.im;
                 }
             }
-            let gs = 0, gm = 0, gn = 0;
-            for (let p = 0; p < gmap.length; p++) { const v = gmap[p]; if (v === v) { gs += v; gn++; if (v > gm) gm = v; } }
+            const gs = gStats(gmap, rho.re, rho.im);
             notes.push('Undersampled by R = ' + R + ' (every ' + nth(R) + ' phase-encode line). SENSE unfolded the image along ' + physPe +
-                ' with the coil sensitivities; g-factor mean ' + fmt(gs / max(1, gn), 3) + ', max ' + fmt(gm, 3) +
+                ' with the coil sensitivities; g-factor ' + (gs.inObject ? 'within the object' : 'over the image') + ': mean ' + fmt(gs.mean, 3) + ', max ' + fmt(gs.max, 3) +
                 '. SENSE combines the coils itself, so the coil-combination setting does not apply.' +
                 (Hs !== H ? ' (The phase-encode grid was padded to a multiple of R for the unfolding.)' : ''));
             if (s.failed) notes.push('SENSE could not unfold ' + s.failed + ' pixel groups (the coils cannot tell them apart).');
         }
 
-        // --- crop the readout oversampling, back to image orientation
-        const Wc = o.cropOversampling ? min(W, nRo * zf) : W;
+        // --- the readout oversampling was cropped above; back to image orientation
         if (Wc < W) notes.push('Readout oversampling cropped: ' + W + ' to ' + Wc + ' pixels along ' + physRo + '.');
         else if (nro > nRo) notes.push('Readout oversampling kept: the image shows ' + (nro / nRo) + '× the field of view along ' + physRo + '.');
-        const toImage = (a) => { const cr = cropCols(a, W, H, Wc); return flip ? transpose(cr, H, Wc) : cr; };
+        const toImage = (a) => {
+            const f = a instanceof Float32Array ? a : Float32Array.from(a);
+            return flip ? transpose(f, H, Wc) : f;
+        };
         const cRe = imgRe.map(toImage), cIm = imgIm.map(toImage);
         const nxo = flip ? H : Wc, nyo = flip ? Wc : H;
-        const roFov = (Wc / W) / dro, peFov = 1 / dpe;
+        const peFov = 1 / dpe;
         const fovXo = flip ? peFov : roFov, fovYo = flip ? roFov : peFov;
         const sense = rho ? { re: toImage(rho.re), im: toImage(rho.im), g: toImage(gmap) } : null;
 
@@ -902,26 +1001,77 @@
         };
     }
 
+    /* The g-factor summary for the recon notes, over the map that is
+       shown (after the crop) and within the object only: the pixels whose
+       unfolded magnitude is above 10 % of its 99th percentile. Outside the
+       object the g-factor is still defined, but it describes noise in
+       empty space, and the oversampled margins would add values the
+       displayed map does not contain. */
+    function gStats(g, re, im) {
+        const n = g.length, mag = new Float32Array(n);
+        for (let p = 0; p < n; p++) mag[p] = sqrt(re[p] * re[p] + im[p] * im[p]);
+        const sorted = Float32Array.from(mag).sort();
+        const thr = 0.1 * (n ? sorted[floor(0.99 * (n - 1))] : 0);
+        const inObject = thr > 0;
+        let s = 0, k = 0, mx = 0;
+        for (let p = 0; p < n; p++) {
+            const v = g[p];
+            if (!(v === v) || (inObject && !(mag[p] > thr))) continue;
+            s += v; k++;
+            if (v > mx) mx = v;
+        }
+        return { mean: s / max(1, k), max: mx, n: k, inObject };
+    }
+
     /* Where along the phase-encode axis is the echo peak, in lines from
        k = 0? A phase ramp across the image, exp(i 2 pi k0 y), moves the
        whole of k-space by k0, and then the symmetry the homodyne weights
        rely on is about k0 rather than 0. Weighting about 0 regardless
        leaves an intensity error of about k0/h. The ramp is measured from
-       the low-resolution image as the average phase step from one row to
-       the next (weighted by signal, no unwrapping needed): k0 in lines is
-       that step times the number of rows over 2 pi. Limited to half the
-       symmetric band so that noise cannot push it anywhere silly. */
-    function echoCentre(lr, li, W, Hs, h) {
-        let zr = 0, zi = 0;
-        for (let i = 0; i + 1 < Hs; i++) {
-            const a = (i + 1) * W, b = i * W;
-            for (let x = 0; x < W; x++) {
-                zr += lr[a + x] * lr[b + x] + li[a + x] * li[b + x];
-                zi += li[a + x] * lr[b + x] - lr[a + x] * li[b + x];
-            }
+       the low-resolution image L as the average phase step from one row
+       to the next, z = sum over rows i and columns x of
+       L(i+1, x) conj L(i, x) (weighted by signal, no unwrapping needed):
+       k0 in lines is arg(z) times the number of rows over 2 pi. Limited to
+       half the symmetric band so that noise cannot push it anywhere silly.
+
+       The sum runs over the full width of the low-resolution image,
+       oversampled margins included, but the reconstruction only forms the
+       columns it keeps. So z is accumulated from the readout-transformed
+       rows G(m, x) instead (m the phase-encode line), before the crop. With
+       L(i) = (1/H) sum_m G(m) exp(i 2 pi (m - c)(i - c) / H) the shift
+       theorem gives, for the sum over every row pair including the
+       wrap-around pair (last row, first row),
+           sum_i L(i+1) conj L(i) = (1/H) sum_m |G(m)|^2 exp(i 2 pi (m - c) / H),
+       and the wrap-around pair L(0) conj L(H-1), which is not one of the
+       neighbours, is subtracted after evaluating those two rows directly
+       from the few lines of the symmetric centre. */
+    function echoStats(W, H) {
+        return { W, H, zr: 0, zi: 0, f0r: new Float64Array(W), f0i: new Float64Array(W), f1r: new Float64Array(W), f1i: new Float64Array(W) };
+    }
+    function echoAdd(st, m, tr, ti) {                // tr, ti: line m after the readout transform (any column order)
+        const W = st.W, H = st.H, c = H >> 1;
+        let s = 0;
+        for (let x = 0; x < W; x++) s += tr[x] * tr[x] + ti[x] * ti[x];
+        const th = 2 * PI * (m - c) / H;
+        st.zr += s * cos(th) / H; st.zi += s * sin(th) / H;
+        const p0 = 2 * PI * (m - c) * (0 - c) / H, p1 = 2 * PI * (m - c) * (H - 1 - c) / H;
+        const c0 = cos(p0) / H, s0 = sin(p0) / H, c1 = cos(p1) / H, s1 = sin(p1) / H;
+        const f0r = st.f0r, f0i = st.f0i, f1r = st.f1r, f1i = st.f1i;
+        for (let x = 0; x < W; x++) {
+            const gr = tr[x], gi = ti[x];
+            f0r[x] += gr * c0 - gi * s0; f0i[x] += gr * s0 + gi * c0;      // row 0 of L
+            f1r[x] += gr * c1 - gi * s1; f1i[x] += gr * s1 + gi * c1;      // row H - 1 of L
         }
+    }
+    function echoCentre(st, h) {
+        let wr = 0, wi = 0;
+        for (let x = 0; x < st.W; x++) {
+            wr += st.f0r[x] * st.f1r[x] + st.f0i[x] * st.f1i[x];
+            wi += st.f0i[x] * st.f1r[x] - st.f0r[x] * st.f1i[x];
+        }
+        const zr = st.zr - wr, zi = st.zi - wi;
         if (!(zr * zr + zi * zi > 0)) return 0;
-        return clamp(atan2(zi, zr) * Hs / (2 * PI), -h / 2, h / 2);
+        return clamp(atan2(zi, zr) * st.H / (2 * PI), -h / 2, h / 2);
     }
 
     /* Homodyne weights per phase-encode row. In the coordinate m' = s(i - c)
@@ -1003,7 +1153,7 @@
             }
             if (nC > 1) notes.push('Coils combined by root-sum-of-squares: a magnitude image, brighter near the coils.');
         }
-        for (let p = 0; p < N; p++) mag[p] = hypot(re[p], im[p]);
+        for (let p = 0; p < N; p++) mag[p] = sqrt(re[p] * re[p] + im[p] * im[p]);
         return { re, im, mag };
     }
 
@@ -1133,8 +1283,15 @@
         return re;
     }
 
-    function reconGridded(acq, o, used, nCoils, dims, notes) {
-        const { nx, ny, fovX, fovY, os } = dims;
+    /* Everything about gridding that does not depend on the
+       reconstruction options: for each sample its kernel taps, its
+       nearest grid point, its time and readout index, and the density
+       compensation; then, built on first use for each densityComp
+       setting, the gridded k-space of every coil. It is kept with the
+       acquisition (see planFor), so that changing a filter, zero filling
+       or the coil combination does not grid again. */
+    function buildGridding(used, nCoils, dims) {
+        const { nx, ny, fovX, fovY } = dims;
         const Gx = KB_OS * nx, Gy = KB_OS * ny, dgx = 1 / (KB_OS * fovX), dgy = 1 / (KB_OS * fovY);
         const cgx = Gx >> 1, cgy = Gy >> 1, NG = Gx * Gy;
         let Ns = 0;
@@ -1144,8 +1301,6 @@
         const ix0 = new Int32Array(Ns), iy0 = new Int32Array(Ns);
         const tx = new Float64Array(Ns * NTAP), ty = new Float64Array(Ns * NTAP);
         const near = new Int32Array(Ns), tSample = new Float64Array(Ns), ordS = new Float64Array(Ns);
-        const dRe = [], dIm = [];
-        for (let c = 0; c < nCoils; c++) { dRe.push(new Float64Array(Ns)); dIm.push(new Float64Array(Ns)); }
         let s = 0, dropped = 0;
         for (let r = 0; r < used.length; r++) {
             const ro = used[r], n = ro.n, h = n >> 1;
@@ -1167,75 +1322,12 @@
                 if (nyI === Gy) nyI = 0;
                 near[s] = nyI * Gx + nxI;
                 tSample[s] = te + (j - h) * dw; ordS[s] = id;
-                for (let c = 0; c < nCoils; c++) {
-                    const sr = ro.re[c], si = ro.im[c];
-                    const vr = sr ? sr[j] : 0, vi = si ? si[j] : 0;
-                    dRe[c][s] = vr === vr ? vr : 0; dIm[c][s] = vi === vi ? vi : 0;
-                }
             }
         }
-        if (dropped) notes.push(dropped + ' samples lay beyond the edge of k-space for this matrix and field of view and were left out.');
 
         // density compensation
-        let w, dcfNote;
         const rad = radialDcf(used, Ns);
-        if (rad) {
-            w = rad.w;
-            dcfNote = 'density compensation by the |k| ramp of radial sampling';
-            const need = PI / 2 * max(nx, ny);
-            notes.push('Radial: ' + fmt(rad.nSpokes, 4) + ' spokes through the centre of k-space.' +
-                (rad.nSpokes < 0.95 * need ? ' Full sampling at the edge of k-space needs about π/2 × N = ' + round(need) +
-                    ' spokes; with fewer, expect streaks.' : ''));
-        } else {
-            w = pipeMenon(Ns, tx, ty, ix0, iy0, Gx, Gy, dgx, dgy, 12);
-            dcfNote = 'density compensation by Pipe-Menon iteration';
-        }
-        if (!o.densityComp) {
-            /* Every sample gets the same weight. Its size is chosen so that
-               the total weight around k = 0 (kernel weighted) is what the
-               density compensation would have put there: the image keeps
-               its overall intensity (its integral) and only the blur from
-               over-weighting the crowded centre of k-space remains. */
-            let dcf = 0, uni = 0;
-            for (let q = 0; q < Ns; q++) {
-                let c = 0;
-                for (let b = 0; b < NTAP; b++) {
-                    if (iy0[q] + b !== cgy) continue;
-                    for (let a = 0; a < NTAP; a++) if (ix0[q] + a === cgx) c = ty[q * NTAP + b] * tx[q * NTAP + a];
-                }
-                dcf += c * w[q]; uni += c;
-            }
-            let sum = 0;
-            for (let q = 0; q < Ns; q++) sum += w[q];
-            const wu = uni > 0 && dcf > 0 ? dcf / uni : sum / max(1, Ns);
-            w = new Float64Array(Ns); w.fill(wu);
-            dcfNote = 'NO density compensation (every sample weighted equally, so the densely sampled centre of k-space dominates and the image is blurred)';
-        }
-        notes.push('Non-Cartesian: ' + Ns + ' samples gridded with a Kaiser-Bessel kernel (width 4) onto a ' + Gx + ' × ' + Gy +
-            ' grid (2× oversampled), ' + dcfNote + ', then deapodised.');
-
-        // grid every coil
-        const gRe = [], gIm = [];
-        for (let c = 0; c < nCoils; c++) {
-            const gr = new Float64Array(NG), gi = new Float64Array(NG), ar = dRe[c], ai = dIm[c];
-            for (let q = 0; q < Ns; q++) {
-                const fr = ar[q] * w[q], fi = ai[q] * w[q];
-                if (!fr && !fi) continue;
-                for (let b = 0; b < NTAP; b++) {
-                    const wyv = ty[q * NTAP + b];
-                    if (!wyv) continue;
-                    let yy = iy0[q] + b; yy = ((yy % Gy) + Gy) % Gy;
-                    const row = yy * Gx;
-                    for (let a = 0; a < NTAP; a++) {
-                        const k = wyv * tx[q * NTAP + a];
-                        if (!k) continue;
-                        let xx = ix0[q] + a; xx = ((xx % Gx) + Gx) % Gx;
-                        gr[row + xx] += k * fr; gi[row + xx] += k * fi;
-                    }
-                }
-            }
-            gRe.push(gr); gIm.push(gi);
-        }
+        const wDcf = rad ? rad.w : pipeMenon(Ns, tx, ty, ix0, iy0, Gx, Gy, dgx, dgy, 12);
 
         // where the samples are, for the k-space display (nearest grid point)
         const mask = new Uint8Array(NG), tmap = new Float32Array(NG), order = new Float32Array(NG), tcnt = new Float64Array(NG), tsum = new Float64Array(NG);
@@ -1246,52 +1338,164 @@
             mask[p] = 1; tcnt[p]++; tsum[p] += tSample[q]; order[p] = ordS[q];
         }
         for (let p = 0; p < NG; p++) tmap[p] = tcnt[p] ? tsum[p] / tcnt[p] : NaN;
-        if (o.userMask) {
-            if (o.userMask.length === NG) {
-                const um = o.userMask;
-                for (let p = 0; p < NG; p++) if (!um[p]) {
-                    mask[p] = 0;
-                    for (let c = 0; c < nCoils; c++) { gRe[c][p] = 0; gIm[c][p] = 0; }
+
+        return { nUse: used.length, nCoils, used, Gx, Gy, dgx, dgy, cgx, cgy, NG, Ns, ix0, iy0, tx, ty, near,
+            dropped, rad, wDcf, wUni: null, mask, tmap, order, kspace: {} };
+    }
+
+    /* Without density compensation every sample gets the same weight. Its
+       size is chosen so that the total weight around k = 0 (kernel
+       weighted) is what the density compensation would have put there:
+       the image keeps its overall intensity (its integral) and only the
+       blur from over-weighting the crowded centre of k-space remains. */
+    function uniformWeights(G) {
+        const { Ns, ix0, iy0, tx, ty, cgx, cgy } = G, w = G.wDcf;
+        let dcf = 0, uni = 0;
+        for (let q = 0; q < Ns; q++) {
+            let c = 0;
+            for (let b = 0; b < NTAP; b++) {
+                if (iy0[q] + b !== cgy) continue;
+                for (let a = 0; a < NTAP; a++) if (ix0[q] + a === cgx) c = ty[q * NTAP + b] * tx[q * NTAP + a];
+            }
+            dcf += c * w[q]; uni += c;
+        }
+        let sum = 0;
+        for (let q = 0; q < Ns; q++) sum += w[q];
+        const wu = uni > 0 && dcf > 0 ? dcf / uni : sum / max(1, Ns);
+        const out = new Float64Array(Ns); out.fill(wu);
+        return out;
+    }
+
+    /* The gridded k-space of every coil for one densityComp setting:
+       each sample, times its weight, spread over the grid points its
+       kernel touches. Stored as Float32 to halve the memory it holds. */
+    function griddedKspace(G, dc) {
+        const key = dc ? 'dcf' : 'uniform';
+        if (G.kspace[key]) return G.kspace[key];
+        let w = G.wDcf;
+        if (!dc) w = G.wUni || (G.wUni = uniformWeights(G));
+        const { used, nCoils, Gx, Gy, NG, ix0, iy0, tx, ty, near } = G;
+        const gr = new Float64Array(NG), gi = new Float64Array(NG);
+        const outRe = [], outIm = [];
+        for (let c = 0; c < nCoils; c++) {
+            gr.fill(0); gi.fill(0);
+            let q = 0;
+            for (let r = 0; r < used.length; r++) {
+                const ro = used[r], n = ro.n, ar = ro.re[c], ai = ro.im[c];
+                for (let j = 0; j < n; j++, q++) {
+                    if (near[q] < 0) continue;
+                    let vr = ar ? ar[j] : 0, vi = ai ? ai[j] : 0;
+                    if (vr !== vr) vr = 0;
+                    if (vi !== vi) vi = 0;
+                    const fr = vr * w[q], fi = vi * w[q];
+                    if (!fr && !fi) continue;
+                    // kernels near the edge wrap around (the grid is periodic); the rest need no modulo
+                    const bx = ix0[q], by = iy0[q], wrap = bx < 0 || by < 0 || bx + NTAP > Gx || by + NTAP > Gy;
+                    for (let b = 0; b < NTAP; b++) {
+                        const wyv = ty[q * NTAP + b];
+                        if (!wyv) continue;
+                        let yy = by + b;
+                        if (wrap) yy = ((yy % Gy) + Gy) % Gy;
+                        const row = yy * Gx;
+                        for (let a = 0; a < NTAP; a++) {
+                            const k = wyv * tx[q * NTAP + a];
+                            if (!k) continue;
+                            let xx = bx + a;
+                            if (wrap) xx = ((xx % Gx) + Gx) % Gx;
+                            gr[row + xx] += k * fr; gi[row + xx] += k * fi;
+                        }
+                    }
                 }
-            } else notes.push('The edited k-space mask does not match this k-space grid, so it was ignored.');
+            }
+            outRe.push(Float32Array.from(gr)); outIm.push(Float32Array.from(gi));
+        }
+        return (G.kspace[key] = { re: outRe, im: outIm });
+    }
+
+    function reconGridded(acq, o, used, nCoils, dims, notes, cache) {
+        const { nx, ny, fovX, fovY, os } = dims;
+        let G = cache && cache.gridding;
+        if (!G || G.nUse !== used.length || G.nCoils !== nCoils || G.used[0] !== used[0]) {
+            G = buildGridding(used, nCoils, dims);
+            if (cache) cache.gridding = G;
+        }
+        const { Gx, Gy, dgx, dgy, cgx, cgy, NG, Ns, rad } = G;
+        if (G.dropped) notes.push(G.dropped + ' samples lay beyond the edge of k-space for this matrix and field of view and were left out.');
+
+        let dcfNote;
+        if (rad) {
+            dcfNote = 'density compensation by the |k| ramp of radial sampling';
+            const need = PI / 2 * max(nx, ny);
+            notes.push('Radial: ' + fmt(rad.nSpokes, 4) + ' spokes through the centre of k-space.' +
+                (rad.nSpokes < 0.95 * need ? ' Full sampling at the edge of k-space needs about π/2 × N = ' + round(need) +
+                    ' spokes; with fewer, expect streaks.' : ''));
+        } else dcfNote = 'density compensation by Pipe-Menon iteration';
+        if (!o.densityComp) dcfNote = 'NO density compensation (every sample weighted equally, so the densely sampled centre of k-space dominates and the image is blurred)';
+        notes.push('Non-Cartesian: ' + Ns + ' samples gridded with a Kaiser-Bessel kernel (width 4) onto a ' + Gx + ' × ' + Gy +
+            ' grid (2× oversampled), ' + dcfNote + ', then deapodised.');
+        const gk = griddedKspace(G, !!o.densityComp);
+
+        // the edit mask from the k-space tab removes grid points after gridding
+        const mask = G.mask.slice();
+        let um = null;
+        if (o.userMask) {
+            if (maskFits(o, Gx, Gy, dgx, dgy)) {
+                um = o.userMask;
+                for (let p = 0; p < NG; p++) if (!um[p]) mask[p] = 0;
+            } else notes.push(MASK_MISMATCH);
         }
 
         // display copy in k-space units: divide out the kernel's area
         const ks = 1 / (dgx * dgy * KB_SUM * KB_SUM);
-        const kspace = {
-            nx: Gx, ny: Gy, dkx: dgx, dky: dgy,
-            re: gRe.map(a => { const b = new Float32Array(NG); for (let p = 0; p < NG; p++) b[p] = a[p] * ks; return b; }),
-            im: gIm.map(a => { const b = new Float32Array(NG); for (let p = 0; p < NG; p++) b[p] = a[p] * ks; return b; }),
-            mask, tmap, order
+        const disp = (a) => {
+            const b = new Float32Array(NG);
+            for (let p = 0; p < NG; p++) b[p] = a[p] * ks;
+            if (um) for (let p = 0; p < NG; p++) if (!um[p]) b[p] = 0;
+            return b;
         };
+        const kspace = { nx: Gx, ny: Gy, dkx: dgx, dky: dgy, re: gk.re.map(disp), im: gk.im.map(disp), mask, tmap: G.tmap.slice(), order: G.order.slice() };
 
-        // filter, zero-fill, transform, deapodise, crop
+        /* filter, zero-fill, transform, deapodise, crop. As in the
+           Cartesian path the crop to the field of view happens between the
+           two halves of the transform, along x first and then along y. */
         const filt = filterWeights(o.filter, o.filterParam, Gx, Gy);
         if (o.filter && o.filter !== 'none') notes.push(filt ? 'k-space filter: ' + o.filter + '.' : 'Unknown filter "' + o.filter + '" ignored.');
         const zf = o.zeroFill >= 2 ? 2 : 1;
-        const Wz = Gx * zf, Hz = Gy * zf, offX = (Wz >> 1) - cgx, offY = (Hz >> 1) - cgy;
+        const Wz = Gx * zf, Hz = Gy * zf, offY = (Hz >> 1) - cgy;
         const ax = apodisation(Wz), ay = apodisation(Hz);
         const keep = o.cropOversampling ? 1 : clamp(os, 1, KB_OS);
         const Wc = nx * zf * keep, Hc = ny * zf * keep;
         if (o.cropOversampling && os > 1) notes.push('Readout oversampling cropped to the ' + fmt(fovX * 1e3) + ' mm field of view.');
         const x0 = (Wz >> 1) - (Wc >> 1), y0 = (Hz >> 1) - (Hc >> 1);
+        const hyRe = scratch('hyRe', Float64Array, Wc * Hz), hyIm = scratch('hyIm', Float64Array, Wc * Hz);
+        const tr = scratch('lineRe', Float64Array, Wz), ti = scratch('lineIm', Float64Array, Wz);
+        const tc = scratch('colRe', Float64Array, Hz), tci = scratch('colIm', Float64Array, Hz);
+        const zr = scratch('outRe', Float64Array, Wc * Hc), zi = scratch('outIm', Float64Array, Wc * Hc);
         const cRe = [], cIm = [];
         for (let c = 0; c < nCoils; c++) {
-            const zr = new Float64Array(Wz * Hz), zi = new Float64Array(Wz * Hz);
+            const ga = gk.re[c], gb = gk.im[c];
+            hyRe.fill(0); hyIm.fill(0);
             for (let i = 0; i < Gy; i++) {
-                const so = i * Gx, d0 = (i + offY) * Wz + offX;
-                for (let j = 0; j < Gx; j++) {
-                    const f = filt ? filt[so + j] : 1;
-                    zr[d0 + j] = gRe[c][so + j] * f; zi[d0 + j] = gIm[c][so + j] * f;
+                const so = i * Gx;
+                let any = false;
+                tr.fill(0); ti.fill(0);
+                let u = Wz - cgx;                  // grid column j goes to slot (j - cgx) mod Wz
+                for (let j = 0; j < Gx; j++, u++) {
+                    if (u === Wz) u = 0;
+                    const p = so + j, vr = ga[p], vi = gb[p];
+                    if ((vr === 0 && vi === 0) || (um && !um[p])) continue;
+                    const f = filt ? filt[p] : 1;
+                    tr[u] = vr * f; ti[u] = vi * f; any = true;
                 }
+                if (any) hybridRow(tr, ti, Wz, x0, Wc, hyRe, hyIm, Hz, i + offY);
             }
-            ifft2cInPlace(zr, zi, Wz, Hz);
+            hybridCols(hyRe, hyIm, Hz, Wc, y0, Hc, 1, zr, zi, tc, tci);
             const or = new Float32Array(Wc * Hc), oi = new Float32Array(Wc * Hc);
             for (let i = 0; i < Hc; i++) {
-                const yy = i + y0, ry = ay[yy];
+                const ry = ay[i + y0];
                 for (let j = 0; j < Wc; j++) {
-                    const xx = j + x0, d = ry * ax[xx], p = yy * Wz + xx;
-                    if (d !== 0) { or[i * Wc + j] = zr[p] / d; oi[i * Wc + j] = zi[p] / d; }
+                    const d = ry * ax[j + x0], p = i * Wc + j;
+                    if (d !== 0) { or[p] = zr[p] / d; oi[p] = zi[p] / d; }
                 }
             }
             cRe.push(or); cIm.push(oi);
@@ -1308,6 +1512,38 @@
             info: { cartesian: false, undersampling: 1, partialFourier: 1, notes, readoutAxis: dims.readoutAxis || 'radial', nReadouts: used.length,
                 spokes: rad ? rad.nSpokes : null }
         };
+    }
+
+    /* ---------- per-acquisition cache ----------
+       A change of reconstruction option re-runs run() on the same
+       acquisition, and much of the work does not depend on the options:
+       the list of usable readouts and their largest k, where every sample
+       sits on the Cartesian grid and which lines the plan records, and for
+       non-Cartesian data the whole gridding (above). These are kept here,
+       keyed on the acquisition object (a WeakMap, so they go when the
+       acquisition does); the gridding only for the latest number of
+       readouts. An acquisition is not changed after the scan, but the
+       cache checks its readout list and grid anyway. */
+    const acqCache = new WeakMap();
+    function planFor(acq) {
+        const g = acq.grid, all = Array.isArray(acq.readouts) ? acq.readouts : [];
+        const sig = [g.nx, g.ny, g.fovX, g.fovY, g.readoutAxis, g.oversample, acq.nCoils, all.length].join('|');
+        let c = acqCache.get(acq);
+        if (c && c.all === all && c.sig === sig) return c;
+        // the plan: every usable readout; the ones recorded so far are a prefix of it
+        const plan = [], src = [];
+        let kmax = 0;
+        for (let i = 0; i < all.length; i++) {
+            const r = all[i];
+            if (!validReadout(r)) continue;
+            const n = readoutLength(r);
+            plan.push({ kx: r.kx, ky: r.ky, re: r.re, im: r.im, n, te: r.te, dwell: r.dwell, index: isNum(r.index) ? r.index : i });
+            src.push(i);
+            for (let j = 0; j < n; j++) { const v = abs(r.kx[j]) + abs(r.ky[j]); if (v > kmax) kmax = v; }
+        }
+        c = { all, sig, plan, src, kmax, guess: undefined, geo: null, gridding: null };
+        if (typeof acq === 'object') acqCache.set(acq, c);
+        return c;
     }
 
     /* ---------- entry point ---------- */
@@ -1333,35 +1569,32 @@
         const nx = posInt(g.nx, 64), ny = posInt(g.ny, nx);
         const fovX = posNum(g.fovX, 0.24), fovY = posNum(g.fovY, fovX);
         const os = posInt(g.oversample, 1);
-        const all = Array.isArray(acq.readouts) ? acq.readouts : [];
+        const cache = planFor(acq), all = cache.all, plan = cache.plan;
         let nTake = all.length;
         if (upTo !== undefined && upTo !== null) nTake = isNum(Number(upTo)) ? clamp(floor(Number(upTo)), 0, all.length) : all.length;
-        // the plan: every usable readout; the ones recorded so far are a prefix of it
-        const plan = [];
+        // the readouts recorded so far are a prefix of the plan
         let nUse = 0;
-        for (let i = 0; i < all.length; i++) {
-            const r = all[i];
-            if (!validReadout(r)) continue;
-            plan.push({ kx: r.kx, ky: r.ky, re: r.re, im: r.im, n: readoutLength(r), te: r.te, dwell: r.dwell, index: isNum(r.index) ? r.index : i });
-            if (i < nTake) nUse++;
-        }
+        while (nUse < plan.length && cache.src[nUse] < nTake) nUse++;
         if (!plan.length) return emptyResult(acq, ['This acquisition has no readouts to reconstruct.']);
-        let kmax = 0;
-        for (const r of plan) for (let j = 0; j < r.n; j++) { const v = abs(r.kx[j]) + abs(r.ky[j]); if (v > kmax) kmax = v; }
-        if (!(kmax > 0)) return emptyResult(acq, ['Every sample was recorded at k = 0: these readouts have no spatial encoding, so there is no image to make. (A pulse-acquire FID belongs in the Spectroscopy tab.)']);
+        if (!(cache.kmax > 0)) return emptyResult(acq, ['Every sample was recorded at k = 0: these readouts have no spatial encoding, so there is no image to make. (A pulse-acquire FID belongs in the Spectroscopy tab.)']);
         if (!nUse) return emptyResult(acq, ['No readouts recorded yet.']);
         let nCoils = posInt(acq.nCoils, 0) || plan[0].re.length;
         nCoils = min(nCoils, plan[0].re.length, plan[0].im.length);
         const notes = [];
         if (nUse < plan.length) notes.push('Showing ' + nUse + ' of ' + plan.length + ' readouts.');
 
-        let axis = g.readoutAxis === 'x' || g.readoutAxis === 'y' ? g.readoutAxis : guessAxis(plan);
+        let axis = g.readoutAxis === 'x' || g.readoutAxis === 'y' ? g.readoutAxis : null;
+        if (!axis) {
+            if (cache.guess === undefined) cache.guess = guessAxis(plan);
+            axis = cache.guess;
+        }
         if (axis) {
-            const geo = placeCartesian(plan, axis, nx, ny, fovX, fovY, os);
+            if (!cache.geo) cache.geo = placeCartesian(plan, axis, nx, ny, fovX, fovY, os);
+            const geo = cache.geo;
             if (geo.cartesian) return reconCartesian(acq, o, plan, nUse, nCoils, geo, notes);
             notes.push('Only ' + fmt(100 * geo.onGrid / max(1, geo.total), 3) + ' % of the samples lie on the Cartesian grid, so they were gridded.');
         }
-        return reconGridded(acq, o, plan.slice(0, nUse), nCoils, { nx, ny, fovX, fovY, os, readoutAxis: g.readoutAxis }, notes);
+        return reconGridded(acq, o, plan.slice(0, nUse), nCoils, { nx, ny, fovX, fovY, os, readoutAxis: g.readoutAxis }, notes, cache);
     }
 
     MRI.recon = {

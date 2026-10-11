@@ -471,6 +471,42 @@ expectError('param N = 64\nlet shots = N / 12\nfor s in 0 .. shots - 1\n  wait 1
     ok(D.compile('').ok && D.compile('').warnings.length > 0, 'an empty program compiles (with a warning that nothing is recorded)');
 }
 {
+    /* Sizes the simulator cannot handle interactively are errors that
+       name the limit: matrix 512, 65,536 samples in one ADC, 4,194,304
+       recorded samples in all. */
+    const gre = P.get('gre_t1').source;
+    expectError(gre, lineOf(gre, 'matrix N'), /^The matrix size can be at most 512, the limit of the simulator \(got 1024\)\./, 'matrix 1024', /It comes from N/, { overrides: { N: 1024, TE: 0.012 } });
+    expectError('matrix 600 400', 1, /at most 512, the limit of the simulator \(got 600\)/, 'matrix 600 written directly', /Choose 512 or less/);
+    expectError('matrix 1', 1, /at least 2/, 'matrix 1');
+    ok(compile(gre, { overrides: { N: 512, TE: 0.012 } }).ok, 'matrix 512 still compiles');
+    expectError('rf 90 hard as exc\nadc 100000000 dwell 1 us at exc + 1 ms', 2, /^This ADC records 100,000,000 samples; one ADC can record at most 65,536, the limit of the simulator\./, 'ADC of 1e8 samples');
+    const fid = P.get('fid').source, adcLine = lineOf(fid, 'adc NP');
+    expectError(fid, adcLine, /1,048,576 samples; one ADC can record at most 65,536/, 'NP = 1048576', /It comes from NP/, { overrides: { NP: 1048576, SW: 1e6, TR: 2 } });
+    ok(compile(fid, { overrides: { NP: 65536, SW: 20000, TR: 4, NA: 1 } }).ok, 'an ADC of exactly 65,536 samples compiles');
+    expectError(fid, adcLine, /^This sequence records more than 4,194,304 samples in all, the limit of the simulator\./, 'too many samples in all', /Reduce/, { overrides: { NP: 65536, SW: 1e6, TR: 0.1, NA: 65 } });
+    ok(compile(fid, { overrides: { NP: 65536, SW: 1e6, TR: 0.1, NA: 64 } }).ok, 'exactly 4,194,304 recorded samples compile (the dummy repetitions do not count)');
+    expectError(withLine(7, '    gx readout, adc 70000 at exc + TE'), 7, /70,000 samples; one ADC can record at most 65,536/, 'ADC on a readout with too many samples');
+}
+{
+    /* An ADC with no excitation before it in its repetition records
+       nothing: a compile warning on the ADC line, given once. */
+    const warnRe = /^No excitation pulse comes before this ADC in its repetition/;
+    const first = P.get('first').source;
+    const noExc = first.replace(/^\s*rf flip slice as exc.*\n/m, '').replace('gz rephase, ', '').replace('adc at exc + TE', 'adc');
+    const r = compileOk(noExc, {}, '"first" without its excitation');
+    const w = r.warnings.filter(x => warnRe.test(x.msg));
+    ok(w.length === 1 && w[0].line === lineOf(noExc, 'gx readout, adc'), 'no excitation: one warning, on the ADC line (' + JSON.stringify(w) + ')');
+    const inv = compileOk('param TR = 100 ms\nmatrix 32\nfor line in 0 .. 31 every TR\n    rf 180 hard\n    gx prephase, gy encode line\n    gx readout, adc\n    spoil\nend', {}, 'inversion only');
+    ok(inv.warnings.some(x => warnRe.test(x.msg) && x.line === 6), 'a 180 on its own inverts, it does not excite: warning');
+    const late = compileOk('param TR = 100 ms\nmatrix 32\ndummies 2\nfor line in 0 .. 31 every TR\n    gx prephase, gy encode line\n    gx readout, adc\n    gy rewind line\n    rf 30 slice\n    spoil\nend', {}, 'excitation after the ADC');
+    ok(late.warnings.some(x => warnRe.test(x.msg) && x.line === 6), 'excitation after the ADC in every repetition (dummy repetitions before it do not count): warning');
+    const single = compileOk('matrix 32\noversample 1\nbandwidth 2000 Hz/px\nrf 90 slice as exc\ngz rephase, gx prephase, gy encode 0\nfor line in 0 .. 31 every 1 ms\n    gx readout * (-1)^line, adc\n    gy blip\nend', {}, 'single-shot echo train timed by an every loop');
+    ok(!single.warnings.some(x => warnRe.test(x.msg)), 'an excitation before the loop counts for every repetition: no warning');
+    const spec = compileOk('rf 90 hard as exc\nadc 256 dwell 250 us at exc + 0.3 ms', {}, 'pulse-acquire without loops');
+    ok(!spec.warnings.some(x => warnRe.test(x.msg)), 'pulse-acquire without loops: no warning');
+    for (const p of P) ok(!compile(p.source).warnings.some(x => warnRe.test(x.msg)), p.id + ': no excitation warning');
+}
+{
     // On failure the params parsed so far are still returned.
     const r = compile('param TE = 20 ms range 1 ms .. 50 ms\nparam N = 64\nrff 90');
     ok(!r.ok && r.params.length === 2 && r.params[0].name === 'TE', 'failed compile still returns params');

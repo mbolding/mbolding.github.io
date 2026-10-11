@@ -407,6 +407,24 @@ const FOV = 0.24, N = 128, DX = FOV / N;
         ok(gmin >= 1 - 1e-6, label + ': g-factor >= 1');
         if (R === 2) ok(gsum / gn < 1.3 && gmax < 2, label + ': g-factor modest');
         else ok(Number.isFinite(gmax), label + ': g-factor finite (higher R costs more, as it should)');
+        /* The note describes the map that is shown (same grid as the
+           image, after the crop) within the object: pixels above 10 % of
+           the 99th percentile of the unfolded magnitude. */
+        {
+            const note = r.info.notes.find(t => /g-factor/.test(t)) || '';
+            const m = /g-factor within the object: mean ([\d.]*\d), max ([\d.]*\d)/.exec(note);
+            const mag = r.image.mag, sorted = Float32Array.from(mag).sort(), thr = 0.1 * sorted[floor(0.99 * (mag.length - 1))];
+            let s = 0, k = 0, mx = 0, mapMax = 0;
+            for (let i = 0; i < mag.length; i++) {
+                const g = r.gfactor[i];
+                if (!(g === g)) continue;
+                mapMax = Math.max(mapMax, g);
+                if (mag[i] > thr) { s += g; k++; mx = Math.max(mx, g); }
+            }
+            ok(m && abs(Number(m[1]) - s / k) < 0.006 * s / k && abs(Number(m[2]) - mx) < 0.006 * mx,
+                label + ': g-factor note is the statistics within the object on the displayed map (' + (m ? m[1] + ', ' + m[2] : note) + ' vs ' + (s / k).toFixed(3) + ', ' + mx.toFixed(3) + ')');
+            ok(m && Number(m[2]) <= mapMax * 1.006, label + ': the note\'s maximum is in the displayed map');
+        }
         if (R === 2 && start === 0 && axis === 'x') {
             const none = RC.run(acq, { parallel: 'none', coilCombine: 'roemer' });
             ok(relErr(none, truth) > 0.2, 'R = 2 without SENSE: the image is folded');
@@ -601,8 +619,8 @@ const FOV = 0.24, N = 128, DX = FOV / N;
     const rn = RC.run(acq, null, null);
     ok(rn.image.nx === 64, 'null opts and extra use the defaults');
     ok(RC.defaults.filter === 'none' && RC.defaults.zeroFill === 1 && RC.defaults.cropOversampling === true && RC.defaults.densityComp === true &&
-        RC.defaults.epiGhostCorr === false && RC.defaults.userMask === null && RC.defaults.coil === 0 &&
-        RC.defaults.partialFourier === 'homodyne' && RC.defaults.parallel === 'sense' && RC.defaults.coilCombine === 'sos', 'defaults');
+        RC.defaults.epiGhostCorr === false && RC.defaults.userMask === null && RC.defaults.userMaskGrid === null && RC.defaults.coil === 0 &&
+        RC.defaults.partialFourier === 'homodyne' && RC.defaults.parallel === 'sense' && RC.defaults.coilCombine === 'roemer', 'defaults (Roemer combination)');
 
     // repeated samples at one point are averaged
     const a2 = cartesian({ nx: 32, ny: 32, fovX: FOV, fovY: FOV, os: 2, axis: 'x', obj });
@@ -629,35 +647,302 @@ const FOV = 0.24, N = 128, DX = FOV / N;
     ok(ruY.kspace.nx === 64 && ruY.kspace.ny === 128 && abs(ruY.info.partialFourier - 38 / 64) < 1e-12 && hasNote(ruY, /along x/),
         'user mask with the readout along y: columns removed on one side are partial Fourier along x');
     ok(ruY.kspace.mask[64 * 64 + 10] === 0 && ruY.kspace.mask[64 * 64 + 40] === 1, 'user mask with the readout along y: applied in image orientation');
+
+    /* A mask belongs to the grid it was drawn on. 128 x 64 (readout x)
+       and 64 x 128 (readout y) have the same number of points, so a
+       length check alone would read one as the other. */
+    const gridOf = (r) => ({ nx: r.kspace.nx, ny: r.kspace.ny, dkx: r.kspace.dkx, dky: r.kspace.dky });
+    const gX = gridOf(RC.run(big, {})), gY = gridOf(RC.run(bigY, {}));
+    const rg = RC.run(big, { userMask: um, userMaskGrid: gX, partialFourier: 'homodyne' });
+    ok(abs(rg.info.partialFourier - 38 / 64) < 1e-12 && !hasNote(rg, /does not match/), 'user mask with its own grid given: applied');
+    const swapped = RC.run(bigY, { userMask: um, userMaskGrid: gX });
+    ok(hasNote(swapped, /does not match/) && swapped.info.partialFourier === 1 && !hasNote(swapped, /Partial echo/),
+        'a mask drawn on the 128 x 64 grid is ignored on a 64 x 128 grid of the same length, with a note');
+    let nmS = 0; for (let i = 0; i < swapped.kspace.mask.length; i++) nmS += swapped.kspace.mask[i];
+    ok(nmS === 64 * 128, 'ignored mask: every sample kept (' + nmS + ')');
+    const dkOff = RC.run(big, { userMask: um, userMaskGrid: Object.assign({}, gX, { dky: gX.dky * 1.01 }) });
+    ok(hasNote(dkOff, /does not match/) && dkOff.info.partialFourier === 1, 'same matrix but a k-space step 1 % different: mask ignored');
+    const dkClose = RC.run(big, { userMask: um, userMaskGrid: Object.assign({}, gX, { dkx: gX.dkx * 1.0005 }) });
+    ok(!hasNote(dkClose, /does not match/) && dkClose.info.partialFourier < 1, 'k-space step within 0.1 %: mask applied');
+    ok(gY.nx === 64 && gY.ny === 128, 'the readout-y grid is 64 x 128');
+    // the gridded path checks the grid too
+    const radAcq = (function () {
+        const n = 32, readouts = [];
+        for (let s = 0; s < 48; s++) {
+            const th = PI * s / 48, kx = new Float32Array(2 * n), ky = new Float32Array(2 * n), re = new Float32Array(2 * n), im = new Float32Array(2 * n);
+            for (let j = 0; j < 2 * n; j++) { const k = (j - n) / (2 * FOV); kx[j] = k * cos(th); ky[j] = k * sin(th); const v = obj.ft(kx[j], ky[j]); re[j] = v[0]; im[j] = v[1]; }
+            readouts.push({ index: s, te: 0.004, dwell: 1e-5, n: 2 * n, kx, ky, re: [re], im: [im] });
+        }
+        return acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'radial', oversample: 2 }, readouts, 1);
+    })();
+    const gR = gridOf(RC.run(radAcq, {}));
+    const rm = new Uint8Array(gR.nx * gR.ny); for (let i = 0; i < rm.length; i++) rm[i] = ((i / gR.nx) | 0) < gR.ny / 2 ? 1 : 0;
+    const radOk = RC.run(radAcq, { userMask: rm, userMaskGrid: gR }), radBad = RC.run(radAcq, { userMask: rm, userMaskGrid: { nx: gR.nx, ny: gR.ny, dkx: 1 / FOV, dky: 1 / FOV } });
+    ok(!hasNote(radOk, /does not match/) && radOk.kspace.mask[(gR.ny - 2) * gR.nx + gR.nx / 2] === 0, 'gridded path: a mask on its own grid is applied');
+    ok(hasNote(radBad, /does not match/) && radBad.kspace.mask[(gR.ny / 2 + 2) * gR.nx + gR.nx / 2] === 1, 'gridded path: a mask from a grid with another k-space step is ignored');
 }
 
-/* ---------- 11. speed ---------- */
+/* ---------- 11. speed ----------
+   ARCHITECTURE.md section 10 asks for under 100 ms at 128 x 128 x 8
+   coils; an option change on the Image tab (a filter, zero filling, the
+   coil combination) re-runs the reconstruction on the same acquisition,
+   so these targets are tighter. Each timing cycles through several
+   option sets, so nothing but the per-acquisition cache carries over. */
 {
-    const cs = MRI.fields.coilSet('head8'), n = 128, os = 2, nro = n * os, rng = U.rng(5);
-    const readouts = [];
-    for (let L = 0; L < n; L++) {
-        const kx = new Float32Array(nro), ky = new Float32Array(nro), re = [], im = [];
-        for (let j = 0; j < nro; j++) { kx[j] = (j - nro / 2) / (FOV * os); ky[j] = (L - n / 2) / FOV; }
-        for (let c = 0; c < 8; c++) {
-            const a = new Float32Array(nro), b = new Float32Array(nro);
-            for (let j = 0; j < nro; j++) { a[j] = rng.randn(); b[j] = rng.randn(); }
-            re.push(a); im.push(b);
+    const cs = MRI.fields.coilSet('head8'), rng = U.rng(5);
+    function noiseLines(n, os) {
+        const nro = n * os, readouts = [];
+        for (let L = 0; L < n; L++) {
+            const kx = new Float32Array(nro), ky = new Float32Array(nro), re = [], im = [];
+            for (let j = 0; j < nro; j++) { kx[j] = (j - nro / 2) / (FOV * os); ky[j] = (L - n / 2) / FOV; }
+            for (let c = 0; c < 8; c++) {
+                const a = new Float32Array(nro), b = new Float32Array(nro);
+                for (let j = 0; j < nro; j++) { a[j] = rng.randn(); b[j] = rng.randn(); }
+                re.push(a); im.push(b);
+            }
+            readouts.push({ index: L, te: 0.01, dwell: 1e-5, n: nro, kx, ky, re, im });
         }
-        readouts.push({ index: L, te: 0.01, dwell: 1e-5, n: nro, kx, ky, re, im });
+        return acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'x', oversample: os }, readouts, 8, cs);
     }
-    const acq = acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'x', oversample: os }, readouts, 8, cs);
-    function timeIt(opts, extra) {
+    function noiseSpokes(n, spokes) {
+        const ns = 2 * n, readouts = [];
+        for (let s = 0; s < spokes; s++) {
+            const th = PI * s / spokes, kx = new Float32Array(ns), ky = new Float32Array(ns), re = [], im = [];
+            for (let j = 0; j < ns; j++) { const k = (j - n) / (2 * FOV); kx[j] = k * cos(th); ky[j] = k * sin(th); }
+            for (let c = 0; c < 8; c++) {
+                const a = new Float32Array(ns), b = new Float32Array(ns);
+                for (let j = 0; j < ns; j++) { a[j] = rng.randn(); b[j] = rng.randn(); }
+                re.push(a); im.push(b);
+            }
+            readouts.push({ index: s, te: 0.005, dwell: 1e-5, n: ns, kx, ky, re, im });
+        }
+        return acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'radial', oversample: 2 }, readouts, 8, cs);
+    }
+    function timeIt(acq, optsList, extra) {
         const ts = [];
-        for (let i = 0; i < 7; i++) { const t0 = process.hrtime.bigint(); RC.run(acq, opts, extra); ts.push(Number(process.hrtime.bigint() - t0) / 1e6); }
+        for (let i = 0; i < 7; i++) {
+            const o = optsList[i % optsList.length];
+            const t0 = process.hrtime.bigint(); RC.run(acq, o, extra); ts.push(Number(process.hrtime.bigint() - t0) / 1e6);
+        }
         ts.sort((a, b) => a - b);
         return ts[3];
     }
-    const tDef = timeIt({}), tPlay = timeIt({}, { upTo: 64 }), tRoe = timeIt({ coilCombine: 'roemer', filter: 'hamming' }), tZf = timeIt({ zeroFill: 2 });
+    const vary = (o) => [o, Object.assign({ filter: 'tukey', filterParam: 0.3 }, o), Object.assign({ coilCombine: 'sos' }, o)];
+    // a second measurement only when the first misses, so that a busy machine does not fail the test
+    const within = (target, f) => { const t = f(); return t < target ? t : Math.min(t, f()); };
+    const a128 = noiseLines(128, 2);
+    RC.run(a128, {});
+    const tDef = within(40, () => timeIt(a128, vary({}))), tPlay = within(40, () => timeIt(a128, vary({}), { upTo: 64 }));
+    const tRoe = within(40, () => timeIt(a128, [{ coilCombine: 'roemer', filter: 'hamming' }, { coilCombine: 'sos', filter: 'hann' }]));
+    const tZf = within(100, () => timeIt(a128, vary({ zeroFill: 2 })));
     console.log('    timing, 128 x 128, os 2, 8 coils (median of 7): default ' + tDef.toFixed(1) + ' ms, playback half ' + tPlay.toFixed(1) +
         ' ms, Roemer + Hamming ' + tRoe.toFixed(1) + ' ms, zero-fill x2 ' + tZf.toFixed(1) + ' ms');
-    ok(tDef < 100, 'default reconstruction of 128 x 128 x 8 coils with os 2 under 100 ms (' + tDef.toFixed(1) + ' ms)');
-    ok(tPlay < 100, 'playback reconstruction under 100 ms (' + tPlay.toFixed(1) + ' ms)');
-    ok(tRoe < 150, 'Roemer + filter under 150 ms (' + tRoe.toFixed(1) + ' ms)');
+    ok(tDef < 40, 'reconstruction of 128 x 128 x 8 coils with os 2 under 40 ms (' + tDef.toFixed(1) + ' ms)');
+    ok(tPlay < 40, 'playback reconstruction under 40 ms (' + tPlay.toFixed(1) + ' ms)');
+    ok(tRoe < 40, 'filters and either coil combination under 40 ms (' + tRoe.toFixed(1) + ' ms)');
+    ok(tZf < 100, 'zero-fill x2 under 100 ms (' + tZf.toFixed(1) + ' ms)');
+    const a256 = noiseLines(256, 2);
+    RC.run(a256, {});
+    const t256 = within(150, () => timeIt(a256, vary({})));
+    const rad = noiseSpokes(128, 128);
+    let t0 = process.hrtime.bigint();
+    RC.run(rad, {});
+    const tRadCold = Number(process.hrtime.bigint() - t0) / 1e6;
+    const tRad = within(150, () => timeIt(rad, vary({})));
+    t0 = process.hrtime.bigint();
+    RC.run(rad, { densityComp: false });
+    const tRadNoDcf = Number(process.hrtime.bigint() - t0) / 1e6;
+    console.log('    timing, 256 x 256, os 2, 8 coils: ' + t256.toFixed(1) + ' ms; radial, 128 spokes, N = 128, 8 coils: first ' + tRadCold.toFixed(1) +
+        ' ms, option change ' + tRad.toFixed(1) + ' ms, density compensation off ' + tRadNoDcf.toFixed(1) + ' ms');
+    ok(t256 < 150, 'reconstruction of 256 x 256 x 8 coils under 150 ms (' + t256.toFixed(1) + ' ms)');
+    ok(tRad < 150, 'radial 128 spokes x 8 coils, option change under 150 ms (' + tRad.toFixed(1) + ' ms)');
+}
+
+/* ---------- 12. regression: the same numbers as the reference implementation ----------
+   The reconstruction was reorganised for speed (the readout oversampling
+   is cropped between the two halves of the 2D transform, and the
+   gridding is cached per acquisition). These fingerprints were recorded
+   with the straightforward implementation (full-width transform,
+   everything recomputed on every call) and every path must still give
+   them within 1e-5 of the image's peak. The coil maps come from the
+   stand-in above, so a change to fields.js cannot move them. */
+function regressionCases() {
+    const stubHolder = {};
+    installFieldsStub(stubHolder);
+    const cs8 = stubHolder.fields.coilSet('head8');
+    const rng = U.rng(11);
+    const obj = makeObject([rect(1, 0.12, 0.15, 0, 0, 0.4), gauss(0.6, 0.012, 0.02, 0.03, -0.04, 1.1), disc(-0.4, 0.02, -0.035, 0.03, 0.4)], [0.8, -1.2]);
+    /* Multi-coil Cartesian data: coil c sees the object times
+       a_c exp(i 2 pi q_c . r), whose transform is a_c F(k - q_c). */
+    function coilCart(o) {
+        const nC = o.nCoils || 8;
+        const amp = [], q = [];
+        for (let c = 0; c < nC; c++) { amp.push([cos(0.7 * c) * (1 - 0.05 * c), sin(0.7 * c) * (1 - 0.05 * c)]); q.push([3 * cos(1.3 * c), 2 * sin(1.3 * c)]); }
+        const acq = cartesian(Object.assign({ nCoils: nC, coilSet: nC > 1 ? cs8 : null, obj }, o));
+        const sigma = o.noise === undefined ? 2e-6 : o.noise;
+        for (const ro of acq.readouts) {
+            for (let c = 0; c < nC; c++) {
+                for (let j = 0; j < ro.n; j++) {
+                    const v = obj.ft(ro.kx[j] - q[c][0], ro.ky[j] - q[c][1]);
+                    ro.re[c][j] = amp[c][0] * v[0] - amp[c][1] * v[1] + sigma * rng.randn();
+                    ro.im[c][j] = amp[c][0] * v[1] + amp[c][1] * v[0] + sigma * rng.randn();
+                }
+            }
+        }
+        if (nC === 1) acq.coilSet = stubHolder.fields.coilSet('body');
+        return acq;
+    }
+    function radialData(spokes, n, nC) {
+        const readouts = [];
+        for (let s = 0; s < spokes; s++) {
+            const th = PI * s / spokes, kx = new Float32Array(2 * n), ky = new Float32Array(2 * n), re = [], im = [];
+            for (let c = 0; c < nC; c++) { re.push(new Float32Array(2 * n)); im.push(new Float32Array(2 * n)); }
+            for (let j = 0; j < 2 * n; j++) {
+                const k = (j - n) / (2 * FOV);
+                kx[j] = k * cos(th); ky[j] = k * sin(th);
+                const v = obj.ft(kx[j], ky[j]);
+                for (let c = 0; c < nC; c++) { const a = cos(c), b = sin(c); re[c][j] = a * v[0] - b * v[1] + 2e-6 * rng.randn(); im[c][j] = a * v[1] + b * v[0] + 2e-6 * rng.randn(); }
+            }
+            readouts.push({ index: s, te: 0.004, dwell: 1e-5, n: 2 * n, kx, ky, re, im });
+        }
+        return acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'radial', oversample: 2 }, readouts, nC, nC > 1 ? cs8 : stubHolder.fields.coilSet('body'));
+    }
+    function spiralData(n) {
+        const arms = 12, ns = 300, kmax = n / (2 * FOV), readouts = [];
+        for (let l = 0; l < arms; l++) {
+            const kx = new Float32Array(ns), ky = new Float32Array(ns), re = new Float32Array(ns), im = new Float32Array(ns);
+            for (let j = 0; j < ns; j++) {
+                const t = j / (ns - 1), k = kmax * t, th = 4 * PI * t + 2 * PI * l / arms;
+                kx[j] = k * cos(th); ky[j] = k * sin(th);
+                const v = obj.ft(kx[j], ky[j]); re[j] = v[0]; im[j] = v[1];
+            }
+            readouts.push({ index: l, te: 0.002, dwell: 4e-6, n: ns, kx, ky, re: [re], im: [im] });
+        }
+        return acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'radial', oversample: 1 }, readouts, 1, stubHolder.fields.coilSet('body'));
+    }
+    const lines = (a, b, s) => { const o = []; for (let i = a; i <= b; i += (s || 1)) o.push(i); return o; };
+    const cx = coilCart({ nx: 64, ny: 64, fovX: FOV, fovY: FOV, os: 2, axis: 'x' });
+    const cy = coilCart({ nx: 48, ny: 40, fovX: FOV, fovY: 0.2, os: 2, axis: 'y' });
+    const pf = coilCart({ nx: 64, ny: 64, fovX: FOV, fovY: FOV, os: 2, axis: 'x', lines: lines(24, 63) });
+    const pfy = coilCart({ nx: 64, ny: 64, fovX: FOV, fovY: FOV, os: 2, axis: 'y', lines: lines(0, 39) });
+    const r2 = coilCart({ nx: 64, ny: 64, fovX: FOV, fovY: FOV, os: 2, axis: 'x', lines: lines(0, 63, 2) });
+    const r3 = coilCart({ nx: 64, ny: 64, fovX: FOV, fovY: FOV, os: 2, axis: 'y', lines: lines(1, 63, 3) });
+    const epi = coilCart({ nx: 32, ny: 32, fovX: 0.22, fovY: 0.22, os: 1, axis: 'x', nCoils: 1, noise: 0,
+        reverse: (i) => i % 2 === 1, kshift: (rev) => (rev ? -1 : 1) * 0.3 / 0.22, extraPhase: (rev) => (rev ? 0.4 : 0) });
+    const rad = radialData(64, 32, 2), spi = spiralData(32);
+    return { stub: stubHolder.fields, cases: [
+        ['cart x roemer', cx, { coilCombine: 'roemer' }],
+        ['cart x sos hamming', cx, { coilCombine: 'sos', filter: 'hamming' }],
+        ['cart x roemer zf2', cx, { coilCombine: 'roemer', zeroFill: 2 }],
+        ['cart x single nocrop', cx, { coilCombine: 'single', coil: 2, cropOversampling: false }],
+        ['cart x roemer upTo 20', cx, { coilCombine: 'roemer' }, { upTo: 20 }],
+        ['cart y roemer fermi', cy, { coilCombine: 'roemer', filter: 'fermi', filterParam: 0.4 }],
+        ['cart y sos zf2', cy, { coilCombine: 'sos', zeroFill: 2 }],
+        ['pf homodyne', pf, { coilCombine: 'roemer', partialFourier: 'homodyne' }],
+        ['pf conjugate', pf, { coilCombine: 'sos', partialFourier: 'conjugate', filter: 'hann' }],
+        ['pf y homodyne zf2', pfy, { coilCombine: 'roemer', partialFourier: 'homodyne', zeroFill: 2 }],
+        ['sense R2', r2, { parallel: 'sense' }],
+        ['sense R3 padded y zf2', r3, { parallel: 'sense', zeroFill: 2 }],
+        ['folded R2 roemer', r2, { parallel: 'none', coilCombine: 'roemer' }],
+        ['epi ghost corrected', epi, { epiGhostCorr: true, coilCombine: 'roemer' }],
+        ['radial dcf', rad, { coilCombine: 'roemer' }],
+        ['radial no dcf hann', rad, { coilCombine: 'sos', densityComp: false, filter: 'hann' }],
+        ['radial zf2 nocrop', rad, { coilCombine: 'roemer', zeroFill: 2, cropOversampling: false }],
+        ['radial upTo 30', rad, { coilCombine: 'roemer' }, { upTo: 30 }],
+        ['spiral pipe-menon', spi, { coilCombine: 'roemer' }]
+    ] };
+}
+/* A fingerprint: image size, the image's peak, sums, two fixed random
+   projections, nine pixels near the middle, a coil image and the g-factor. */
+function fingerprint(r) {
+    const I = r.image, N = I.nx * I.ny, prng = U.rng(5);
+    let peak = 0, sre = 0, sim = 0, smag = 0, p1 = 0, p2 = 0;
+    for (let i = 0; i < N; i++) {
+        const a = prng.randn() > 0 ? 1 : -1, b = prng.randn() > 0 ? 1 : -1;
+        peak = Math.max(peak, I.mag[i]); sre += I.re[i]; sim += I.im[i]; smag += I.mag[i]; p1 += a * I.re[i]; p2 += b * I.im[i];
+    }
+    const px = [];
+    for (const fy of [0.38, 0.5, 0.61]) for (const fx of [0.36, 0.5, 0.63]) {
+        const p = floor(fy * I.ny) * I.nx + floor(fx * I.nx);
+        px.push(I.re[p], I.im[p]);
+    }
+    const c = r.coilImages, k = c.re.length > 1 ? 1 : 0, pc = floor(0.45 * c.ny) * c.nx + floor(0.55 * c.nx);
+    let gs = 0, gm = 0;
+    if (r.gfactor) for (let i = 0; i < r.gfactor.length; i++) { const v = r.gfactor[i]; if (v === v) { gs += v; gm = Math.max(gm, v); } }
+    return [I.nx, I.ny, peak, sre, sim, smag, p1, p2].concat(px, [c.re[k][pc], c.im[k][pc], gs, gm]);
+}
+{
+    const REF = {
+        "cart x roemer": [64, 64, 6.563362122, 2752.786769, -1991.778502, 4232.040825, 0.3966670872, -25.31428785, 1.789996862, -2.605691671, 4.254225731, -1.511860847, 4.470426083, 1.918860435, 1.865084529, -3.710752010, 5.411546707, -3.260900974, 4.852790833, -0.6726954579, 0.5946559906, -2.206557751, 4.219546318, -4.071885586, 3.694217682, -2.135736942, 0.3728164136, 0.9402671456, 0, 0],
+        "cart x sos hamming": [64, 64, 3.512202501, 3060.340342, 0, 3060.340342, 52.22748395, 0, 2.353979826, 0, 2.396620035, 0, 3.366938829, 0, 2.353785992, 0, 2.358426571, 0, 2.500676632, 0, 1.417952538, 0, 2.353658915, 0, 2.356684685, 0, 0.3703377247, 0.9409354329, 0, 0],
+        "cart x roemer zf2": [128, 128, 6.563362122, 11011.04412, -7966.695808, 16803.93258, -136.8479077, -99.30875009, 1.789996862, -2.605691671, 4.254225731, -1.511860847, 4.470426083, 1.918860435, 1.865084529, -3.710752010, 5.411546707, -3.260900974, 4.852790833, -0.6726954579, 0.5946559906, -2.206557751, 4.219546318, -4.071885586, 3.694217682, -2.135736942, 0.3702398539, 0.9384062290, 0, 0],
+        "cart x single nocrop": [128, 64, 1.358810782, -258.9477768, 1058.723928, 1224.837846, -10.22837440, -15.29861964, -0.03379056975, 0.02220226265, -0.2429775596, 0.8623712063, 0.1660807729, 0.4242165685, -0.03575284407, 0.02203085087, -0.2030597925, 0.8627585769, 0.1863775700, 0.4026889801, -0.03772736713, 0.02874164842, -0.1781859547, 0.8672751784, 0.2027028203, 0.4005619884, 0.2068178058, 1.089197397, 0, 0],
+        "cart x roemer upTo 20": [64, 64, 0.3787878454, 0.3813082085, 0.4671953121, 144.1802469, -1.875587162, -4.517224648, -0.04285085574, 0.008729751222, -0.06644012034, -0.004223356955, -0.03746268898, -0.03427996114, -0.02517490834, 0.02151134796, 0.01789015532, 0.003990808968, 0.02471960522, 0.002538639586, -0.08340694755, -0.004226172809, -0.01494274940, -0.002603951376, -0.01641331054, -0.01517219562, 0.01399783418, -0.003473530291, 0, 0],
+        "cart y roemer fermi": [48, 40, 6.481385231, 1548.316611, -1120.353806, 2359.754946, 10.88394942, -98.18561320, 1.739641190, -2.753928185, 4.645120621, -1.829746604, 4.804717064, 1.588340640, 1.722563028, -3.606064558, 5.479551315, -3.317548990, 4.929397583, -0.7012713552, 0.6685385704, -2.140250206, 4.714239120, -4.052321911, 4.094206333, -1.921353817, 0.3719867468, 0.9141553044, 0, 0],
+        "cart y sos zf2": [96, 80, 3.567405224, 7064.414033, 0, 7064.414033, 131.8280505, 0, 2.370463133, 0, 2.349408627, 0, 3.185858727, 0, 2.387217522, 0, 2.380044699, 0, 2.504431486, 0, 1.517502427, 0, 2.373446703, 0, 2.367666483, 0, 0.3747453690, 0.9177044630, 0, 0],
+        "pf homodyne": [64, 64, 6.565421104, 2762.264338, -1996.403028, 4233.981205, 0.4777766930, -27.25985712, 1.788467646, -2.612176895, 4.255214691, -1.520199180, 4.419218063, 1.827625036, 1.877437592, -3.697789192, 5.404436111, -3.269104719, 4.761014462, -0.5939385295, 0.6137058735, -2.204534531, 4.201010704, -4.088302612, 3.695510864, -2.121260643, 0.3697669506, 0.9373151064, 0, 0],
+        "pf conjugate": [64, 64, 3.503893852, 3122.533347, 0, 3122.533347, 48.52426988, 0, 2.383263350, 0, 2.426933289, 0, 3.399115801, 0, 2.359680653, 0, 2.384355068, 0, 2.527457714, 0, 1.409898877, 0, 2.374908209, 0, 2.378179073, 0, 0.3735183477, 0.9519730806, 0, 0],
+        "pf y homodyne zf2": [128, 128, 6.516930580, 11114.09544, -7991.907863, 16874.04121, -138.6324145, -99.58289926, 1.790865898, -2.586492538, 4.215730190, -1.335575819, 4.511244297, 1.674740791, 1.864587426, -3.674200535, 5.397651672, -3.227555752, 4.805161953, -0.7395673990, 0.6234534383, -2.199456453, 4.210115433, -4.063848972, 3.693040371, -2.142813444, 0.3394488692, 0.9173809290, 0, 0],
+        "sense R2": [64, 64, 6.689004421, 3578.937236, -2026.527068, 5249.606185, 23.23608124, -21.65983963, 1.363178253, -2.193204403, 3.230525970, -1.414999604, 3.544503927, 1.738236070, 1.420821667, -3.503286123, 5.371197701, -3.610574245, 4.839295387, -1.763495922, 0.2946485579, -1.974213481, 3.657659292, -4.030614376, 3.226049900, -2.644356012, 0.3699105978, 0.9649444222, 4375.427878, 1.315048456],
+        "sense R3 padded y zf2": [128, 128, 14.47005272, 6228.211648, -12084.36996, 27071.64909, 422.6042333, 92.69090751, 6.928339005, -3.727527142, 4.941128731, -0.3104578853, -2.519369364, 0.8041719794, 8.683113098, -10.63894463, 6.126191616, -2.868488312, -7.820814133, -5.235209942, 2.366775274, -2.343219519, 3.317008257, -4.632340908, -1.778342605, -3.691657782, 0.3599006534, 0.9081920385, 27815.74438, 4.160230637],
+        "folded R2 roemer": [64, 64, 7.110383987, 4671.707924, -2413.563441, 6238.483400, 23.39583375, -27.25639930, 1.813089609, -2.686020374, 4.348411560, -1.573457122, 4.540243626, 1.924532652, 1.888530016, -3.738806963, 5.445586205, -3.294174433, 4.886624336, -0.6976958513, 0.5534952879, -2.176223278, 4.125991344, -4.078999043, 3.659625769, -2.091714859, 0.3699105978, 0.9649444222, 0, 0],
+        "epi ghost corrected": [32, 32, 1.540681601, 212.1956973, 122.1603676, 404.2131899, -6.799773113, -11.20455569, 0.9877493978, -0.2053579837, 0.8454687595, 0.6046429276, 0.1186137572, 1.428645015, 0.9305855632, -0.4078588188, 0.9419941306, 0.4004527330, 0.4840358496, 0.9750102758, 0.4935281277, -0.3032364249, 0.9514213800, 0.2358372211, 0.6056788564, 0.7825426459, 0.8077303171, 0.6677756906, 0, 0],
+        "radial dcf": [32, 32, 2.120411634, 487.5127920, 0, 487.5127920, -11.35145153, 0, 1.431730509, 0, 1.377851248, 0, 1.969172716, 0, 1.461128831, 0, 1.356146693, 0, 1.432917476, 0, 0.9279835224, 0, 1.386672735, 0, 1.407136440, 0, -0.009675176814, 1.035202503, 0, 0],
+        "radial no dcf hann": [32, 32, 0.6751250625, 361.8991961, 0, 361.8991961, -6.120166093, 0, 0.5879514813, 0, 0.6585443020, 0, 0.6593753099, 0, 0.5878524780, 0, 0.6654769182, 0, 0.6461821198, 0, 0.5314605236, 0, 0.6404953599, 0, 0.6210705042, 0, 0.01305199321, 0.4760752916, 0, 0],
+        "radial zf2 nocrop": [128, 128, 2.136689901, 2208.927542, 0, 2208.927542, -49.89173459, 0, 0.1453046501, 0, 1.324061751, 0, 0.6836238503, 0, 0.1199445352, 0, 1.356146693, 0, 0.6889552474, 0, 0.1092013270, 0, 1.446218967, 0, 0.7283877730, 0, -0.4345372617, 1.270694733, 0, 0],
+        "radial upTo 30": [32, 32, 4.555160999, 1057.213727, 0, 1057.213727, 12.01358039, 0, 1.610766888, 0, 1.041709781, 0, 1.646413088, 0, 1.704449534, 0, 1.054489017, 0, 1.176507115, 0, 1.298481345, 0, 0.7147231698, 0, 0.9451265931, 0, 0.05620415509, 1.105281711, 0, 0],
+        "spiral pipe-menon": [32, 32, 1.490582824, 268.7978397, 133.3103036, 346.7591083, -2.706981558, -5.677293429, 0.9249219894, 0.4262523651, 0.7866684794, 0.5833772421, 0.7255560160, 1.193493843, 1.011834264, 0.2125339359, 0.8866398931, 0.3763329387, 0.8415902853, 0.5764798522, 0.6568017602, 0.02788651176, 0.9429348111, 0.2247289121, 0.9143546224, 0.3684439957, 0.8687225580, 0.5708295107, 0, 0]
+    };
+    const R = regressionCases(), real = MRI.fields;
+    MRI.fields = R.stub;
+    try {
+        for (const [name, acq, o, x] of R.cases) {
+            const ref = REF[name], got = fingerprint(RC.run(acq, Object.assign({}, o), x || {}));
+            if (!ref) { ok(false, 'regression ' + name + ': no stored fingerprint'); continue; }
+            const peak = ref[2], sum = ref[5], n = ref.length;
+            let worst = 0, sizeOk = got[0] === ref[0] && got[1] === ref[1];
+            for (let k = 2; k < n; k++) {
+                // sums and projections against the summed magnitude, pixels against the peak, g-factor sums against themselves
+                const scale = k >= 3 && k <= 7 ? sum : (k >= n - 2 ? Math.max(1, abs(ref[k])) : peak);
+                worst = Math.max(worst, abs(got[k] - ref[k]) / scale);
+            }
+            ok(sizeOk && worst < 1e-5, 'regression, ' + name + ': matches the reference implementation (worst ' + worst.toExponential(2) + ' relative)');
+        }
+    } finally { MRI.fields = real; }
+}
+
+/* ---------- 13. the per-acquisition cache never serves stale results ---------- */
+{
+    const obj = makeObject([gauss(1, 0.02, 0.02, 0.01, 0), gauss(0.5, 0.01, 0.01, -0.03, 0.02, 0.5)]);
+    const same = (a, b) => a.image.mag.length === b.image.mag.length && a.image.mag.every((v, i) => v === b.image.mag[i]) &&
+        a.kspace.re[0].every((v, i) => v === b.kspace.re[0][i]);
+    // Cartesian and radial: option A, option B, option A again gives A exactly
+    const cart = cartesian({ nx: 32, ny: 32, fovX: FOV, fovY: FOV, os: 2, axis: 'x', obj });
+    const radial = (function () {
+        const n = 32, readouts = [];
+        for (let s = 0; s < 40; s++) {
+            const th = PI * s / 40, kx = new Float32Array(2 * n), ky = new Float32Array(2 * n), re = new Float32Array(2 * n), im = new Float32Array(2 * n);
+            for (let j = 0; j < 2 * n; j++) { const k = (j - n) / (2 * FOV); kx[j] = k * cos(th); ky[j] = k * sin(th); const v = obj.ft(kx[j], ky[j]); re[j] = v[0]; im[j] = v[1]; }
+            readouts.push({ index: s, te: 0.004, dwell: 1e-5, n: 2 * n, kx, ky, re: [re], im: [im] });
+        }
+        return acqShell({ nx: n, ny: n, fovX: FOV, fovY: FOV, readoutAxis: 'radial', oversample: 2 }, readouts, 1);
+    })();
+    for (const [label, acq] of [['Cartesian', cart], ['radial', radial]]) {
+        const a = RC.run(acq, { filter: 'hann' });
+        const b = RC.run(acq, { densityComp: false, zeroFill: 2 }, { upTo: 10 });
+        const a2 = RC.run(acq, { filter: 'hann' });
+        ok(same(a, a2) && !same(a, b), label + ': A, B, A gives A again');
+        // results do not share arrays: changing one leaves the next untouched
+        a.image.mag.fill(7); a.kspace.re[0].fill(7); a.kspace.mask.fill(0); a.coilImages.re[0].fill(7);
+        const a3 = RC.run(acq, { filter: 'hann' });
+        ok(same(a2, a3) && a3.kspace.mask.some(v => v === 1), label + ': a result changed by its user does not leak into the next one');
+        // a new acquisition object with other data is not served from the cache
+        const other = Object.assign({}, acq, { readouts: acq.readouts.map(r => Object.assign({}, r, { re: [r.re[0].map(v => 2 * v)], im: [r.im[0].map(v => 2 * v)] })) });
+        const d = RC.run(other, { filter: 'hann' });
+        let ratio = 0, k = 0;
+        for (let i = 0; i < d.image.mag.length; i++) if (a2.image.mag[i] > 0.1) { ratio += d.image.mag[i] / a2.image.mag[i]; k++; }
+        near(ratio / k, 2, 1e-5, label + ': twice the data reconstructs to twice the image (no stale cache)');
+    }
 }
 
 summary('recon');

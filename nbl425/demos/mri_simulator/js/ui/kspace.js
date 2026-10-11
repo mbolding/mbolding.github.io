@@ -15,13 +15,17 @@
      - an editor: keep or remove the centre, keep one half, paint with
        a brush, invert, and watch a live reconstruction of what is
        left next to the image from all the data. "Apply" hands the
-       edited mask to the Image tab (MRI.actions.setRecon({userMask})).
+       edited mask to the Image tab, together with the grid it was
+       drawn on (MRI.actions.setRecon({userMask, userMaskGrid})).
 
    The k-space grid is the one recon.js returns (section 10): index i
    sits at k = (i - floor(n/2)) dk, rows are ky (top row = most
    negative ky, the same top-to-bottom direction as image rows), and
    the readout direction may be oversampled (dk = 1/(os FOV)). The
-   userMask lives on exactly that grid (section 14).
+   userMask lives on exactly that grid (section 14), and userMaskGrid
+   {nx, ny, dkx, dky} records which one: a later scan whose grid has
+   the same number of points but a different shape or spacing (the
+   readout swapped to y, radial after EPI) must not reuse it.
 
    All heavy work (display arrays, the preview reconstruction) happens
    only while the tab is visible; hidden, the tab just notes what is
@@ -39,6 +43,8 @@
 
     function el(tag, attrs, children) { return U.el(tag, attrs, children); }
     function w() { return MRI.ui.w; }
+    // the label of an in-place "try this" button, the same on every tab
+    const TRY_IT = (MRI.ui.terms && MRI.ui.terms.tryIt) || 'Try it';
     function state() { return MRI.state; }
 
     /* Run fn at most once per animation frame, however often asked. */
@@ -70,6 +76,14 @@
 
     function gridKey(k) {
         return k ? k.nx + 'x' + k.ny + '|' + Number(k.dkx).toPrecision(6) + '|' + Number(k.dky).toPrecision(6) : '';
+    }
+    function gridOf(k) { return k ? { nx: k.nx, ny: k.ny, dkx: k.dkx, dky: k.dky } : null; }
+    /* Does the applied mask in the recon options belong to grid k? Without
+       a recorded grid (an older state) only the length can be checked. */
+    function appliedFits(rc, k) {
+        if (!rc || !rc.userMask || !k) return true;
+        if (rc.userMaskGrid) return gridKey(rc.userMaskGrid) === gridKey(k);
+        return rc.userMask.length === k.nx * k.ny;
     }
     function upToOpts() {
         const s = state();
@@ -487,7 +501,7 @@
         base: null, baseFor: null,      // unmasked ReconResult when the Image tab uses an edit
         preview: null, previewDirty: true,
         editDirty: true, removedOff: null, removedDirty: true,
-        clearedKey: '',
+        clearedMask: null,
         logWin: null             // log window of the last complete scan {key, lo, hi}
     };
     let V = null;            // DOM references, filled in mount
@@ -905,7 +919,7 @@
         if (!s.recon || !s.recon.userMask) return r;
         if (T.baseFor === r && T.base) return T.base;
         if (s.scanning || !s.acq || !MRI.recon) return r;
-        T.base = MRI.recon.run(s.acq, Object.assign({}, s.recon, { userMask: null }), upToOpts());
+        T.base = MRI.recon.run(s.acq, Object.assign({}, s.recon, { userMask: null, userMaskGrid: null }), upToOpts());
         T.baseFor = r;
         return T.base;
     }
@@ -1156,8 +1170,8 @@
         const t0 = now();
         let res;
         if (!E.mask || allOnes(E.mask)) res = b;
-        else if (s.recon && s.recon.userMask && sameMask(s.recon.userMask, E.mask) && s.reconResult) res = s.reconResult;
-        else res = MRI.recon.run(acq, Object.assign({}, s.recon, { userMask: E.mask }), upToOpts());
+        else if (s.recon && s.recon.userMask && sameMask(s.recon.userMask, E.mask) && appliedFits(s.recon, E) && s.reconResult) res = s.reconResult;
+        else res = MRI.recon.run(acq, Object.assign({}, s.recon, { userMask: E.mask, userMaskGrid: gridOf(E) }), upToOpts());
         pvCost = now() - t0;
         pvLast = now();
         T.preview = res;
@@ -1184,7 +1198,7 @@
         const E = T.edit;
         const editsExist = !!(E.mask && !allOnes(E.mask));
         let msg, on = false;
-        if (applied && E.mask && sameMask(applied, E.mask)) { msg = 'Applied: the Image tab reconstructs from this edited k-space.'; on = true; }
+        if (applied && E.mask && sameMask(applied, E.mask) && appliedFits(s.recon, E)) { msg = 'Applied: the Image tab reconstructs from this edited k-space.'; on = true; }
         else if (applied) msg = 'The Image tab uses an earlier edit. Apply to replace it, or Clear.';
         else msg = editsExist ? 'Not applied: the Image tab still uses all the data.' : 'No edits yet. The Image tab uses all the data.';
         V.applyStatus.textContent = msg;
@@ -1198,12 +1212,12 @@
         const E = T.edit;
         if (!E.mask) return;
         const m = allOnes(E.mask) ? null : Uint8Array.from(E.mask);
-        MRI.actions.setRecon({ userMask: m });
+        MRI.actions.setRecon({ userMask: m, userMaskGrid: m ? gridOf(E) : null });
         w().toast(m ? 'The Image tab now reconstructs from your edited k-space.' : 'The Image tab uses all the data again.', 'good');
         updateApplyUI();
     }
     function clearApplied() {
-        MRI.actions.setRecon({ userMask: null });
+        MRI.actions.setRecon({ userMask: null, userMaskGrid: null });
         w().toast('Edit cleared: the Image tab uses all the data again.', 'info');
         updateApplyUI();
     }
@@ -1219,14 +1233,15 @@
         T.editDirty = true;
         const k = e.result.kspace;
         const changed = k ? (gridKey(k) !== T.edit.key) : false;
-        // An applied mask from another grid is ignored by recon.js; clear it so
-        // the state says what the images show. Do it outside this handler.
-        if (k && s.recon && s.recon.userMask && s.recon.userMask.length !== k.nx * k.ny && T.clearedKey !== gridKey(k)) {
-            T.clearedKey = gridKey(k);
+        // An applied mask from another grid (a different shape or spacing,
+        // even with the same number of points) is ignored by recon.js; clear
+        // it so the state says what the images show. Do it outside this handler.
+        if (k && !appliedFits(s.recon, k) && T.clearedMask !== s.recon.userMask) {
+            T.clearedMask = s.recon.userMask;           // once per applied mask, not per partial recon
             setTimeout(function () {
                 const r = state().reconResult;
-                if (state().recon.userMask && r && r.kspace && state().recon.userMask.length !== r.kspace.nx * r.kspace.ny) {
-                    MRI.actions.setRecon({ userMask: null });
+                if (r && r.kspace && !appliedFits(state().recon, r.kspace)) {
+                    MRI.actions.setRecon({ userMask: null, userMaskGrid: null });
                     w().toast('k-space edits were cleared: the new scan has a different k-space grid.', 'info');
                 }
             }, 0);
@@ -1253,7 +1268,11 @@
         if (n > 1) {
             if (V.coilN !== n) {
                 const opts = [];
-                for (let c = 0; c < n; c++) opts.push({ value: c, label: (c + 1) + (names && names[c] ? ' · ' + names[c] : '') });
+                const cs = acq && acq.coilSet;
+                for (let c = 0; c < n; c++) {
+                    opts.push({ value: c, label: MRI.ui.terms && MRI.ui.terms.coilLabel ? MRI.ui.terms.coilLabel(c, cs)
+                        : 'Coil ' + (c + 1) + (names && names[c] ? ' · ' + names[c] : '') });
+                }
                 V.coilSel.setOptions(opts, Math.min(T.coil, n - 1));
                 V.coilN = n;
             }
@@ -1275,10 +1294,10 @@
                 '<p>The spacing of the samples sets the field of view, FOV = 1/Δk, and the furthest sample sets the pixel size, Δx = 1/(2 k<sub>max</sub>).</p>',
             formula: 'S(k<sub>x</sub>, k<sub>y</sub>) = ∬ m(x, y) e<sup>−i2π(k<sub>x</sub>x + k<sub>y</sub>y)</sup> dx dy, &nbsp; k(t) = γ̅ ∫<sub>0</sub><sup>t</sup> G(t′) dt′',
             tryThis: [
-                { html: '<b>Keep only the centre</b> (a disk of about 15 % of k<sub>max</sub>): the contrast survives, the edges blur.', label: 'Do it', run: function () { tryCentre(true); } },
-                { html: '<b>Remove the centre</b>: most of the signal goes, and only edges and fine detail remain.', label: 'Do it', run: function () { tryCentre(false); } },
-                { html: '<b>Keep one half</b> (plus a few lines past the centre): homodyne recovers the image because a real object’s k-space is conjugate symmetric, S(−k) = S*(k). Switch the fill to Zero to see what it repairs.', label: 'Do it', run: function () { tryHalf(); } },
-                { html: '<b>Click a corner sample</b>: the finest diagonal stripes this matrix can hold.', label: 'Show me', run: function () { pickNamed('corner', true); } }
+                { html: '<b>Keep only the centre</b> (a disk of about 15 % of k<sub>max</sub>): the contrast survives, the edges blur.', label: TRY_IT, run: function () { tryCentre(true); } },
+                { html: '<b>Remove the centre</b>: most of the signal goes, and only edges and fine detail remain.', label: TRY_IT, run: function () { tryCentre(false); } },
+                { html: '<b>Keep one half</b> (plus a few lines past the centre): homodyne recovers the image because a real object’s k-space is conjugate symmetric, S(−k) = S*(k). Switch the fill to Zero to see what it repairs.', label: TRY_IT, run: function () { tryHalf(); } },
+                { html: '<b>Click a corner sample</b>: the finest diagonal stripes this matrix can hold.', label: TRY_IT, run: function () { pickNamed('corner', true); } }
             ]
         }));
 
@@ -1294,14 +1313,21 @@
         ]));
 
         const toolbar = el('div', { class: 'ks-toolbar' });
+        // The complex display modes, named and ordered as on every tab
+        // (MRI.ui.terms); k-space magnitude is always drawn on a log scale.
+        const TM = MRI.ui.terms || {};
+        const dispName = TM.display || { mag: 'Magnitude', phase: 'Phase', real: 'Real', imag: 'Imaginary' };
+        const dispTitle = {
+            mag: 'Log magnitude, log |S|: the only way to see the weak edges next to the strong centre',
+            phase: 'Phase of each sample, -pi to +pi rad',
+            real: 'Real part (signed), window clipped at the 99th percentile',
+            imag: 'Imaginary part (signed), window clipped at the 99th percentile'
+        };
         const modeSeg = Wd.segmented({
             ariaLabel: 'k-space display', value: T.mode, size: 'sm',
-            options: [
-                { value: 'log', label: 'log |S|', title: 'Log magnitude: the only way to see the weak edges next to the strong centre' },
-                { value: 'phase', label: 'Phase', title: 'Phase of each sample, -pi to +pi rad' },
-                { value: 'real', label: 'Real', title: 'Real part (signed), window clipped at the 99th percentile' },
-                { value: 'imag', label: 'Imag', title: 'Imaginary part (signed), window clipped at the 99th percentile' }
-            ],
+            options: (TM.displayOrder || ['mag', 'phase', 'real', 'imag']).map(function (m) {
+                return { value: m === 'mag' ? 'log' : m, label: m === 'mag' ? dispName.mag + ' (log)' : dispName[m], title: dispTitle[m] };
+            }),
             onChange: function (v) { T.mode = v; if (T.showTime) { T.showTime = false; timeTog.set(false); } T.dirty = true; requestMain(); }
         });
         const coilSel = Wd.select({ label: 'Coil', inline: true, options: [{ value: 0, label: '1' }], value: 0,
@@ -1325,7 +1351,8 @@
 
         const split = el('div', { class: 'split' });
         const mainCol = el('div', { class: 'ks-main' });
-        const side = el('aside', { class: 'ks-side', 'aria-label': 'One sample, one stripe pattern' });
+        // a group, not an <aside>: a complementary landmark must not sit inside <main>
+        const side = el('div', { class: 'ks-side', role: 'group', 'aria-label': 'One sample, one stripe pattern' });
         split.appendChild(mainCol); split.appendChild(side);
         main.appendChild(split);
 
@@ -1398,6 +1425,8 @@
         const waveInfo = el('div', { class: 'stack stack-sm', 'aria-live': 'polite' });
         side.appendChild(waveInfo);
         panel.appendChild(main);
+        // While the sequence does not compile, say that this is the last scan's k-space.
+        if (Wd.staleBanner) Wd.staleBanner(panel, { what: 'k-space', before: main });
 
         // ---- edit panel ----
         const ed = el('section', { class: 'panel', 'aria-labelledby': 'ks-edit-title' });
@@ -1467,11 +1496,15 @@
         const pvStats = el('p', { class: 'ks-pv-stats', 'aria-live': 'polite' });
         edRight.appendChild(pvStats);
         edRight.appendChild(el('p', { class: 'ks-hint', text: 'Both images share one window, so a darker edited image really has less signal. Drag on an image to change the window; double-click to reset.' }));
-        const pfSeg = Wd.segmented({ ariaLabel: 'Fill the missing part by', size: 'sm', value: s.recon.partialFourier || 'homodyne',
+        const pfSeg = Wd.segmented({ ariaLabel: 'Missing half filled by', size: 'sm', value: s.recon.partialFourier || 'homodyne',
             options: [{ value: 'zero', label: 'Zero' }, { value: 'conjugate', label: 'Conjugate' }, { value: 'homodyne', label: 'Homodyne' }],
             onChange: function (v) { A.setRecon({ partialFourier: v }); } });
+        // The radio group takes its name from the visible label next to it.
+        const pfLabel = el('span', { class: 'ctl-label', id: 'ks-pf-label', text: 'Missing half filled by' });
+        pfSeg.removeAttribute('aria-label');
+        pfSeg.setAttribute('aria-labelledby', 'ks-pf-label');
         const pf = el('div', { class: 'ks-pf', hidden: true }, [
-            el('span', { class: 'ctl-label', text: 'Missing half filled by' }), pfSeg,
+            pfLabel, pfSeg,
             el('span', { class: 'ks-hint', text: '(the Image tab’s partial-Fourier setting; it acts along the phase-encode direction only)' })
         ]);
         edRight.appendChild(pf);
@@ -1558,10 +1591,10 @@
         if (!k) { w().toast('Run a scan first: there is no k-space yet.', 'warn'); return; }
         const o = namedOffsets(name, r);
         selectPoint(o.dix, o.diy, false);
-        if (scroll && V) V.waveWell.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (scroll && V) V.waveWell.scrollIntoView({ block: 'nearest', behavior: U.scrollBehavior() });
     }
     function scrollToEdit() {
-        if (V && V.edPanel) { try { V.edPanel.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { V.edPanel.scrollIntoView(); } }
+        if (V && V.edPanel) { try { V.edPanel.scrollIntoView({ block: 'start', behavior: U.scrollBehavior() }); } catch (e) { V.edPanel.scrollIntoView(); } }
     }
     function ready() {
         const b = baseResult();

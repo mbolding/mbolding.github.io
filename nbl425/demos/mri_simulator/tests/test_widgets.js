@@ -33,4 +33,23 @@ ok(w._fmtTick(0.0015, 0.0005) === '0.0015', 'four decimals for a 0.0005 step');
 ok(/e/.test(w._fmtTick(2e-6, 1e-6)), 'exponent for tiny values');
 ok(/e/.test(w._fmtTick(3e5, 1e5)), 'exponent for huge values');
 
+// Plot tooltips keep the x unit (K6).
+const tx = w._plotTipX;
+ok(tx('Time (ms)', undefined, '12.5') === 'Time 12.5 ms', 'unit from the label: ' + tx('Time (ms)', undefined, '12.5'));
+ok(tx('Chemical shift (ppm)', undefined, '2.01') === 'Chemical shift 2.01 ppm', 'ppm axis');
+ok(tx('Time (ms)', undefined, '12.5 ms') === 'Time 12.5 ms', 'a formatter that prints the unit does not get it twice');
+ok(tx('Echo time', 's', '0.09') === 'Echo time 0.09 s', 'xunit option');
+ok(tx('', undefined, '3') === 'x 3' && tx(undefined, undefined, '3') === 'x 3', 'no label: "x" as before');
+ok(tx('kx (1/mm)', undefined, '0.5') === 'kx 0.5 1/mm', 'units with a slash');
+
+// Shared vocabulary (UX15).
+const T = MRI.ui.terms;
+ok(T && T.coil.body === 'Body coil' && T.coil.head8 === '8-channel head coil', 'coil names');
+ok(T.combine.sos === 'Root-sum-of-squares' && T.combine.roemer === 'Roemer', 'combination names');
+ok(JSON.stringify(T.displayOptions.map(o => o.label)) === JSON.stringify(['Magnitude', 'Phase', 'Real', 'Imaginary']) &&
+   T.displayOrder.join() === 'mag,phase,real,imag', 'display modes in the agreed order');
+ok(T.coilLabel(0, { names: ['Left anterior'] }) === 'Coil 1 · Left anterior' && T.coilLabel(2, null) === 'Coil 3', 'coil labels');
+ok(Object.isFrozen(T) && Object.isFrozen(T.coil), 'the vocabulary cannot be changed by accident');
+ok(typeof w.staleBanner === 'function', 'staleBanner exists');
+
 summary('widgets');

@@ -156,6 +156,7 @@
 #tab-sequence .seq-numrow input { width: 8.5em; text-align: right; font-family: var(--font-mono); }
 #tab-sequence .seq-numrow .ctl-unit { margin-left: 4px; }
 #tab-sequence .ctl.is-bad .ctl-value { color: var(--bad); }
+#tab-sequence .seq-outrange { font-size: 0.78rem; line-height: 1.4; color: var(--bad); }
 
 #tab-sequence .seq-periodbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
 #tab-sequence .seq-periodbar input[type=range] { flex: 1 1 160px; min-width: 120px; width: auto; }
@@ -173,7 +174,7 @@
 #tab-sequence .seq-meter.is-high > span { background: var(--warn); }
 
 #tab-sequence .dsl-ref { font-size: 0.86rem; }
-#tab-sequence .dsl-ref h4 { margin: 14px 0 6px; }
+#tab-sequence .dsl-ref h3 { margin: 14px 0 6px; font-size: 0.95rem; }   /* h3: the reference sits under the H2 panel title */
 #tab-sequence .dsl-ref table { width: 100%; border-collapse: collapse; margin: 0 0 8px; }
 #tab-sequence .dsl-ref td { padding: 5px 8px 5px 0; vertical-align: top; border-top: 1px solid var(--border-subtle); overflow-wrap: anywhere; }
 #tab-sequence .dsl-ref td:first-child { width: 42%; }
@@ -524,7 +525,7 @@
             onclick: function () { flushTyping(); MRI.actions.setSource(before); } }, 'Undo');
         toast(el('span', {}, ['Set ' + what + '. Read the error under the editor.', undo]), 'warn', { timeout: 6000 });
         if (E.msgs && E.msgs.firstChild) {
-            try { E.msgs.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { /* old browsers */ }
+            try { E.msgs.scrollIntoView({ block: 'nearest', behavior: U.scrollBehavior() }); } catch (e) { /* old browsers */ }
         }
     }
 
@@ -802,13 +803,31 @@
             markRange(row, p);
         });
     }
-    /* A slider cannot show a value outside its range (it clamps), so say
-       when the source holds one, for example after "Break it". */
+    /* A slider cannot show a value outside its range (it clamps), so when
+       the source holds one (for example after "Break it", or a value typed
+       into the editor) the row says so in words under the track, with the
+       true value: otherwise the slider would show 12 ms while the source
+       and the compiler's error talk about TE = 5 ms. */
     function markRange(row, p) {
         const out = hasRange(p) && (p.value < p.min - 1e-12 || p.value > p.max + 1e-12);
         row.classList.toggle('is-bad', out);
-        const val = MRI.dsl && MRI.dsl.formatParam ? MRI.dsl.formatParam(p) : String(p.value);
+        const fmt = function (v) { return MRI.dsl && MRI.dsl.formatParam ? MRI.dsl.formatParam(p, v) : String(v); };
+        const val = fmt(p.value);
         row.title = out ? 'The source sets ' + p.name + ' = ' + val + ', outside this slider\'s range' : '';
+        if (!row.input) return;                       // number boxes show any value
+        let note = row.querySelector('.seq-outrange');
+        if (out) {
+            if (!note) {
+                note = el('div', { class: 'seq-outrange', id: 'seq-out-' + p.name });
+                row.appendChild(note);
+                row.input.setAttribute('aria-describedby', note.id);
+            }
+            note.textContent = 'The source sets ' + p.name + ' = ' + val + ', outside the slider range (' + fmt(p.min) + ' to ' + fmt(p.max) + '). ' +
+                'Move the slider, or edit the source, to bring it back.';
+        } else if (note) {
+            note.parentNode.removeChild(note);
+            row.input.removeAttribute('aria-describedby');
+        }
     }
     // pointer released anywhere: the drag is over
     function endDrag() { S.activeParam = null; }

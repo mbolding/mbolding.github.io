@@ -13,14 +13,21 @@
      - optionally the truth (the noise-free image of the same contrast,
        |acq.truth.data|) and the difference recon - truth;
      - a profile along any row (click the image), recon against truth;
-     - ROI statistics and SNR = 0.655 mean(signal) / SD(background);
+     - ROI statistics and SNR = f mean(signal) / SD(background), with
+       the factor f the background statistics of this image need (0.655
+       for one coil or a complex combination, about 0.70 for a
+       root-sum-of-squares of 8 coils) and, for Roemer, the noise scaled
+       from the noise ROI to the signal ROI with the known coil maps;
      - the coil images and, when SENSE runs, the g-factor map;
      - the scan's voxel size, timing and the reconstruction's notes.
 
    Controls call MRI.actions.setRecon(patch), which re-runs only the
    reconstruction. During playback the partial reconstructions update
    the view at most once per animation frame. Hidden, the tab only
-   notes that it is out of date.
+   notes that it is out of date. The truth, the coil names and the scan
+   facts come from the acquisition the displayed reconstruction was
+   made from, which can lag state.acq for a moment when a new scan
+   starts.
    ============================================================ */
 (function (root) {
     'use strict';
@@ -31,9 +38,12 @@
     const PI = Math.PI;
     const raf = root.requestAnimationFrame ? root.requestAnimationFrame.bind(root) : function (f) { return setTimeout(f, 16); };
     const RAYLEIGH = 0.655;      // SD of Rayleigh-distributed background magnitude / sigma of the complex noise
+    const COARSE = (function () { try { return !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } })();
 
     function el(tag, attrs, children) { return U.el(tag, attrs, children); }
     function w() { return MRI.ui.w; }
+    // the label of an in-place "try this" button, the same on every tab
+    const TRY_IT = (MRI.ui.terms && MRI.ui.terms.tryIt) || 'Try it';
     function state() { return MRI.state; }
     function frameThrottle(fn) {
         let pending = false;
@@ -89,6 +99,12 @@
 #tab-image .ir-compare-line { font-size: 0.84rem; margin: 0; }
 #tab-image .ir-edit-callout { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 #tab-image .ir-edit-callout > span { flex: 1 1 260px; }
+#tab-image .ir-roi-empty { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px;
+    font-size: 0.84rem; line-height: 1.45; color: var(--muted); }
+#tab-image .ir-snr-how { margin: 0; }
+#tab-image .ir-snr-how.is-warn { color: var(--warn); }
+#tab-image details.adv > summary > .ir-sum-h { font: inherit; margin: 0; }
+#tab-image .ir-sum-count { font-weight: 500; color: var(--muted); }
 @media (max-width: 640px) {
     #tab-image .ir-toolbar { gap: 8px 12px; }
 }
@@ -162,7 +178,10 @@
     /* ---------- tab state ---------- */
     const T = {
         visible: false, dirty: true,
-        mode: 'mag', compare: false, drag: 'wl',
+        mode: 'mag', compare: false,
+        // what a drag on the reconstruction does; on a touch screen it scrolls
+        // the page by default, as a swipe does everywhere else
+        drag: COARSE ? 'scroll' : 'wl',
         result: null, lastMode: null,
         row: 0.5,                      // profile row, fraction of the image height
         roi: { signal: null, noise: null },
@@ -171,7 +190,32 @@
     };
     let V = null;
 
-    function curAcq() { return state().acq; }
+    /* The acquisition each reconstruction was made from, recorded when
+       recon:done announces it (app.js reconstructs state.acq, so that is
+       the one at that moment; a payload that names its acq wins). The
+       displayed result can belong to the previous scan for a moment after
+       a new one starts, and its truth must not be paired with the new one. */
+    const acqOfResult = typeof WeakMap === 'function' ? new WeakMap() : null;
+    function noteResult(e) {
+        if (acqOfResult && e && e.result && typeof e.result === 'object') acqOfResult.set(e.result, e.acq || state().acq);
+    }
+    function curAcq() {
+        const r = state().reconResult;
+        const a = r && acqOfResult ? acqOfResult.get(r) : null;
+        return a || state().acq;
+    }
+    function combineMode() {
+        const o = state().recon || {};
+        return o.coilCombine || (MRI.recon && MRI.recon.defaults && MRI.recon.defaults.coilCombine) || 'roemer';
+    }
+    function combineName(v) {
+        const t = MRI.ui.terms && MRI.ui.terms.combine;
+        return (t && t[v]) || ({ sos: 'Root-sum-of-squares', roemer: 'Roemer', single: 'Single coil' })[v] || v;
+    }
+    function coilName(c, cs) {
+        if (MRI.ui.terms && MRI.ui.terms.coilLabel) return MRI.ui.terms.coilLabel(c, cs);
+        return 'Coil ' + (c + 1) + (cs && cs.names && cs.names[c] ? ' · ' + cs.names[c] : '');
+    }
     function nCoilsOf(r) { return r && r.coilImages && r.coilImages.re ? r.coilImages.re.length : 0; }
     function senseActive(r) { return !!(r && r.gfactor); }
     function scanIfManual() { if (!state().autoRescan) MRI.actions.runScan({ animate: false }); }
@@ -260,7 +304,8 @@
             V.compareLine.textContent = '';
             V.roemerBtn.hidden = true;
             V.roiStats.update(null, null, '');
-            V.info.update([]); V.notes.textContent = '';
+            V.snrHow.hidden = true; V.roiSize.hidden = true; V.roiWarn.hidden = true;
+            V.info.update([]); V.notes.textContent = ''; V.notesCount.textContent = '';
             V.coilPanel.hidden = true;
             return;
         }
@@ -302,10 +347,10 @@
                     const r10 = rat[Math.floor(0.1 * (rat.length - 1))], r90 = rat[Math.floor(0.9 * (rat.length - 1))];
                     bits.push('Inside the object: median |difference| ' + fnum(100 * med / mt, 2) + ' % and RMS difference ' + fnum(100 * Math.sqrt(s2 / ad.length) / mt, 2) +
                         ' % of the mean true signal (the RMS comes mostly from sharp edges, where truncation ringing and partial volume differ).');
-                    const sos = nCoilsOf(r) > 1 && !senseActive(r) && (state().recon.coilCombine || 'sos') === 'sos';
+                    const sos = nCoilsOf(r) > 1 && !senseActive(r) && combineMode() === 'sos';
                     if (sos && r90 / Math.max(1e-9, r10) > 1.15) {
                         bits.push('Root-sum-of-squares keeps the combined coil sensitivity: recon / truth runs from ' + fnum(r10, 2) + ' to ' + fnum(r90, 2) +
-                            ' (10th to 90th percentile of the pixels), brighter near the coils, so most of this difference is coil shading. Roemer combination removes it.');
+                            ' (10th to 90th percentile of the pixels), brighter near the coils, so most of this difference is coil shading. Roemer combination (the default) removes it.');
                         roemerHint = true;
                     }
                 }
@@ -327,11 +372,10 @@
     const requestRender = frameThrottle(function () { if (T.visible) render(); });
 
     function updateModeNote(r) {
-        const s = state();
-        const sosLike = nCoilsOf(r) > 1 && !senseActive(r) && (s.recon.coilCombine || 'sos') === 'sos';
+        const sosLike = nCoilsOf(r) > 1 && !senseActive(r) && combineMode() === 'sos';
         let html = '';
         if (T.mode !== 'mag' && sosLike) {
-            html = 'Root-sum-of-squares combination makes a <b>magnitude</b> image: its phase and imaginary part are zero everywhere. Choose Roemer or a single coil (Coil combination) to see the complex image.';
+            html = 'Root-sum-of-squares combination makes a <b>magnitude</b> image: its phase and imaginary part are zero everywhere. Choose Roemer (the default) or a single coil under Coil combination to see the complex image.';
         } else if (T.mode === 'phase') {
             html = 'Phase from −π to +π rad. In air it is random noise. Inside the object it varies smoothly with the coil phase and with off-resonance (Δφ = 2π Δf TE in a gradient echo); a spin echo refocuses the off-resonance part.';
         } else if (T.mode === 'real' || T.mode === 'imag') {
@@ -365,7 +409,85 @@
     }
 
     /* ---------- ROI statistics and SNR ---------- */
-    /* Four stat tiles: signal mean, signal SD, background SD, SNR. */
+
+    /* What the background SD says about the noise. The SNR tool measures
+       the noise where it is easy to see, in air, but a magnitude image
+       does not keep Gaussian noise there:
+       - One coil, or a complex combination of coils (Roemer, SENSE, a
+         single coil shown on its own): the magnitude of complex Gaussian
+         noise of SD sigma per part follows a Rayleigh distribution, whose
+         SD is 0.655 sigma.
+       - Root-sum-of-squares of n coils with independent noise of equal
+         power: a chi distribution with 2n degrees of freedom, whose SD is
+         sigma sqrt(2n - 2 (Gamma(n + 1/2) / Gamma(n))^2), 0.655 sigma for
+         n = 1 and about 0.70 sigma for n = 8. It is the same everywhere.
+       Inside the object the signal dominates, and there the noise has SD
+       sigma in both cases, so SNR = factor x mean(signal) / SD(background).
+       - Roemer divides by the summed sensitivity S = sum |C|^2, so its
+         noise SD is sigma / sqrt(S) at each pixel: low near the coils and
+         higher in the middle of the head. A noise ROI in a corner of air
+         is close to the coils and understates the noise at a signal ROI
+         in the middle, so the SNR is scaled by the ratio of the mean
+         1/sqrt(S) over the two ROIs, from the known coil maps. */
+    function chiFactor(n) {
+        // Gamma(n + 1/2) / Gamma(n), by the recursion r(k + 1) = r(k) (k + 1/2) / k from r(1) = sqrt(pi) / 2
+        let r = Math.sqrt(PI) / 2;
+        for (let k = 1; k < n; k++) r *= (k + 0.5) / k;
+        return Math.sqrt(Math.max(0, 2 * n - 2 * r * r));
+    }
+    /* 1 / sqrt(sum over coils of |C|^2) on the image grid, or null when the
+       maps are not available (then recon.js combined by root-sum-of-squares). */
+    let sensCache = { key: null, w: null };
+    function noiseWeight(acq, im) {
+        const cs = acq && acq.coilSet;
+        if (!cs || !MRI.fields || typeof MRI.fields.coilMaps !== 'function') return null;
+        const key = [typeof cs === 'string' ? cs : cs.type + ':' + cs.n + ':' + cs.scale, im.nx, im.ny, im.fovX, im.fovY].join('|');
+        if (sensCache.key === key) return sensCache.w;
+        let maps = null;
+        try { maps = MRI.fields.coilMaps(cs, im.nx, im.ny, im.fovX, im.fovY); } catch (e) { maps = null; }
+        if (!maps || !maps.re || !maps.re.length || maps.re[0].length !== im.nx * im.ny) return null;
+        const N = im.nx * im.ny, nC = maps.re.length, wgt = new Float32Array(N);
+        for (let p = 0; p < N; p++) {
+            let ss = 0;
+            for (let c = 0; c < nC; c++) ss += maps.re[c][p] * maps.re[c][p] + maps.im[c][p] * maps.im[c][p];
+            wgt[p] = ss > 0 ? 1 / Math.sqrt(ss) : NaN;
+        }
+        sensCache = { key: key, w: wgt };
+        return wgt;
+    }
+    /* {factor, scale, how, warn}: SNR = factor * scale * mean(signal) / SD(background). */
+    function snrModel(r, acq, sigRc, noiRc) {
+        const nC = nCoilsOf(r);
+        const m = { factor: RAYLEIGH, scale: 1, how: '', warn: false };
+        const pfNote = r.info && r.info.partialFourier < 1 ? ' Partial Fourier filling changes the noise as well, so treat the number as approximate.' : '';
+        if (senseActive(r)) {
+            m.warn = true;
+            m.how = 'SNR = 0.655 × mean(signal) / SD(background) is only rough here: SENSE amplifies the noise by the g-factor, which varies across the image (see the map below), so no single background SD fits.' + pfNote;
+            return m;
+        }
+        let mode = nC > 1 ? combineMode() : 'one';
+        let wgt = null;
+        if (mode === 'roemer') { wgt = noiseWeight(acq, r.image); if (!wgt) mode = 'sos'; }
+        if (mode === 'sos') {
+            m.factor = chiFactor(nC);
+            m.how = 'SNR = ' + m.factor.toFixed(3) + ' × mean(signal) / SD(background). In a root-sum-of-squares of ' + nC + ' coils the air follows a chi distribution with ' +
+                (2 * nC) + ' degrees of freedom, not the one-coil Rayleigh distribution (factor 0.655); the noise is the same everywhere.' + pfNote;
+        } else if (mode === 'roemer') {
+            const im = r.image;
+            const a = sigRc ? roiStats(wgt, im.nx, im.ny, sigRc) : null, b = noiRc ? roiStats(wgt, im.nx, im.ny, noiRc) : null;
+            if (a && b && a.mean > 0 && b.mean > 0) m.scale = b.mean / a.mean;
+            m.how = 'SNR = 0.655 × mean(signal) / SD(background) × ' + fnum(m.scale, 3) + '. Roemer combination leaves less noise near the coils than in the middle of the head: ' +
+                'from the coil maps, the noise at the signal ROI is ' + fnum(1 / m.scale, 3) + ' times that at the noise ROI.' + pfNote;
+        } else {
+            m.how = 'SNR = 0.655 × mean(signal) / SD(background): the air in a ' + (nC > 1 ? 'single coil’s' : 'one-coil') + ' magnitude image follows a Rayleigh distribution.' + pfNote;
+        }
+        m.warn = !!pfNote;
+        return m;
+    }
+
+    /* Four stat tiles (signal mean, signal SD, background SD, SNR), each
+       shown once the ROI it needs is placed; until then one line says
+       how to place them. */
     function makeRoiTiles() {
         const tile = function (label, cls, hint) {
             const v = el('div', { class: 'stat-value' + (cls ? ' ' + cls : '') });
@@ -379,12 +501,21 @@
             sm: tile(sw('#60a5fa') + 'Signal mean', '', 'Mean magnitude inside the blue rectangle'),
             ss: tile(sw('#60a5fa') + 'Signal SD', '', 'Standard deviation inside the blue rectangle: noise plus real structure'),
             ns: tile(sw('#fbbf24') + 'Background SD', '', 'Standard deviation of the magnitude inside the amber rectangle (air)'),
-            snr: tile('SNR', 'good', '0.655 x mean(signal ROI) / SD(noise ROI)')
+            snr: tile('SNR', 'good', 'factor x mean(signal ROI) / SD(noise ROI); the line below the tiles gives the factor')
         };
-        const box = el('div', { class: 'stats', role: 'group', 'aria-label': 'ROI statistics' }, [tiles.sm.el, tiles.ss.el, tiles.ns.el, tiles.snr.el]);
+        const empty = el('p', { class: 'ir-roi-empty' });
+        const box = el('div', { class: 'stats', role: 'group', 'aria-label': 'ROI statistics' }, [empty, tiles.sm.el, tiles.ss.el, tiles.ns.el, tiles.snr.el]);
         const set = function (t, text, unit) { t.txt.nodeValue = text; t.u.textContent = unit || ''; };
-        box.update = function (sig, noi, warn) {
-            const snr = sig && noi && noi.sd > 0 ? RAYLEIGH * sig.mean / noi.sd : NaN;
+        box.update = function (sig, noi, warn, model) {
+            model = model || { factor: RAYLEIGH, scale: 1 };
+            const snr = sig && noi && noi.sd > 0 ? model.factor * model.scale * sig.mean / noi.sd : NaN;
+            tiles.sm.el.hidden = tiles.ss.el.hidden = !sig;
+            tiles.ns.el.hidden = !noi;
+            tiles.snr.el.hidden = !(sig && noi);
+            empty.hidden = !!(sig && noi);
+            empty.textContent = !sig && !noi ? 'Press Place both, or drag a Signal ROI and a Noise ROI on the image (pick them under "Drag on the image to"), to measure the SNR.'
+                : !noi ? 'Now add a Noise ROI in the air outside the object (choose Noise ROI and drag a rectangle) to get the SNR.'
+                : 'Now add a Signal ROI inside the object (choose Signal ROI and drag a rectangle) to get the SNR.';
             set(tiles.sm, sig ? fsig(sig.mean) : '-', sig ? 'a.u.' : '');
             set(tiles.ss, sig ? fsig(sig.sd) : '-', sig ? 'a.u.' : '');
             set(tiles.ns, noi ? fsig(noi.sd) : '-', noi ? 'a.u.' : '');
@@ -406,13 +537,19 @@
             for (let iy = b.y0; iy <= b.y1; iy++) for (let ix = b.x0; ix <= b.x1; ix++) if (truth[iy * im.nx + ix] > 0.03 * tmax) inside++;
             if (inside) warn = 'The noise ROI overlaps the object: move it into air, or the SD includes signal.';
         }
-        V.roiStats.update(sig, noi, warn);
+        const both = !!(sig && noi);
+        const model = both ? snrModel(r, curAcq(), T.roi.signal, T.roi.noise) : null;
+        V.roiStats.update(sig, noi, warn, model);
+        V.snrHow.textContent = model ? model.how : '';
+        V.snrHow.hidden = !(model && model.how);
+        V.snrHow.classList.toggle('is-warn', !!(model && model.warn));
         V.roiWarn.textContent = warn;
         V.roiWarn.hidden = !warn;
         const parts = [];
         if (sig) parts.push('signal ROI ' + sig.w + ' × ' + sig.h + ' px');
         if (noi) parts.push('noise ROI ' + noi.w + ' × ' + noi.h + ' px');
         V.roiSize.textContent = parts.length ? parts.join(', ') + '.' : '';
+        V.roiSize.hidden = !parts.length;
     }
 
     /* ---------- scan facts and reconstruction notes ---------- */
@@ -433,22 +570,29 @@
         if (isFinite(scanTime)) rows.push(['Scan time', U.fmtTime(scanTime)]);
         if (isFinite(st.teEff)) rows.push(['Effective TE', U.fmtNum(st.teEff * 1e3, 3), 'ms']);
         if (isFinite(st.bwPerPixel)) rows.push(['Readout bandwidth', U.fmtNum(st.bwPerPixel, 4), 'Hz/px']);
-        if (acq) rows.push(['Receive coils', acq.nCoils + (acq.coilSet && acq.coilSet.type === 'head8' ? ' (8-channel head)' : acq.nCoils === 1 ? ' (body coil)' : '')]);
+        if (acq) {
+            const type = acq.coilSet && (typeof acq.coilSet === 'string' ? acq.coilSet : acq.coilSet.type);
+            const tc = MRI.ui.terms && MRI.ui.terms.coil;
+            rows.push(['Receive coil', (tc && tc[type]) || (acq.nCoils + (acq.nCoils === 1 ? ' coil' : ' coils'))]);
+        }
         if (isFinite(state().reconMs)) rows.push(['Reconstruction time', U.fmtNum(state().reconMs, 3), 'ms']);
         V.info.update(rows);
         V.notes.textContent = '';
-        (r.info && r.info.notes || []).forEach(function (n) { V.notes.appendChild(el('li', { text: n })); });
+        const notes = (r.info && r.info.notes) || [];
+        notes.forEach(function (n) { V.notes.appendChild(el('li', { text: n })); });
+        V.notesCount.textContent = notes.length ? ' (' + notes.length + ')' : '';
     }
 
     /* ---------- coils and g-factor ---------- */
     function rebuildCoilStrip(n) {
         V.coilGrid.textContent = '';
         V.coilViews = [];
-        const names = curAcq() && curAcq().coilSet && curAcq().coilSet.names;
+        const cs = curAcq() && curAcq().coilSet;
         for (let c = 0; c < n; c++) {
-            const v = w().imageView(V.coilGrid, { title: 'Coil ' + (c + 1), readout: false, maxHeight: 220, empty: '' });
-            v.canvas.setAttribute('aria-label', 'Magnitude image of coil ' + (c + 1) + (names && names[c] ? ', ' + names[c] : ''));
-            if (names && names[c]) v.el.title = names[c];
+            const label = coilName(c, cs);
+            const v = w().imageView(V.coilGrid, { title: label, readout: false, maxHeight: 220, empty: '' });
+            v.canvas.setAttribute('aria-label', 'Magnitude image of ' + label);
+            v.el.title = label;
             V.coilViews.push(v);
         }
         T.coilN = n;
@@ -541,22 +685,23 @@
 
         // coil combination
         const nC = acq ? acq.nCoils : nCoilsOf(r);
-        C.comb.set(o.coilCombine || 'sos');
+        const comb = combineMode();
+        C.comb.set(comb);
         const combOn = nC > 1 && !senseActive(r);
         C.comb.setDisabled(!combOn);
         if (V.coilOptsN !== nC) {
-            const names = acq && acq.coilSet && acq.coilSet.names, opts = [];
-            for (let c = 0; c < Math.max(1, nC); c++) opts.push({ value: c, label: 'Coil ' + (c + 1) + (names && names[c] ? ' · ' + names[c] : '') });
+            const cs = acq && acq.coilSet, opts = [];
+            for (let c = 0; c < Math.max(1, nC); c++) opts.push({ value: c, label: coilName(c, cs) });
             C.coil.setOptions(opts, Math.min(o.coil || 0, Math.max(0, nC - 1)));
             V.coilOptsN = nC;
         }
         C.coil.set(Math.min(o.coil || 0, Math.max(0, nC - 1)));
-        C.coilWrap.hidden = (o.coilCombine || 'sos') !== 'single' || !combOn;
+        C.coilWrap.hidden = comb !== 'single' || !combOn;
         setNote(C.combNote, combOn, !(nC > 1) ? 'One receive coil: nothing to combine.'
             : senseActive(r) ? 'SENSE combines the coils itself while unfolding, so this setting does not apply.'
-            : ({ sos: 'Root-sum-of-squares: needs no coil maps; a magnitude image, brighter near the coils.',
-                 roemer: 'Roemer: weights each coil by its sensitivity. Best SNR, no coil shading, keeps the phase; needs the coil maps.',
-                 single: 'One coil on its own: see how a single element sees the head.' })[o.coilCombine || 'sos']);
+            : ({ sos: combineName('sos') + ': needs no coil maps; a magnitude image, brighter near the coils. Its noise is the same everywhere.',
+                 roemer: combineName('roemer') + ' (the default): weights each coil by its sensitivity. Best SNR, no coil shading, keeps the phase; needs the coil maps (a scanner measures them in a short calibration scan). Its noise is lowest near the coils.',
+                 single: 'One coil on its own: see how a single element sees the head.' })[comb]);
 
         // advanced
         const cart = info.cartesian !== false;
@@ -596,7 +741,7 @@
             return { x: U.clamp((ev.clientX - rect.left) / rect.width, 0, 1), y: U.clamp((ev.clientY - rect.top) / rect.height, 0, 1) };
         }
         cv.addEventListener('pointerdown', function (ev) {
-            if (T.drag === 'wl' || ev.button !== 0 || !T.result) return;
+            if ((T.drag !== 'signal' && T.drag !== 'noise') || ev.button !== 0 || !T.result) return;
             const f = frac(ev);
             if (!f) return;
             T.drawing = { kind: T.drag, x0: f.x, y0: f.y, x1: f.x, y1: f.y, id: ev.pointerId };
@@ -683,17 +828,17 @@
                 '<p>Every choice trades resolution, noise and artifacts. Switch on <b>Truth and difference</b> to see what each one costs against the noise-free image of the same contrast.</p>',
             formula: 'ρ(x, y) = Σ<sub>k<sub>x</sub>, k<sub>y</sub></sub> S(k<sub>x</sub>, k<sub>y</sub>) e<sup>+i2π(k<sub>x</sub>x + k<sub>y</sub>y)</sup> Δk<sub>x</sub> Δk<sub>y</sub>',
             tryThis: [
-                { html: '<b>Hamming filter on a 64 matrix</b>: the ringing next to the skull fades and edges soften. Compare the row profiles with the filter off and on.', label: 'Set up', run: function () {
+                { html: '<b>Hamming filter on a 64 matrix</b>: the ringing next to the skull fades and edges soften. Compare the row profiles with the filter off and on.', label: TRY_IT, run: function () {
                     if (!hasParam('N')) A.loadPreset('se');
                     A.setParam('N', 64);
                     A.setRecon({ filter: 'hamming', zeroFill: 1 });
                     setCompare(true); scanIfManual();
                 } },
-                { html: '<b>Zero-fill ×2</b>: smaller pixels and smoother edges, but no new detail (the profile gains points, not sharpness).', label: 'Do it', run: function () { A.setRecon({ zeroFill: 2 }); } },
-                { html: '<b>Partial Fourier</b> on gre_pf: Zero blurs along y; Homodyne restores the sharpness from 62.5 % of the lines.', label: 'Set up', run: function () {
+                { html: '<b>Zero-fill ×2</b>: smaller pixels and smoother edges, but no new detail (the profile gains points, not sharpness).', label: TRY_IT, run: function () { A.setRecon({ zeroFill: 2 }); } },
+                { html: '<b>Partial Fourier</b> on gre_pf: Zero blurs along y; Homodyne restores the sharpness from 62.5 % of the lines.', label: TRY_IT, run: function () {
                     A.loadPreset('gre_pf'); A.setRecon({ partialFourier: 'zero', zeroFill: 1, filter: 'none' }); setCompare(true); scanIfManual();
                 } },
-                { html: '<b>SENSE</b> on gre_r2: with parallel imaging off the head folds over; SENSE unfolds it, and the g-factor map shows where the noise grows.', label: 'Set up', run: function () {
+                { html: '<b>SENSE</b> on gre_r2: with parallel imaging off the head folds over; SENSE unfolds it, and the g-factor map shows where the noise grows.', label: TRY_IT, run: function () {
                     A.loadPreset('gre_r2'); A.setRecon({ parallel: 'none', zeroFill: 1, filter: 'none' }); scanIfManual();
                 } }
             ]
@@ -701,16 +846,21 @@
 
         const editCallout = el('div', { class: 'callout callout-warn ir-edit-callout', hidden: true, role: 'status' }, [
             el('span', { html: '<b>Edited k-space.</b> This image is reconstructed from the samples you kept in the k-space tab.' }),
-            Wd.button({ label: 'Use all data', size: 'sm', onClick: function () { A.setRecon({ userMask: null }); } }),
-            Wd.button({ label: 'Open k-space tab', size: 'sm', kind: 'ghost', onClick: function () { A.showTab('kspace'); } })
+            Wd.button({ label: 'Use all data', size: 'sm', onClick: function () { A.setRecon({ userMask: null, userMaskGrid: null }); } }),
+            // same wording as the scan bar, the stale banners and the Scanner links ("Open the ... tab")
+            Wd.button({ label: 'Open the k-space tab', size: 'sm', kind: 'ghost', onClick: function () { A.showTab('kspace', { focus: true }); } })
         ]);
         panel.appendChild(editCallout);
+        // While the sequence does not compile, say that this is the last scan's image.
+        if (Wd.staleBanner) Wd.staleBanner(panel, { what: 'image', before: editCallout });
 
         // ---------- main panel ----------
         const main = el('section', { class: 'panel', 'aria-labelledby': 'ir-title' });
         main.appendChild(el('div', { class: 'panel-head' }, [
             el('h2', { class: 'panel-title', id: 'ir-title', text: 'Reconstructed image' }),
-            el('span', { class: 'panel-sub', text: 'Drag on an image to change the window, double-click to reset; click to pick the profile row.' })
+            el('span', { class: 'panel-sub', text: COARSE
+                ? 'Tap an image to read a value and pick the profile row. "Drag on the image to" (below) sets what a drag does.'
+                : 'Drag on an image to change the window, double-click to reset; click to pick the profile row.' })
         ]));
         const split = el('div', { class: 'split ir-split' });
         const mainCol = el('div', { class: 'ir-main' }), side = el('div', { class: 'ir-side' });
@@ -722,7 +872,7 @@
 
         const toolbar = el('div', { class: 'ir-toolbar' });
         const modeSeg = Wd.segmented({ ariaLabel: 'Image display', size: 'sm', value: T.mode,
-            options: [{ value: 'mag', label: 'Magnitude' }, { value: 'phase', label: 'Phase' }, { value: 'real', label: 'Real' }, { value: 'imag', label: 'Imaginary' }],
+            options: (MRI.ui.terms && MRI.ui.terms.displayOptions) || [{ value: 'mag', label: 'Magnitude' }, { value: 'phase', label: 'Phase' }, { value: 'real', label: 'Real' }, { value: 'imag', label: 'Imaginary' }],
             onChange: function (v) { T.mode = v; requestRender(); } });
         const cmpTog = Wd.toggle({ label: 'Truth and difference', checked: T.compare, hint: 'Show the noise-free image of the same contrast and the difference |recon| - |truth|',
             onChange: function (b) { T.compare = b; requestRender(); } });
@@ -750,24 +900,36 @@
 
         // ROI tools and statistics
         const roiBox = el('div', { class: 'ir-roi ir-o5' });
-        const dragSeg = Wd.segmented({ ariaLabel: 'Dragging on the reconstruction', size: 'sm', value: T.drag,
-            options: [{ value: 'wl', label: 'Window/level' }, { value: 'signal', label: 'Signal ROI' }, { value: 'noise', label: 'Noise ROI' }],
-            onChange: function (v) { T.drag = v; recon.setWL(v === 'wl'); recon.canvas.classList.toggle('ir-roi-mode', v !== 'wl'); } });
+        // On a touch screen a drag scrolls the page unless the student picks
+        // another mode (window/level then needs a long press, as everywhere).
+        const dragOpts = [{ value: 'wl', label: 'Window/level' }, { value: 'signal', label: 'Signal ROI' }, { value: 'noise', label: 'Noise ROI' }];
+        if (COARSE) dragOpts.unshift({ value: 'scroll', label: 'Scroll', title: 'Swipe to scroll the page; tap to read a value' });
+        const applyDrag = function (v) {
+            T.drag = v;
+            recon.setWL(v === 'wl');
+            recon.canvas.classList.toggle('ir-roi-mode', v === 'signal' || v === 'noise');
+        };
+        const dragLabel = el('span', { class: 'ctl-label', id: 'ir-drag-label', text: 'Drag on the image to' });
+        const dragSeg = Wd.segmented({ size: 'sm', value: T.drag, options: dragOpts, onChange: applyDrag });
+        dragSeg.setAttribute('aria-labelledby', 'ir-drag-label');
+        applyDrag(T.drag);
         roiBox.appendChild(el('h3', { text: 'Signal-to-noise ratio' }));
         roiBox.appendChild(el('div', { class: 'ir-roi-row' }, [
-            el('span', { class: 'ctl-label', text: 'Drag on the image to' }), dragSeg,
+            dragLabel, dragSeg,
             Wd.button({ label: 'Place both', size: 'sm', onClick: placeRois, title: 'Put a signal ROI in the middle and a noise ROI in a corner of air' }),
             Wd.button({ label: 'Clear', size: 'sm', kind: 'ghost', onClick: function () { T.roi.signal = T.roi.noise = null; requestRender(); } })
         ]));
         const roiStats = makeRoiTiles();
         roiBox.appendChild(roiStats);
-        const roiSize = el('p', { class: 'ir-note' });
+        const snrHow = el('p', { class: 'ir-note ir-snr-how', hidden: true });
+        roiBox.appendChild(snrHow);
+        const roiSize = el('p', { class: 'ir-note', hidden: true });
         roiBox.appendChild(roiSize);
         const roiWarn = el('p', { class: 'callout callout-warn', hidden: true, role: 'status' });
         roiBox.appendChild(roiWarn);
         roiBox.appendChild(el('p', { class: 'ir-note', html:
-            'Noise in a magnitude image is not Gaussian: in air it follows a Rayleigh distribution whose SD is 0.655 σ of the underlying complex noise, so <b>SNR = 0.655 × mean(signal ROI) / SD(noise ROI)</b>. ' +
-            'This is approximate here: root-sum-of-squares of 8 coils gives a background with a different factor (about 0.70), and SENSE or Roemer make the noise vary across the image.' }));
+            'Noise in a magnitude image is not Gaussian. In air, the magnitude of one coil (or of a complex combination such as Roemer) follows a Rayleigh distribution whose SD is 0.655 σ of the underlying complex noise, so <b>SNR = 0.655 × mean(signal ROI) / SD(noise ROI)</b>. ' +
+            'A root-sum-of-squares of 8 coils follows a chi distribution instead (factor about 0.70), and Roemer and SENSE make the noise vary across the image; the line under the tiles says which correction this image gets.' }));
         mainCol.appendChild(roiBox);
 
         const profHost = el('div', { class: 'ir-o6' });
@@ -814,8 +976,8 @@
         C.parNote = note();
         wrap([C.par, C.parNote]);
 
-        C.comb = Wd.select({ label: 'Coil combination', value: s.recon.coilCombine || 'sos',
-            options: [{ value: 'sos', label: 'Root-sum-of-squares' }, { value: 'roemer', label: 'Roemer (sensitivity weighted)' }, { value: 'single', label: 'Single coil' }],
+        C.comb = Wd.select({ label: 'Coil combination', value: combineMode(),
+            options: (MRI.ui.terms && MRI.ui.terms.combineOptions) || [{ value: 'sos', label: 'Root-sum-of-squares' }, { value: 'roemer', label: 'Roemer' }, { value: 'single', label: 'Single coil' }],
             onChange: function (v) { A.setRecon({ coilCombine: v }); } });
         C.coil = Wd.select({ label: 'Coil shown', value: s.recon.coil || 0, options: [{ value: 0, label: 'Coil 1' }],
             onChange: function (v) { A.setRecon({ coil: +v || 0 }); } });
@@ -842,14 +1004,18 @@
             Wd.button({ label: 'Reset reconstruction', size: 'sm', title: 'Back to the default reconstruction (keeps any k-space edit)', onClick: function () {
                 const d = Object.assign({}, MRI.recon.defaults);
                 delete d.userMask;
+                delete d.userMaskGrid;
                 A.setRecon(d);
             } })
         ]));
 
-        gInfo.appendChild(el('h3', { text: 'This scan' }));
+        // Secondary numbers, one click away (ARCHITECTURE.md principle 4).
+        const infoDet = el('details', { class: 'adv' }, [el('summary', {}, [el('h3', { class: 'ir-sum-h', text: 'This scan' })])]);
         const info = Wd.statTable([], { compact: true });
-        gInfo.appendChild(info);
-        const notesDet = el('details', { class: 'adv', open: true }, [el('summary', { text: 'What the reconstruction did' })]);
+        infoDet.appendChild(info);
+        gInfo.appendChild(infoDet);
+        const notesCount = el('span', { class: 'ir-sum-count' });
+        const notesDet = el('details', { class: 'adv' }, [el('summary', {}, [el('h3', { class: 'ir-sum-h', text: 'What the reconstruction did' }), notesCount])]);
         const notes = el('ul', { class: 'note ir-notes' });
         notesDet.appendChild(notes);
         gInfo.appendChild(notesDet);
@@ -871,13 +1037,13 @@
         panel.appendChild(coilPanel);
 
         V = { recon: recon, truth: truth, diff: diff, truthWrap: truth.el, diffWrap: diff.el, modeSeg: modeSeg, cmpTog: cmpTog, modeNote: modeNote,
-            compareLine: compareLine, roemerBtn: roemerBtn, dragSeg: dragSeg, roiStats: roiStats, roiSize: roiSize, roiWarn: roiWarn, profile: profile,
-            info: info, notes: notes, coilPanel: coilPanel, coilWrap: coilWrap, coilNote: coilNote, coilGrid: coilGrid, coilViews: [],
+            compareLine: compareLine, roemerBtn: roemerBtn, dragSeg: dragSeg, roiStats: roiStats, roiSize: roiSize, roiWarn: roiWarn, snrHow: snrHow, profile: profile,
+            info: info, notes: notes, notesCount: notesCount, coilPanel: coilPanel, coilWrap: coilWrap, coilNote: coilNote, coilGrid: coilGrid, coilViews: [],
             gWrap: gWrap, gView: gView, gNote: gNote, ctl: C, coilOptsN: -1, editCallout: editCallout };
         truth.el.hidden = diff.el.hidden = true;
 
         const bus = MRI.bus;
-        bus.on('recon:done', function () { if (T.visible) requestRender(); else T.dirty = true; });
+        bus.on('recon:done', function (e) { noteResult(e); if (T.visible) requestRender(); else T.dirty = true; });
         bus.on('scan:start', function () { if (!T.visible) T.dirty = true; });
         bus.on('scan:error', function () { if (T.visible) requestRender(); else T.dirty = true; });
     }

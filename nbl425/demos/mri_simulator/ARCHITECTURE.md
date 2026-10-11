@@ -125,11 +125,17 @@ reconstructs to 1.0. Truth images and reconstructions therefore share units
 and can be subtracted.
 
 **Noise.** Complex white Gaussian noise is added to every ADC sample of every
-coil with standard deviation `σ = NOISE_REF · noiseScale · sqrt(1/dwell) /
-sqrt(averages)`. `NOISE_REF` is calibrated (engine test) so that a
-128×128, 240 mm, 5 mm, 250 Hz/px, readout-oversampled acquisition of a uniform
-m = 1 object with a single uniform coil gives image noise σ = 0.01 (SNR 100).
-SNR then scales correctly with voxel volume, √(sampling time) and √NEX
+coil with standard deviation `σ = NOISE_REF · noiseFactor · noiseScale ·
+sqrt(1/dwell) / sqrt(averages)` (per real and imaginary component).
+`noiseFactor` belongs to the receive coil set (`CoilSet.noiseFactor`, section
+7): 1 for one element of the 8-channel head array, 2.4 for the body coil,
+whose large birdcage picks up noise from head, neck and shoulders. `NOISE_REF`
+is calibrated (engine test) so that a 128×128, 240 mm, 5 mm, 250 Hz/px,
+readout-oversampled acquisition of a uniform m = 1 object with a single
+uniform coil of noise factor 1 gives image noise σ = 0.01 (SNR 100); the body
+coil gives σ = 0.024. With Roemer combination the head array then has about
+1.6 times the body coil's SNR at the centre of the head and about 3 times
+60 mm out. SNR scales correctly with voxel volume, √(sampling time) and √NEX
 without any special-casing.
 
 ---
@@ -145,6 +151,13 @@ without any special-casing.
 `cssVar(name, fallback)`, `el(tag, attrs, children)`, `debounce`,
 `yieldFrame()`), `MRI.bus` (`on/off/emit`), `MRI.ui.registerTab(def)`,
 `MRI.ui.tabs`, `MRI.ui.addStyle(css)`.
+
+The formatters return an en dash for null, undefined or NaN and never throw
+(Infinity prints as Infinity). `percentile` samples at most about 20 000
+finite values and finds the rank by quickselect (exact). `yieldFrame()` uses
+one MessageChannel in a browser and `setTimeout(0)` where there is no document
+(Node). `scrollBehavior()` returns 'auto' under prefers-reduced-motion and
+'smooth' otherwise; every scripted scroll passes it.
 
 ---
 
@@ -253,8 +266,8 @@ the fine raster provides partial volume when imaged):
    table, CSF in the subarachnoid space, cortical grey matter as a ribbon
    2.5-3 mm thick following a folded boundary (radius modulated by a sum of
    sinusoids so there are sulci with CSF in them), white matter, lateral
-   ventricles (two crescent/butterfly CSF shapes), caudate heads and thalami
-   (grey matter), the superior sagittal sinus (vessel, posterior midline, and
+   ventricles (two crescent/butterfly CSF shapes), caudate heads, lentiform nuclei and thalami
+   (`deepgm`, deep grey matter), the superior sagittal sinus (vessel, posterior midline, and
    a smaller one anterior), and the frontal sinus (air) in the frontal bone at
    the anterior midline. With `lesion: true` add three periventricular plaques
    and one 12 mm lesion in the right frontal white matter. `dB0`: the frontal
@@ -294,16 +307,19 @@ MRI.fields = {
   coilSet(type) -> CoilSet
   coilMaps(coilSet, nx, ny, fovX, fovY) -> { re: [Float32Array], im: [Float32Array] }
 };
-b0 = { susceptibility: 1, shim: 0 }   // susceptibility scales phantom.dB0 (0..3);
-                                      // shim adds a residual first+second order field:
-                                      //   shim * (25 Hz per 100 mm in x, -15 Hz per 100 mm in y,
-                                      //           +40 Hz * (r/100 mm)^2 quadratic) - make it look plausible
+b0 = { susceptibility: 1, shim: 0, shimCoeffs }   // susceptibility scales phantom.dB0 (0..3);
+                                      // shim scales the residual field of section 7.1
 b1 = { amount: 0 }                    // 3 T dielectric effect: b1 = 1 + amount*(0.6 - (r/90mm)^2) clipped
                                       // to [0.4, 1.6]; centre bright, periphery dark. amount 0..0.5
-CoilSet = { type: 'body'|'head8', n, names: [..], positions: [{x, y}], radius }
+CoilSet = { type: 'body'|'head8', n, names: [..], positions: [{x, y}], radius, noiseFactor }
 ```
 
-- `body`: one coil, sensitivity 1 everywhere, phase 0.
+- `body`: one coil, sensitivity 1 everywhere, phase 0, `noiseFactor` 2.4.
+- `noiseFactor`: receive noise per channel relative to `NOISE_REF`. At 3 T the
+  noise comes from the patient, collected from everywhere a coil is sensitive,
+  so the body birdcage is noisier than one small loop (head8: 1 per element).
+  `MRI.fields.noiseFactors = { body: 2.4, head8: 1 }`; the engine falls back to
+  that table, then to 1, for a hand-built CoilSet.
 - `head8`: eight loops evenly spaced on an ellipse of semi-axes 105 × 125 mm
   around the head. Magnitude like a loop coil, |C| ∝ 1 / (1 + (d/a)²)^1.5
   with d the distance to the loop and a ≈ 60 mm, plus a smooth phase that
@@ -335,10 +351,14 @@ b0 = { susceptibility: 1, shim: 0,
        shimCoeffs: { z0: 0, x: 0, y: 0, xy: 0, x2y2: 0, z2: 0 } }   // Hz at the 100 mm reference radius
 MRI.fields.shimTerms -> [ { id, name, order, fn(x, y) } ]     // in-plane (z = 0) basis, R = 0.1 m:
     // z0: 1 (the centre-frequency adjustment), x: x/R, y: y/R, xy: 2xy/R², x2y2: (x²−y²)/R², z2: −(x²+y²)/R²
-MRI.fields.autoShim(phantom, b0, { region: 'object'|'center', radius: 0.06 }) ->
-    { shimCoeffs, rmsBefore, rmsAfter }     // least squares over non-air points in the region,
-                                            // weighted by pd; returns the coefficients that ADD to the
-                                            // existing ones to minimise the field variance
+MRI.fields.autoShim(phantom, b0, { region: 'object'|'center', radius: 0.06, method: 'robust'|'lsq' }) ->
+    { shimCoeffs, total, rmsBefore, rmsAfter, sdBefore, sdAfter, method, iterations, ... }
+    // coefficients that ADD to the existing ones (total = existing + shimCoeffs).
+    // 'lsq': pd-weighted least squares, minimises the RMS field.
+    // 'robust' (default): iteratively reweighted least squares, pd x Tukey bisquare
+    //   (c 4.685, scale 1.4826 x weighted MAD, floor 0.05 Hz), so the local sinus
+    //   field does not pull the fit. On the default brain the whole-head water FWHM
+    //   goes 7.6 -> 6.3 Hz (lsq: 11.5 Hz, at a lower RMS).
 MRI.fields.fieldStats(phantom, b0Map, { region, radius }) ->
     { mean, sd, fwhmHz, hist: { centers: Float32Array, counts: Float32Array } }   // pd-weighted
 ```
@@ -347,7 +367,7 @@ Defaults keep `shim: 0` and zero coefficients (a well-shimmed scanner). The
 "Start unshimmed" button sets `shim: 1` and zeroes the coefficients. Any
 cache keyed on the B0 settings must include `shimCoeffs`. The Shim panel
 lives in the Spectroscopy tab (sliders per term, Auto-shim with region
-choice, Reset, a live field map, a field histogram, an estimated water FWHM
+choice and method (Robust or Least squares, with one sentence on the difference), Reset, a live field map, a field histogram, an estimated water FWHM
 and the water line itself, updating as the sliders move), and the shim coils
 in the Scanner schematic link to it.
 
@@ -427,7 +447,7 @@ number where a time is required is an error with the hint "write 20 ms".
 | `param NAME = expr [range lo .. hi] [step s] ["description"]` | tunable value; becomes a slider. Range/step in the same units. Without range, the UI offers a number box |
 | `let NAME = expr` | derived constant |
 | `fov X [Y]` | field of view along x and y (length). Default 240 mm square |
-| `matrix NX [NY]` | image matrix. Default 128 square |
+| `matrix NX [NY]` | image matrix, 2 to 512 (the simulator's limit). Default 128 square |
 | `slice T` | slice thickness (length). Default 5 mm |
 | `bandwidth B` | readout bandwidth per pixel (freq, Hz/px). Default 250 Hz/px |
 | `oversample K` | readout oversampling factor (1 or 2, default 2). The recon crops it |
@@ -563,8 +583,13 @@ SeqProgram (failed) = { ok: false, source, errors: [ { line, col, msg, hint } ],
 ```
 
 All times are absolute seconds from the start of the sequence, quantised to
-1 us. Limits: at most 20 000 blocks and 8 192 non-dummy ADCs (error past
-that). `compile` must be fast: a 256-line spin echo in well under 50 ms.
+1 us. Limits (errors that name the limit): at most 20 000 blocks, 8 192
+non-dummy ADCs, a matrix of 512, 65 536 samples in one ADC and 4 194 304
+recorded samples in all. Warnings include: no ADC at all; dummies without an
+`every` loop; a parameter outside its range; an ADC longer than its readout
+flat top; and, once on the ADC line, a first recorded ADC of a repetition with
+no excitation before it in that repetition. `reference` is HTML with h3
+section headings. `compile` must be fast: a 256-line spin echo in well under 50 ms.
 
 ### 8.7 Presets (presets.js)
 
@@ -581,7 +606,7 @@ lessons and artifact cards can set them.
 | `gre_t2s` | spoiled gradient echo, T2*-weighted | TR 600 ms, TE 20 ms, flip 20° |
 | `se` | spin echo (default preset, T2-weighted) | TR 3000, TE 90 |
 | `se_t1` | spin echo, T1-weighted | TR 500, TE 12 |
-| `stir` | inversion-recovery spin echo, fat-nulling | TR 3000, TI 230, TE 30 |
+| `stir` | inversion-recovery spin echo, fat-nulling | TR 3000, TI 260 (0.693 × fat T1 380 ms = 263 ms), TE 30 |
 | `flair` | inversion-recovery turbo spin echo, CSF-nulling | TR 9000, TI 2400, ETL 16, ESP 10 ms |
 | `tse` | turbo spin echo, linear ordering | TR 3000, ETL 16, ESP 10 ms (TEeff about 90 ms) |
 | `epi` | single-shot gradient-echo EPI | 64², FOV 220 mm, BW 2000 Hz/px, ESP 0.8 ms, TE 30 ms |
@@ -594,7 +619,9 @@ lessons and artifact cards can set them.
 | `fid_ws` | CHESS water suppression then pulse-acquire | as fid |
 
 Presets are part of the teaching: comment them as a careful instructor would,
-one short comment per non-obvious line.
+one short comment per non-obvious line. Comments describe k-space positions
+neutrally ("line 0 is the most negative ky"), because the UI draws ky
+increasing downward like image rows.
 
 ---
 
@@ -612,10 +639,13 @@ opts = { onProgress(frac), shouldAbort() -> bool, seed }
 
 ### 9.1 Model
 
-1. **Spin classes.** Points are grouped into classes = (tissue, B1 bin, Δf
-   bin). B1 bins: 9 bins of the B1 map (1 bin when the map is uniform). Δf
-   bins: only when the program contains spectrally selective RF; 16 bins of
-   the total off-resonance (B0 + chemical shift); else 1 bin.
+1. **Spin classes.** Points are grouped into classes = (tissue, B1 node, Δf
+   bin). B1: the magnetisation is tracked at 9 B1 values spread over the range
+   the object sees (1 when the map is uniform), and each point's amplitude is
+   interpolated linearly between the two nodes around its own B1, so
+   dielectric shading is smooth rather than stepped. Δf bins: only when the
+   program contains spectrally selective RF; 16 bins of each tissue's total
+   off-resonance (B0 + chemical shift); else 1 bin.
 2. **Magnetisation tracker.** Walk the time-ordered RF, spoil and ADC events
    once. Per class keep Mz (M0 = 1) and the amplitude Mxy of the single
    coherence pathway that the sequence is designed to refocus. Between events:
@@ -658,6 +688,11 @@ opts = { onProgress(frac), shouldAbort() -> bool, seed }
 7. **Recon sees nominal k only.** AcqData carries the nominal trajectory (what
    the scanner believes). Physical imperfections change the signal, never the
    nominal k, which is exactly why they cause artifacts.
+8. **No excitation.** If no recorded ADC has an excitation before it, or every
+   class amplitude at every ADC is 0, `simulate` throws a user error naming the
+   first ADC's source line. Expected student mistakes (no ADC, no excitation,
+   no encoding) throw errors with `err.userMessage = true`; the app shows them
+   in the scan bar and does not log them.
 
 ### 9.2 Artifacts (ctx.artifacts)
 
@@ -706,7 +741,7 @@ AcqData = {
   } ],
   truth: { nx, ny, fovX, fovY, data: Float32Array },   // ideal image: class amplitudes of the
           // readout nearest k = 0, rendered on the phantom raster and box-averaged to the image grid
-  stats: { scanTime, computeMs, teEff, nReadouts, fatShiftPx: {readout, phase}, bwPerPixel,
+  stats: { scanTime, computeMs, teEff, nReadouts, fatShiftPx: {readout, phase}, bwPerPixel, noiseSigma, noiseFactor,
            peBandwidthPerPixel (EPI), signalScale },
   warnings: [string]
 }
@@ -746,11 +781,12 @@ opts = {
   zeroFill: 1|2,
   partialFourier: 'zero'|'conjugate'|'homodyne',
   parallel: 'none'|'sense',               // SENSE applied only when regular undersampling is detected
-  coilCombine: 'sos'|'roemer'|'single', coil: 0,
+  coilCombine: 'roemer'|'sos'|'single', coil: 0,   // default 'roemer'
   densityComp: true,                      // non-Cartesian only
   epiGhostCorr: false,
   cropOversampling: true,
-  userMask: null                          // optional Uint8Array on the k-space grid (k-space tab edits)
+  userMask: null,                         // optional Uint8Array on the k-space grid (k-space tab edits)
+  userMaskGrid: null                      // {nx, ny, dkx, dky} of the grid the mask was drawn on
 };
 ReconResult = {
   kspace: { nx, ny, dkx, dky, re: [Float32Array per coil], im: [...], mask: Uint8Array,
@@ -775,8 +811,20 @@ map), crop the readout oversampling, combine coils. EPI ghost correction
 (when `epiGhostCorr` and the readouts alternate polarity) estimates the
 constant and linear phase difference between odd and even echoes from the
 data and removes it. `upTo` reconstructs from only the first `upTo` readouts
-(used during playback). `run` is synchronous and must take under 100 ms for
-128² × 8 coils.
+(used during playback). The edit mask is applied only on the grid it was
+drawn on (nx, ny equal, dkx, dky within 0.1 %), otherwise it is ignored with a
+note. The SENSE note reports g-factor statistics on the displayed (cropped)
+map within the object.
+
+`run` is synchronous. Targets: 128² × 8 coils under 40 ms, 256² × 8 coils
+under 150 ms, and an option change on radial 128 spokes under 150 ms. The
+readout oversampling is cropped between the readout and phase-encode halves
+of the inverse FFT. Work that does not depend on the options (readout plan,
+sample placement, line analysis, Kaiser-Bessel weights, density compensation,
+gridded k-space) is cached per AcqData object in a WeakMap, so an AcqData must
+not be modified after the scan. Every ReconResult has its own arrays. Zero
+filling at 256² is the one case that still takes about half a second; the app
+shows "Reconstructing" first.
 
 ---
 
@@ -793,8 +841,12 @@ SpecData = { n, dwell, sw, delay /* first sample after excitation centre */, nTr
              components: [ { id, name, color, re, im } ], // noise-free per species group (water, lipid, NAA, ...)
              noiseSigma, info: { waterSuppression, linewidthHz, notes: [] } }
 Spectrum  = { n, hz: Float64Array, ppm: Float64Array, re, im, mag,
-              components: [ { id, name, color, re } ],
-              peaks: [ { id, name, ppm, height, area } ], metrics: { snr, fwhmHz, ratios: {NAA_Cr, Cho_Cr} } }
+              components: [ { id, name, color, re, im } ],
+              peaks: [ { id, name, nominalPpm, window, ppm, height, area, baseline, snr,
+                         resolved, reason, contaminatedBy, componentHeight } ],
+              metrics: { snr, snrPeak, noiseSd, fwhmHz, tallestPpm, waterOffsetPpm,
+                         ratios: {NAA_Cr, Cho_Cr}, componentRatios: {NAA_Cr, Cho_Cr} },
+              notes: [string], phase: {ph0, ph1, auto}, params }
 ```
 
 Model: non-selective excitation covers the whole phantom. For each tissue,
@@ -814,11 +866,26 @@ and Gaussian (gb) apodisation, zero-fill ×zf, FFT, fftshift, phase
 `ph0 + ph1·(f/1000)` degrees with f in Hz (ph1 in deg/kHz), autoPhase that
 sets ph1 from the known acquisition delay (−360°·delay·f) and ph0 by
 maximising the real part of the tallest peak. ppm axis = 4.7 + f/PPM_HZ,
-displayed with ppm increasing to the left. Report SNR (height of the NAA
-peak, or of the tallest peak when there is no NAA, over the noise SD of the
-real spectrum measured in the outermost 15 % of the spectral width on the
-downfield side, which holds no signal), FWHM of the tallest peak, and
-NAA/Cr and Cho/Cr from integrals over 1.9-2.1, 2.95-3.1 and 3.15-3.27 ppm.
+displayed with ppm increasing to the left.
+
+Measurement: peak windows move by the measured water offset when water is
+found within 0.3 ppm of 4.7 ppm. Heights and areas are taken above a local
+baseline fitted to the lower points around each window (on the spectrum
+smoothed over one original grid step, which cancels zero-fill ripple). A peak
+with no maximum in its window, height ≤ 0, height below 3 noise SD or area ≤ 0
+has null height, area and snr, `resolved: false` and a reason; the UI shows
+"–". A metabolite peak whose window is dominated by lipid or water gets
+`contaminatedBy`, and its snr uses its own noise-free component height.
+`metrics.snrPeak` is 'NAA', 'NAA (under lipid)', 'NAA (under water)', 'NAA (not
+resolved)', 'NAA (lines too broad)' or 'tallest'. Noise SD comes from the
+outermost 15 % of the spectral width on the downfield side. NAA/Cr and Cho/Cr
+integrate 1.9-2.1, 2.95-3.1 and 3.15-3.27 ppm (moving with water) and are given
+only when all three metabolites are present, resolved, not dominated and water
+is no wider than 10 Hz; `componentRatios` integrate each metabolite's own
+noise-free component. Notes: T1 saturation (judged from Mz before each pulse,
+so CHESS is never blamed on T1), FID truncation (NP × dwell < 3 × the narrowest
+T2*) and broad lines (water FWHM > 10 Hz: "shim first"). User-facing errors
+carry `err.userMessage = true`.
 
 ---
 
@@ -827,14 +894,22 @@ NAA/Cr and Cho/Cr from integrals over 1.9-2.1, 2.95-3.1 and 3.15-3.27 ppm.
 ### 12.1 Layout (index.html + style.css + app.js)
 
 - Header: "← Back to Course Home" (`../../index.html`), title "MRI Simulator",
-  subtitle "A teaching scanner at 3 T — write a sequence, image a phantom,
+  subtitle "A teaching scanner at 3 T: write a sequence, image a phantom,
   watch k-space fill", a theme toggle (auto / light / dark; stored in
   localStorage inside try/catch; sets `data-theme` on `<html>`).
-- **Scan bar** (sticky under the header): Acquire button (▶), Stop, speed
-  select (Instant, Fast ≈ 4 s, Slow ≈ 15 s), a progress bar, a one-line
-  summary ("Spin echo · Brain · 128×128 · TR 3000 ms · TE 90 ms · scan
-  6:24 min"), an "Auto re-scan" checkbox (default on), and two small
-  thumbnails (k-space and image) that jump to their tabs.
+- **Scan bar** (sticky under the header): Acquire, Stop, speed select
+  (Instant, Fast ≈ 4 s, Slow ≈ 15 s), progress bar (with aria-valuetext), a
+  status line (#scanState live region with stage words only: Computing,
+  Acquiring, Reconstructing, Done, Stopped, Error, Not compiled, Waiting; the
+  compute percentage is aria-hidden; #scanMsg wraps to 2 lines for errors with
+  the compiler hint first; #scanAction is a sibling holding an optional action
+  such as "Open the Sequence tab"), a one-line summary, an "Auto re-scan"
+  checkbox (default on) and two thumbnails that jump to their tabs. The bar is
+  tab-aware: on the Spectroscopy tab Acquire reads "Acquire spectrum" and runs
+  the spectroscopy acquisition, the summary describes it, and Speed and Auto
+  re-scan are hidden. `--console-h` on :root tracks the sticky console's
+  height and drives `html { scroll-padding-top }`, so focused controls never
+  hide under it.
 - **Tab bar** built from `MRI.ui.tabs` sorted by `order`, with `role=tablist`,
   arrow-key navigation, and the active tab remembered (localStorage + URL
   hash `#tab=<id>`).
@@ -881,16 +956,21 @@ MRI.actions = {
   setPhantom(id, opts?), setPhantomOpts(patch),
   loadPreset(id), setSource(text), setParam(name, valueSI),
   setArtifacts(patch /* deep merge */), resetArtifacts(), setCoil(type),
-  setRecon(patch), reconstruct(),
+  setRecon(patch) -> Promise,        // state.recon changes at once; one reconstruction per animation frame
+  reconstruct() -> ReconResult|null, // synchronous
   runScan({ animate }) -> Promise, stopScan(),
-  showTab(id),
-  spectro: { loadPreset(id), setSource(text), setParam(name, v), setPhantom(id), setProcessing(patch), run() }
+  showTab(id, {focus}),              // focus: true moves keyboard focus to the panel's first heading
+  spectro: { loadPreset(id), setSource(text), setParam(name, v), setPhantom(id), setProcessing(patch), run(), currentSummary() }
 };
 ```
 
 Changing phantom, source/params, artifacts or coil triggers a debounced
-(250 ms) instant re-scan when `autoRescan` is on and the program compiled.
-`setRecon` only re-runs the reconstruction.
+(250 ms) instant re-scan when `autoRescan` is on and the program compiled,
+unless the scan is large (nx·ny > 256², or ADC samples × coils > 4 Mi); it is
+then skipped with `scan:skipped` and the bar says "Large scan: press Acquire".
+`setRecon` only re-runs the reconstruction, coalesced to one per animation
+frame; when a reconstruction is predicted to take over 150 ms the bar shows
+"Reconstructing" first.
 
 Bus events (payloads in braces):
 `phantom:changed {phantom}` · `program:compiled {program, errors}` ·
@@ -899,14 +979,22 @@ Bus events (payloads in braces):
 `playback:tick {t, frac, readoutsDone, rf, grad: {x, y, z}, adcOn, period}` ·
 `scan:done {acq}` · `scan:error {message}` · `recon:done {result, partial}` ·
 `tab:shown {id}` · `spectro:compiled {program, errors}` · `spectro:done {data, spectrum}` ·
-`theme:changed {dark}`.
+`theme:changed {dark}` · `scan:skipped {reason, message, pixels, sampleCoils}` ·
+`artifacts:focus {id}` (open, scroll to and focus one Artifacts card; ids noise, b1, coil,
+alias, gibbs, chem, b0, motion, flow, ghost, spike, zipper, under, train, dummies) ·
+`shim:open {}` (open the Shim panel on the Spectroscopy tab).
 
 **Playback.** After `engine.simulate` finishes, an animated scan maps sequence
-time onto wall time (Fast: whole scan in about 4 s; Slow: about 15 s), emits
+time onto wall time (Fast: whole scan in about 4 s; Slow: about 15 s; half of
+the time is paced by readouts so single-shot EPI fills visibly), emits
 `playback:tick` every animation frame, reveals readouts in acquisition order,
-and re-runs the reconstruction on the readouts so far every ~200 ms
-(`recon:done` with `partial: true`), so the image visibly builds up as k-space
-fills. Instant skips straight to the end.
+and re-runs the reconstruction on the readouts so far at most every
+max(200 ms, 3 × the last partial reconstruction's cost), never while the page
+is hidden (`recon:done` with `partial: true`). Before the first tick it emits
+an empty (upTo 0) partial result, so no view pairs the new acquisition with
+the previous image; Stop keeps exactly what was revealed. With averages > 1
+playback shows one average and the bar says so. Instant skips straight to the
+end.
 
 ### 12.4 Shared widgets (ui/widgets.js)
 
@@ -921,6 +1009,31 @@ statTable(rows) -> element, toast(msg, kind) }`.
 markers: [{x, label, color}], legend: true})`. `imageView` supports window
 and level by dragging (horizontal = width, vertical = level), double-click to
 reset, and a hover readout.
+
+Additions (round 3):
+- `concept({title, body, formula, tryThis, open, id, remember, main})`: the
+  title is an h2 in the summary; a card opens on the first visit to its tab
+  and is folded on later visits (localStorage `mriSim.concept.<tab>`), and
+  starts folded below 640 px wide or 860 px high (`main: true` exempts the
+  height rule). Folded, it shows the title and formula on one line.
+- `staleBanner(panelEl, {what, before}) -> {el, update(), destroy()}`: while
+  the current source does not compile, says "Showing the last scan: the
+  current sequence does not compile" with an "Open the Sequence tab" button.
+- `toast(msg, kind, {timeout, action})`: a toast holding an action never
+  auto-dismisses.
+- `imageView`: mouse drag for window/level with a "Reset window" button;
+  touch swipes scroll the page (a tap pins a readout with a crosshair; W/L
+  needs a 350 ms hold); keyboard: the canvas is focusable once it has hover or
+  click consumers, arrows move a crosshair (Shift ×10), Enter/Space click,
+  +/− width, PageUp/PageDown level, 0 resets, Escape clears; readouts go to a
+  polite live region. Hover payloads carry `source`.
+- `plot` tooltips keep the x unit (from "Name (unit)" or `xunit`).
+- `MRI.ui.terms`: the shared vocabulary (coil names, combination names,
+  display modes in the order Magnitude, Phase, Real, Imaginary,
+  `coilLabel(i, coilSet)`, "Try it" for in-place actions, "Show me" for
+  actions that switch tabs).
+- `MRI.ui.lessonStrip.show({title, onBack, backLabel}) / hide() / isShown()`:
+  a persistent strip under the tab bar that lessons use after "Set up".
 
 ### 12.5 The tabs
 
@@ -1009,6 +1122,37 @@ reset, and a hover readout.
   lipid (the reason localisation exists).
   Also the Shim panel of section 7.1.
 
+Round 3 details per tab:
+- **Sequence**: Ctrl or Cmd + wheel (or a pinch) zooms the timing diagram; a
+  plain wheel scrolls the page. A source value outside a slider's range is
+  shown in words under the track.
+- **k-space**: Apply hands `setRecon({userMask, userMaskGrid})`; a new grid
+  clears both with a toast.
+- **Image**: SNR = f × mean(signal ROI) / SD(noise ROI), with f = 0.655
+  (Rayleigh) for one coil, Roemer or SENSE and the chi factor (0.701 for 8
+  coils) for root-sum-of-squares; for Roemer the noise varies across the image
+  and is corrected from the true coil maps. Truth and scan facts come from the
+  acquisition the displayed result came from. On coarse pointers the image
+  defaults to Scroll mode.
+- **Scanner**: links to artifacts call `showTab('artifacts', {focus: true})`
+  and emit `artifacts:focus`; the coil text says the 8-channel array has about
+  1.6 times the body coil's SNR at the centre of the head and about 3 times
+  near the cortex.
+- **Contrast**: tissue colours come from the scope palette (`--sc1..8`); the
+  student's pair is drawn bold, other tissues thin and dashed, every curve
+  labelled at its end. CNR uses the current coil's noise model.
+- **Artifacts**: groups form an accordion; "Why / where in k-space / how to
+  fix" sit in a per-card details; the coil-shading demo sets root-sum-of-squares
+  explicitly; the flow card states that blood is stationary tissue here (no
+  flow void, no inflow enhancement; only pulsation is modelled).
+- **Spectroscopy**: one Spectrum | FID panel, secondary controls in details,
+  no Acquire button of its own (the scan bar runs it), unresolved peaks as
+  "–", "(under lipid)" flags, ratios only when meaningful, and a "shim first"
+  callout when water is over 10 Hz wide.
+- **Guide**: Set up uses `showTab(tab, {focus: true})` and the lesson strip.
+- **Phantom**: the tissue table sits in an "Edit tissue values" details; the
+  coil RSS caption gives the real centre value (about 0.66).
+
 ---
 
 ## 13. Testing
@@ -1059,7 +1203,9 @@ authors in particular need these.
   `segments` and `center.t`; `mxy` is signed, plot its absolute value.
   `stats.fatShiftPx` is signed; `stats.path` is 'fast', 'general' or 'mixed'.
 - **Recon.** Defaults are `partialFourier: 'homodyne'` and `parallel:
-  'sense'` (both only act when partial Fourier or undersampling is detected).
+  'sense'` (both only act when partial Fourier or undersampling is detected),
+  and `coilCombine: 'roemer'` (no coil shading, so truth and difference
+  compare like with like; root-sum-of-squares stays selectable).
   `kspace.tmap` is per-sample time since excitation. With SENSE the combined
   image is the unfolded solution and `coilImages` stay folded. With
   undersampling and `parallel: 'none'` the folded image is scaled by R. SENSE
@@ -1069,8 +1215,23 @@ authors in particular need these.
   the first sample; `SpecData.te` is excitation centre to first sample.
   `info.linewidthHz` is the FWHM of fully relaxed, unsuppressed whole-object
   water, also available live as `MRI.spectro.waterLine(phantom, ctx)` for the
-  Shim panel. `metrics.ratios` integrate fixed windows (the 1.9-2.1 ppm window
-  also catches Glu at 2.04 ppm); `metrics.componentRatios` are per-metabolite
+  Shim panel. `metrics.ratios` integrate windows that move with water (the
+  1.9-2.1 ppm window also catches Glu at 2.04 ppm) and are null unless
+  meaningful (section 11); `metrics.componentRatios` are per-metabolite
   and should be shown alongside. The unsuppressed spectrum carries a real
   dead-time baseline offset; use the peaks' `baseline` when zooming.
   `process` ignores `p.display`; the UI picks re, im or mag.
+- **UI conventions (round 3).** Format values that may be null with
+  `Number.isFinite`, never the global `isFinite` (which treats null as 0).
+  Scripted scrolls pass `behavior: MRI.util.scrollBehavior()`. Try-this buttons
+  say "Try it" when they act in place and "Show me" when they switch tabs.
+  Actions that switch tabs call `showTab(id, {focus: true})`. `setRecon`
+  returns a Promise; tests that read `state.reconResult` afterwards await it.
+  `recon:done` may carry the `acq` it came from; tabs pair a result with that
+  acquisition rather than with `state.acq`.
+- **Known limitations.** Zero filling at 256² blocks the page for about half a
+  second (a worker would fix it, but workers are blocked from `file://`).
+  Only the superior sagittal sinus pulsates, so flow ghosts are small. Blood is
+  stationary tissue (no flow void or inflow enhancement). One coherence
+  pathway: no stimulated echoes or balanced SSFP. The object is 2D (through-
+  plane effects are approximated as described in 9.1).

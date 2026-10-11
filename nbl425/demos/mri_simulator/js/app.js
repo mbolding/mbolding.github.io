@@ -291,7 +291,9 @@
 
     function scanFailed(err, extra) {
         const message = typeof err === 'string' ? err : errMessage(err);
-        if (err && err.stack) log.error(err);
+        // Errors marked userMessage (engine.js userError) are the student's
+        // sequence, not a bug: the scan bar says so, the console stays clean.
+        if (err && err.stack && !err.userMessage) log.error(err);
         state.scanning = false;
         playing = false;
         bus.emit('scan:error', Object.assign({ message: message }, extra || {}));
@@ -314,18 +316,44 @@
         const e = (prog && prog.errors && prog.errors[0]) || null;
         return e ? 'line ' + e.line + ': ' + e.msg : 'the sequence has errors';
     }
+    /* The same error with the compiler's hint first, because the hint is
+       the part that says what to do ("Increase TE by at least 3.79 ms")
+       and a long message would otherwise push it out of the scan bar. */
+    function compileErrorHintFirst(prog) {
+        const e = (prog && prog.errors && prog.errors[0]) || null;
+        if (!e) return 'The sequence has errors.';
+        const more = prog.errors.length > 1 ? ' (' + (prog.errors.length - 1) + ' more in the Sequence tab)' : '';
+        return 'Line ' + e.line + ': ' + (e.hint ? e.hint + ' ' : '') + e.msg + more;
+    }
+
+    /* Matrices above 256 x 256, or acquisitions with more samples x coils
+       than this, take seconds to simulate and reconstruct, so the automatic
+       re-scan skips them; Acquire still runs them on request. */
+    const AUTO_MAX_PIXELS = 256 * 256;
+    const AUTO_MAX_SAMPLES = 4 * 1024 * 1024;        // ADC samples x receive coils
+    function scanSize(prog) {
+        const im = (prog && prog.image) || {};
+        const coils = state.coilType === 'head8' ? 8 : 1;
+        const samples = prog && prog.stats && isFinite(prog.stats.nSamples) ? prog.stats.nSamples : 0;
+        return { pixels: (im.nx || 0) * (im.ny || 0), sampleCoils: samples * coils };
+    }
+    function isLargeScan(prog) {
+        const s = scanSize(prog);
+        return s.pixels > AUTO_MAX_PIXELS || s.sampleCoils > AUTO_MAX_SAMPLES;
+    }
 
     async function doScan(req, id) {
         const shouldAbort = function () { return abortRequested || id !== scanSeq; };
         const prog = state.program;
         if (!prog) return scanFailed('No sequence is loaded.', { stage: 'compile', tab: 'sequence' });
-        if (!prog.ok) return scanFailed('The sequence does not compile (' + compileErrorText(prog) + '). Fix it in the Sequence tab.', { stage: 'compile', tab: 'sequence' });
+        if (!prog.ok) return scanFailed('The sequence does not compile. ' + compileErrorHintFirst(prog), { stage: 'compile', tab: 'sequence' });
         if (!MRI.engine || typeof MRI.engine.simulate !== 'function') {
             return scanFailed('The imaging engine (js/engine.js) is not available, so nothing can be acquired.', { stage: 'compute' });
         }
         const animate = req.animate && state.speed !== 'instant';
         state.scanning = true;
         state.stale = false;
+        largeSkipped = false;
         bus.emit('scan:start', { animate: animate });
         // Let the browser paint "Computing" before the synchronous phantom and
         // coil-map work below (a few hundred ms the first time at a 512 raster).
@@ -359,16 +387,28 @@
             state.acq = acq;
             state.acqUpTo = 0;
             playing = true;
+            // Clear every view now: until the first readout arrives the tabs
+            // must show this (still empty) scan, never the previous scan's
+            // image next to the new acquisition.
+            partialRecon(acq, 0);
             const r = await playback(acq, prog, shouldAbort);
             playing = false;
             if (r.aborted) {
                 // Keep what was revealed. When the student pressed Stop, show
-                // exactly that much; when a newer scan took over, it will
-                // replace everything anyway.
+                // exactly that much (also when it is nothing); when a newer
+                // scan took over, it will replace everything anyway.
                 state.acqUpTo = r.readoutsDone;
-                if (userStopped && r.readoutsDone > 0 && r.readoutsDone !== r.reconned) partialRecon(acq, r.readoutsDone);
+                if (userStopped && r.readoutsDone !== r.reconned) partialRecon(acq, r.readoutsDone);
                 return scanAborted('playback', r.readoutsDone, acq.readouts.length);
             }
+        }
+        // A reconstruction that will freeze the page for a while gets a
+        // "Reconstructing" notice, painted before the work starts.
+        // (Every readout exists by now, so a Stop pressed during this short
+        // wait has nothing left to stop and the scan simply finishes.)
+        if (reconLooksSlow(acq) && doc) {
+            reconNotice(true);
+            await nextPaint();
         }
         state.acq = acq;
         state.acqUpTo = null;
@@ -455,8 +495,10 @@
             const gl = {}, gp = {};
             axes.forEach(function (a) { gl[a] = (grad[a] || []).slice().sort(byT0); gp[a] = 0; });
             const hasGradAt = MRI.dsl && typeof MRI.dsl.gradientAt === 'function';
+            const averages = prog.image && prog.image.averages > 1 ? prog.image.averages : 1;
             let pRf = 0, pAdc = 0, pPer = 0;
-            let start = null, tPrev = 0, done = 0, lastRecon = -Infinity, reconned = 0;
+            // reconned starts at 0: doScan has already shown the empty (0 readout) result.
+            let start = null, tPrev = 0, done = 0, lastRecon = -Infinity, reconned = 0, reconCost = 0;
 
             function rfInWindow(tA, t) {
                 while (pRf < rf.length && rf[pRf].t0 + rf[pRf].dur < tA) pRf++;
@@ -507,13 +549,21 @@
                     adcOn: adcInWindow(tPrev, t),
                     period: periodAt(t),
                     // extensions: the sequence-time window this frame covers, and totals
-                    t0: tPrev, duration: T, readouts: nR
+                    t0: tPrev, duration: T, readouts: nR, averages: averages
                 };
                 bus.emit('playback:tick', tick);
                 bus.emit('scan:progress', { frac: frac, stage: 'playback' });
-                if (frac < 1 && done > reconned && tNow - lastRecon >= 200 && !reconBroken) {
+                // Rebuild the image from the readouts so far every 200 ms, or
+                // less often when a reconstruction is slow (at most a third of
+                // the time goes to it, so the animation stays smooth at
+                // N = 256 or with radial gridding), and not at all while the
+                // page is hidden (nobody is watching; the final one still runs).
+                const interval = Math.max(200, 3 * reconCost);
+                if (frac < 1 && done > reconned && tNow - lastRecon >= interval && !reconBroken && !(doc && doc.hidden)) {
+                    const r0 = now();
                     if (!partialRecon(acq, done)) reconBroken = true;
                     lastRecon = now();
+                    reconCost = lastRecon - r0;
                     reconned = done;
                 }
                 tPrev = t;
@@ -538,8 +588,34 @@
         }
     }
 
-    /* Full reconstruction of state.acq with state.recon. During playback it
-       does nothing: the playback loop already uses the current options. */
+    /* How long will reconstructing this acquisition take? Learnt from the
+       last full reconstruction as milliseconds per unit of work (grid
+       pixels x coils x zero-fill area x oversampling), kept separately for
+       Cartesian data and for gridded (radial, spiral) data, which costs
+       several times more per pixel. null until something was measured. */
+    const reconRate = { cart: null, grid: null };
+    function reconKind(acq) {
+        const ax = acq && acq.grid ? acq.grid.readoutAxis : null;
+        return ax === 'x' || ax === 'y' ? 'cart' : 'grid';
+    }
+    function reconWork(acq) {
+        const g = (acq && acq.grid) || {}, zf = state.recon && state.recon.zeroFill > 1 ? state.recon.zeroFill : 1;
+        return Math.max(1, (g.nx || 128) * (g.ny || 128) * (acq.nCoils || 1) * zf * zf * (g.oversample || 1));
+    }
+    const SLOW_RECON_MS = 150;
+    function reconLooksSlow(acq) {
+        if (!acq) return false;
+        const rate = reconRate[reconKind(acq)];
+        return rate !== null && rate * reconWork(acq) > SLOW_RECON_MS;
+    }
+    /* The "Reconstructing" notice in the scan bar (set by the page shell;
+       a no-op without a document). */
+    let reconNotice = function () {};
+
+    /* Full reconstruction of state.acq with state.recon, now. During
+       playback it does nothing: the playback loop already uses the current
+       options. */
+    let lastReconInputs = null;      // {acq, recon, upTo} of the last full reconstruction
     function reconstruct() {
         if (!state.acq || playing) return null;
         if (!MRI.recon || typeof MRI.recon.run !== 'function') {
@@ -551,21 +627,78 @@
             const t0 = now();
             const result = MRI.recon.run(state.acq, state.recon, upTo !== null && upTo !== undefined ? { upTo: upTo } : {});
             state.reconMs = now() - t0;
+            if (upTo === null || upTo === undefined) reconRate[reconKind(state.acq)] = state.reconMs / reconWork(state.acq);
             state.reconResult = result;
+            lastReconInputs = { acq: state.acq, recon: state.recon, upTo: upTo };
+            reconNotice(false);
             bus.emit('recon:done', { result: result, partial: upTo !== null && upTo !== undefined });
             return result;
         } catch (e) {
+            reconNotice(false);
             log.error(e);
             bus.emit('scan:error', { message: 'Reconstruction failed: ' + errMessage(e), stage: 'recon' });
             return null;
         }
     }
 
+    /* Run fn once, on the next animation frame, or after 50 ms when no
+       frame comes (a hidden page does not paint). */
+    function onNextFrame(fn) {
+        let fired = false;
+        const go = function () { if (!fired) { fired = true; fn(); } };
+        raf(go);
+        setTimeout(go, 50);
+    }
+
+    /* setRecon coalesces: a burst of option changes (a slider dragged, a
+       lesson setting five options at once) costs one reconstruction, run
+       on the next animation frame with the options as they are then. When
+       the reconstruction is expected to take a while, the scan bar says
+       "Reconstructing" first and the work starts after that is painted,
+       because a synchronous reconstruction blocks painting until it ends.
+       Returns a Promise of the ReconResult (null when there is nothing to
+       reconstruct, or during playback). */
+    let reconQueued = null;          // {promise, resolve} of the coalesced reconstruction
+    function requestReconstruct() {
+        if (reconQueued) return reconQueued.promise;
+        let resolve;
+        const promise = new Promise(function (r) { resolve = r; });
+        reconQueued = { promise: promise, resolve: resolve };
+        const slow = !playing && reconLooksSlow(state.acq) && !!doc;
+        if (slow) reconNotice(true);
+        const run = function () {
+            const q = reconQueued;
+            reconQueued = null;
+            const L = lastReconInputs;
+            // A scan that finished in the meantime may already have reconstructed these exact inputs.
+            const fresh = L && L.acq === state.acq && L.recon === state.recon && L.upTo === state.acqUpTo && state.reconResult;
+            let result = null;
+            if (fresh) { result = state.reconResult; reconNotice(false); }
+            else result = reconstruct();
+            if (!result) reconNotice(false);
+            q.resolve(result);
+        };
+        if (slow) nextPaint().then(run);
+        else onNextFrame(run);
+        return promise;
+    }
+
     /* Settings changed: re-scan instantly once the student pauses (250 ms).
        Actions set state.stale before they emit their event, so listeners
-       (the scan bar summary) already see it, then call scheduleRescan. */
+       (the scan bar summary) already see it, then call scheduleRescan.
+       Very large scans are not started automatically (see isLargeScan). */
+    let largeSkipped = false;        // the last automatic re-scan was skipped because the scan is large
     const scheduleRescan = U.debounce(function () {
-        if (state.autoRescan && state.program && state.program.ok) runScan({ animate: false });
+        if (!(state.autoRescan && state.program && state.program.ok)) return;
+        if (isLargeScan(state.program)) {
+            largeSkipped = true;
+            const s = scanSize(state.program);
+            bus.emit('scan:skipped', { reason: 'large', pixels: s.pixels, sampleCoils: s.sampleCoils,
+                message: 'Large scan: press Acquire. Automatic re-scans stop above a 256 × 256 matrix or ' +
+                    (AUTO_MAX_SAMPLES / 1048576) + ' million samples × coils, because they take seconds.' });
+            return;
+        }
+        runScan({ animate: false });
     }, 250);
 
     /* ---------- spectroscopy ---------- */
@@ -588,7 +721,9 @@
         const sp = state.spectro;
         const id = ++spectroSeq;
         const fail = function (message, e) {
-            if (e) log.error(e);
+            // A user error (userMessage set by the simulator) is the student's
+            // sequence, not a bug: report it in the UI only.
+            if (e && !e.userMessage) log.error(e);
             sp.error = message;
             bus.emit('spectro:error', { message: message });
             return null;
@@ -608,7 +743,8 @@
             return { data: data, spectrum: spectrum };
         } catch (e) {
             if (id !== spectroSeq) return null;
-            return fail('Spectroscopy failed: ' + errMessage(e), e);
+            // No "Spectroscopy failed:" prefix: the tab already shows that heading.
+            return fail(errMessage(e), e);
         }
     }
     function reprocessSpectro() {
@@ -648,6 +784,19 @@
     }
     function hasParam(prog, name) {
         return !!(prog && prog.params && prog.params.some(function (p) { return p.name === name; }));
+    }
+    function phantomNameOf(id) {
+        try {
+            const l = MRI.phantoms.list().find(function (x) { return x.id === id; });
+            if (l) return l.name;
+        } catch (e) { /* phantoms missing: show the id */ }
+        return id;
+    }
+    /* One name per receive coil everywhere (MRI.ui.terms, from widgets.js). */
+    const COIL_NAMES = { body: 'Body coil', head8: '8-channel head coil' };
+    function coilName(type) {
+        const t = MRI.ui && MRI.ui.terms && MRI.ui.terms.coil;
+        return (t && t[type]) || COIL_NAMES[type] || String(type);
     }
 
     const actions = MRI.actions = {
@@ -703,22 +852,28 @@
             spectroInputsChanged();
         },
         setCoil: function (type) {
-            if (type !== 'body' && type !== 'head8') { notify('Unknown coil type "' + type + '".', 'warn'); return false; }
+            if (type !== 'body' && type !== 'head8') { notify('Unknown coil type "' + type + '". Choose the ' + coilName('body') + ' or the ' + coilName('head8') + '.', 'warn'); return false; }
             state.coilType = type;
             state.stale = true;
             bus.emit('coil:changed', { coilType: type });
             scheduleRescan();
             return true;
         },
-        /* Shallow merge into the recon options; only the reconstruction re-runs. */
+        /* Shallow merge into the recon options; only the reconstruction
+           re-runs, once per animation frame however many calls arrive
+           (see requestReconstruct). state.recon changes at once; the
+           result arrives with recon:done. Returns a Promise of the result. */
         setRecon: function (patch) {
             state.recon = Object.assign({}, state.recon, patch || {});
-            return reconstruct();
+            return requestReconstruct();
         },
         reconstruct: reconstruct,
         runScan: runScan,
         stopScan: stopScan,
-        showTab: function (id) { return showTab(id); },
+        /* showTab(id, {focus: true}) also moves keyboard focus to the
+           destination panel's first heading (use it after an action button
+           that switches tabs, so focus does not fall back to the page). */
+        showTab: function (id, opts) { return showTab(id, { focusPanel: !!(opts && opts.focus) }); },
 
         /* Extensions used by the scan bar (and handy for lessons). */
         setAutoRescan: function (on) {
@@ -740,11 +895,7 @@
         currentSummary: function () {
             const ok = !!(state.program && state.program.ok);
             const p = ok ? state.program : state.lastGoodProgram;
-            let phantomName = state.phantomId;
-            try {
-                const l = MRI.phantoms.list().find(function (x) { return x.id === state.phantomId; });
-                if (l) phantomName = l.name;
-            } catch (e) { /* phantoms missing: show the id */ }
+            const phantomName = phantomNameOf(state.phantomId);
             const param = function (name) {
                 const q = p && p.params ? p.params.find(function (x) { return x.name === name; }) : null;
                 return q ? q.value : null;
@@ -755,6 +906,10 @@
                 name: p ? (p.name || (preset && preset.name) || 'Untitled sequence') : null,
                 phantom: phantomName,
                 phantomId: state.phantomId,
+                coilType: state.coilType,
+                coil: coilName(state.coilType),
+                averages: p && p.image && p.image.averages > 1 ? p.image.averages : 1,
+                large: p ? isLargeScan(p) : false,
                 nx: p && p.image ? p.image.nx : null,
                 ny: p && p.image ? p.image.ny : null,
                 TR: p ? (st.TR !== null && st.TR !== undefined ? st.TR : param('TR')) : null,
@@ -799,7 +954,29 @@
                 state.spectro.processing = Object.assign({}, state.spectro.processing, patch || {});
                 return reprocessSpectro();
             },
-            run: function () { return runSpectro(); }
+            run: function () { return runSpectro(); },
+            /* {name, phantom, phantomId, TR, NA, scanTime, ok, errors} for the
+               spectroscopy program (seconds), for the scan bar on that tab. */
+            currentSummary: function () {
+                const sp = state.spectro, p = sp.program;
+                const ok = !!(p && p.ok);
+                const param = function (name) {
+                    const q = p && p.params ? p.params.find(function (x) { return x.name === name; }) : null;
+                    return q ? q.value : null;
+                };
+                const st = (p && p.stats) || {};
+                const preset = getPreset(sp.presetId);
+                return {
+                    name: ok ? (p.name || (preset && preset.name) || 'Untitled sequence') : null,
+                    phantom: phantomNameOf(sp.phantomId),
+                    phantomId: sp.phantomId,
+                    TR: ok ? (isFinite(st.TR) && st.TR !== null ? st.TR : param('TR')) : null,
+                    NA: ok ? (isFinite(st.nAdc) && st.nAdc > 0 ? st.nAdc : param('NA')) : null,
+                    scanTime: ok ? p.scanTime : null,
+                    ok: ok,
+                    errors: sp.compileErrors.length
+                };
+            }
         }
     };
 
@@ -849,33 +1026,94 @@
         renderProblems();
     }
 
-    /* ----- scan bar ----- */
-    function setState(text, led) {
-        const s = $('scanState'), l = $('scanLed');
-        if (s) s.textContent = text;
-        if (l) l.setAttribute('data-state', led || 'idle');
+    /* ----- scan bar -----
+       The bar describes one of two acquisitions: the imaging scan, or, while
+       the Spectroscopy tab is shown, the spectroscopy acquisition. Each keeps
+       its own status (state word, light, message, action, progress, busy),
+       so switching tabs shows the right one and Acquire runs the right one.
+       Writes to the page go through small setters that only touch what
+       changed: #scanState is a live region, so it must hear stage changes
+       ("Computing", "Acquiring", "Done"), not every frame or percentage. */
+    const bar = {
+        imaging: { state: 'Starting', led: 'idle', pct: '', msg: '', kind: null, action: null, busy: false, frac: 0, stage: '', valuetext: '', compileFail: false },
+        spectro: { state: 'Ready', led: 'idle', pct: '', msg: '', kind: null, action: null, busy: false, frac: 0, stage: '', valuetext: '', compileFail: false }
+    };
+    const beforeCompileFail = { imaging: null, spectro: null };    // status to restore once the program compiles again
+    function barDomain() { return activeTab === 'spectro' ? 'spectro' : 'imaging'; }
+    function setStatus(dom, patch) {
+        Object.assign(bar[dom], patch);
+        if (dom === barDomain()) renderStatus();
     }
+    function renderStatus() {
+        const dom = barDomain(), b = bar[dom];
+        setState(b.state, b.led, b.pct);
+        setMessage(b.msg, b.kind, b.action);
+        setProgress(b.frac, b.stage, b.valuetext);
+        setBusy(b.busy, dom);
+    }
+    function setState(text, led, pct) {
+        const s = $('scanState'), l = $('scanLed'), p = $('scanPct');
+        led = led || 'idle';
+        if (s && s.textContent !== text) s.textContent = text;          // unchanged text: no new announcement
+        if (l && l.getAttribute('data-state') !== led) l.setAttribute('data-state', led);
+        if (p && p.textContent !== (pct || '')) p.textContent = pct || '';   // aria-hidden: the progress bar carries it
+    }
+    /* The message and its optional action ({label, run}). The action is a
+       sibling of the message, outside its ellipsis, so it is never clipped;
+       it is rebuilt only when its label changes, so playback ticks do not
+       steal focus from it. */
     function setMessage(text, kind, action) {
-        const m = $('scanMsg');
+        const m = $('scanMsg'), a = $('scanAction');
         if (!m) return;
-        m.textContent = text || '';
-        m.title = text || '';
-        if (kind) m.setAttribute('data-kind', kind); else m.removeAttribute('data-kind');
-        if (action) {
-            m.appendChild(U.el('button', { type: 'button', class: 'linklike', onclick: action.run }, action.label));
+        text = text || '';
+        if (m.textContent !== text) { m.textContent = text; m.title = text; }
+        if ((m.getAttribute('data-kind') || null) !== (kind || null)) {
+            if (kind) m.setAttribute('data-kind', kind); else m.removeAttribute('data-kind');
         }
+        if (!a) return;
+        a.runAction = action && typeof action.run === 'function' ? action.run : null;
+        const label = action ? action.label : '';
+        if (a.getAttribute('data-label') !== label) {
+            const hadFocus = a.contains(doc.activeElement);
+            a.textContent = '';
+            a.setAttribute('data-label', label);
+            if (action) {
+                a.appendChild(U.el('button', { type: 'button', class: 'btn btn-xs scan-action-btn',
+                    onclick: function () { if (a.runAction) a.runAction(); } }, label));
+                if (hadFocus) a.firstChild.focus();
+            }
+        }
+        a.hidden = !action;
     }
-    function setProgress(frac, stage) {
-        const bar = $('scanProgress'), fill = $('scanProgressFill');
-        if (!bar || !fill) return;
-        bar.setAttribute('data-stage', stage || '');
+    function setProgress(frac, stage, valuetext) {
+        const pb = $('scanProgress'), fill = $('scanProgressFill');
+        if (!pb || !fill) return;
+        const pc = Math.round(100 * clamp01(frac));
+        if (pb.getAttribute('data-stage') !== (stage || '')) pb.setAttribute('data-stage', stage || '');
         fill.style.width = (100 * clamp01(frac)).toFixed(1) + '%';
-        bar.setAttribute('aria-valuenow', String(Math.round(100 * clamp01(frac))));
+        if (pb.getAttribute('aria-valuenow') !== String(pc)) pb.setAttribute('aria-valuenow', String(pc));
+        const vt = valuetext || pc + '%';
+        if (pb.getAttribute('aria-valuetext') !== vt) pb.setAttribute('aria-valuetext', vt);
     }
-    function setBusy(busy) {
-        const a = $('btnAcquire'), s = $('btnStop');
-        if (a) a.disabled = !!busy;
-        if (s) s.disabled = !busy;
+    function setBusy(busy, dom) {
+        const a = $('btnAcquire'), s = $('btnStop'), lab = $('btnAcquireLabel');
+        if (a) {
+            a.disabled = !!busy;
+            const spec = dom === 'spectro';
+            if (lab && lab.textContent !== (spec ? 'Acquire spectrum' : 'Acquire')) {
+                lab.textContent = spec ? 'Acquire spectrum' : 'Acquire';
+                a.title = spec ? 'Run the spectroscopy sequence on its phantom (Spectroscopy tab settings)'
+                    : 'Run the sequence on the phantom and play it back';
+            }
+        }
+        // Stop halts an imaging scan; spectra take a fraction of a second.
+        if (s) s.disabled = !(dom !== 'spectro' && bar.imaging.busy);
+        // Speed and Auto re-scan belong to the imaging scan (a spectrum is
+        // acquired again on every change anyway): style.css hides them while
+        // the bar describes the spectrum, which also keeps the longer
+        // "Acquire spectrum" button on one line on a phone.
+        const sb = $('scanbar');
+        if (sb && sb.classList.contains('is-spectro') !== (dom === 'spectro')) sb.classList.toggle('is-spectro', dom === 'spectro');
     }
     function syncScanControls() {
         const sel = $('selSpeed'), chk = $('chkAuto');
@@ -887,27 +1125,52 @@
         if (total >= 60) { const m = Math.floor(s / 60), r = Math.floor(s - 60 * m); return m + ':' + (r < 10 ? '0' : '') + r; }
         return (total >= 10 ? s.toFixed(1) : s.toFixed(2)) + ' s';
     }
+    /* NEX is modelled as noise scaling: playback shows one pass, while the
+       summary's scan time counts every average. Say so. */
+    function averagesNote(k) {
+        return k > 1 ? ' (1 of ' + k + ' averages shown; averaging lowers noise by √' + k + ' = ' + U.fmtNum(Math.sqrt(k), 3) + ')' : '';
+    }
     function updateSummary() {
         const el = $('scanSummary');
         if (!el) return;
-        const s = actions.currentSummary();
         el.textContent = '';
         const add = function (text, cls) { el.appendChild(cls ? U.el('span', { class: cls, text: text }) : doc.createTextNode(text)); };
-        if (!s.name) {
-            add(state.compileErrors.length ? 'The sequence has errors: ' + compileErrorText(state.program) : 'No sequence loaded', state.compileErrors.length ? 'sum-bad' : null);
+        let tip = null;
+        if (barDomain() === 'spectro') {
+            const s = actions.spectro.currentSummary();
+            if (!s.name) add(s.errors ? 'The spectroscopy sequence has errors: ' + compileErrorText(state.spectro.program) : 'No spectroscopy sequence loaded', s.errors ? 'sum-bad' : null);
+            else {
+                add(s.name, 'sum-name');
+                const parts = [s.phantom];
+                if (s.NA !== null && isFinite(s.NA)) parts.push('NA ' + s.NA);
+                if (s.TR !== null && isFinite(s.TR)) parts.push('TR ' + fmtMs(s.TR));
+                if (s.scanTime !== null && isFinite(s.scanTime)) parts.push('scan ' + U.fmtTime(s.scanTime));
+                add(' · ' + parts.join(' · '));
+                if (state.spectro.stale) add(' · changed since the last spectrum', 'sum-stale');
+            }
         } else {
-            add(s.name, 'sum-name');
-            const parts = [s.phantom];
-            if (s.nx && s.ny) parts.push(s.nx + '×' + s.ny);
-            if (s.TR !== null && isFinite(s.TR)) parts.push('TR ' + fmtMs(s.TR));
-            if (s.TI !== null && isFinite(s.TI) && s.TI > 0) parts.push('TI ' + fmtMs(s.TI));
-            if (s.TE !== null && isFinite(s.TE)) parts.push('TE ' + fmtMs(s.TE));
-            if (s.scanTime !== null && isFinite(s.scanTime)) parts.push('scan ' + U.fmtTime(s.scanTime));
-            add(' · ' + parts.join(' · '));
-            if (!s.ok) add(' · error, ' + compileErrorText(state.program), 'sum-bad');
-            else if (state.stale && !state.autoRescan && state.acq) add(' · changed since the last scan', 'sum-stale');
+            const s = actions.currentSummary();
+            if (!s.name) {
+                add(state.compileErrors.length ? 'The sequence has errors: ' + compileErrorText(state.program) : 'No sequence loaded', state.compileErrors.length ? 'sum-bad' : null);
+            } else {
+                // With a compile error the numbers are those of the last version that compiled; say so
+                // (the error itself is in the message line above).
+                if (!s.ok) add('Last version that compiled: ', 'sum-stale');
+                add(s.name, 'sum-name');
+                const parts = [s.phantom];
+                if (s.nx && s.ny) parts.push(s.nx + '×' + s.ny);
+                if (s.TR !== null && isFinite(s.TR)) parts.push('TR ' + fmtMs(s.TR));
+                if (s.TI !== null && isFinite(s.TI) && s.TI > 0) parts.push('TI ' + fmtMs(s.TI));
+                if (s.TE !== null && isFinite(s.TE)) parts.push('TE ' + fmtMs(s.TE));
+                if (s.averages > 1) parts.push('NEX ' + s.averages);
+                if (s.scanTime !== null && isFinite(s.scanTime)) parts.push('scan ' + U.fmtTime(s.scanTime));
+                add(' · ' + parts.join(' · '));
+                if (s.ok && largeSkipped && s.large && state.stale) add(' · large scan: press Acquire', 'sum-stale');
+                else if (s.ok && state.stale && !state.autoRescan && state.acq) add(' · changed since the last scan', 'sum-stale');
+                tip = el.textContent + ' · ' + s.coil;
+            }
         }
-        el.title = el.textContent;
+        el.title = tip || el.textContent;
     }
 
     /* Thumbnails: coil-1 k-space (log magnitude, about 4.5 decades) and
@@ -975,9 +1238,29 @@
         badge.title = problems.map(function (p) { return p.name + (p.detail ? ': ' + p.detail : ''); }).join('\n');
     }
 
+    /* Acquire follows the tab: on the Spectroscopy tab it acquires the
+       spectrum with that tab's sequence and phantom, everywhere else it
+       runs the imaging scan with playback. */
+    async function acquireSpectrum() {
+        setStatus('spectro', { busy: true, state: 'Acquiring', led: 'busy', pct: '', msg: 'simulating the FID', kind: null, action: null,
+            frac: 0.3, stage: 'compute', valuetext: 'Acquiring the spectrum' });
+        await nextPaint();          // show "Acquiring" before the synchronous simulation
+        await runSpectro();
+        // spectro:done or spectro:error set the outcome; a run that a newer one replaced reports nothing.
+        if (bar.spectro.busy) setStatus('spectro', { busy: false });
+    }
+    function acquire() {
+        if (barDomain() === 'spectro') acquireSpectrum();
+        else runScan({ animate: true });
+    }
+    function tabTitle(id) { const t = tabById(id); return t ? t.title : id; }
+    function openTabAction(id) {
+        return { label: 'Open the ' + tabTitle(id) + ' tab', run: function () { showTab(id, { focusPanel: true }); } };
+    }
+
     function wireScanBar() {
         const a = $('btnAcquire'), s = $('btnStop'), sel = $('selSpeed'), chk = $('chkAuto');
-        if (a) a.addEventListener('click', function () { runScan({ animate: true }); });
+        if (a) a.addEventListener('click', acquire);
         if (s) s.addEventListener('click', stopScan);
         if (sel) sel.addEventListener('change', function () { actions.setSpeed(sel.value); });
         if (chk) chk.addEventListener('change', function () { actions.setAutoRescan(chk.checked); });
@@ -986,55 +1269,68 @@
         if (ti) ti.addEventListener('click', function () { showTab('image'); });
         syncScanControls();
 
+        let reconSaved = null;
+        reconNotice = function (on) {
+            const b = bar.imaging;
+            if (on) {
+                if (b.state === 'Reconstructing') return;
+                reconSaved = { state: b.state, led: b.led, pct: b.pct };
+                setStatus('imaging', { state: 'Reconstructing', led: 'busy', pct: '' });
+            } else {
+                if (b.state === 'Reconstructing' && reconSaved) setStatus('imaging', reconSaved);
+                reconSaved = null;
+            }
+        };
+
         let scanAnimated = false;
         bus.on('scan:start', function (e) {
             scanAnimated = !!(e && e.animate);
-            setBusy(true);
-            setState('Computing', 'busy');
-            setMessage('simulating the signal');
-            setProgress(0, 'compute');
+            beforeCompileFail.imaging = null;
+            setStatus('imaging', { compileFail: false, busy: true, state: 'Computing', led: 'busy', pct: '0%', msg: 'simulating the signal', kind: null, action: null,
+                frac: 0, stage: 'compute', valuetext: 'Computing, 0%' });
             markThumbs(true);
             updateSummary();
         });
         bus.on('scan:progress', function (e) {
             if (!e) return;
             if (e.stage === 'compute') {
-                setState('Computing ' + Math.round(100 * clamp01(e.frac)) + '%', 'busy');
-                setProgress(e.frac, 'compute');
-            } else setProgress(e.frac, 'playback');
+                const pc = Math.round(100 * clamp01(e.frac)) + '%';
+                setStatus('imaging', { state: 'Computing', led: 'busy', pct: pc, frac: e.frac, stage: 'compute', valuetext: 'Computing, ' + pc });
+            } else setStatus('imaging', { frac: e.frac, stage: 'playback' });
         });
         bus.on('playback:tick', function (e) {
             if (!e) return;
-            setState('Acquiring', 'busy');
-            setMessage(e.readoutsDone + ' of ' + e.readouts + ' readouts · ' + fmtClock(e.t, e.duration) + ' of ' + fmtClock(e.duration, e.duration));
+            setStatus('imaging', { state: 'Acquiring', led: 'busy', pct: '', kind: null, action: null,
+                msg: e.readoutsDone + ' of ' + e.readouts + ' readouts · ' + fmtClock(e.t, e.duration) + ' of ' + fmtClock(e.duration, e.duration) + averagesNote(e.averages),
+                valuetext: 'Acquiring, ' + e.readoutsDone + ' of ' + e.readouts + ' readouts' });
         });
         bus.on('scan:done', function (e) {
-            setBusy(false);
-            setProgress(1, 'done');
             const acq = e && e.acq, st = (acq && acq.stats) || {};
             const n = acq && acq.readouts ? acq.readouts.length : 0;
-            setState('Done', 'done');
             const warn = acq && acq.warnings && acq.warnings.length ? acq.warnings[0] : null;
-            if (warn) setMessage(warn, 'warn');
-            else setMessage(n + ' readouts' + (isFinite(st.computeMs) ? ' · computed in ' + U.fmtTime(st.computeMs / 1000) : '') + (scanAnimated ? '' : ' · instant'));
+            setStatus('imaging', { busy: false, frac: 1, stage: 'done', valuetext: 'Done', state: 'Done', led: 'done', pct: '', action: null,
+                msg: warn || (n + ' readouts' + (isFinite(st.computeMs) ? ' · computed in ' + U.fmtTime(st.computeMs / 1000) : '') + (scanAnimated ? '' : ' · instant')),
+                kind: warn ? 'warn' : null, compileFail: false });
+            // The source was broken while this scan ran: that is still the news.
+            if (state.program && !state.program.ok) { beforeCompileFail.imaging = null; compiled('imaging', state.program, state.compileErrors, 'sequence'); }
             updateSummary();
         });
         bus.on('scan:error', function (e) {
             const msg = (e && e.message) || 'The scan failed.';
             if (e && e.stage === 'recon') {
-                setState('Recon error', 'error');
-                setMessage(msg, 'bad');
+                setStatus('imaging', { state: 'Recon error', led: 'error', pct: '', msg: msg, kind: 'bad', action: null });
                 markThumbs(false);
                 return;
             }
-            setBusy(false);
-            setProgress(0, 'done');
             markThumbs(false);
-            if (e && e.aborted) { setState('Stopped', 'warn'); setMessage(msg, 'warn'); }
-            else {
-                setState('Error', 'error');
-                setMessage(msg, 'bad', e && e.tab ? { label: 'Open the ' + (e.tab === 'sequence' ? 'Sequence' : e.tab) + ' tab', run: function () { showTab(e.tab); } } : null);
-            }
+            const base = { busy: false, frac: 0, stage: 'done', valuetext: '', pct: '' };
+            if (e && e.aborted) setStatus('imaging', Object.assign(base, { state: 'Stopped', led: 'warn', msg: msg, kind: 'warn', action: null }));
+            else setStatus('imaging', Object.assign(base, { state: 'Error', led: 'error', msg: msg, kind: 'bad', action: e && e.tab ? openTabAction(e.tab) : null,
+                compileFail: !!(e && e.stage === 'compile') }));
+            updateSummary();
+        });
+        bus.on('scan:skipped', function (e) {
+            setStatus('imaging', { state: 'Waiting', led: 'warn', pct: '', msg: (e && e.message) || 'Large scan: press Acquire.', kind: 'warn', action: null });
             updateSummary();
         });
         bus.on('recon:done', function (e) {
@@ -1042,10 +1338,49 @@
             markThumbs(false);          // dimmed only while computing; during playback they fill visibly
             drawThumbs(e.result);
         });
+        /* A program that stops compiling puts the bar in "Not compiled",
+           with the error (hint first) and a way to the editor; once it
+           compiles again the previous status comes back. */
+        const compiled = function (dom, prog, errors, tab) {
+            const b = bar[dom];
+            if (errors && errors.length) {
+                if (!beforeCompileFail[dom]) beforeCompileFail[dom] = { state: b.state, led: b.led, pct: b.pct, msg: b.msg, kind: b.kind, action: b.action };
+                setStatus(dom, { state: 'Not compiled', led: 'warn', pct: '', msg: 'Does not compile. ' + compileErrorHintFirst(prog), kind: 'warn',
+                    action: tab ? openTabAction(tab) : null, compileFail: true });
+            } else if (b.compileFail) {
+                // Still showing a compile problem ("Not compiled", or the Error of an
+                // Acquire pressed meanwhile): put back what was there before.
+                const prev = beforeCompileFail[dom] || { state: 'Ready', led: 'idle', pct: '', msg: '', kind: null, action: null };
+                setStatus(dom, Object.assign({}, prev, { compileFail: false }));
+            }
+            if (!(errors && errors.length)) beforeCompileFail[dom] = null;
+        };
+        /* "Large scan: press Acquire" no longer applies once the scan is small again. */
+        const largeGone = function () {
+            if (bar.imaging.state === 'Waiting' && state.program && state.program.ok && !isLargeScan(state.program)) {
+                largeSkipped = false;
+                setStatus('imaging', { state: 'Ready', led: 'idle', pct: '', msg: '', kind: null, action: null });
+            }
+        };
+        bus.on('program:compiled', function (e) { compiled('imaging', e && e.program, e && e.errors, 'sequence'); largeGone(); updateSummary(); });
+        bus.on('coil:changed', largeGone);
+        bus.on('spectro:compiled', function (e) { compiled('spectro', e && e.program, e && e.errors, null); updateSummary(); });
         bus.on('spectro:error', function (e) {
-            if (activeTab === 'spectro' && e && e.message) setMessage(e.message, 'bad');
+            setStatus('spectro', { busy: false, state: 'Error', led: 'error', pct: '', msg: (e && e.message) || 'The spectrum could not be acquired.', kind: 'bad',
+                action: null, frac: 0, stage: 'done', valuetext: '' });
         });
-        ['program:compiled', 'phantom:changed', 'artifacts:changed', 'coil:changed'].forEach(function (evt) {
+        bus.on('spectro:done', function (e) {
+            const d = (e && e.data) || {};
+            const parts = [];
+            if (d.nTransients) parts.push(d.nTransients + (d.nTransients === 1 ? ' transient' : ' transients averaged'));
+            if (d.n) parts.push(d.n + ' points');
+            if (isFinite(d.sw) && d.sw > 0) parts.push('SW ' + U.fmtFreq(d.sw));
+            setStatus('spectro', { busy: false, state: 'Done', led: 'done', pct: '', msg: parts.join(' · '), kind: null, action: null,
+                frac: 1, stage: 'done', valuetext: 'Done' });
+            updateSummary();
+        });
+        bus.on('tab:shown', function () { renderStatus(); updateSummary(); });
+        ['phantom:changed', 'artifacts:changed', 'coil:changed'].forEach(function (evt) {
             bus.on(evt, updateSummary);
         });
     }
@@ -1113,7 +1448,7 @@
                 else if (e.key === 'End') j = btns.length - 1;
                 if (j === null) return;
                 e.preventDefault();
-                showTab(tabs[j].id, { focus: true });
+                showTab(tabs[j].id, { focusTab: true });
             });
         }
     }
@@ -1171,7 +1506,11 @@
 
     /* Show a tab: hide the old one (onHide), show the new one (onShow after
        it is visible, so canvases measure their real size), remember it,
-       and emit tab:shown. Unknown ids fall back to the Guide. */
+       and emit tab:shown. Unknown ids fall back to the Guide.
+       opts.focusTab focuses the tab button (arrow keys in the tab bar);
+       opts.focusPanel moves focus to the panel's first heading, for action
+       buttons that switch tabs, so keyboard and screen-reader users land at
+       the start of the new content instead of on <body>. */
     function showTab(id, opts) {
         opts = opts || {};
         if (!doc || !tabs.length) return false;
@@ -1189,8 +1528,8 @@
         t.panel.hidden = false;
         t.button.setAttribute('aria-selected', 'true');
         t.button.tabIndex = 0;
-        if (opts.focus) t.button.focus();
-        try { t.button.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* old browsers */ }
+        if (opts.focusTab) t.button.focus();
+        try { t.button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { /* old browsers */ }
         storeSet('mriSim.tab', t.id);
         writeHash(t.id);
         if (changed && !opts.initial) keepPanelInView();
@@ -1199,16 +1538,116 @@
             bus.emit('tab:shown', { id: t.id });
             if (t.id === 'spectro' && state.spectro.stale) scheduleSpectro();
         }
+        syncLessonStrip();
+        if (opts.focusPanel) focusPanelHeading(t.panel);
         return true;
+    }
+    /* Focus the first heading of a panel (made focusable with tabindex -1),
+       or the panel itself when it has none. */
+    function focusPanelHeading(panel) {
+        if (!panel) return;
+        let h = null;
+        const all = panel.querySelectorAll('h1, h2, h3, h4, [role="heading"]');
+        for (let i = 0; i < all.length; i++) { if (all[i].getClientRects().length) { h = all[i]; break; } }
+        const target = h || panel;
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+        // Bring it into view below the sticky console (html scroll-padding-top accounts for it).
+        const r = target.getBoundingClientRect();
+        if (r.top < consoleHeight() || r.top > (root.innerHeight || 800) - 40) {
+            try { target.scrollIntoView({ block: 'start', behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { /* old browsers */ }
+        }
     }
     /* After switching tabs, if the page was scrolled into the old tab, jump
        to the top of the new one rather than landing in its middle. */
     function keepPanelInView() {
-        const panels = $('panels'), con = $('console');
+        const panels = $('panels');
         if (!panels || !root.scrollTo) return;
-        const top = panels.getBoundingClientRect().top + (root.pageYOffset || 0) - (con ? con.offsetHeight : 0);
+        const top = panels.getBoundingClientRect().top + (root.pageYOffset || 0) - consoleHeight();
         if ((root.pageYOffset || 0) > top) root.scrollTo(0, Math.max(0, top));
     }
+
+    /* ----- console height -----
+       --console-h on :root is the height the sticky console covers at the
+       top of the viewport (0 when it scrolls away, in the short-landscape
+       rule). style.css turns it into html { scroll-padding-top }, so focus
+       moves and scrollIntoView calls stop below the console instead of
+       under it; tabs can use it for their own sticky offsets. */
+    function consoleHeight() {
+        const con = $('console');
+        if (!con) return 0;
+        let pos = 'sticky';
+        try { pos = root.getComputedStyle(con).position; } catch (e) { /* keep sticky */ }
+        return pos === 'sticky' || pos === 'fixed' ? con.offsetHeight : 0;
+    }
+    let lastConsoleH = -1;
+    function syncConsoleHeight() {
+        const h = consoleHeight();
+        if (h === lastConsoleH) return;
+        lastConsoleH = h;
+        doc.documentElement.style.setProperty('--console-h', h + 'px');
+    }
+    function watchConsole() {
+        const con = $('console');
+        syncConsoleHeight();
+        if (con && root.ResizeObserver) new root.ResizeObserver(syncConsoleHeight).observe(con);
+        root.addEventListener('resize', syncConsoleHeight);
+        root.addEventListener('orientationchange', syncConsoleHeight);
+    }
+
+    /* ----- lesson strip -----
+       MRI.ui.lessonStrip.show({title, onBack, backLabel}) puts a slim bar
+       inside the sticky console, under the tab bar: "Lesson 3 · k-space:
+       centre is contrast ... [Back to the steps] [×]". It stays (on every
+       tab but the Guide, where the steps already are) until it is closed or
+       replaced by another show(); hide() removes it. Unlike a toast it is
+       always in reach, in the tab order right after the tab bar. */
+    let strip = null;
+    const lessonStrip = {
+        show: function (o) {
+            o = o || {};
+            if (!doc) return null;
+            const con = $('console');
+            if (!con) return null;
+            if (!strip) {
+                const text = U.el('span', { class: 'lesson-strip-title' });
+                const back = U.el('button', { type: 'button', class: 'btn btn-xs lesson-strip-back' });
+                const close = U.el('button', { type: 'button', class: 'lesson-strip-close', 'aria-label': 'Close the lesson reminder', title: 'Close' }, '×');
+                const el = U.el('div', { class: 'lesson-strip', id: 'lessonStrip', role: 'region', 'aria-label': 'Current lesson' }, [
+                    U.el('div', { class: 'wrap lesson-strip-inner' }, [text, back, close])
+                ]);
+                back.addEventListener('click', function () { if (strip && typeof strip.onBack === 'function') strip.onBack(); else showTab('lessons', { focusPanel: true }); });
+                close.addEventListener('click', function () {
+                    const hadFocus = strip && strip.el.contains(doc.activeElement);
+                    lessonStrip.hide();
+                    // Focus would fall to <body>; put it on the active tab instead.
+                    const t = tabById(activeTab);
+                    if (hadFocus && t && t.button) t.button.focus();
+                });
+                con.appendChild(el);
+                strip = { el: el, text: text, back: back, close: close, onBack: null };
+            }
+            strip.text.textContent = o.title || 'Lesson';
+            strip.text.title = o.title || '';
+            strip.back.textContent = o.backLabel || 'Back to the steps';
+            strip.onBack = o.onBack || null;
+            strip.dismissed = false;
+            syncLessonStrip();
+            return strip.el;
+        },
+        hide: function () {
+            if (!strip) return;
+            strip.dismissed = true;
+            syncLessonStrip();
+        },
+        isShown: function () { return !!(strip && !strip.dismissed); }
+    };
+    function syncLessonStrip() {
+        if (!strip) return;
+        strip.el.hidden = !!strip.dismissed || activeTab === 'lessons';
+    }
+    MRI.ui = MRI.ui || {};
+    MRI.ui.lessonStrip = lessonStrip;
 
     /* ----- theme ----- */
     const THEMES = ['auto', 'light', 'dark'];
@@ -1269,6 +1708,7 @@
         };
         step('theme', initTheme);
         step('scan bar', wireScanBar);
+        step('console height', watchConsole);
         CORE_MODULES.forEach(function (m) {
             if (!m.present()) addProblem(m.name + ' (' + m.file + ')', bootErrorFor(m.file) || 'not loaded');
         });
@@ -1295,13 +1735,16 @@
             bus.emit('theme:changed', { dark: isDark(), mode: themeMode });
         });
         updateSummary();
-        setState('Ready', 'idle');
+        if (bar.imaging.state === 'Starting') setStatus('imaging', { state: 'Ready', led: 'idle' });
+        renderStatus();
+        syncConsoleHeight();
 
         root.addEventListener('hashchange', function () {
             const id = hashTab();
             if (id && id !== activeTab && tabById(id)) showTab(id);
         });
         root.addEventListener('resize', U.debounce(function () {
+            syncConsoleHeight();
             callTab(tabById(activeTab), 'onShow');
             if (lastThumbResult) drawThumbs(lastThumbResult);
         }, 150));
@@ -1309,10 +1752,10 @@
         root.addEventListener('error', function (e) {
             if (!e || (e.target && e.target !== root)) return;     // resource load errors are handled at boot
             if (/ResizeObserver loop/.test(e.message || '')) return;  // benign layout notice, not a failure
-            setMessage('Unexpected error: ' + (e.message || 'see the browser console'), 'bad');
+            setStatus(barDomain(), { msg: 'Unexpected error: ' + (e.message || 'see the browser console'), kind: 'bad', action: null });
         });
         root.addEventListener('unhandledrejection', function (e) {
-            setMessage('Unexpected error: ' + errMessage(e && e.reason), 'bad');
+            setStatus(barDomain(), { msg: 'Unexpected error: ' + errMessage(e && e.reason), kind: 'bad', action: null });
         });
 
         MRI.app.booted = true;

@@ -31,14 +31,14 @@ function artifacts(patch) {
     return a;
 }
 
-/* One acquisition. o: { prog | overrides, edit, phantom | n, phantomOpts, coil, art, seed, forceGeneral, onProgress, shouldAbort } */
+/* One acquisition. o: { prog | overrides, edit, phantom | n, phantomOpts, coil (type or CoilSet), art, seed, forceGeneral, onProgress, shouldAbort } */
 async function scan(preset, phantomId, o) {
     o = o || {};
     const prog = o.prog || compile(preset, o.overrides, o.edit);
     const n = o.n || (max(prog.image.nx, prog.image.ny) <= 128 ? 256 : 512);
     const ph = o.phantom || MRI.phantoms.build(phantomId, Object.assign({ n: n }, o.phantomOpts || {}));
     const art = artifacts(o.art);
-    const cs = MRI.fields.coilSet(o.coil || 'body');
+    const cs = o.coil && typeof o.coil === 'object' ? o.coil : MRI.fields.coilSet(o.coil || 'body');
     const ctx = {
         b0Map: MRI.fields.b0Map(ph, art.b0), b1Map: MRI.fields.b1Map(ph, art.b1),
         coilSet: cs, coilMaps: MRI.fields.coilMaps(cs, ph.n, ph.n, ph.fov, ph.fov), artifacts: art
@@ -219,32 +219,40 @@ async function testFastVersusGeneral() {
        summation. On a 128 raster the general path sums every point exactly
        (no lumping), so this measures the fast path's own error; on the 256
        raster it lumps 2 x 2 cells into rectangles. */
+    const b1 = { b1: { amount: 0.4 } };          // B1 interpolation between nodes, on both paths
     const cases = [
         ['gre_t1', 'brain', 128, 'body', 0.002], ['gre_t1', 'brain', 128, 'head8', 0.002],
         ['se', 'brain', 128, 'body', 0.002], ['epi', 'brain', 128, 'body', 0.002], ['tse', 'brain', 128, 'body', 0.002],
+        ['se', 'brain', 128, 'head8', 0.002, b1],
         ['gre_t1', 'brain', 256, 'body', 0.01], ['gre_t1', 'brain', 256, 'head8', 0.01], ['se', 'shepp', 256, 'head8', 0.01],
+        ['se', 'braino', 256, 'head8', 0.01, b1],
         ['radial', 'brain', 256, 'body', 0.01], ['gre_fatsat', 'waterfat', 256, 'body', 0.01]
     ];
     const lines = [];
-    for (const [p, ph, n, coil, tol] of cases) {
+    for (const [p, ph, n, coil, tol, extra] of cases) {
         const ov = p === 'radial' ? { N: 32, spokes: 48 } : { N: 32 };
-        const a = await scan(p, ph, { n, overrides: ov, art: { noise: 0 }, coil });
-        const b = await scan(p, ph, { n, overrides: ov, art: { noise: 0 }, coil, forceGeneral: true });
+        const art = Object.assign({ noise: 0 }, extra || {});
+        const a = await scan(p, ph, { n, overrides: ov, art, coil });
+        const b = await scan(p, ph, { n, overrides: ov, art, coil, forceGeneral: true });
         const dk = rawDiff(a, b), di = relDiff(recon(a).image.mag, recon(b).image.mag);
-        ok(a.stats.path === 'fast' && b.stats.path === 'general' && b.warnings.length === 1, p + ': path bookkeeping');
-        ok(dk < tol && di < tol, p + ' on ' + ph + ' ' + n + ' ' + coil + ': fast and general paths agree (raw ' + dk.toExponential(2) + ', image ' + di.toExponential(2) + ')');
-        lines.push(p + '/' + n + '/' + coil + ' ' + (100 * dk).toFixed(3) + '%');
+        const tag = p + ' on ' + ph + ' ' + n + ' ' + coil + (extra ? ' B1 0.4' : '');
+        ok(a.stats.path === 'fast' && b.stats.path === 'general' && b.warnings.length === 1, tag + ': path bookkeeping');
+        ok(dk < tol && di < tol, tag + ': fast and general paths agree (raw ' + dk.toExponential(2) + ', image ' + di.toExponential(2) + ')');
+        lines.push(p + '/' + n + '/' + coil + (extra ? '/B1' : '') + ' ' + (100 * dk).toFixed(3) + '%');
     }
     info('fast vs general, raw-data difference: ' + lines.join(', '));
 }
 
 async function testNoiseCalibration() {
+    /* NOISE_REF is defined for one uniform coil of noise factor 1 (section
+       3): the body coil's sensitivity map with an element's noise. */
     const ph = uniformPhantom(256);
+    const unitCoil = Object.assign({}, MRI.fields.coilSet('body'), { noiseFactor: 1 });
     const res = {};
-    for (const [bw, nex] of [[250, 1], [250, 2], [1000, 1]]) {
+    for (const [bw, nex, coil] of [[250, 1, unitCoil], [250, 2, unitCoil], [1000, 1, unitCoil], [250, 1, 'body']]) {
         const prog = compile(CAL_SOURCE(bw, nex));
-        const clean = await scan(null, null, { prog, phantom: ph, art: { noise: 0 } });
-        const noisy = await scan(null, null, { prog, phantom: ph, art: { noise: 1 }, seed: 11 });
+        const clean = await scan(null, null, { prog, phantom: ph, art: { noise: 0 }, coil });
+        const noisy = await scan(null, null, { prog, phantom: ph, art: { noise: 1 }, seed: 11, coil });
         const a = recon(clean), b = recon(noisy);
         const nx = a.image.nx;
         // pure noise image = noisy - clean (complex coil image, readout oversampling cropped)
@@ -255,22 +263,67 @@ async function testNoiseCalibration() {
         }
         const sd = sqrt(s2 / m - (s / m) ** 2);
         const sig = discMean(a.image.mag, nx, nx, 0.24, 0, 0, 0.05);
-        res[bw + '/' + nex] = { sd, sig };
+        res[bw + '/' + nex + (coil === 'body' ? '/body' : '')] = { sd, sig, sigma: noisy.stats.noiseSigma, factor: noisy.stats.noiseFactor };
     }
-    const ref = res['250/1'];
+    const ref = res['250/1'], body = res['250/1/body'];
     info('NOISE_REF = ' + E.NOISE_REF.toExponential(5) + '; reference scan: signal ' + ref.sig.toFixed(5) + ', image noise SD ' + ref.sd.toFixed(5) +
-        ', NEX 2: ' + res['250/2'].sd.toFixed(5) + ', 1000 Hz/px: ' + res['1000/1'].sd.toFixed(5));
+        ', NEX 2: ' + res['250/2'].sd.toFixed(5) + ', 1000 Hz/px: ' + res['1000/1'].sd.toFixed(5) + '; body coil (noise factor ' +
+        MRI.fields.coilSet('body').noiseFactor + '): ' + body.sd.toFixed(5) + ', SNR ' + (body.sig / body.sd).toFixed(1));
     near(ref.sig, 1, 0.002, 'uniform m = 1, 5 mm slice, unit coil reconstructs to 1.0');
-    near(ref.sd, 0.01, 0.0003, 'reference scan has image noise SD 0.01 (SNR 100)');
+    near(ref.sd, 0.01, 0.0003, 'reference scan with a noise factor 1 coil has image noise SD 0.01 (SNR 100)');
     near(ref.sd / res['250/2'].sd, sqrt(2), 0.05, 'two averages improve SNR by sqrt 2');
     near(res['1000/1'].sd / ref.sd, 2, 0.06, 'noise grows as sqrt(BW): 4x bandwidth, 2x noise');
     near(E.NOISE_REF, 0.01 / (sqrt(250 * 256) * (1 / 0.48) * (1 / 0.24) * sqrt(256 * 128)), 1e-15, 'NOISE_REF follows from section 3');
+    ok(MRI.fields.coilSet('body').noiseFactor > 2 && MRI.fields.coilSet('head8').noiseFactor === 1, 'noise factors: body about 2.4, head8 element 1');
+    near(body.sig, 1, 0.002, 'body coil: same signal');
+    near(body.sd / ref.sd, MRI.fields.coilSet('body').noiseFactor, 0.08, 'body coil: noise scaled by its noise factor');
+    near(body.sigma / ref.sigma, body.factor, 1e-12, 'stats.noiseSigma includes the noise factor (stats.noiseFactor ' + body.factor + ')');
 
     // Same seed, same noise; another seed, other noise; the noise does not depend on the artifacts that are on.
     const prog = compile('gre_t1', { N: 32 });
     const a1 = await scan(null, 'braino', { prog, seed: 5 }), a2 = await scan(null, 'braino', { prog, seed: 5 }), a3 = await scan(null, 'braino', { prog, seed: 6 });
     ok(rawDiff(a1, a2) === 0, 'same seed reproduces the data exactly');
     ok(rawDiff(a1, a3) > 1e-3, 'another seed gives other noise');
+}
+
+async function testCoilSNR() {
+    /* A close-fitting receive array beats the body coil: each loop sees
+       noise from a small volume of tissue, the body coil from the whole
+       region inside it (noise factor about 2.4). Temporal SNR (mean over
+       seeds / SD over seeds, per pixel) of gre_t1 on the MRS phantom, in
+       8 mm disks at the centre and 60 mm off centre. Expected at 3 T:
+       about 1.5x at the centre and 2.5 to 4x near the surface with an
+       optimal (Roemer) combination. */
+    const prog = compile('gre_t1');
+    const ph = MRI.phantoms.build('braino', { n: 256 });
+    const seeds = [1, 2, 3, 4, 5, 6];
+    const pts = [[0, 0], [0.06, 0], [0, -0.06]];
+    const snr = {};
+    for (const [coil, comb] of [['body', 'sos'], ['head8', 'roemer'], ['head8', 'sos']]) {
+        const ims = [];
+        for (const seed of seeds) ims.push(recon(await scan(null, null, { prog, phantom: ph, coil, seed }), { coilCombine: comb }).image.mag);
+        const nx = 128, D = 0.24 / nx, S = seeds.length;
+        snr[coil + '/' + comb] = pts.map(([cx, cy]) => {
+            let sm = 0, sv = 0, c = 0;
+            for (let y = 0; y < nx; y++) for (let x = 0; x < nx; x++) {
+                if (hypot((x - nx / 2) * D - cx, (y - nx / 2) * D - cy) > 0.008) continue;
+                const i = y * nx + x;
+                let m = 0, v = 0;
+                for (const im of ims) m += im[i];
+                m /= S;
+                for (const im of ims) v += (im[i] - m) ** 2;
+                sm += m; sv += v / (S - 1); c++;
+            }
+            return (sm / c) / sqrt(sv / c);
+        });
+    }
+    const b = snr['body/sos'], r = snr['head8/roemer'], q = snr['head8/sos'];
+    info('temporal SNR at (0, 0), (60, 0), (0, -60) mm: body ' + b.map(v => v.toFixed(1)).join(', ') + '; head8 Roemer ' +
+        r.map(v => v.toFixed(1)).join(', ') + '; head8 RSS ' + q.map(v => v.toFixed(1)).join(', '));
+    ok(r[0] > 1.3 * b[0], 'head8 (Roemer) beats the body coil at the centre: ' + (r[0] / b[0]).toFixed(2) + 'x');
+    ok(r[1] > 2 * b[1], 'and by more than 2x at 60 mm to the side: ' + (r[1] / b[1]).toFixed(2) + 'x');
+    ok(r[2] > 1.8 * b[2], 'and by about 2x at 60 mm anterior, where the elliptical array sits farther out: ' + (r[2] / b[2]).toFixed(2) + 'x');
+    ok(q[0] > 1.2 * b[0], 'head8 RSS also beats the body coil at the centre: ' + (q[0] / b[0]).toFixed(2) + 'x');
 }
 
 async function testCleanReconMatchesTruth() {
@@ -691,6 +744,23 @@ async function testB1AndFatSat() {
     near(q[0], 1, 1e-3, 'uniform B1: uniform disk');
     ok(q[0.4] < 0.9, 'dielectric B1: the centre gets 124% flip and loses spin-echo signal');
 
+    /* The shading is smooth: points take their amplitude by interpolating
+       between B1 nodes, so a radial profile has no plateaus and no steps
+       (snapping to 9 bins gave rings of constant brightness, with second
+       differences of about 20 % of the profile's range). */
+    const sm = await scan('se', 'braino', { overrides: { N: 128 }, art: { noise: 0, b1: { amount: 0.4 } } });
+    const rs = recon(sm, { filter: 'hamming' });
+    for (const [name, img] of [['truth', sm.truth.data], ['image', rs.image.mag]]) {
+        const prof = [];
+        for (let x = 64; x < 64 + 38; x++) prof.push(img[64 * 128 + x]);        // centre row, 0 to 70 mm (the edge is at 80 mm)
+        const range = maxAbs(prof) - Math.min(...prof);
+        let d2 = 0, run = 0, longest = 0;
+        for (let i = 1; i < prof.length - 1; i++) d2 = max(d2, abs(prof[i + 1] - 2 * prof[i] + prof[i - 1]));
+        for (let i = 1; i < prof.length; i++) { run = abs(prof[i] - prof[i - 1]) < 1e-6 * range ? run + 1 : 0; longest = max(longest, run); }
+        info('B1 0.4, se ' + name + ' profile: range ' + range.toFixed(4) + ', max second difference ' + (100 * d2 / range).toFixed(1) + '% of it, longest plateau ' + longest);
+        ok(d2 < 0.06 * range && longest <= 1, 'B1 shading is smooth in the ' + name + ' (no rings): second differences ' + (100 * d2 / range).toFixed(1) + '% of the range');
+    }
+
     // Fat saturation: spectral classes; fat suppressed, water kept; the +30 Hz edge saturates worse.
     const wf = MRI.phantoms.build('waterfat', { n: 256 });
     const io = wf.tissues.findIndex(t => t.id === 'oil') - 1, iw = wf.tissues.findIndex(t => t.id === 'water') - 1;
@@ -721,6 +791,25 @@ async function testRadialAndSpectroscopy() {
     let msg = null;
     try { await E.simulate({ ok: false, errors: [] }, MRI.phantoms.build('braino', { n: 256 }), {}, {}); } catch (e) { msg = e.message; }
     ok(msg && /does not compile/.test(msg), 'a failed program is refused');
+}
+
+async function testNoExcitation() {
+    /* No excitation, no signal: the engine says so, naming the ADC's line,
+       instead of returning a black image with meaningless k positions. */
+    const cases = [
+        ['no rf at all', 'gx prephase, gy encode line\n    gx readout, adc\n    gy rewind line\n    spoil', 2],
+        ['refocusing pulse only', 'rf 180 hard refocus\n    gx prephase, gy encode line\n    gx readout, adc\n    spoil', 3],
+        ['excitation after the ADC, spoiled', 'gx prephase, gy encode line\n    gx readout, adc\n    rf 30 slice as exc\n    spoil', 2]
+    ];
+    for (const [name, body, adcLine] of cases) {
+        const src = 'sequence "x"\nfov 240 mm\nmatrix 32\nfor line in 0 .. 31 every 50 ms\n    ' + body + '\nend';
+        const prog = compile(src), line = 4 + adcLine;
+        ok(prog.adc[0].line === line, name + ': ADC on line ' + line);
+        let err = null;
+        try { await scan(null, 'braino', { prog, art: { noise: 0 } }); } catch (e) { err = e; }
+        ok(err && err.userMessage === true && /No excitation before this ADC at line/.test(err.message) && err.message.indexOf('line ' + line) >= 0 && /rf/.test(err.message),
+            name + ': user error naming the ADC line (' + (err && err.message.slice(0, 60)) + ')');
+    }
 }
 
 async function testCoilsAndSense() {
@@ -775,9 +864,9 @@ async function testPerformance() {
 }
 
 (async function main() {
-    const sections = [testShapeAndPathway, testFastVersusGeneral, testNoiseCalibration, testCleanReconMatchesTruth, testContrast,
+    const sections = [testShapeAndPathway, testFastVersusGeneral, testNoiseCalibration, testCoilSNR, testCleanReconMatchesTruth, testContrast,
         testTissueEvolution, testChemicalShift, testB0, testGradientDelay, testMotion, testFlow, testSpikeAndZipper, testDummies,
-        testB1AndFatSat, testRadialAndSpectroscopy, testCoilsAndSense, testProgressAndAbort, testPerformance];
+        testB1AndFatSat, testRadialAndSpectroscopy, testNoExcitation, testCoilsAndSense, testProgressAndAbort, testPerformance];
     for (const s of sections) {
         console.log('  ' + s.name);
         try { await s(); } catch (e) { ok(false, s.name + ' threw: ' + (e && e.stack || e)); }

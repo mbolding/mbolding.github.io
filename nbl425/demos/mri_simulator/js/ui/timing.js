@@ -23,7 +23,10 @@
    break mark, the way textbooks draw it, so that a spin echo with
    TR 3000 ms and TE 90 ms is readable while TR is still annotated.
    Zooming or panning switches to a plain linear axis; double-click (or
-   the Fit button, or the 0 key) goes back to the default view.
+   the Fit button, or the 0 key) goes back to the default view. Zoom
+   with Ctrl or Cmd + wheel, a pinch, the + and - buttons or keys; a
+   plain wheel scrolls the page. Zooming out and panning stop at the
+   edges of the repetition.
 
      const td = MRI.ui.timing.create(container, opts);
      td.setProgram(program)    a compiled program (ok: true); a failed one is ignored
@@ -384,6 +387,10 @@
             '  background: var(--tip-bg); color: var(--tip-fg); border: 1px solid var(--border); box-shadow: var(--shadow-2);',
             '  font: 0.74rem/1.45 var(--font-sans); white-space: normal; }',
             '.mri-timing .mt-tip b { font-weight: 650; }',
+            '.mri-timing .mt-wheelhint { position: absolute; z-index: 6; left: 50%; top: 10px; transform: translateX(-50%); pointer-events: none;',
+            '  padding: 4px 10px; border-radius: 999px; background: var(--tip-bg); color: var(--tip-fg); border: 1px solid var(--border);',
+            '  box-shadow: var(--shadow-2); font: 0.74rem/1.4 var(--font-sans); white-space: nowrap; opacity: 0; transition: opacity 0.15s ease; }',
+            '.mri-timing .mt-wheelhint.is-on { opacity: 0.95; }',
             '.mri-timing .mt-status { margin-top: 6px; min-height: 1.45em; font: 0.74rem/1.45 var(--font-mono); color: var(--muted);',
             '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }',
             '@media (max-width: 640px) { .mri-timing .mt-hint { display: none; } .mri-timing .mt-status { white-space: normal; } }'
@@ -422,7 +429,7 @@
                     schedule();
                 } }, 'True amplitudes');
             rootEl.appendChild(el('div', { class: 'mt-bar' }, [
-                el('span', { class: 'mt-hint', text: 'Scroll or pinch to zoom, drag to pan, double-click to fit. Drag the blue line to move the cursor.' }),
+                el('span', { class: 'mt-hint', text: 'Ctrl + scroll or pinch to zoom, drag to pan, double-click to fit. Drag the blue line to move the cursor.' }),
                 el('span', { class: 'mt-tools' }, [
                     mk('−', 'Zoom out', function () { zoomBy(1 / 1.6, null); }),
                     mk('+', 'Zoom in', function () { zoomBy(1.6, null); }),
@@ -433,11 +440,13 @@
         }
         const canvas = el('canvas', { class: 'mt-canvas', role: 'img', 'aria-label': opts.ariaLabel || 'Pulse-sequence timing diagram' });
         const tip = el('div', { class: 'mt-tip', hidden: true });
+        // A brief note for a plain mouse wheel over the diagram, which scrolls the page.
+        const wheelHint = el('div', { class: 'mt-wheelhint', 'aria-hidden': 'true' }, 'Ctrl + scroll to zoom');
         const status = el('div', { class: 'mt-status', id: id + '-status' });
         const stage = el('div', { class: 'mt-stage', tabindex: '0', role: 'group',
             'aria-roledescription': 'timing diagram',
             'aria-label': (opts.ariaLabel || 'Pulse-sequence timing diagram') + '. Left and right arrows move the cursor, plus and minus zoom, 0 fits the view.',
-            'aria-describedby': id + '-status' }, [canvas, tip]);
+            'aria-describedby': id + '-status' }, [canvas, tip, wheelHint]);
         rootEl.appendChild(stage);
         if (opts.status !== false) rootEl.appendChild(status);
         if (container) container.appendChild(rootEl);
@@ -1126,17 +1135,40 @@
             const sp = currentSpans();
             return { t0: sp[0].t0, t1: sp[sp.length - 1].t1 };
         }
+        /* The widest view, relative to the period start: the whole repetition
+           as the default view frames it (a little air before the period, and
+           the next period up to its first pulse, where TR ends). Zooming out
+           and panning stop there, so the diagram never drifts into empty
+           time before the sequence or into later repetitions. */
+        function extent() {
+            const sp = autoSpans(S.ix, S.period), P0 = S.ix.periods[S.period].t0;
+            return { r0: sp[0].t0 - P0, r1: sp[sp.length - 1].t1 - P0 };
+        }
+        // Shift a linear window [r0, r0 + span] so that it lies inside the extent.
+        function fitView(r0, span) {
+            const ex = extent();
+            span = Math.min(span, ex.r1 - ex.r0);
+            if (r0 + span > ex.r1) r0 = ex.r1 - span;
+            if (r0 < ex.r0) r0 = ex.r0;
+            return { r0: r0, r1: r0 + span };
+        }
+        // Zoomed in: a linear window narrower than the whole repetition.
+        function isZoomed() {
+            if (!S.view || !S.ix) return false;
+            const ex = extent();
+            return S.view.r1 - S.view.r0 < (ex.r1 - ex.r0) * 0.999;
+        }
         /* Switch to a linear window with `scale` px per second, keeping time
-           tp under pixel x. */
+           tp under pixel x (as far as the extent allows). */
         function setLinear(tp, x, scale) {
             const ix = S.ix, L = S.layout;
             if (!ix || !L) return;
             const W = L.x1 - L.x0;
-            const maxSpan = Math.max(ix.p.duration || 0, ix.periods[S.period].dur) * 1.1 || 1;
-            let span = U.clamp(W / scale, 2e-5, maxSpan);
+            const ex = extent();
+            const span = U.clamp(W / scale, Math.min(2e-5, ex.r1 - ex.r0), ex.r1 - ex.r0);
             const t0 = tp - (x - L.x0) * span / W;
             const P0 = ix.periods[S.period].t0;
-            S.view = { r0: t0 - P0, r1: t0 - P0 + span };
+            S.view = fitView(t0 - P0, span);
             schedule();
         }
         function zoomBy(f, x) {
@@ -1160,7 +1192,7 @@
                 S.map = buildMap(L);
             }
             const s = S.map.s;
-            S.view = { r0: S.view.r0 - dx / s, r1: S.view.r1 - dx / s };
+            S.view = fitView(S.view.r0 - dx / s, S.view.r1 - S.view.r0);
             schedule();
         }
         function resetView() { S.view = null; schedule(); }
@@ -1237,14 +1269,35 @@
         stage.addEventListener('pointercancel', endPointer);
         stage.addEventListener('pointerleave', function () { if (!drag) tip.hidden = true; });
         stage.addEventListener('dblclick', function (ev) { ev.preventDefault(); resetView(); });
+        /* The mouse wheel. A plain wheel scrolls the page as it does
+           everywhere else (a diagram a third of the screen high must not trap
+           the scroll); Ctrl or Cmd + wheel zooms, and so does a trackpad pinch,
+           which the browser delivers as a wheel event with ctrlKey set. A
+           sideways wheel or swipe pans, but only while zoomed in, when there
+           is somewhere to pan to. */
+        let wheelHintTimer = 0;
+        function flashWheelHint() {
+            wheelHint.classList.add('is-on');
+            if (wheelHintTimer) clearTimeout(wheelHintTimer);
+            wheelHintTimer = setTimeout(function () { wheelHintTimer = 0; wheelHint.classList.remove('is-on'); }, 1200);
+        }
         stage.addEventListener('wheel', function (ev) {
             if (!S.map) return;
-            ev.preventDefault();
-            tip.hidden = true;
             const unit = ev.deltaMode === 1 ? 16 : (ev.deltaMode === 2 ? 400 : 1);
             const dx = ev.deltaX * unit, dy = ev.deltaY * unit;
-            if (Math.abs(dx) > Math.abs(dy)) panBy(-dx);
-            else zoomBy(Math.exp(-dy * 0.0025), localX(ev));
+            if (!(ev.ctrlKey || ev.metaKey)) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (!isZoomed()) return;
+                    ev.preventDefault();
+                    tip.hidden = true;
+                    panBy(-dx);
+                } else if (dy) flashWheelHint();
+                return;
+            }
+            ev.preventDefault();
+            tip.hidden = true;
+            const d = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+            if (d) zoomBy(Math.exp(-d * 0.0025), localX(ev));
         }, { passive: false });
         stage.addEventListener('keydown', function (ev) {
             if (!S.ix || !S.map) return;
@@ -1334,6 +1387,7 @@
             destroy: function () {
                 S.destroyed = true;
                 if (S.pending) caf(S.pending);
+                if (wheelHintTimer) clearTimeout(wheelHintTimer);
                 if (MRI.bus) MRI.bus.off('theme:changed', onTheme);
                 if (ro) ro.disconnect(); else root.removeEventListener('resize', onResize);
                 S.cursorFns = [];

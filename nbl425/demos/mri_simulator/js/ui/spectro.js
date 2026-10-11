@@ -40,6 +40,7 @@
     /* ---------- small helpers ---------- */
     function el(tag, attrs, children) { return U.el(tag, attrs, children); }
     function W() { return MRI.ui.w; }
+    const TRY_IT = (MRI.ui.terms && MRI.ui.terms.tryIt) || 'Try it';
     function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function st() { return MRI.state; }
     function sp() { return MRI.state.spectro; }
@@ -165,7 +166,31 @@
 #tab-spectro .spec-proc .row { margin-top: 12px; }
 #tab-spectro .spec-auto-note { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
 
-#tab-spectro .spec-table-wrap { overflow-x: auto; margin: 0; }
+/* The peak table: a container, so columns drop by the width it actually
+   has (not the viewport), and an edge shadow while columns lie beyond. */
+#tab-spectro .spec-table-wrap {
+    overflow-x: auto; margin: 0; container-type: inline-size; border-radius: 6px;
+    background:
+        linear-gradient(to right, var(--card), var(--card)) left / 18px 100% no-repeat local,
+        linear-gradient(to left, var(--card), var(--card)) right / 18px 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%, var(--shadow-edge, rgba(120, 130, 150, 0.45)), transparent) left / 10px 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%, var(--shadow-edge, rgba(120, 130, 150, 0.45)), transparent) right / 10px 100% no-repeat scroll;
+}
+#tab-spectro .spec-table-wrap:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#tab-spectro .spec-table-wrap.is-overflow { box-shadow: inset -1px 0 0 var(--border); }
+@container (max-width: 460px) {
+    #tab-spectro .spec-table .col-exp { display: none; }
+    #tab-spectro .spec-table th, #tab-spectro .spec-table td { padding: 5px 4px; }
+    #tab-spectro .spec-table tbody th { white-space: normal; min-width: 5.5em; }
+}
+@container (max-width: 300px) { #tab-spectro .spec-table .col-ppm { display: none; } }
+#tab-spectro .spec-table tr.is-unresolved td, #tab-spectro .spec-table tr.is-unresolved th { color: var(--muted); }
+#tab-spectro .spec-nr { display: block; font: 500 0.7rem var(--font-sans); color: var(--muted); }
+#tab-spectro .spec-table td.spec-foot-note { white-space: normal; text-align: left; font: 0.74rem/1.4 var(--font-sans); color: var(--muted); padding-top: 8px; }
+#tab-spectro .spec-viewbar { margin-bottom: 6px; }
+#tab-spectro .spec-acq-note { font-size: 0.8rem; }
+#tab-spectro .spec-met-notes:empty { display: none; }
+@media (max-width: 900px) { #tab-spectro .spec-row2 { grid-template-columns: minmax(0, 1fr); } }
 #tab-spectro .spec-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
 #tab-spectro .spec-table caption { text-align: left; font-weight: 650; font-size: 0.82rem; padding-bottom: 6px; }
 #tab-spectro .spec-table th, #tab-spectro .spec-table td { padding: 5px 8px; border-top: 1px solid var(--border-subtle); white-space: nowrap; }
@@ -254,10 +279,7 @@
 #tab-spectro .spec-shim .plot { margin-bottom: 12px; }
 #tab-spectro .spec-outside { font-size: 0.78rem; color: var(--muted); margin: -6px 0 10px; min-height: 1.2em; }
 #tab-spectro .spec-mapbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); }
-@media (max-width: 520px) {
-    #tab-spectro .spec-table th, #tab-spectro .spec-table td { padding: 5px 4px; }
-    #tab-spectro .spec-table .col-exp { display: none; }
-}
+
 @media (max-width: 640px) {
     #tab-spectro .spec-shim > summary { padding: 12px 40px 12px 12px; }
     #tab-spectro .spec-shim-body { padding: 12px; }
@@ -272,13 +294,13 @@
         mounted: false, visible: false, panel: null,
         dirty: { acq: true, spectrum: true, fid: true, proc: true, metrics: true, seq: true, editor: true, shim: true, notes: true },
         flushQueued: false,
-        view: { range: 'metab', mode: 're', comps: false, labels: true, fidRe: true, fidIm: true, fidMag: false, fidWin: true },
+        view: { plot: 'spectrum', range: 'metab', mode: 're', comps: false, labels: true, fidRe: true, fidIm: true, fidMag: false, fidWin: true },
         lastGood: null,                 // last spectroscopy program that compiled
         paramKey: '', sliders: {},      // acquisition sliders by param name
         procTimer: null,
         ed: { typing: null, value: '' },
         shim: {
-            open: false, draft: zeros(), dragging: false, region: 'object', win: 30,
+            open: false, draft: zeros(), dragging: false, region: 'object', method: 'robust', win: 30,
             ui: {}, lastWL: 0, wlTimer: null, xr: null, ideal: new WeakMap(), result: null, disp: null,
             committedKey: '', committedLine: null
         },
@@ -331,15 +353,15 @@
                 '<span class="spec-rel">spectral width = 1 / dwell &nbsp;·&nbsp; resolution = 1 / acquisition time &nbsp;·&nbsp; linewidth = 1 / (π T2*)</span>',
             tryThis: [
                 { html: 'Look at <b>fid</b> on the MRS phantom: water dwarfs everything. Then load <b>fid_ws</b>: two CHESS pulses saturate water and NAA, Cr and Cho stand out.',
-                    label: 'Load fid_ws', run: function () { A.spectro.setPhantom('braino'); A.spectro.loadPreset('fid_ws'); } },
+                    label: TRY_IT, run: function () { A.spectro.setPhantom('braino'); A.spectro.loadPreset('fid_ws'); } },
                 { html: 'Switch to the <b>brain</b>: lipid from the scalp at 0.9 and 1.3 ppm swamps the metabolites, because the pulse excites the whole head.',
-                    label: 'Use the brain', run: function () { A.spectro.setPhantom('brain'); } },
+                    label: TRY_IT, run: function () { A.spectro.setPhantom('brain'); } },
                 { html: 'Press <b>Start unshimmed</b> in the Shim panel, shim by hand with the sliders, then auto-shim, and watch the water line narrow.',
-                    label: 'Start unshimmed', run: function () { startUnshimmed(); openShim(true); } },
+                    label: TRY_IT, run: function () { startUnshimmed(); openShim(true); } },
                 { html: 'Shorten <b>TR</b> to 300 ms (NP 1024 first, so the acquisition still fits in TR): with T1 of 1.1 to 1.5 s each transient starts from partly recovered magnetisation, and every peak shrinks (T1 saturation).',
-                    label: 'TR 300 ms', run: function () { if (setParamChecked('NP', 1024)) setParamChecked('TR', 0.3); } },
+                    label: TRY_IT, run: function () { if (setParamChecked('NP', 1024)) setParamChecked('TR', 0.3); } },
                 { html: 'Raise the acquisition <b>delay</b> to 2 ms with auto phase off: the phase now twists across the spectrum. Auto phase removes it with ph1 = −360° × delay × f.',
-                    label: 'Delay 2 ms', run: function () {
+                    label: TRY_IT, run: function () {
                         setParamChecked('delay', 0.002);
                         A.spectro.setProcessing({ autoPhase: false, ph0: 0, ph1: 0 });
                     } }
@@ -354,39 +376,61 @@
 
     /* ============================================================
        Layout
+       The core loop comes first: choose (acquisition), acquire (the scan
+       bar's Acquire runs this spectrum while the tab is open) and look
+       (spectrum, peaks). Secondary numbers and expert processing sit in
+       <details> one click away.
        ============================================================ */
+    function terms() { return (MRI.ui && MRI.ui.terms) || {}; }
+    function displayLabel(mode) {
+        const d = terms().display || {};
+        return mode === 'mag' ? (d.mag || 'Magnitude') : mode === 'im' ? (d.imag || 'Imaginary') : (d.real || 'Real');
+    }
     function build(panel) {
         const w = W();
         panel.appendChild(conceptCard());
 
-        /* ----- Row 1: spectrum | acquisition ----- */
+        /* ----- Row 1: spectrum (or FID) | acquisition ----- */
         const row1 = el('div', { class: 'split' });
         panel.appendChild(row1);
 
-        // Spectrum
+        // Spectrum, with the FID one click away in the same panel
         R.specSub = el('span', { class: 'panel-sub' });
         R.specBadge = el('span', { class: 'badge badge-muted', hidden: true });
-        R.btnRun = w.button({ label: 'Acquire again', size: 'sm', title: 'Run the spectroscopy acquisition now', onClick: function () { MRI.actions.spectro.run(); } });
         const specPanel = el('section', { class: 'panel spec-spectrum', 'aria-labelledby': 'spec-spectrum-title' }, [
             el('div', { class: 'panel-head' }, [
-                el('h2', { class: 'panel-title', id: 'spec-spectrum-title', text: 'Spectrum' }), R.specSub,
-                el('span', { class: 'spacer' }), R.specBadge, R.btnRun
+                R.specTitle = el('h2', { class: 'panel-title', id: 'spec-spectrum-title', text: 'Spectrum' }), R.specSub,
+                el('span', { class: 'spacer' }), R.specBadge
             ])
         ]);
+        R.segView = w.segmented({ label: 'Plot', size: 'sm', value: S.view.plot,
+            options: [{ value: 'spectrum', label: 'Spectrum', title: 'The Fourier transform of the FID, on a ppm axis' },
+                { value: 'fid', label: 'FID', title: 'The free induction decay as recorded: the time signal before the Fourier transform' }],
+            onChange: function (v) { S.view.plot = v; syncPlotView(); invalidate('spectrum', 'fid'); } });
         R.segRange = w.segmented({ label: 'Range', size: 'sm', value: S.view.range,
             options: [{ value: 'metab', label: 'Metabolites 0.5–4.5 ppm' }, { value: 'water', label: 'Water' }, { value: 'full', label: 'Full spectral width' }],
             onChange: function (v) { S.view.range = v; invalidate('spectrum'); } });
-        R.segMode = w.segmented({ label: 'Show', size: 'sm', value: S.view.mode,
-            options: [{ value: 're', label: 'Real (absorption)', title: 'Real part: absorption lines, the usual display' },
-                { value: 'im', label: 'Imaginary', title: 'Imaginary part: dispersion lines' },
-                { value: 'mag', label: 'Magnitude', title: 'Magnitude: no phasing needed, but broader feet' }],
+        // complex display modes in the order every tab uses (Magnitude, Real, Imaginary; a spectrum has no phase display)
+        R.segMode = w.segmented({ label: 'Display', size: 'sm', value: S.view.mode,
+            options: [{ value: 'mag', label: displayLabel('mag'), title: 'Magnitude: no phasing needed, but broader feet' },
+                { value: 're', label: displayLabel('re'), title: 'Real part: absorption lines, the usual display' },
+                { value: 'im', label: displayLabel('im'), title: 'Imaginary part: dispersion lines' }],
             onChange: function (v) { S.view.mode = v; invalidate('spectrum'); } });
         R.tgComps = w.toggle({ label: 'Components', checked: S.view.comps, hint: 'Overlay each species (noise-free) in its own colour',
             onChange: function (b) { S.view.comps = b; invalidate('spectrum'); } });
         R.tgLabels = w.toggle({ label: 'Peak labels', checked: S.view.labels, hint: 'Mark the main resonances at their nominal positions',
             onChange: function (b) { S.view.labels = b; invalidate('spectrum'); } });
-        specPanel.appendChild(el('div', { class: 'spec-toolbar' }, [R.segRange, R.segMode,
-            el('div', { class: 'spec-toggles' }, [R.tgComps, R.tgLabels])]));
+        R.specTools = el('div', { class: 'spec-toolbar' }, [R.segRange, R.segMode, el('div', { class: 'spec-toggles' }, [R.tgComps, R.tgLabels])]);
+        const fidToggle = function (key, label, hint) {
+            return w.toggle({ label: label, checked: S.view[key], hint: hint, onChange: function (b) { S.view[key] = b; invalidate('fid'); } });
+        };
+        R.fidTools = el('div', { class: 'spec-toolbar' }, [el('div', { class: 'spec-toggles' }, [
+            fidToggle('fidMag', displayLabel('mag')), fidToggle('fidRe', displayLabel('re')), fidToggle('fidIm', displayLabel('im')),
+            fidToggle('fidWin', 'Apodisation window', 'The weighting that line broadening applies to the FID before the Fourier transform')
+        ])]);
+        specPanel.appendChild(el('div', { class: 'spec-toolbar spec-viewbar' }, [R.segView]));
+        specPanel.appendChild(R.specTools);
+        specPanel.appendChild(R.fidTools);
         R.specWrap = el('div', { class: 'spec-plotwrap' });
         specPanel.appendChild(R.specWrap);
         const narrow = (root.innerWidth || 1280) < 640;
@@ -394,11 +438,19 @@
         R.specEmpty = w.empty('Acquiring the FID...');
         R.specEmpty.classList.add('spec-empty');
         R.specWrap.appendChild(R.specEmpty);
+        R.fidWrap = el('div', { class: 'spec-plotwrap' });
+        R.plotFid = w.plot(R.fidWrap, { height: narrow ? 240 : 320, scope: true, xlabel: 'Time after the excitation (ms)', ylabel: 'Signal (a.u.)' });
+        R.fidSub = el('p', { class: 'note mt-1 mb-0' });
+        R.fidWrap.appendChild(R.fidSub);
+        R.fidWrap.appendChild(el('p', { class: 'note mt-1 mb-0', html:
+            'Real and imaginary are the two channels of the quadrature receiver. Each peak in the spectrum is a decaying oscillation here, at its offset from the receiver frequency; the envelope decays with T2*.' }));
+        specPanel.appendChild(R.fidWrap);
         R.specErr = el('div', { class: 'spec-err', hidden: true });
         specPanel.appendChild(R.specErr);
         R.notes = el('div', { class: 'spec-notes', 'aria-live': 'polite' });
         specPanel.appendChild(R.notes);
         row1.appendChild(specPanel);
+        syncPlotView();
 
         // Acquisition
         const acq = el('section', { class: 'panel spec-acq', 'aria-labelledby': 'spec-acq-title' }, [
@@ -419,42 +471,34 @@
         R.acqMsgs = el('div');
         R.derived = w.statTable([], { compact: true });
         acq.appendChild(el('div', { class: 'stack' }, [
+            // said once: the scan bar's Acquire button runs the spectrum on this tab
+            el('p', { class: 'note mt-0 mb-0 spec-acq-note', html: 'On this tab the scan bar\'s <b>Acquire spectrum</b> button runs this spectrum, ' +
+                'and any change here acquires it again on its own.' }),
             el('div', {}, [R.segPreset, R.presetDesc]),
             el('div', {}, [R.segPhantom, R.phantomDesc]),
-            R.params, R.acqMsgs, R.derived
+            R.params, R.acqMsgs,
+            el('details', { class: 'adv' }, [el('summary', { text: 'Numbers' }), el('div', { class: 'adv-body' }, [R.derived])])
         ]));
         row1.appendChild(acq);
 
-        /* ----- Row 2: FID | processing ----- */
-        const row2 = el('div', { class: 'split' });
+        /* ----- Row 2: peaks and metrics | processing ----- */
+        const row2 = el('div', { class: 'split-even spec-row2' });
         panel.appendChild(row2);
-        const fidPanel = el('section', { class: 'panel spec-fid', 'aria-labelledby': 'spec-fid-title' }, [
-            el('div', { class: 'panel-head' }, [el('h2', { class: 'panel-title', id: 'spec-fid-title', text: 'FID' }),
-                R.fidSub = el('span', { class: 'panel-sub' })])
-        ]);
-        const fidToggle = function (key, label, hint) {
-            return w.toggle({ label: label, checked: S.view[key], hint: hint, onChange: function (b) { S.view[key] = b; invalidate('fid'); } });
-        };
-        fidPanel.appendChild(el('div', { class: 'spec-toggles mb-1' }, [
-            fidToggle('fidRe', 'Real'), fidToggle('fidIm', 'Imaginary'), fidToggle('fidMag', 'Magnitude'),
-            fidToggle('fidWin', 'Apodisation window', 'The weighting that line broadening applies to the FID before the Fourier transform')
-        ]));
-        R.fidWrap = el('div');
-        fidPanel.appendChild(R.fidWrap);
-        R.plotFid = w.plot(R.fidWrap, { height: narrow ? 190 : 220, scope: true, xlabel: 'Time after the excitation (ms)', ylabel: 'Signal (a.u.)' });
-        fidPanel.appendChild(el('p', { class: 'note mt-1 mb-0', html:
-            'Real and imaginary are the two channels of the quadrature receiver. Each peak in the spectrum is a decaying oscillation here, at its offset from the receiver frequency; the envelope decays with T2*.' }));
-        row2.appendChild(fidPanel);
+        row2.appendChild(buildMetrics());
         row2.appendChild(buildProc());
 
-        /* ----- Row 3: metrics | sequence ----- */
-        const row3 = el('div', { class: 'split-even' });
-        panel.appendChild(row3);
-        row3.appendChild(buildMetrics());
-        row3.appendChild(buildSequence());
+        /* ----- Row 3: the sequence (both parts folded) ----- */
+        panel.appendChild(buildSequence());
 
         /* ----- Shim ----- */
         panel.appendChild(buildShim());
+    }
+    /* Spectrum or FID in the one plot panel. */
+    function syncPlotView() {
+        const fid = S.view.plot === 'fid';
+        R.specTools.hidden = fid; R.specWrap.hidden = fid;
+        R.fidTools.hidden = !fid; R.fidWrap.hidden = !fid;
+        if (R.specTitle) R.specTitle.textContent = fid ? 'FID' : 'Spectrum';
     }
 
     /* ---------- processing panel ---------- */
@@ -499,14 +543,18 @@
         R.slRef = w.slider(Object.assign({ label: 'Reference (receiver at)', min: 4.2, max: 5.2, step: 0.01, value: isFinite(p.refPpm) ? p.refPpm : WATER_PPM, unit: 'ppm',
             hint: 'The chemical shift assigned to the receiver frequency. 4.7 ppm puts water, which the scanner tunes to, at 4.7' }, live('refPpm')));
         R.autoNote = el('div', { class: 'spec-auto-note' });
-        box.appendChild(el('div', { class: 'controls' }, [R.slLb, R.slGb, R.zfWrap,
-            el('div', { class: 'ctl ctl-bare' }, [R.tgAuto, R.autoNote]), R.slPh0, R.slPh1, R.slRef]));
-        box.appendChild(el('div', { class: 'row' }, [
-            w.button({ label: 'Zero the phases', size: 'sm', title: 'Auto phase off, ph0 = ph1 = 0: the raw phase of the data',
-                onClick: function () { A.spectro.setProcessing({ autoPhase: false, ph0: 0, ph1: 0 }); } }),
-            w.button({ label: 'Default processing', size: 'sm', kind: 'ghost',
-                onClick: function () { A.spectro.setProcessing(Object.assign({}, MRI.spectro.defaults)); } })
-        ]));
+        box.appendChild(el('div', { class: 'controls' }, [R.slLb, R.zfWrap, el('div', { class: 'ctl ctl-bare' }, [R.tgAuto, R.autoNote])]));
+        // Phasing by hand and the rest: opens on its own when Auto phase is switched off.
+        R.phaseDet = el('details', { class: 'adv' }, [el('summary', { text: 'Phasing and referencing' }), el('div', { class: 'adv-body' }, [
+            el('div', { class: 'controls' }, [R.slPh0, R.slPh1, R.slGb, R.slRef]),
+            el('div', { class: 'row' }, [
+                w.button({ label: 'Zero the phases', size: 'sm', title: 'Auto phase off, ph0 = ph1 = 0: the raw phase of the data',
+                    onClick: function () { A.spectro.setProcessing({ autoPhase: false, ph0: 0, ph1: 0 }); } }),
+                w.button({ label: 'Default processing', size: 'sm', kind: 'ghost',
+                    onClick: function () { A.spectro.setProcessing(Object.assign({}, MRI.spectro.defaults)); } })
+            ])
+        ])]);
+        box.appendChild(R.phaseDet);
         box.appendChild(el('p', { class: 'note mt-1 mb-0', text: 'Zero filling interpolates the spectrum (smoother peaks) but adds no information: the resolution is still 1 / acquisition time.' }));
         return box;
     }
@@ -530,22 +578,37 @@
         };
         R.tSnr = tile('SNR'); R.tFwhm = tile('Linewidth'); R.tWs = tile('Water suppression'); R.tWl = tile('Water line (field)');
         box.appendChild(el('div', { class: 'stats' }, [R.tSnr, R.tFwhm, R.tWs, R.tWl]));
+        // what keeps a number from being measured, and what the simulator separated for you
+        R.metNotes = el('div', { class: 'spec-notes spec-met-notes' });
+        box.appendChild(R.metNotes);
+        /* The peak table scrolls sideways inside its own box when it must:
+           a labelled, focusable region (arrow keys scroll it) with a shadow
+           at the edge that still has columns beyond it. */
+        R.peakBody = el('tbody');
+        R.peakHead = el('thead');
+        R.peakWrap = el('div', { class: 'spec-table-wrap mt-2', tabindex: '0', role: 'region', 'aria-label': 'Peak table: position, height, area and SNR of each peak' }, [
+            el('table', { class: 'spec-table' }, [
+                el('caption', { text: 'Peaks (height and area above the local baseline, arbitrary units)' }), R.peakHead, R.peakBody
+            ])]);
+        box.appendChild(R.peakWrap);
         R.ratioBody = el('tbody');
-        box.appendChild(el('div', { class: 'spec-table-wrap' }, [el('table', { class: 'spec-table' }, [
+        R.ratioTable = el('div', { class: 'spec-table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Metabolite ratios' }, [el('table', { class: 'spec-table' }, [
             el('caption', { text: 'Metabolite ratios' }),
             el('thead', {}, [el('tr', {}, [el('th', { scope: 'col', text: 'Ratio' }),
                 el('th', { scope: 'col', text: 'Window integrals', title: 'Integrals of the measured spectrum over fixed ppm windows' }),
                 el('th', { scope: 'col', text: 'Each metabolite alone', title: 'The same windows on each metabolite’s own noise-free spectrum (what a model fit would separate)' })])]),
             R.ratioBody
-        ])]));
+        ])]);
         R.ratioNotes = el('div', { class: 'spec-notes' });
-        box.appendChild(R.ratioNotes);
-        R.peakBody = el('tbody');
-        R.peakHead = el('thead');
-        box.appendChild(el('div', { class: 'spec-table-wrap mt-2' }, [el('table', { class: 'spec-table' }, [
-            el('caption', { text: 'Peaks (height and area above the local baseline, arbitrary units)' }), R.peakHead, R.peakBody
-        ])]));
+        R.ratioDet = el('details', { class: 'adv mt-2' }, [el('summary', { text: 'Metabolite ratios' }), el('div', { class: 'adv-body' }, [R.ratioTable, R.ratioNotes])]);
+        box.appendChild(R.ratioDet);
+        if (root.ResizeObserver) new root.ResizeObserver(function () { syncOverflow(R.peakWrap); syncOverflow(R.ratioTable); }).observe(R.peakWrap);
         return box;
+    }
+    /* Mark a scroll box whose content is wider than it is, for the edge shadow. */
+    function syncOverflow(box) {
+        if (!box) return;
+        box.classList.toggle('is-overflow', box.scrollWidth > box.clientWidth + 1);
     }
 
     /* ---------- sequence panel: timing diagram and editor ---------- */
@@ -555,13 +618,21 @@
             el('div', { class: 'panel-head' }, [el('h2', { class: 'panel-title', id: 'spec-seq-title', text: 'Sequence' }),
                 R.seqSub = el('span', { class: 'panel-sub' })])
         ]);
+        // One RF pulse and one ADC: the diagram is there for those who want it.
         R.timingHost = el('div', { class: 'spec-timing-host' });
-        box.appendChild(R.timingHost);
+        R.timingDet = el('details', { class: 'adv' }, [el('summary', { text: 'Timing diagram' }), el('div', { class: 'adv-body' }, [R.timingHost])]);
+        box.appendChild(R.timingDet);
         if (MRI.ui.timing && typeof MRI.ui.timing.create === 'function') {
             try { R.timing = MRI.ui.timing.create(R.timingHost, { ariaLabel: 'Timing diagram of one repetition of the spectroscopy sequence', compact: true }); }
             catch (e) { R.timing = null; if (root.console) root.console.error('[spectro tab] timing diagram failed:', e); }
         }
         if (!R.timing) R.timingHost.appendChild(w.empty('The timing diagram (js/ui/timing.js) is not available.'));
+        // drawn while folded it has no width: draw it when it opens
+        R.timingDet.addEventListener('toggle', function () {
+            if (!R.timingDet.open) return;
+            S.dirty.seq = true; queueFlush();
+            raf(function () { if (R.timing && R.timing.redraw) R.timing.redraw(); });
+        });
 
         // Compact editor
         R.edGutter = el('div', { class: 'spec-ed-gutter-inner', 'aria-hidden': 'true' });
@@ -762,7 +833,7 @@
             const sd = spec.metrics && spec.metrics.noiseSd > 0 ? spec.metrics.noiseSd : 0;
             let hmax = 0;
             relevantPeaks(spec).forEach(function (p) {
-                if (p.id === 'water' || !isFinite(p.height) || !isFinite(p.ppm) || p.ppm < lo || p.ppm > hi) return;
+                if (p.id === 'water' || !isNum(p.height) || !isNum(p.ppm) || p.ppm < lo || p.ppm > hi) return;
                 hmax = Math.max(hmax, p.height);
             });
             if (hmax > 5 * sd && top - bot > 8 * hmax) {
@@ -824,7 +895,7 @@
         R.plotSpec.draw(series, { xlim: xlim, ylim: ylim || undefined, reverseX: true, markers: markersFor(spec, xlim),
             legend: S.view.comps, xfmt: null, yfmt: function (v) { return U.fmtNum(v, 3); } });
         // A text alternative for the canvas.
-        const tall = relevantPeaks(spec).filter(function (p) { return isFinite(p.height) && isFinite(p.ppm); })
+        const tall = relevantPeaks(spec).filter(function (p) { return isNum(p.height) && isNum(p.ppm); })
             .sort(function (a, b) { return b.height - a.height; }).slice(0, 4)
             .map(function (p) { return PEAK_INFO[p.id].label + ' at ' + p.ppm.toFixed(2) + ' ppm'; });
         R.plotSpec.canvas.setAttribute('aria-label', 'Spectrum, ' + ({ re: 'real part', im: 'imaginary part', mag: 'magnitude' })[mode] +
@@ -838,16 +909,15 @@
         R.notes.textContent = '';
         const s = sp();
         let notes = (s.data && s.data.info && s.data.info.notes) || [];
-        /* spectro.js reports T1 saturation from water's relative signal when
-           the phantom has no NAA. With CHESS on, that signal is low because
-           water was suppressed, not because of T1: drop the note then
-           (reported to the integrator as a spectro.js issue). */
+        // (spectro.js judges T1 saturation from Mz before each pulse, with water
+        // taken from the run without CHESS, so water suppression is never
+        // reported as T1 saturation and needs no filtering here.)
         const info = s.data && s.data.info;
-        if (info && info.waterSuppression > 1.0001 && !presentIds(s.spectrum).has('NAA')) {
-            notes = notes.filter(function (t) { return !/short compared with T1[\s\S]*\(water at/.test(t); });
-        }
+        // The "too broad to measure" note is shown with the peak table, where the dashes are.
+        const broadNow = info && isNum(info.linewidthHz) && info.linewidthHz > BROAD_HZ;
+        if (broadNow) notes = notes.filter(function (t) { return !/^Lines are too broad/.test(t); });
         notes.forEach(function (t) {
-            const warn = /dominates|poor|outside the spectral|fold back|only noise|left out/i.test(t);
+            const warn = /dominates|dominated|poor|outside the spectral|fold back|only noise|left out|truncated|too broad|not uniform/i.test(t);
             R.notes.appendChild(W().callout(esc(t), warn ? 'warn' : 'info'));
         });
         const line = committedWaterLine();
@@ -855,9 +925,17 @@
         // Where water appears on the ppm axis: the receiver reference plus the field offset.
         if (line && s.data && Math.abs(refNow + line.peakHz / PPM_HZ - WATER_PPM) > 5 / PPM_HZ) {
             const off = line.peakHz, ppmNow = refNow + off / PPM_HZ;
+            // The table moves its windows only when it finds the water line in the
+            // measured spectrum (metrics.waterOffsetPpm), which a suppressed or very
+            // broad water line can prevent: say which happened.
+            const m = s.spectrum && s.spectrum.metrics;
+            const followed = !!(m && isNum(m.waterOffsetPpm) && Math.abs(m.waterOffsetPpm) >= 0.02);
+            const tableTxt = Math.abs(ppmNow - WATER_PPM) > 0.3 ? ' and the peak windows miss them. '
+                : followed ? ' (the peak table follows the shift; the labels on the plot do not). '
+                : ' (the peak table could not find the water line to follow, so its windows stay at the nominal ppm). ';
             const box = W().callout('The water line sits at ' + ppmNow.toFixed(2) + ' ppm instead of 4.70' +
                 (Math.abs(off) > 5 ? ': the scanner frequency is ' + hz(off) + ' Hz off water' : ': the reference is set to ' + refNow.toFixed(2) + ' ppm') +
-                ', so every peak is shifted and the peak windows miss them. ' +
+                ', so every peak sits off its nominal ppm' + tableTxt +
                 (Math.abs(off) > 5 ? 'Set Z0 in the Shim panel (or auto-shim), or re-reference the spectrum.' : 'Re-reference the spectrum.'), 'warn');
             box.appendChild(el('div', {}, [
                 Math.abs(off) <= 5 ? null : W().button({ label: 'Correct Z0', size: 'sm', onClick: function () {
@@ -940,6 +1018,9 @@
         }
         R.segZf.set(p.zf || 1);
         const auto = p.autoPhase !== false;
+        // switching Auto phase off (here or from a try-this) opens the manual phase controls
+        if (S.lastAuto === true && !auto && R.phaseDet) R.phaseDet.open = true;
+        S.lastAuto = auto;
         R.tgAuto.set(auto);
         const ph = s.spectrum && s.spectrum.phase;
         if (auto) { R.slPh0.set(ph ? ph.ph0 : 0); R.slPh1.set(ph ? ph.ph1 : 0); }
@@ -951,62 +1032,119 @@
     /* ============================================================
        Peaks and metrics
        ============================================================ */
+    const BROAD_HZ = 10;          // water FWHM above which spectro.js does not measure metabolites
+    function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
+    /* The SNR tile names the peak it measured (metrics.snrPeak). */
+    function snrTile(m, data) {
+        const peak = m.snrPeak || 'tallest';
+        if (!isNum(m.snr)) {
+            if (data && data.noiseSigma === 0) return { v: '–', sub: 'noise is off' };
+            if (/too broad/.test(peak)) return { v: '–', sub: 'lines too broad to measure NAA: shim first' };
+            if (/not resolved/.test(peak)) return { v: '–', sub: 'NAA not resolved above the noise' };
+            return { v: '–', sub: 'not measurable' };
+        }
+        const v = U.fmtNum(m.snr, 3);
+        if (peak === 'tallest') return { v: v, sub: 'tallest peak / noise SD' };
+        if (peak === 'NAA') return { v: v, sub: 'NAA peak / noise SD' };
+        // 'NAA (under lipid)' or 'NAA (under water)': the simulator's own NAA component
+        return { v: v, sub: peak + ': NAA\'s own height / noise SD', kind: 'warn' };
+    }
     function renderMetrics() {
         const s = sp(), spec = s.spectrum, data = s.data;
-        R.ratioBody.textContent = ''; R.peakBody.textContent = ''; R.peakHead.textContent = ''; R.ratioNotes.textContent = '';
+        R.ratioBody.textContent = ''; R.peakBody.textContent = ''; R.peakHead.textContent = ''; R.ratioNotes.textContent = ''; R.metNotes.textContent = '';
         if (!spec || !data) {
             [R.tSnr, R.tFwhm, R.tWs, R.tWl].forEach(function (t) { t.set('–', '', ''); });
             return;
         }
         const m = spec.metrics || {}, info = data.info || {};
-        R.tSnr.set(m.snr === null || m.snr === undefined ? '–' : U.fmtNum(m.snr, 3), '', m.snr === null || m.snr === undefined ? 'noise is off' : (m.snrPeak === 'NAA' ? 'NAA peak / noise SD' : 'tallest peak / noise SD'));
-        R.tFwhm.set(hz(m.fwhmHz), 'Hz', isFinite(m.tallestPpm) ? 'FWHM of the tallest peak (' + m.tallestPpm.toFixed(2) + ' ppm)' : 'FWHM of the tallest peak');
+        const st0 = snrTile(m, data);
+        R.tSnr.set(st0.v, '', st0.sub, st0.kind);
+        R.tFwhm.set(hz(m.fwhmHz), 'Hz', isNum(m.tallestPpm) ? 'FWHM of the tallest peak (' + m.tallestPpm.toFixed(2) + ' ppm)' : 'FWHM of the tallest peak');
         const ws = info.waterSuppression;
         R.tWs.set(ws === null || ws === undefined ? '–' : (ws <= 1.0001 ? 'none' : '×' + U.fmtNum(ws, 3)), '', ws > 1.0001 ? U.fmtNum(100 * Math.abs(info.waterResidual || 0), 2) + ' % of the water left' : 'no water suppression pulses');
-        R.tWl.set(hz(info.linewidthHz), 'Hz', 'water FWHM from the B0 field and T2');
-
-        const rt = m.ratios || {}, rc = m.componentRatios || {};
-        const cell = function (v) { return el('td', { text: v === null || v === undefined || !isFinite(v) ? '–' : v.toFixed(2) }); };
-        [['NAA/Cr', 'NAA_Cr'], ['Cho/Cr', 'Cho_Cr']].forEach(function (r) {
-            R.ratioBody.appendChild(el('tr', {}, [el('th', { scope: 'row', text: r[0] }), cell(rt[r[1]]), cell(rc[r[1]])]));
-        });
+        const broad = isNum(info.linewidthHz) && info.linewidthHz > BROAD_HZ;
+        R.tWl.set(hz(info.linewidthHz), 'Hz', 'water FWHM from the B0 field and T2', broad ? 'warn' : null);
+        if (broad && st0.v !== '–') R.tSnr.set(st0.v, '', st0.sub + ' (lines too broad: shim first)', 'warn');
         const have = presentIds(spec);
-        if (have.has('NAA') && (have.has('Glu') || have.has('Gln'))) {
-            R.ratioNotes.appendChild(el('p', { class: 'note mb-0', html: 'The NAA window (1.9 to 2.1 ppm) also holds part of the glutamate and glutamine multiplets, ' +
-                'so the window ratio reads higher than NAA alone. Fitting software (LCModel and similar) separates overlapping metabolites with a model spectrum of each.' }));
+        const metab = ['NAA', 'Cr', 'Cho', 'mI', 'Glu', 'Gln', 'Lac'].some(function (id) { return have.has(id); });
+
+        // Above the table: why numbers are missing, and what the simulator separated.
+        if (broad && metab) {
+            const c = W().callout('<strong>Lines are too broad to measure metabolites: shim first.</strong> The water line is ' + hz(info.linewidthHz) +
+                ' Hz wide (more than ' + BROAD_HZ + ' Hz), so the metabolite peaks smear into each other and into the water tail.', 'warn');
+            c.appendChild(el('div', {}, [W().button({ label: 'Open the Shim panel', size: 'sm', onClick: function () { openShim(true); } })]));
+            R.metNotes.appendChild(c);
         }
         if (s.phantomId === 'brain' || (have.has('lipid') && have.has('NAA'))) {
-            R.ratioNotes.appendChild(W().callout('<strong>Not quantitative here.</strong> The non-selective pulse also excites scalp fat and skull marrow, and their lipid ' +
-                '(including a line at 2.02 ppm, under NAA) and broad wings fill the integration windows. Ratios need a localised voxel inside the brain.', 'warn'));
+            R.metNotes.appendChild(W().callout('<strong>Not quantitative here.</strong> The non-selective pulse also excites scalp fat and skull marrow, and their lipid ' +
+                '(including a line at 2.02 ppm, under NAA) and broad wings fill the peak windows. ' +
+                'Ratios and an NAA SNR need a localised voxel inside the brain.', 'warn'));
+        }
+        (spec.notes || []).forEach(function (t) { R.metNotes.appendChild(W().callout(esc(t), 'info')); });
+
+        // Metabolite ratios: shown only where they could be measured.
+        const rt = m.ratios || {}, rc = m.componentRatios || {};
+        const cell = function (v, why) { return el('td', { text: isNum(v) ? v.toFixed(2) : '–', title: isNum(v) ? null : why }); };
+        let anyRatio = false;
+        const noWin = 'Not measured: the window integrals need resolved NAA, Cr and Cho peaks, clear of lipid and water, with the water line under ' + BROAD_HZ + ' Hz wide.';
+        [['NAA/Cr', 'NAA_Cr'], ['Cho/Cr', 'Cho_Cr']].forEach(function (r) {
+            if (!isNum(rt[r[1]]) && !isNum(rc[r[1]])) return;
+            anyRatio = true;
+            R.ratioBody.appendChild(el('tr', {}, [el('th', { scope: 'row', text: r[0] }), cell(rt[r[1]], noWin), cell(rc[r[1]], 'This phantom lacks one of the metabolites')]));
+        });
+        R.ratioTable.hidden = !anyRatio;
+        if (!anyRatio) {
+            R.ratioNotes.appendChild(el('p', { class: 'note mb-0', text: !(have.has('NAA') && have.has('Cr') && have.has('Cho'))
+                ? 'No ratios: this phantom has no NAA, creatine and choline to compare.' : 'No ratios: ' + noWin.replace(/^Not measured: /, '') }));
+        } else if (!isNum(rt.NAA_Cr) || !isNum(rt.Cho_Cr)) {
+            R.ratioNotes.appendChild(el('p', { class: 'note mb-0', text: 'Window integrals: ' + noWin.replace(/^Not measured: /, '') }));
+        }
+        if (anyRatio && have.has('NAA') && (have.has('Glu') || have.has('Gln'))) {
+            R.ratioNotes.appendChild(el('p', { class: 'note mb-0', html: 'The NAA window (1.9 to 2.1 ppm) also holds part of the glutamate and glutamine multiplets, ' +
+                'so the window ratio reads higher than NAA alone. Fitting software (LCModel and similar) separates overlapping metabolites with a model spectrum of each.' }));
         }
 
         // Peak table: only the resonances this phantom contains.
         const peaks = relevantPeaks(spec);
         let hmax = 0, amax = 0;
         const scaleBy = peaks.some(function (p) { return p.id !== 'water'; }) ? peaks.filter(function (p) { return p.id !== 'water'; }) : peaks;
-        scaleBy.forEach(function (p) { if (isFinite(p.height)) hmax = Math.max(hmax, Math.abs(p.height)); if (isFinite(p.area)) amax = Math.max(amax, Math.abs(p.area)); });
+        scaleBy.forEach(function (p) { if (isNum(p.height)) hmax = Math.max(hmax, Math.abs(p.height)); if (isNum(p.area)) amax = Math.max(amax, Math.abs(p.area)); });
         // Scale so the largest peak other than water reads between 100 and 1000
         // (the units are arbitrary anyway); water then shows how much larger it is.
         const sc = function (mx) { return mx > 0 ? Math.pow(10, 3 - Math.ceil(Math.log10(mx) + 1e-9)) : 1; };
         const hs = sc(hmax), as = sc(amax);
         R.peakHead.appendChild(el('tr', {}, [el('th', { scope: 'col', text: 'Peak' }), el('th', { scope: 'col', class: 'col-exp', text: 'Expected ppm' }),
-            el('th', { scope: 'col', text: 'ppm', title: 'Position found in the spectrum' }), el('th', { scope: 'col', text: 'Height' }), el('th', { scope: 'col', text: 'Area' }),
-            el('th', { scope: 'col', text: 'SNR' })]));
+            el('th', { scope: 'col', class: 'col-ppm', text: 'ppm', title: 'Position found in the spectrum' }), el('th', { scope: 'col', text: 'Height' }),
+            el('th', { scope: 'col', class: 'col-area', text: 'Area' }), el('th', { scope: 'col', text: 'SNR' })]));
         const colorOf = {};
         (spec.components || []).forEach(function (c) { colorOf[c.id] = c.color; });
+        let anyUnresolved = false;
         peaks.forEach(function (p) {
             const inf = PEAK_INFO[p.id];
             const sw = colorOf[inf.needs.find(function (id) { return colorOf[id]; })] || null;
-            const name = (p.name || inf.label) + (p.id === 'Lac' && have.has('lipid') ? ' (under lipid)' : '');
-            R.peakBody.appendChild(el('tr', {}, [
-                el('th', { scope: 'row' }, [sw ? el('span', { class: 'swatch', style: { background: sw }, 'aria-hidden': 'true' }) : null, name]),
+            const name = (p.name || inf.label) + (p.contaminatedBy ? ' (under ' + p.contaminatedBy + ')' : '');
+            /* A peak spectro.js could not measure (no maximum in its window,
+               not above the baseline, a negative area or under 3 noise SD)
+               has null height, area and SNR: show a dash and say so, never a
+               negative number. */
+            const ok = p.resolved !== false && isNum(p.height);
+            if (!ok) anyUnresolved = true;
+            const why = p.reason ? 'Not resolved: ' + p.reason : 'Not resolved';
+            R.peakBody.appendChild(el('tr', { class: ok ? null : 'is-unresolved', title: ok ? null : why }, [
+                el('th', { scope: 'row' }, [sw ? el('span', { class: 'swatch', style: { background: sw }, 'aria-hidden': 'true' }) : null, name,
+                    ok ? null : el('span', { class: 'spec-nr', text: 'not resolved' })]),
                 el('td', { class: 'muted col-exp', text: fixed(nominalPpm(p.id), 2) }),
-                el('td', { text: fixed(p.ppm, 3) }),
-                el('td', { text: num(p.height * hs, 3) }),
-                el('td', { text: num(p.area * as, 3) }),
-                el('td', { text: p.snr === null || p.snr === undefined ? '–' : U.fmtNum(p.snr, 3) })
+                el('td', { class: 'col-ppm' + (ok ? '' : ' muted'), text: ok ? fixed(p.ppm, 3) : '–' }),
+                el('td', { text: isNum(p.height) ? num(p.height * hs, 3) : '–' }),
+                el('td', { class: 'col-area', text: isNum(p.area) ? num(p.area * as, 3) : '–' }),
+                el('td', { text: isNum(p.snr) ? U.fmtNum(p.snr, 3) : '–' })
             ]));
         });
+        if (anyUnresolved) {
+            R.peakBody.appendChild(el('tr', { class: 'spec-foot' }, [el('td', { colspan: '6', class: 'spec-foot-note', text:
+                '– : not resolved. The window holds no peak above its local baseline (or one under 3 noise SD), only a baseline wiggle or the tail of a broad line.' })]));
+        }
+        raf(function () { syncOverflow(R.peakWrap); syncOverflow(R.ratioTable); });
     }
 
     /* ============================================================
@@ -1177,7 +1315,7 @@
         R.shimBadge = el('span', { class: 'badge badge-muted' });
         R.shimSumSub = el('span', { class: 'panel-sub' });
         det.appendChild(el('summary', {}, [
-            el('span', { class: 'panel-title', text: 'Shim: make B0 uniform' }), R.shimSumSub, el('span', { class: 'spacer', style: { flex: '1' } }), R.shimBadge
+            el('h2', { class: 'panel-title', text: 'Shim: make B0 uniform' }), R.shimSumSub, el('span', { class: 'spacer', style: { flex: '1' } }), R.shimBadge
         ]));
         R.shimDet = det;
         const body = el('div', { class: 'spec-shim-body' });
@@ -1196,15 +1334,22 @@
         R.segRegion = w.segmented({ ariaLabel: 'Auto-shim region', size: 'sm', value: S.shim.region,
             options: [{ value: 'object', label: 'Whole object' }, { value: 'center', label: 'Centre, 60 mm radius' }],
             onChange: function (v) { S.shim.region = v; invalidate('shim'); } });
-        R.btnAuto = w.button({ label: 'Auto-shim', kind: 'primary', title: 'Least-squares fit of the six shim terms to the field over the chosen region, weighted by proton density',
+        R.btnAuto = w.button({ label: 'Auto-shim', kind: 'primary', title: 'Fit the six shim terms to the field over the chosen region, weighted by proton density',
             onClick: autoShim });
+        R.segMethod = w.segmented({ ariaLabel: 'Auto-shim method', size: 'sm', value: S.shim.method,
+            options: [{ value: 'robust', label: 'Robust', title: 'Ignores points far from the rest (the sinus field): the default' },
+                { value: 'lsq', label: 'Least squares', title: 'Minimises the RMS field over the region' }],
+            onChange: function (v) { S.shim.method = v; } });
         body.appendChild(el('div', { class: 'toolbar' }, [
             R.btnAuto, el('span', { class: 'muted', style: { fontSize: '0.8rem' }, text: 'over' }), R.segRegion,
+            el('span', { class: 'muted', style: { fontSize: '0.8rem' }, text: 'by' }), R.segMethod,
             el('span', { class: 'spacer' }),
             w.button({ label: 'Reset shims', size: 'sm', title: 'All shim currents to zero', onClick: function () { commitShim(zeros(), 'Shim currents set to zero.'); } }),
             w.button({ label: 'Start unshimmed', size: 'sm', kind: 'danger', title: 'Load the field a freshly positioned patient brings (centre frequency 25 Hz off, plus tilts and a bowl) with all shims at zero',
                 onClick: function () { startUnshimmed(); } })
         ]));
+        body.appendChild(el('p', { class: 'note mt-0', text: 'Least squares minimises the RMS field, which the steep tail next to the sinus dominates; ' +
+            'Robust ignores those outlying points and usually gives the narrower water line.' }));
         R.shimResult = el('p', { class: 'spec-shim-result', role: 'status', 'aria-live': 'polite' });
         body.appendChild(R.shimResult);
 
@@ -1379,20 +1524,23 @@
         if (!ph || !shimAvailable()) return;
         const region = S.shim.region;
         let r;
-        try { r = MRI.fields.autoShim(ph, b0With(Object.assign({}, S.shim.draft)), { region: region, radius: CENTER_RADIUS }); }
+        try { r = MRI.fields.autoShim(ph, b0With(Object.assign({}, S.shim.draft)), { region: region, radius: CENTER_RADIUS, method: S.shim.method }); }
         catch (e) { toast('Auto-shim failed: ' + (e && e.message ? e.message : e), 'bad'); return; }
         const fw = function (c) {
             try { const L = MRI.spectro.waterLine(ph, { b0Map: MRI.fields.b0Map(ph, b0With(c)), artifacts: st().artifacts }); return L ? L.fwhmHz : NaN; }
             catch (e) { return NaN; }
         };
         const w0 = fw(Object.assign({}, S.shim.draft)), w1 = fw(r.total);
-        let msg = 'Auto-shim over ' + (region === 'center' ? 'the central disk (60 mm radius)' : 'the whole object') + ': RMS field there ' +
+        const robust = S.shim.method !== 'lsq';
+        let msg = 'Auto-shim (' + (robust ? 'robust' : 'least squares') + ') over ' + (region === 'center' ? 'the central disk (60 mm radius)' : 'the whole object') + ': RMS field there ' +
             hz(r.rmsBefore) + ' → ' + hz(r.rmsAfter) + ' Hz; water line of the whole object ' + hz(w0) + ' → ' + hz(w1) + ' Hz.';
         if (region === 'center' && r.rmsAfter < r.rmsBefore && w1 > 1.3 * (idealLine(ph) || { fwhmHz: w1 }).fwhmHz) {
             msg += ' The centre is flat now, but the shims ignored everything outside the circle, and a non-selective FID still sees all of it.';
         } else if (r.rmsAfter > 2) {
             msg += ph.id === 'brain'
-                ? ' What is left is the local field next to the frontal sinus (and near the ears), which no low-order shim can follow. Least squares lets that large field pull the fit, so the bulk of the brain can end up slightly off.'
+                ? ' What is left is the local field next to the frontal sinus (and near the ears), which no low-order shim can follow. ' +
+                    (robust ? 'The robust fit ignores it and centres the bulk of the brain, at the price of a larger RMS.'
+                        : 'Least squares lets that large field pull the fit, so the bulk of the brain can end up slightly off: try Robust.')
                 : ' What is left cannot be described by the six shim terms.';
         }
         commitShim(r.total, msg);
@@ -1540,7 +1688,7 @@
                 raf(function () {
                     const con = doc.getElementById('console');
                     const top = R.shimDet.getBoundingClientRect().top + (root.pageYOffset || 0) - (con ? con.offsetHeight : 0) - 12;
-                    try { root.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch (e) { root.scrollTo(0, Math.max(0, top)); }
+                    try { root.scrollTo({ top: Math.max(0, top), behavior: U.scrollBehavior ? U.scrollBehavior() : 'auto' }); } catch (e) { root.scrollTo(0, Math.max(0, top)); }
                     const sum = R.shimDet.querySelector('summary');
                     if (sum) { try { sum.focus({ preventScroll: true }); } catch (e) { sum.focus(); } }
                 });
