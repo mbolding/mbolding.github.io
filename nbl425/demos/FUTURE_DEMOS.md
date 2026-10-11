@@ -4,6 +4,24 @@ This document catalogs the interactive simulations and educational tools develop
 
 ---
 
+## 0. Integrated MRI Scanner (Weeks 02, 03 & 11)
+
+### [COMPLETED] MRI Simulator: Scanner, Sequences, k-space & Spectroscopy
+* **Target File**: `nbl425/demos/mri_simulator/index.html` (a multi-file app; see `mri_simulator/ARCHITECTURE.md`)
+* **Course Weeks**: Week 02 (Physical Principles of MRI), Week 03 (Structural MRI & Contrast), Week 11 (MRS)
+* **Core Concepts**:
+  * A pulse sequence as a score for RF, gradients and receiver, written in a small language with units, loops, timing anchors (`at exc + TE`) and errors that name the parameter to change.
+  * k-space as the spatial-frequency spectrum: $k(t) = \bar{\gamma}\int G\,dt$, FOV $= 1/\Delta k$, $\Delta x = 1/(2k_{max})$; watching it fill line by line as the hardware plays.
+  * Contrast from relaxation (spin echo, gradient echo, inversion recovery, turbo spin echo, EPI) computed from the sequence actually written, with the textbook equations alongside.
+  * Artifacts that arise from their mechanism: aliasing, Gibbs, chemical shift (displacement and opposed phase), susceptibility dropout and EPI distortion, Nyquist ghosts from a gradient delay, motion and flow ghosts, B1 shading, coil shading, spikes, zippers, missing dummy scans.
+  * Reconstruction choices: filters, zero-filling, partial Fourier (zero-fill, conjugate, homodyne), SENSE with g-factor, radial gridding with density compensation, EPI ghost correction, coil combination.
+  * Non-selective pulse-acquire proton spectroscopy at 3 T with CHESS water suppression, scalp lipid, T1 saturation, first-order phase, and hands-on shimming (shim terms, auto-shim, what shims cannot fix).
+* **Key Interaction**:
+  * A schematic 3 T scanner that lights up component by component as the sequence plays.
+  * Thirteen guided lessons with one-click set-ups, and a "Show me" demonstration on every artifact card.
+
+---
+
 ## 1. Functional MRI & Experimental Design (Weeks 04 & 05)
 
 ### [COMPLETED] fMRI GLM Design Matrix & Convolution Studio
