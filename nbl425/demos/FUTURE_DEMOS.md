@@ -231,6 +231,22 @@ This document catalogs the interactive simulations and educational tools develop
 
 ## 6. Optical Imaging (Week 10)
 
+### [COMPLETED] fNIRS Simulator: From Photons to Haemoglobin
+* **Target File**: `fnirssim/index.html` (a multi-file app at the site root, beside `eegsim/`; see `fnirssim/ARCHITECTURE.md`)
+* **Course Week**: Week 10 (Functional NIRS)
+* **Core Concepts**:
+  * A recording written in a small language: optodes over a 10-20 position with short-separation channels, wavelengths, sampling rate, multiplexing, detector, head, activation, a block or event-related timeline with conditions, physiology, artifacts and analysis settings.
+  * Diffusion in a five-layer head (scalp, skull, CSF, gray and white matter) and the banana-shaped sensitivity from reciprocity; the depth against detected-light trade-off as the separation grows; a Monte Carlo walker for the pictures and as a check.
+  * HbO, HbR and water spectra across the NIR window, the isosbestic point, the condition number and noise gain of a wavelength pair.
+  * Intensity to optical density to concentration with the modified Beer-Lambert law, fixed, age-based or modelled DPF, and partial-volume shrinkage of the true local change.
+  * Confounds that can each be switched off exactly: cardiac, respiration, Mayer waves, low-frequency fluctuations, task-evoked scalp blood pressure, motion spikes and shifts, a poorly coupled optode, ambient light, detector noise.
+  * Processing: SCI and CV quality checks, TDDR and spline motion correction, zero-phase band-pass, short-channel regression (before or with the task), block averaging against the ground truth, and an AR-prewhitened GLM with a canonical or gamma HRF.
+  * fNIRS against BOLD fMRI from one balloon model, and HD-DOT from a high-density array against sparse topography.
+* **Key Interaction**:
+  * A clickable system schematic (sources, cap and hair, tissue, detectors, time and frequency multiplexing, CW against FD and TD).
+  * The average emerging trial by trial, and a false scalp activation that vanishes with short-channel regression.
+  * Fourteen guided lessons with one-click set-ups.
+
 ### [COMPLETED] fNIRS Modified Beer-Lambert Chromophore Unmixer
 * **Target File**: `nbl425/demos/fnirs_unmixing.html`
 * **Course Week**: Week 10 (Functional NIRS)
