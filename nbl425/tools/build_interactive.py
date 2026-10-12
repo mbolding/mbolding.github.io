@@ -81,6 +81,7 @@ TYPE = {
  'neuroengineering/eeg.html':'sim',
  'eegsim/index.html':'sim',
  'megsim/index.html':'sim',
+ 'fnirssim/index.html':'sim',
  'nbl425/demos/eeg_forward_model.html':'sim',
  'nbl425/demos/eeg_inverse_solution.html':'sim',
  'neuroengineering/hodgkin_huxley.html':'sim',
