@@ -399,7 +399,7 @@
       ds.gens.push({ group: 'cardiac', kind: 'artifact', label: 'Cardiac', frame: 'device', model: 'magnetic', pos, ori, tc, events: beats });
     }
     /* --- the eyes: current dipoles in the orbits --- */
-    const eyeL = [-3.2, 7.0, -2.6], eyeR = [3.2, 7.0, -2.6];
+    const eyeL = MEG.EYES[0].slice(), eyeR = MEG.EYES[1].slice();
     ds.eyes = [eyeL, eyeR];
     const eyesPeak = ori => {
       const a = MEG.forwardMEG(magArr.channels, eyeL, ori), b = MEG.forwardMEG(magArr.channels, eyeR, ori);
@@ -453,7 +453,7 @@
         }
       });
       sites.forEach((s, k) => {
-        const pos = v3.scale(s.u, 0.95 * MEG.HEAD.R), ori = MEG.orientation(pos, 90, 0, 'Cz');
+        const pos = v3.scale(s.u, MEG.scalpR(s.u) - 0.45), ori = MEG.orientation(pos, 90, 0, 'Cz');
         const car = new Float32Array(n); for (let i = 0; i < n; i++) car[i] = st.gauss();
         dsp.sosfilt(hp, car); if (lp) dsp.sosfilt(lp, car); normalize(car);
         const scale = A.muscle.amp / 3 / peakMag('current', pos, ori);
@@ -497,13 +497,13 @@
       const freqs = [0, 1, 2, 3].map(k => Math.round(fs * (0.16 + 0.043 * k)) + 3);
       ds.hpiFreqs = freqs;
       coils.forEach(([u, label], k) => {
-        const pos = v3.scale(u, MEG.HEAD.R + 0.2), ori = u, f = freqs[k];
+        const pos = v3.scale(u, MEG.scalpR(u) + 0.2), ori = u, f = freqs[k];
         const tc = new Float32Array(n); for (let i = 0; i < n; i++) tc[i] = Math.sin(2 * Math.PI * f * i / fs);
         const sc = 5000 / peakMag('magnetic', pos, ori);
         for (let i = 0; i < n; i++) tc[i] *= sc;
         ds.gens.push({ group: 'hpi', kind: 'artifact', label: `HPI coil, ${label} (${f} Hz)`, frame: 'head', model: 'magnetic', pos, ori, tc, freq: f });
       });
-      ds.hpiCoils = coils.map(([u]) => v3.scale(u, MEG.HEAD.R + 0.2));
+      ds.hpiCoils = coils.map(([u]) => v3.scale(u, MEG.scalpR(u) + 0.2));
     }
 
     // Toggle list, in a fixed order

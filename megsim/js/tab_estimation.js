@@ -1,6 +1,6 @@
 /* MEG simulator: the Source estimation tab.
 
-   1. Coregistration.  Three landmarks marked on a synthetic MRI line it up
+   1. Coregistration.  Three landmarks marked on the template MRI line it up
       with the head frame the MEG was localized in; fitting the digitized
       head shape to the MRI's scalp (ICP) can refine it.
    2. The data.  A forward model, one or two dipoles in the sphere, plus
@@ -18,7 +18,7 @@
   const PLANES = ['axial', 'coronal', 'sagittal'];
   const AXIS = { axial: 'z', coronal: 'y', sagittal: 'x' };
   const HALF = 11.5;                          // half the width of an MRI slice, cm
-  const C0 = M.apply(M.TRUE, [0, 0, 0]);      // the head's centre in MRI coordinates
+  let C0 = M.apply(M.TRUE, [0, 0, 0]);        // the head's centre in MRI coordinates (set again when the MRI changes)
   const ABORT = { abort: true };
   const mm = d => (isFinite(d) ? `${Math.round(d * 10)} mm` : 'none');
   const cm3 = x => `${x < 10 ? x.toFixed(1) : Math.round(x)} cm³`;
@@ -71,7 +71,7 @@
     ctx.textAlign = 'left'; ctx.fillText(ends[0], 5, w / 2);
     ctx.textAlign = 'right'; ctx.fillText(ends[1], w - 5, w / 2);
     ctx.font = D.font(10); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText(`${plane}, ${AXIS[plane]} = ${Math.round(at * 10)} mm`, 6, 5);
+    ctx.fillText(`${plane}, ${M.coordName ? M.coordName + ' ' : ''}${AXIS[plane]} = ${Math.round(M.mm(at))} mm`, 6, 5);
     if (opts.title) { ctx.textAlign = 'right'; ctx.font = D.font(10, 600); ctx.fillText(opts.title, w - 6, 5); }
     if (opts.draw) opts.draw(ctx, m => mriToPx(view, m), view);
     return view;
@@ -104,7 +104,7 @@
   const trueFid = k => M.apply(M.TRUE, M.FID[k]);
   const exactMarks = () => { const m = {}; FIDS.forEach(k => { m[k] = trueFid(k); }); return m; };
   // The head-frame "up" (toward the vertex) in MRI coordinates.
-  const UP = v3.sub(M.apply(M.TRUE, [0, 0, 1]), C0);
+  let UP = v3.sub(M.apply(M.TRUE, [0, 0, 1]), C0);
   function digi() {
     const nose = $('coNose').checked;
     if (!st.digi[nose]) st.digi[nose] = M.digitize(3, { nose });
@@ -116,8 +116,6 @@
     st.T = M.coregister(digi(), st.marks, { icp: $('coICP').checked, fidWeight: 1 }).T;
     st.Tinv = M.invert(st.T);
   }
-  // Points spread over the brain's surface, where a rotation error is largest.
-  const RIM = MEG.fibonacciSphere(160).filter(u => u[2] > -0.4).map(u => v3.scale(u, 7.6));
   const toAnatomy = p => M.apply(M.TRUE_INV, M.apply(st.T, p));     // where a head-frame point is drawn, in the true anatomy
   const placeName = p => M.label(toAnatomy(p));
 
@@ -150,7 +148,8 @@
     if (srcs.length) leg.push({ color: T.series[2], label: 'a true source, where it is', dot: true }, { color: T.series[0], label: 'where this transform draws it', dot: true });
     ui.legend($('coLegend'), leg);
     const errF = f => v3.norm(v3.sub(st.marks[f], trueFid(f)));
-    let worst = 0; RIM.forEach(p => { worst = Math.max(worst, M.errorAt(st.T, p)); });
+    // over the brain's surface, where a rotation error is largest
+    let worst = 0; M.rim.forEach(p => { worst = Math.max(worst, M.errorAt(st.T, p)); });
     const pairs = FIDS.map(f => [`${FID_LABEL[f]} marked`, mm(errF(f)), `How far the ${FID_LABEL[f].toLowerCase()} mark is from the true landmark on the MRI`]);
     pairs.push(['Head shape fit', mm(M.surfaceFit(st.T, digi())), 'RMS distance of the digitized head-shape points from the MRI scalp']);
     if (srcs.length) pairs.push(['Error at the source', mm(M.errorAt(st.T, srcs[0].pos)), 'How far from its true place on the anatomy a perfect estimate of source 1 would be drawn']);
@@ -160,17 +159,20 @@
   // A new transform redraws everything drawn through it; nothing needs recomputing.
   function coregChanged() { coregRender(); rowsRender(); }
 
-  /* ---------- 2. the data ---------- */
-  const AUD_L = [-5.7, -0.9, -1.6], AUD_R = [5.7, -0.4, -1.6];
+  /* ---------- 2. the data ----------
+     The scenarios start from the built-in generators' sites on the template:
+     Heschl's gyri and the hand area of somatosensory cortex. */
+  const GS = MEG.GEN_SITES, siteDepth = p => MEG.HEAD.R - v3.norm(p);
+  const AUD_L = GS.audL, AUD_R = GS.audR;
   const tang = (p, d) => v3.unit(v3.sub(d, v3.scale(v3.unit(p), v3.dot(d, v3.unit(p)))));
   // Auditory currents flow down through the supratemporal plane; elsewhere tangential and forward.
   const ORI = { aud: p => tang(p, [0, 0.3, -1]), fwd: p => MEG.orientation(p, 90, 0) };
   const PRESETS = {
-    aud1: { s: [{ dir: AUD_L, depth: 3.2, ori: 'aud' }], amp: 20 },
-    som: { s: [{ dir: MEG.ELEC.C3, depth: 2.8, ori: 'fwd' }], amp: 20 },
-    deep: { s: [{ dir: MEG.ELEC.C3, depth: 5, ori: 'fwd' }], amp: 40 },
-    aud2: { s: [{ dir: AUD_L, depth: 3.2, ori: 'aud' }, { dir: AUD_R, depth: 3.2, ori: 'aud' }], amp: 20, corr: 0 },
-    near: { s: [{ dir: MEG.ELEC.C3, depth: 2.5, ori: 'fwd' }, { dir: MEG.ELEC.CP3, depth: 2.5, ori: 'fwd' }], amp: 20, corr: 0 }
+    aud1: { s: [{ dir: AUD_L, depth: siteDepth(AUD_L), ori: 'aud' }], amp: 30 },
+    som: { s: [{ dir: GS.s1L, depth: siteDepth(GS.s1L), ori: 'fwd' }], amp: 20 },
+    deep: { s: [{ dir: GS.s1L, depth: 5, ori: 'fwd' }], amp: 40 },
+    aud2: { s: [{ dir: AUD_L, depth: siteDepth(AUD_L), ori: 'aud' }, { dir: AUD_R, depth: siteDepth(AUD_R), ori: 'aud' }], amp: 30, corr: 0 },
+    near: { s: [{ dir: GS.s1L, depth: siteDepth(GS.s1L), ori: 'fwd' }, { dir: MEG.ELEC.P3, depth: 3.2, ori: 'fwd' }], amp: 20, corr: 0 }
   };
   const mirror = s => ({ dir: [-s.dir[0], s.dir[1], s.dir[2]], depth: s.depth, ori: s.ori });
   function applyPreset(name) {
@@ -656,8 +658,24 @@
   }
 
   /* ---------- rendering and events ---------- */
+  // What the MRI is, at the head of the coregistration caption.
+  function mriNote() {
+    const el = $('coMriWhat'); if (!el) return;
+    const shrink = Math.round((1 - MEG.TEMPLATE.scale) * 100);
+    if (M.kind === 'template') el.textContent = `The MRI is the MNI ICBM152 template, the average T1-weighted scan of 152 young adults, shrunk ${shrink}% to this head model's size, with its regions named by the CerebrA atlas. Its coordinates are the template's own (MNI), tilted and shifted from the head frame.`;
+    else if (M.status === 'failed') el.textContent = 'The template MRI could not be loaded here (a page opened from the disk cannot fetch it), so a synthetic head stands in: a T1-weighted image in the scanner\'s own coordinates, where the head is tilted and off centre.';
+    else el.textContent = 'Loading the template MRI; a synthetic head stands in until it arrives.';
+  }
+  // A new MRI: new frame, new landmarks, new head shape; nothing drawn on the old one stands.
+  M.onChange(() => {
+    C0 = M.apply(M.TRUE, [0, 0, 0]); UP = v3.sub(M.apply(M.TRUE, [0, 0, 1]), C0);
+    st.slices.clear(); st.digi = {}; st.marks = null;
+    if (S.tab === 'estimation' && S.ds) render(); else MEG.app.dirty('estimation');
+  });
   function render() {
     if (!S.ds) return;
+    M.load();
+    mriNote();
     if (!st.src) { applyPreset('aud1'); }
     syncScenario();
     $('invScenario').hidden = st.mode !== 'scenario';
@@ -677,7 +695,8 @@
       const view = st.views.get(cv); if (!view) return;
       const r = cv.getBoundingClientRect(), m = pxToMRI(view, e.clientX - r.left, e.clientY - r.top);
       const p = M.apply(M.TRUE_INV, m);
-      D.tip(e.clientX, e.clientY, `<div><b>${M.label(p)}</b></div><div style="color:var(--muted)">${M.tissue(p)}</div>` + (view.info ? view.info(m) : ''));
+      const where = M.coordName ? `<div style="color:var(--muted)">${M.coordName} (${m.map(x => Math.round(M.mm(x))).join(', ')}) mm</div>` : '';
+      D.tip(e.clientX, e.clientY, `<div><b>${M.label(p)}</b></div><div style="color:var(--muted)">${M.tissue(p)}</div>` + where + (view.info ? view.info(m) : ''));
     });
     cv.addEventListener('mouseleave', () => D.tip(0, 0, null));
   }

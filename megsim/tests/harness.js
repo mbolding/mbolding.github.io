@@ -4,6 +4,9 @@
      const { load } = require('./harness');
      const MEG = load(['core', 'head']);   // js/<name>.js, in order
 
+   The template head (js/template.js) is loaded before head.js, as on the
+   page; pass { template: false } to test the bare sphere instead.
+
    Only modules that do not touch the DOM at load time can be tested this
    way: everything except draw.js, app.js and the tab_*.js files. */
 'use strict';
@@ -13,9 +16,14 @@ const vm = require('vm');
 
 const JS = path.join(__dirname, '..', 'js');
 
-function load(names) {
+function load(names, opts) {
+  opts = opts || {};
+  names = names.slice();
+  const h = names.indexOf('head');
+  if (h >= 0 && opts.template !== false && !names.includes('template')) names.splice(h, 0, 'template');
   const sandbox = {
     console, setTimeout, clearTimeout, Promise, Math, Date, JSON,
+    atob: s => Buffer.from(s, 'base64').toString('binary'),
     Float32Array, Float64Array, Int32Array, Uint8Array, Uint16Array, Uint32Array,
     Int8Array, Int16Array, Uint8ClampedArray, ArrayBuffer, Map, Set, Error, isFinite,
     performance: { now: () => Date.now() }

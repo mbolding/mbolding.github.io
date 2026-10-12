@@ -9,12 +9,15 @@
    iterative closest points (ICP).  Every millimetre of error in that
    transform moves every source by the same amount on the anatomy.
 
-   The MRI here is synthetic, built from signed distances around the head
-   model's sphere: a folded cortex with its white matter, ventricles, deep
-   nuclei, brainstem and cerebellum, the skull and its base, the face, eyes,
-   sinuses, mouth and neck, sampled as a T1-weighted image.  It lives in
-   scanner coordinates, a few centimetres and degrees away from head
-   coordinates. */
+   The MRI shown is the MNI template head (mri_template.js), loaded when a
+   tab first needs it.  This file holds what does not depend on which MRI
+   is shown (the transforms, Horn's method, coregistration) and a synthetic
+   head that stands in until the template arrives, or for good if it cannot
+   be loaded: built from signed distances around the head model's sphere, a
+   folded cortex with its white matter, ventricles, deep nuclei, brainstem
+   and cerebellum, the skull and its base, the face, eyes, sinuses, mouth
+   and neck, sampled as a T1-weighted image.  It lives in scanner
+   coordinates, a few centimetres and degrees away from head coordinates. */
 (function (G) {
   'use strict';
   const MEG = G.MEG, v3 = MEG.v3, la = MEG.la;
@@ -59,7 +62,7 @@
      chin and the neck, and an ear behind each preauricular point.  The
      landmarks lie on this skin: the nasion where the nose meets the brow,
      the preauricular points just in front of each ear. */
-  const FID = { NAS: v3.scale(MEG.sph(108, 0), R), LPA: v3.scale(MEG.ELEC.LPA, R), RPA: v3.scale(MEG.ELEC.RPA, R) };
+  const FID = { NAS: v3.scale(MEG.sph(108, 0), R), LPA: v3.scale(MEG.ELEC_SPHERE.LPA, R), RPA: v3.scale(MEG.ELEC_SPHERE.RPA, R) };
   const EAR_C = Math.cos(0.44), EAR_S = Math.sin(0.44);
   function earSDF(p) {
     const q = absX(p);
@@ -254,7 +257,7 @@
   const MANDIBLE = [[0, 7.25, -9.85, 0.55], [1.5, 7.0, -9.95, 0.55], [3.0, 5.6, -9.95, 0.5], [4.35, 3.1, -9.7, 0.45], [4.75, 1.6, -8.9, 0.45], [4.9, 1.0, -7.2, 0.42], [5.0, 0.6, -5.6, 0.38], [5.05, 0.35, -4.75, 0.42]];
   const ORBIT = { apex: [1.35, 3.0, -3.75], open: [3.15, 7.55, -3.85], globe: [3.15, 6.4, -3.95], gr: 1.15 };
   const RECTI = [[3.15, 6.05, -2.95], [3.15, 6.05, -4.95], [2.1, 6.05, -3.95], [4.2, 6.05, -3.95]];
-  const HAND = ['C3', 'C4'].map((c, i) => v3.unit(v3.lerp(MEG.ELEC[c], MEG.ELEC[i ? 'FC4' : 'FC3'], 0.1)));
+  const HAND = ['C3', 'C4'].map((c, i) => v3.unit(v3.lerp(MEG.ELEC_SPHERE[c], MEG.ELEC_SPHERE[i ? 'FC4' : 'FC3'], 0.1)));
   // Heschl's gyrus on each superior temporal plane, with the Sylvian fissure's cleft above it.
   const HESCHL = [[-5.711, -0.902, -1.603], [5.763, -0.404, -1.618]].map(c => ({ c, a: [0.9, 0.45, 0.38] }));
   const CLEFT = HESCHL.map(h => ({ c: v3.add(h.c, [0, 0, 0.56]), a: [1.7, 1.0, 0.13] }));
@@ -643,7 +646,8 @@
      the digitizer; mriFids: the three landmarks as marked on the MRI (in
      MRI coordinates, with whatever error the marker made).  Step 1 lines
      the landmarks up; step 2, if asked, runs ICP between the head-shape
-     points and the MRI scalp, keeping the landmarks in with a weight. */
+     points and the MRI scalp, keeping the landmarks in with a weight.
+     The MRI is whichever one is in use (B, below). */
   function coregister(digi, mriFids, opts) {
     opts = opts || {};
     const names = ['NAS', 'LPA', 'RPA'];
@@ -652,24 +656,24 @@
     if (opts.icp) {
       const wF = opts.fidWeight === undefined ? 5 : opts.fidWeight;
       for (let it = 0; it < (opts.iterations || 25); it++) {
-        const A = [], B = [], w = [];
+        const A = [], Bp = [], w = [];
         digi.pts.forEach(p => {
-          const m = apply(T, p);                                     // where this point lands in the MRI
-          const near = apply(TRUE, nearestScalp(apply(TRUE_INV, m)));  // the nearest point of the MRI's scalp
-          A.push(p); B.push(near); w.push(1);
+          const m = apply(T, p);                                           // where this point lands in the MRI
+          const near = apply(B.TRUE, B.nearestScalp(apply(B.TRUE_INV, m)));  // the nearest point of the MRI's scalp
+          A.push(p); Bp.push(near); w.push(1);
         });
-        names.forEach(k => { A.push(digi.fids[k]); B.push(mriFids[k]); w.push(wF); });
-        T = rigid(A, B, w);
+        names.forEach(k => { A.push(digi.fids[k]); Bp.push(mriFids[k]); w.push(wF); });
+        T = rigid(A, Bp, w);
         history.push({ T, step: 'icp ' + (it + 1) });
       }
     }
     return { T, history };
   }
   // How far the estimated transform puts a head-frame point from where it really is, cm.
-  const errorAt = (T, p) => v3.norm(v3.sub(apply(T, p), apply(TRUE, p)));
+  const errorAt = (T, p) => v3.norm(v3.sub(apply(T, p), apply(B.TRUE, p)));
   // RMS distance of the digitized points from the scalp after registration.
   function surfaceFit(T, digi) {
-    let s = 0; digi.pts.forEach(p => { const m = apply(T, p); const near = apply(TRUE, nearestScalp(apply(TRUE_INV, m))); s += v3.norm(v3.sub(m, near)) ** 2; });
+    let s = 0; digi.pts.forEach(p => { const m = apply(T, p); const near = apply(B.TRUE, B.nearestScalp(apply(B.TRUE_INV, m))); s += v3.norm(v3.sub(m, near)) ** 2; });
     return Math.sqrt(s / digi.pts.length);
   }
 
@@ -706,5 +710,27 @@
     return `${side} ${region}`;
   }
 
-  MEG.mri = { TRUE, TRUE_INV, apply, invert, t1, anat, floorZ, skinSDF, slice, slicePixel, nearestScalp, digitize, rigid, coregister, errorAt, surfaceFit, label, tissue, FID, SULCI };
+  /* ---------- which MRI ----------
+     MEG.mri forwards the anatomy (transform, landmarks, image, scalp,
+     digitizer, atlas) to the MRI in use: this synthetic head until the
+     template has loaded.  Tabs that draw anatomy listen for the change. */
+  const SYNTHETIC = {
+    kind: 'synthetic', name: 'a synthetic head', TRUE, TRUE_INV, FID, t1, anat, floorZ, skinSDF, slice, slicePixel, nearestScalp, digitize, label, tissue, SULCI,
+    rim: MEG.fibonacciSphere(160).filter(u => u[2] > -0.4).map(u => v3.scale(u, 7.6)),   // points over the brain's surface
+    mm: v => v * 10, coordName: ''
+  };
+  let B = SYNTHETIC;
+  const listeners = [];
+  const mri = {
+    apply, invert, rigid, coregister, errorAt, surfaceFit, synthetic: SYNTHETIC,
+    status: 'synthetic', error: null,
+    use(backend, status) { B = backend || SYNTHETIC; mri.status = status || B.kind; listeners.slice().forEach(f => f(B)); },
+    onChange(f) { listeners.push(f); },
+    // Replaced by mri_template.js; without it the synthetic head is all there is.
+    load: () => Promise.resolve(B)
+  };
+  ['kind', 'name', 'TRUE', 'TRUE_INV', 'FID', 't1', 'anat', 'floorZ', 'skinSDF', 'slice', 'slicePixel', 'nearestScalp', 'digitize', 'label', 'tissue', 'SULCI', 'rim', 'mm', 'coordName']
+    .forEach(k => Object.defineProperty(mri, k, { get: () => B[k], enumerable: true }));
+  Object.defineProperty(mri, 'backend', { get: () => B });
+  MEG.mri = mri;
 })(typeof window !== 'undefined' ? window : globalThis);

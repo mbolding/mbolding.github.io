@@ -851,7 +851,7 @@
         <div class="ctl"><label for="coSlice">Slices through</label><select id="coSlice"><option value="fid">the selected landmark</option><option value="src">the true source</option><option value="centre">the centre of the head</option></select></div>
       </div>
       <div class="readouts" id="coReadouts"></div>
-      <p class="cap">A synthetic T1-weighted MRI in the scanner's own coordinates, where the head is tilted and off centre. The three
+      <p class="cap"><span id="coMriWhat">Loading the template MRI; a synthetic head stands in until it arrives.</span> The three
         landmarks were digitized on the participant before the recording; marking the same three points on the MRI gives the transform
         between the two frames. The dots are the digitized head shape placed with that transform: where they float off the scalp or sink into
         it, the transform is wrong. The preauricular points lie just in front of each ear and are the hardest to mark the same way twice.
@@ -867,7 +867,7 @@
         <div class="controls tight">
           <div class="ctl"><label for="invPreset">Scenario</label><select id="invPreset">
             <option value="aud1">Left auditory cortex</option><option value="som">Hand area of somatosensory cortex</option>
-            <option value="deep">A deep source, 5 cm under C3</option><option value="aud2">Both auditory cortices</option>
+            <option value="deep">A deep source, 5 cm under the hand area</option><option value="aud2">Both auditory cortices</option>
             <option value="near">Two sources 3.5 cm apart</option><option value="custom">Custom</option></select></div>
           <div class="ctl"><label for="invAt1">Source 1 beneath</label><select id="invAt1"></select></div>
           <div class="ctl"><label for="invD1">Source 1 depth below the scalp <span class="val" id="invD1V"></span></label><input type="range" id="invD1" min="1.5" max="7" step="0.1" value="3.2"></div>
@@ -942,24 +942,35 @@
           Deviants are only 15% of trials, so their average stays noisier than the standards' throughout.</li>
         <li><strong>Head movement.</strong> Load <em>Head movement and compensation</em>; compare the three maps in the last panel of the
           Processing tab.</li>
-        <li><strong>Coregistration.</strong> On <em>Source estimation</em>, press "Nasion 5 mm too high". The auditory source moves only
-          3 mm on the anatomy, because the error pivots about the ears, but the front of the brain moves almost a centimetre. Refine with the
-          head shape: ICP brings the worst error under 3 mm, and back to about 7 mm if the head shape leaves out the nose.</li>
+        <li><strong>The template head.</strong> On <em>Source estimation</em>, hover over the MRI: every point is named from the CerebrA
+          atlas, with its MNI coordinates. The built-in sources sit on the regions they are named for: Heschl's gyrus, the two walls of the
+          central sulcus at the hand knob, the cuneus above the calcarine sulcus.</li>
+        <li><strong>Coregistration.</strong> On <em>Source estimation</em>, press "Nasion 5 mm too high". The error tilts the head about the
+          ears: the auditory source moves 5 mm on the anatomy and the edge of the brain up to a centimetre. Refine with the head shape: ICP
+          brings both back to about a millimetre, but the worst error grows to about 6 mm if the head shape leaves out the nose.</li>
         <li><strong>Three answers.</strong> With the left auditory cortex, all three inverse methods agree within a few millimetres, though
-          minimum norm lights up tens of cubic centimetres. Choose the deep source and switch to plain minimum norm: its peak jumps about 3 cm
-          toward the surface, sLORETA stays on the source, and the beamformer's map goes flat. Lower the trials to 10 and watch the dipole's
-          confidence volume grow.</li>
-        <li><strong>Correlated sources.</strong> Choose both auditory cortices and set the correlation to 1. One dipole explains only about
-          60% of the field, sitting on one source; fitting two finds both. The beamformer's map goes flat: each source's filter cancels the
-          other. The same happens with this recording's average in the <em>Teaching tour</em>, whose two auditory cortices share a waveform.</li>
+          minimum norm lights up tens of cubic centimetres. Choose the deep source and switch to plain minimum norm: its peak jumps 3 cm
+          toward the surface, while sLORETA and the beamformer, each normalized against that pull, stay within half a centimetre. Lower the
+          trials to 10 and watch the dipole's confidence volume grow.</li>
+        <li><strong>Correlated sources.</strong> Choose both auditory cortices and set the correlation to 1. One dipole explains less than half
+          of the field, wherever it sits; fitting two finds both. The beamformer's map goes flat: each source's filter cancels the other. The
+          same happens with this recording's average in the <em>Teaching tour</em>, whose two auditory cortices share a waveform.</li>
       </ul>
       <h3>What the simulation computes</h3>
       <ul>
-        <li><strong>Head and fields.</strong> A sphere: brain 8.0 cm, CSF 8.2, skull 8.7, scalp 9.2 cm radius. Magnetic fields outside come
+        <li><strong>Anatomy.</strong> The MNI ICBM152 2009c nonlinear symmetric template, the average T1-weighted scan of 152 young adults,
+          with the CerebrA atlas, at 1.5 mm. Its nasion and preauricular points, its 10-10 electrode positions, its eyes and the sites of the
+          built-in generators were measured on it by <code>tools/build_template.py</code>; the source grid is its grey and white matter, the
+          digitizer and ICP use its scalp, and the drawings of the head follow its outline. Sources and licences are in
+          <a href="data/README.md">data/README.md</a>.</li>
+        <li><strong>Head and fields.</strong> A sphere fitted to the template's scalp above the ears, as a lab fits one to the digitized head
+          shape, with the template shrunk 5% so its radius is 9.2 cm: brain 8.0 cm, CSF 8.2, skull 8.7, scalp 9.2 cm. Depths on the sliders
+          are measured from this sphere; the real scalp is about a centimetre nearer over the temples and farther at the forehead and the
+          back of the head. Magnetic fields outside come
           from the Sarvas formula, exact for any spherically layered head; EEG potentials from the four-shell series solution. Inside the
           head the field is the primary current's Biot-Savart field plus the volume currents' field from the Geselowitz surface integral.</li>
-        <li><strong>Sensors.</strong> 105 sites on an ellipsoidal helmet, 2.4 cm or more from the scalp. Magnetometers are one coil; axial
-          gradiometers two coaxial coils 5 cm apart; the planar array has a magnetometer and two orthogonal planar gradiometers (16.8 mm
+        <li><strong>Sensors.</strong> 105 sites on an ellipsoidal helmet, 1.7 to 4.7 cm from the template's scalp (2.2 cm over the
+          vertex). Magnetometers are one coil; axial gradiometers two coaxial coils 5 cm apart; the planar array has a magnetometer and two orthogonal planar gradiometers (16.8 mm
           baseline) at each site; OPMs sit 6 mm above the scalp and move with the head. Gradiometers have small random imbalances.
           Nine reference magnetometers sit high in the dewar.</li>
         <li><strong>Noise.</strong> Sensor noise is white with a 1/f rise; brain background is fifty random cortical dipoles with 1/f time
@@ -980,23 +991,25 @@
       </ul>
       <h3>What it does not model</h3>
       <ul>
-        <li>Real head shapes, so the boundary element models of real localization are not needed here; spheres are the classroom model and
-          they get the main ideas right.</li>
+        <li>Conduction in a real head. The anatomy is a real head's, but the fields come from the sphere fitted to it, so the boundary
+          element models of real localization are not needed here; spheres are the classroom model and they get the main ideas right.</li>
         <li>Extended sources. Every generator is a point dipole; the cancellation within folded patches appears only on the Instrument tab.</li>
         <li>The SQUID electronics in detail, crosstalk between channels, and the fine structure of real shielded rooms and real OPM arrays.</li>
         <li>Neural dynamics. Sources are waveforms chosen to look like MEG, not the output of a model of neurons.</li>
-        <li>A real MRI. The structural image is drawn from the same sphere, with a gyral pattern, ventricles, deep nuclei, a brainstem,
-          a cerebellum and a skull base placed by hand: enough to read slices and labels, not an atlas.</li>
+        <li>One person's brain. The MRI is a template, an average of 152 brains, so it is smoother than any one scan and its folds are the
+          average folds; its labels are as good as the CerebrA atlas's registration to it. Opened from the disk rather than a web server, the
+          page cannot load it, and a synthetic head drawn around the sphere stands in.</li>
       </ul>
       <p class="note">Built for NBL 425/625, Methods in Human Neuroimaging. See also the <a href="../eegsim/index.html">EEG simulator</a> and the
         course's <a href="../nbl425/demos/eeg_vs_meg_dipoles.html">EEG versus MEG</a> and <a href="../nbl425/demos/opm_wearable_meg.html">wearable OPM-MEG</a> demos.</p>
     </div>
   </section>
 
-  <footer>MEG simulator. Current dipoles in a spherical head, SQUID and OPM arrays, the noise of a real lab and the methods that remove it. A teaching tool, not a biophysical model.</footer>
+  <footer>MEG simulator. Current dipoles in a template head and the sphere fitted to it, SQUID and OPM arrays, the noise of a real lab and the methods that remove it. A teaching tool, not a biophysical model.</footer>
 </div>
 
 <script src="js/core.js"></script>
+<script src="js/template.js"></script>
 <script src="js/head.js"></script>
 <script src="js/fields.js"></script>
 <script src="js/dsl.js"></script>
@@ -1007,6 +1020,7 @@
 <script src="js/ica.js"></script>
 <script src="js/inverse.js"></script>
 <script src="js/mri.js"></script>
+<script src="js/mri_template.js"></script>
 <script src="js/draw.js"></script>
 <script src="js/views.js"></script>
 <script src="js/app.js"></script>

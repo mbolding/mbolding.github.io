@@ -492,7 +492,7 @@
         }
         const j = last('jitter'); s.jitter = j ? getNum(j, 'time', { required: true, min: 0, max: 0.1, scale: 1e-3, unit: 'ms' }) : (type === 'auditory' ? 0.008 : 0.001);
         s.conditions = conditionsOf(stmts);
-        const dp = last('depth'); s.depth = dp ? getNum(dp, 'length', { required: true, min: 1.5, max: 6, unit: 'cm' }) : (type === 'auditory' ? 3.2 : 2.8);
+        const dp = last('depth'); s.depth = dp ? getNum(dp, 'length', { required: true, min: 1.5, max: 6, unit: 'cm' }) : MEG.GEN_DEPTH[type];
         if (type === 'somatosensory') {
           const b = last('beta');
           s.beta = null;
@@ -510,7 +510,7 @@
         const c = last('closed'); s.closed = c ? frac(c, { required: true, max: 2 }) : 1;
         const o = last('open'); s.open = o ? frac(o, { required: true, max: 2 }) : 0.2;
         const e = last('erd'); s.erd = e ? frac(e, { required: true }) : 0;
-        const d = last('depth'); s.depth = d ? getNum(d, 'length', { required: true, min: 1.5, max: 6, unit: 'cm' }) : 2.7;
+        const d = last('depth'); s.depth = d ? getNum(d, 'length', { required: true, min: 1.5, max: 6, unit: 'cm' }) : MEG.GEN_DEPTH.alpha;
         s.dipoles = MEG.alphaDipoles(s.depth);
       } else if (type === 'spike') {
         Object.assign(s, geometry(stmts));

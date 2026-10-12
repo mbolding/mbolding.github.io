@@ -129,9 +129,12 @@
     if (opts.helmet !== false) {
       const near = u => Math.abs(v3.dot(u, pl.normal));
       if (opts.opm) {
+        // the OPMs' surface: the scalp in this plane, plus their gap
         ctx.strokeStyle = D.alpha(T.coil, 0.5); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-        ctx.beginPath(); ctx.arc(f.cx, f.cy, (MEG.HEAD.R + MEG.ARRAY.opmGap) * f.sc, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
-        MEG.SITES.forEach(s => { const p = v3.scale(s.u, MEG.HEAD.R + MEG.ARRAY.opmGap); if (Math.abs(v3.dot(p, pl.normal)) > 1.2) return; ctx.fillStyle = T.coil; ctx.fillRect(f.X(v3.dot(p, e1)) - 3, f.Y(v3.dot(p, e2)) - 3, 6, 6); });
+        ctx.beginPath();
+        for (let k = 0; k <= 180; k++) { const t = k / 180 * 2 * Math.PI, p = MEG.opmPoint(v3.unit(toWorld(Math.cos(t), Math.sin(t)))); const x = f.X(v3.dot(p, e1)), y = f.Y(v3.dot(p, e2)); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke(); ctx.setLineDash([]);
+        MEG.SITES.forEach(s => { const p = MEG.opmPoint(s.u); if (Math.abs(v3.dot(p, pl.normal)) > 1.2) return; ctx.fillStyle = T.coil; ctx.fillRect(f.X(v3.dot(p, e1)) - 3, f.Y(v3.dot(p, e2)) - 3, 6, 6); });
       } else {
         ctx.strokeStyle = D.alpha(T.cold, 0.55); ctx.lineWidth = 5; ctx.beginPath();
         let pen = false;
