@@ -207,7 +207,7 @@ shielding { room on  sss on }
 
 source pair motor {
   dipole A { at C3 depth 2.5 cm  orient tangential dir 0 deg }
-  dipole B { at CP3 depth 3 cm  orient tangential dir 60 deg }
+  dipole B { at C5 depth 2.5 cm  orient tangential dir 60 deg }
   rhythm 20 Hz  amp 25 nAm
   coupling 0  lag 0 ms
 }

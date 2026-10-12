@@ -31,16 +31,59 @@
   const MEG = G.MEG, v3 = MEG.v3, la = MEG.la;
 
   /* ---------- the source space ----------
-     A grid inside the brain, every `spacing` cm, cut below z = -3.5 cm
-     (the cerebellum and brainstem are left out).  6 mm is fine enough
-     that a beamformer's sharp peak lands on a grid point. */
+     A grid every `spacing` cm over the template's brain, grey and white
+     matter but not CSF or skull (js/template.js carries the mask at 6 mm),
+     so an estimate cannot land outside the brain.  Without the template it
+     is a sphere, cut below z = -3.5 cm.  6 mm is fine enough that a
+     beamformer's sharp peak lands on a grid point. */
+  const BRAIN = MEG.TEMPLATE && MEG.TEMPLATE.grid ? (function (g) {
+    return { bits: MEG.b64(g.mask), lim: g.lim, w: 2 * g.lim + 1, sp: g.spacing };
+  })(MEG.TEMPLATE.grid) : null;
+  function brainCell(i, j, k) {
+    const L = BRAIN.lim;
+    if (i < -L || i > L || j < -L || j > L || k < -L || k > L) return false;
+    const n = ((k + L) * BRAIN.w + (j + L)) * BRAIN.w + (i + L);
+    return ((BRAIN.bits[n >> 3] >> (n & 7)) & 1) === 1;
+  }
+  /* The grid cells on the brain's outer surface, the cortex as far as a
+     6 mm grid can tell: brain cells next to the outside, where the outside
+     is what can be reached from beyond the head without crossing the brain
+     (so the ventricles' walls do not count).  Cells more than 2.5 cm below
+     the centre are left out, and the cerebellum with them. */
+  let CORTEX = null;
+  function cortexCells() {
+    if (CORTEX) return CORTEX;
+    const L = BRAIN.lim + 1, w = 2 * L + 1, at = (i, j, k) => ((k + L) * w + (j + L)) * w + (i + L);
+    const out = new Uint8Array(w * w * w), stack = [at(-L, -L, -L)];
+    out[stack[0]] = 1;
+    while (stack.length) {
+      const n = stack.pop(), i = n % w - L, j = Math.floor(n / w) % w - L, k = Math.floor(n / (w * w)) - L;
+      [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].forEach(([a, b, c]) => {
+        const x = i + a, y = j + b, z = k + c;
+        if (Math.abs(x) > L || Math.abs(y) > L || Math.abs(z) > L) return;
+        const m = at(x, y, z);
+        if (!out[m] && !brainCell(x, y, z)) { out[m] = 1; stack.push(m); }
+      });
+    }
+    CORTEX = sourceGrid(BRAIN.sp).ijk.filter(([i, j, k]) => [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, c]) => out[at(i + a, j + b, k + c)]))
+      .map(q => v3.scale(q, BRAIN.sp)).filter(p => p[2] > -2.5);
+    return CORTEX;
+  }
+  // Inside the brain, to the grid's resolution: where a fitted dipole may go.
+  MEG.inBrain = function (p) {
+    const r = v3.norm(p);
+    if (r < 0.3) return false;
+    if (!BRAIN) return r <= 7.8;
+    return brainCell(Math.round(p[0] / BRAIN.sp), Math.round(p[1] / BRAIN.sp), Math.round(p[2] / BRAIN.sp));
+  };
   function sourceGrid(spacing) {
     spacing = spacing || 0.6;
-    const lim = Math.ceil(7.7 / spacing), pts = [], ijk = [];
+    const tpl = BRAIN && Math.abs(spacing - BRAIN.sp) < 1e-9;
+    const lim = tpl ? BRAIN.lim : Math.ceil(7.7 / spacing), pts = [], ijk = [];
     for (let k = -lim; k <= lim; k++) for (let j = -lim; j <= lim; j++) for (let i = -lim; i <= lim; i++) {
       const p = [i * spacing, j * spacing, k * spacing];
       const r = v3.norm(p);
-      if (r <= 7.6 && r >= 0.6 && p[2] >= -3.5) { pts.push(p); ijk.push([i, j, k]); }
+      if (tpl ? brainCell(i, j, k) : r <= 7.6 && r >= 0.6 && p[2] >= -3.5) { pts.push(p); ijk.push([i, j, k]); }
     }
     const ori = pts.map(p => { const f = MEG.tangentFrame(p); return [f.t1, f.t2]; });
     return { pts, ijk, ori, spacing, lim, n: pts.length };
@@ -97,12 +140,20 @@
     for (let i = 0; i < nT; i++) own[i] *= sc;
     return [w1, Float64Array.from(w1, (x, i) => rho * x + Math.sqrt(1 - rho * rho) * own[i])];
   }
-  // Fifty fixed random cortical dipoles for the spontaneous background, and the scale that gives `rms` on the channels.
+  /* Fifty fixed random cortical dipoles for the spontaneous background, and
+     the scale that gives `rms` on the channels.  Fifty is few enough that a
+     beamformer can tune most of them out, as it can the strongest of the
+     real background; where they fall matters, and this draw (BG_DRAW) puts
+     none right on top of the scenarios' sources, on any array. */
+  const BG_DRAW = 30;
   function backgroundPatterns(chans, seed, rms) {
-    const bg = [], bgR = MEG.rng((seed || 11) + 7), nch = chans.length;
+    const bg = [], bgR = MEG.rng(BG_DRAW + (seed || 11) - 11), nch = chans.length;
+    const shell = BRAIN ? cortexCells() : null;
     for (let k = 0; k < 50; k++) {
-      let u; do { u = v3.unit([bgR.gauss(), bgR.gauss(), bgR.gauss()]); } while (u[2] < -0.3);
-      const pos = v3.scale(u, bgR.uniform(6.2, 7.6)), ori = v3.unit([bgR.gauss(), bgR.gauss(), bgR.gauss()]);
+      let pos;
+      if (shell) pos = bgR.pick(shell);
+      else { let u; do { u = v3.unit([bgR.gauss(), bgR.gauss(), bgR.gauss()]); } while (u[2] < -0.3); pos = v3.scale(u, bgR.uniform(6.2, 7.6)); }
+      const ori = v3.unit([bgR.gauss(), bgR.gauss(), bgR.gauss()]);
       bg.push(MEG.forwardMEG(chans, pos, ori));
     }
     let bgPow = 0; bg.forEach(b => b.forEach(x => { bgPow += x * x; }));
@@ -351,7 +402,7 @@
     return { cols, f };
   }
   function residualAt(model, pos, v) {
-    if (v3.norm(pos) > 7.8 || v3.norm(pos) < 0.3) return { resid: Infinity, vv: 1, q: [0, 0, 0] };
+    if (!MEG.inBrain(pos)) return { resid: Infinity, vv: 1, q: [0, 0, 0] };
     const { cols, f } = columnsAt(model, pos);
     const r = solve2(cols[0], cols[1], v, v.length);
     return { resid: r.resid, vv: r.vv, q: v3.add(v3.scale(f.t1, r.q[0]), v3.scale(f.t2, r.q[1])) };
@@ -424,7 +475,7 @@
       return Q;
     };
     const perp = (Q, x) => { const o = Float64Array.from(x); Q.forEach(q => { let d = 0; for (let i = 0; i < n; i++) d += q[i] * o[i]; for (let i = 0; i < n; i++) o[i] -= d * q[i]; }); return o; };
-    const inside = p => v3.norm(p) <= 7.6 && v3.norm(p) >= 0.6;
+    const inside = p => v3.norm(p) >= 0.6 && MEG.inBrain(p);
     // the best place for one dipole given the other's columns, over a list of grid points
     const search = (other, list) => {
       const Q = basis(columnsAt(model, other).cols), vp = perp(Q, v), land = new Float32Array(grid.n).fill(Infinity);

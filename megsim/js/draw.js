@@ -326,9 +326,9 @@
      A map is drawn over a set of points on the sphere ({key, U}): the
      105 sensor sites, or a list of EEG electrodes.  The projection is
      azimuthal equidistant from the vertex with the rim 135 degrees down;
-     the head's outline is drawn at 90 degrees, the level of the nasion and
-     the ears. */
-  const RIM_EQ = 90 / 135;
+     the head's outline is drawn through the circumference electrodes
+     (Fpz, T7, Oz, T8), about 96 degrees down on the template head. */
+  const RIM_EQ = (MEG.RING_THETA || 90) / 135;          // the head's outline passes through the circumference electrodes
   D.RIM_EQ = RIM_EQ;
   let SITESET = null;
   D.sites = () => SITESET || (SITESET = { key: 'sites', U: MEG.SITES.map(s => s.u) });
@@ -571,25 +571,34 @@
       ctx.fillStyle = D.alpha(T.helium || T.surface, 0.8); ctx.fill();
       ctx.strokeStyle = T.metal || T.axis; ctx.lineWidth = 1; ctx.stroke();
     }
+    /* The layers follow the head's own outline, cut through the centre in
+       the plane of the view (the template's scalp; a circle without it),
+       each shrunk in proportion to its radius in the head model. */
     const cols = [T.layers.scalp, T.layers.skull, T.layers.csf, T.layers.brain];
     const radii = opts.homogeneous ? [H.R] : [H.R, H.radii[2], H.radii[1], H.radii[0]];
+    const dirAt = view === 'top' ? a => [Math.sin(a), Math.cos(a), 0] : view === 'side' ? a => [0, Math.cos(a), Math.sin(a)] : a => [Math.cos(a), 0, Math.sin(a)];
+    // below the ears the template's field of view ends: round the outline off there
+    const rimR = u => { const th = Math.acos(MEG.clamp(u[2], -1, 1)) * 180 / Math.PI, w = MEG.clamp((th - 122) / 18, 0, 1), sw = w * w * (3 - 2 * w); return MEG.scalpR(u) * (1 - sw) + 0.97 * H.R * sw; };
+    const rim = Array.from({ length: 120 }, (_, k) => { const u = dirAt(2 * Math.PI * k / 120); return v3.scale(u, rimR(u)); });
     radii.forEach((rr, i) => {
       ctx.fillStyle = opts.homogeneous ? T.layers.brain : cols[i]; ctx.strokeStyle = T.layers.line; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(cx, cy, rr * s, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      rim.forEach((p, k) => { const q = proj(v3.scale(p, rr / H.R)); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill(); ctx.stroke();
     });
     ctx.strokeStyle = T.layers.line; ctx.lineWidth = 1.2;
-    const R = H.R * s;
     if (view === 'top') {
-      ctx.beginPath(); ctx.moveTo(cx - R * 0.12, cy - R * 0.99); ctx.lineTo(cx, cy - R * 1.1); ctx.lineTo(cx + R * 0.12, cy - R * 0.99); ctx.stroke();
-      [-1, 1].forEach(sd => { ctx.beginPath(); ctx.ellipse(cx + sd * R * 1.03, cy, R * 0.045, R * 0.15, 0, 0, 2 * Math.PI); ctx.stroke(); });
-    } else if (view === 'side') {
-      const a = 0.32;
+      const R = MEG.scalpR([0, 1, 0]) * s, W = MEG.scalpR([1, 0, 0]) * s;
+      ctx.beginPath(); ctx.moveTo(cx - W * 0.12, cy - R * 0.99); ctx.lineTo(cx, cy - R * 1.09); ctx.lineTo(cx + W * 0.12, cy - R * 0.99); ctx.stroke();
+      [-1, 1].forEach(sd => { ctx.beginPath(); ctx.ellipse(cx + sd * W * 1.035, cy, W * 0.05, W * 0.16, 0, 0, 2 * Math.PI); ctx.stroke(); });
+    } else if (view === 'side' && !MEG.TEMPLATE) {
+      const R = H.R * s, a = 0.32;
       ctx.beginPath(); ctx.moveTo(cx + R * Math.cos(a), cy + R * Math.sin(a) * 0.2); ctx.lineTo(cx + R * 1.1, cy + R * 0.12); ctx.lineTo(cx + R * 0.97, cy + R * 0.25); ctx.stroke();
     }
     if ((opts.helmet || opts.opm) && opts.sensors !== false) {
       // sensor sites: all of them from above, those near the plane of the section otherwise
       MEG.SITES.forEach(si => {
-        const p = opts.opm ? v3.scale(si.u, H.R + MEG.ARRAY.opmGap) : MEG.helmetPoint(si.u).r;
+        const p = opts.opm ? MEG.opmPoint(si.u) : MEG.helmetPoint(si.u).r;
         if (view === 'top' ? p[2] < -2 : Math.abs(depthOf(p)) > 3.2) return;
         const [px, py] = proj(p);
         ctx.fillStyle = T.coil || T.ink2; ctx.fillRect(px - 1.7, py - 1.7, 3.4, 3.4);

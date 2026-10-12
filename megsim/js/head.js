@@ -8,9 +8,13 @@
    magnetometers, axial gradiometers, planar gradiometers or, for the
    on-scalp alternative, optically pumped magnetometers.
 
+   The anatomy around the sphere is the MNI ICBM152 template head
+   (js/template.js), shrunk to fit it: its electrodes, landmarks and the
+   sites of the built-in generators are measured on that head.
+
    Coordinates are in centimetres with x to the right ear, y to the nose
-   and z up through the vertex.  Fields are in femtotesla, dipole moments
-   in nanoampere-metres. */
+   and z up, from the centre of the sphere.  Fields are in femtotesla,
+   dipole moments in nanoampere-metres. */
 (function (G) {
   'use strict';
   const MEG = G.MEG;
@@ -27,6 +31,36 @@
     maxSourceR: 7.9
   };
   MEG.HEAD = HEAD;
+
+  /* ---------- the template head ----------
+     The sphere is fitted to the template's scalp above the ears, as a lab
+     fits one to the digitized head shape, and the template is scaled so the
+     sphere's radius is HEAD.R.  The real scalp is longer than the sphere
+     front to back and narrower at the sides; scalpR gives its distance from
+     the centre in any direction (from a 4 degree table), so sensors and
+     coils that sit on the head can sit on it. */
+  const TPL = MEG.TEMPLATE || null;
+  MEG.b64 = function (s) {
+    const bin = atob(s), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  };
+  const SCALP = TPL ? (function () {
+    const t = TPL.scalp, u8 = MEG.b64(t.r), r = new Float32Array(t.nTheta * t.nPhi);
+    for (let i = 0; i < r.length; i++) r[i] = (u8[2 * i] | (u8[2 * i + 1] << 8)) / 1000;
+    return { dTh: t.dTheta, dPh: t.dPhi, nTh: t.nTheta, nPh: t.nPhi, r };
+  })() : null;
+  MEG.scalpR = function (u) {
+    if (!SCALP) return HEAD.R;
+    const n = v3.norm(u) || 1, th = Math.acos(MEG.clamp(u[2] / n, -1, 1)) / DEG;
+    let ph = Math.atan2(u[0], u[1]) / DEG; if (ph < 0) ph += 360;
+    const fi = Math.min(th / SCALP.dTh, SCALP.nTh - 1.000001), fj = ph / SCALP.dPh;
+    const i = Math.floor(fi), a = fi - i, j0 = Math.floor(fj), b = fj - j0;
+    const W = SCALP.nPh, j = j0 % W, j1 = (j0 + 1) % W, R = SCALP.r;
+    return (1 - a) * ((1 - b) * R[i * W + j] + b * R[i * W + j1]) + a * ((1 - b) * R[(i + 1) * W + j] + b * R[(i + 1) * W + j1]);
+  };
+  // The centres of the eyes (for blinks and eye movements).
+  MEG.EYES = TPL ? TPL.eyes.map(p => p.slice()) : [[-3.2, 7.0, -2.6], [3.2, 7.0, -2.6]];
 
   /* ---------- EEG: the four-shell sphere ----------
      For each Legendre order n the potential in shell j is
@@ -212,8 +246,8 @@
     }
     return out;
   }
-  const ELEC = {};
-  (function build() {
+  const ELEC_SPHERE = {};
+  (function build(ELEC) {
     const ring = [['Fpz', 0], ['Fp2', 18], ['AF8', 36], ['F8', 54], ['FT8', 72], ['T8', 90], ['TP8', 108],
       ['P8', 126], ['PO8', 144], ['O2', 162], ['Oz', 180], ['O1', -162], ['PO7', -144], ['P7', -126],
       ['TP7', -108], ['T7', -90], ['FT7', -72], ['F7', -54], ['AF7', -36], ['Fp1', -18]];
@@ -242,8 +276,23 @@
     // fiducials on the scalp: nasion and the two preauricular points
     ELEC.LPA = sph(112, -90);
     ELEC.RPA = sph(112, 90);
-  })();
+  })(ELEC_SPHERE);
+  /* On the template the electrodes were placed on its scalp by the 10-10
+     rules (tools/build_template.py): the midline from nasion to inion and
+     the arc between the preauricular points cut in tenths, the circumference
+     10% above them, and the rows in between.  Each is used here as its
+     direction from the centre; the EEG model puts it on the sphere there. */
+  const ELEC = {};
+  Object.keys(ELEC_SPHERE).forEach(k => { ELEC[k] = TPL && TPL.elec[k] ? v3.unit(TPL.elec[k]) : ELEC_SPHERE[k]; });
   MEG.ELEC = ELEC;
+  MEG.ELEC_SPHERE = ELEC_SPHERE;
+  // How far below the vertex the circumference (Fpz, T7, Oz, T8) runs, on average: where maps draw the head's outline.
+  MEG.RING_THETA = (function () {
+    const ring = ['Fpz', 'Fp1', 'Fp2', 'AF7', 'AF8', 'F7', 'F8', 'FT7', 'FT8', 'T7', 'T8', 'TP7', 'TP8', 'P7', 'P8', 'PO7', 'PO8', 'O1', 'O2', 'Oz'];
+    return ring.reduce((s, k) => s + Math.acos(MEG.clamp(ELEC[k][2], -1, 1)) / DEG, 0) / ring.length;
+  })();
+  // Where an electrode sits on the scalp (the template's, or the sphere's).
+  MEG.elecPos = k => (TPL && TPL.elec[k] ? TPL.elec[k].slice() : v3.scale(ELEC[k], HEAD.R));
   MEG.ALIAS = { T3: 'T7', T4: 'T8', T5: 'P7', T6: 'P8', A1: 'M1', A2: 'M2' };
   MEG.EEG64 = ['Fp1', 'AF7', 'AF3', 'F1', 'F3', 'F5', 'F7', 'FT7', 'FC5', 'FC3', 'FC1', 'C1', 'C3', 'C5', 'T7', 'TP7',
     'CP5', 'CP3', 'CP1', 'P1', 'P3', 'P5', 'P7', 'P9', 'PO7', 'PO3', 'O1', 'Iz', 'Oz', 'POz', 'Pz', 'CPz',
@@ -303,15 +352,32 @@
   };
 
   /* ---------- where the built-in generators sit ----------
+     On the template's anatomy (CerebrA atlas labels, js/template.js).
      Auditory cortex lies on the supratemporal plane, inside the Sylvian
      fissure, so its current flows up and down: tangential to the head and
-     ideal for MEG.  The right one sits a little further forward than the
-     left, as in most brains.  The hand area of primary somatosensory
-     cortex (area 3b) lines the back wall of the central sulcus, so the
-     N20m current points forward, also tangential.  The beta rhythm comes
-     from the motor strip on the front wall, under a centimetre away.
-     Alpha comes from the walls of the parieto-occipital and calcarine
-     sulci. */
+     ideal for MEG.  The sources sit on the lateral half of Heschl's gyrus,
+     where M100 dipoles are usually fitted, the right one a little further
+     forward than the left, as in most brains.  The hand area of primary
+     somatosensory cortex (area 3b) lines the back wall of the central
+     sulcus at the hand knob, so the N20m current points forward, also
+     tangential.  The beta rhythm comes from the motor strip on the front
+     wall, under a centimetre away.  Alpha comes from the cuneus where it
+     lines the calcarine sulcus.  A source's depth can still be changed: it
+     then moves along the line from the centre through its site. */
+  const GEN = TPL ? TPL.gen : {
+    audL: [-5.7, -0.9, -1.6], audR: [5.7, -0.4, -1.6],
+    s1L: v3.scale(ELEC.C3, 6.4), s1R: v3.scale(ELEC.C4, 6.4),
+    m1L: v3.scale(v3.unit(v3.lerp(ELEC.C3, ELEC.FC3, 0.2)), 6.4), m1R: v3.scale(v3.unit(v3.lerp(ELEC.C4, ELEC.FC4, 0.2)), 6.4),
+    alphaL: v3.scale(v3.unit([-1.8, -6.0, 1.8]), 6.5), alphaR: v3.scale(v3.unit([1.8, -6.0, 1.8]), 6.5)
+  };
+  MEG.GEN_SITES = GEN;
+  const siteDepth = p => HEAD.R - v3.norm(p);
+  // The default depth of each kind of source: where it sits on the template.
+  MEG.GEN_DEPTH = {
+    auditory: (siteDepth(GEN.audL) + siteDepth(GEN.audR)) / 2,
+    somatosensory: siteDepth(GEN.s1L),
+    alpha: (siteDepth(GEN.alphaL) + siteDepth(GEN.alphaR)) / 2
+  };
   function tangential(pos, dirVec) {
     const rh = v3.unit(pos);
     return v3.unit(v3.sub(dirVec, v3.scale(rh, v3.dot(dirVec, rh))));
@@ -322,23 +388,32 @@
     const ang = MEG.orientationAngles(pos, o);
     return { name, pos, ori: o, depth: HEAD.R - v3.norm(pos), at: MEG.nearestPlace(pos), tilt: ang.tilt, dir: ang.dir, toward: null, role: role || 'evoked' };
   }
+  // A site at the source's depth: each keeps its own offset from the kind's default depth.
+  const atSite = (site, depth, kind) => ({ dir: site, depth: depth + siteDepth(site) - MEG.GEN_DEPTH[kind] });
   MEG.evokedDipoles = function (s) {
     if (s.type === 'auditory') {
-      const out = [];
-      if (s.side !== 'right') out.push(generator('left', [-5.7, -0.9, -1.6], s.depth, p => tangential(p, [0, 0.3, -1])));
-      if (s.side !== 'left') out.push(generator('right', [5.7, -0.4, -1.6], s.depth, p => tangential(p, [0, 0.3, -1])));
+      const out = [], ori = p => tangential(p, [0, 0.3, -1]);
+      [['left', GEN.audL], ['right', GEN.audR]].forEach(([name, site]) => {
+        if (s.side === (name === 'left' ? 'right' : 'left')) return;
+        const a = atSite(site, s.depth, 'auditory');
+        out.push(generator(name, a.dir, a.depth, ori));
+      });
       return out;
     }
-    const hem = s.side === 'right' ? 'C4' : 'C3', front = s.side === 'right' ? 'FC4' : 'FC3';
-    const out = [generator('S1', ELEC[hem], s.depth, p => MEG.orientation(p, 90, 0))];
-    if (s.beta) out.push(generator('M1 beta', v3.lerp(ELEC[hem], ELEC[front], 0.2), s.depth, p => MEG.orientation(p, 90, 0), 'beta'));
+    const R_ = s.side === 'right';
+    const s1 = atSite(R_ ? GEN.s1R : GEN.s1L, s.depth, 'somatosensory');
+    const out = [generator('S1', s1.dir, s1.depth, p => MEG.orientation(p, 90, 0))];
+    if (s.beta) {
+      const m1 = atSite(R_ ? GEN.m1R : GEN.m1L, s.depth, 'somatosensory');
+      out.push(generator('M1 beta', m1.dir, m1.depth, p => MEG.orientation(p, 90, 0), 'beta'));
+    }
     return out;
   };
   MEG.alphaDipoles = function (depth) {
-    return [
-      generator('left', [-1.8, -6.0, 1.8], depth, p => MEG.orientation(p, 90, 0, 'Cz')),
-      generator('right', [1.8, -6.0, 1.8], depth, p => MEG.orientation(p, 90, 0, 'Cz'))
-    ];
+    return [['left', GEN.alphaL], ['right', GEN.alphaR]].map(([name, site]) => {
+      const a = atSite(site, depth, 'alpha');
+      return generator(name, a.dir, a.depth, p => MEG.orientation(p, 90, 0, 'Cz'));
+    });
   };
 
   /* ---------- the whole-head sensor array ----------
@@ -347,14 +422,15 @@
      the side, then the region (F frontal, C central, T temporal, P
      parietal, O occipital), then the row and the place in the row. */
   /* The SQUID helmet is not a sphere around the head: real helmets are
-     shaped for the population, so the coils sit 2.4 cm from the scalp on
-     top, nearly 4 cm in front.  That spread of distances is also what lets
-     SSS tell sources inside the helmet from sources outside it; on a
-     sphere centred on the head the two would look identical to radial
-     coils. */
+     shaped for the population, so on the template head the coils sit
+     2.2 cm from the scalp over the vertex and 1.7 to 4.7 cm elsewhere,
+     the back of the helmet clearing the nape of the neck.  That spread of
+     distances is also what lets SSS tell sources inside the helmet from
+     sources outside it; on a sphere centred on the head the two would
+     look identical to radial coils. */
   const ARRAY = {
-    helmet: { centre: [0, 1.0, 0.6], axes: [12.0, 13.2, 11.0] },   // ellipsoid for the SQUID pickup coils
-    squidR: 11.6,             // distance of the top coil from the centre of the head
+    helmet: { centre: [0, -1.0, 0.0], axes: [12.0, 13.2, 11.8] },   // ellipsoid for the SQUID pickup coils
+    squidR: 11.8,             // distance of the top coil from the centre of the head
     opmGap: 0.6,              // OPM sensing volume above the scalp
     axialBase: 5.0,           // axial gradiometer baseline
     planarBase: 1.68,         // planar gradiometer baseline
@@ -369,9 +445,11 @@
   }
   MEG.helmetPoint = helmetPoint;
   MEG.ARRAY = ARRAY;
+  // An OPM's sensing volume: its gap above the scalp, along the site's direction.
+  MEG.opmPoint = u => v3.scale(v3.unit(u), MEG.scalpR(u) + ARRAY.opmGap);
   MEG.SENSOR_TYPES = ['mag', 'axial', 'planar', 'opm'];
   MEG.SENSOR_INFO = {
-    mag: { label: 'Magnetometers', short: 'magnetometer', unit: 'fT', desc: 'One flat pickup coil per site, 2.4 cm above the scalp through the dewar. Measures the field itself: deep reach, but every distant source too.' },
+    mag: { label: 'Magnetometers', short: 'magnetometer', unit: 'fT', desc: 'One flat pickup coil per site, 2 to 4 cm above the scalp through the dewar. Measures the field itself: deep reach, but every distant source too.' },
     axial: { label: 'Axial gradiometers', short: 'axial gradiometer', unit: 'fT', desc: 'Two coaxial coils 5 cm apart, wound in opposition. A distant source puts nearly the same field through both and cancels; a nearby brain source does not.' },
     planar: { label: 'Planar gradiometers', short: 'planar gradiometer', unit: 'fT/cm', desc: 'Two figure-of-eight coils per site measuring the field’s slope along the surface in two directions, with a magnetometer beside them, as in the 306-channel MEGIN (Elekta) systems. The gradient peaks right above a source and falls off fastest with distance.' },
     opm: { label: 'OPMs on the scalp', short: 'OPM', unit: 'fT', desc: 'Optically pumped magnetometers in a helmet worn on the head, 6 mm from the scalp. No cryogenics, closer to the brain, but a higher noise floor and a small dynamic range.' }
@@ -443,7 +521,7 @@
     const rS = type === 'opm' ? HEAD.R + ARRAY.opmGap : ARRAY.squidR;
     SITES.forEach((s, si) => {
       const u = s.u;
-      const hp = type === 'opm' ? { r: v3.scale(u, rS), n: u } : helmetPoint(u);
+      const hp = type === 'opm' ? { r: MEG.opmPoint(u), n: u } : helmetPoint(u);
       const pos = hp.r, nrm = hp.n;
       if (type === 'mag' || type === 'opm') {
         chans.push({ name: s.name, site: si, kind: type, unit: 'fT', pts: [{ r: pos, n: nrm, w: 1 }], u, pos, nrm });
@@ -478,7 +556,7 @@
       channels: chans, refs, names: chans.map(c => c.name), nch: chans.length,
       siteR: rS, noise: ARRAY.noise[type], perSite: type === 'planar' ? 3 : 1,
       siteChannels: SITES.map((_, si) => chans.map((c, i) => c.site === si ? i : -1).filter(i => i >= 0)),
-      sitePos: SITES.map(s => type === 'opm' ? v3.scale(s.u, rS) : helmetPoint(s.u).r)
+      sitePos: SITES.map(s => type === 'opm' ? MEG.opmPoint(s.u) : helmetPoint(s.u).r)
     };
   }
   MEG.buildArray = buildArray;

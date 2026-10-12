@@ -784,7 +784,7 @@
     const { ctx, w, h } = D.fit(cv, w => Math.min(300, w * 0.52));
     const size = Math.min(w / 2, h);
     const digi = st.digi || (st.digi = MEG.mri.digitize(3));
-    const coils = [MEG.sph(62, -42), MEG.sph(62, 42), MEG.sph(104, -112), MEG.sph(104, 112)].map(u => v3.scale(u, MEG.HEAD.R + 0.1));
+    const coils = [MEG.sph(62, -42), MEG.sph(62, 42), MEG.sph(104, -112), MEG.sph(104, 112)].map(u => v3.scale(u, MEG.scalpR(u) + 0.1));
     ['top', 'side'].forEach((view, k) => {
       const hv = D.head(ctx, k * w / 2 + (w / 2 - size) / 2, 0, size, view, { labels: true, ext: 11.6 });
       const vis = p => view === 'top' ? p[2] > -1 : p[0] < 1;
@@ -890,7 +890,7 @@
     else if (st.stage === 'coils') { coilNumbers(); drawCoil(); drawFalloff(); drawSquid(); drawFLL(); }
     else if (st.stage === 'dewar') drawDewarGap();
     else if (st.stage === 'room') { drawRoom(); drawRoomSF(); }
-    else if (st.stage === 'hpi') { drawHPI(); drawHeadPos(); }
+    else if (st.stage === 'hpi') { drawHPI(); drawHeadPos(); MEG.mri.load(); }
     else if (st.stage === 'opm') drawOPM();
   }
   function animate(ts) {
@@ -906,6 +906,8 @@
     if (scroll) { const el = $('stage-' + k); const r = el.getBoundingClientRect(); if (r.top > window.innerHeight * 0.8 || r.top < 0) el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }); }
   }
   function render() { drawSystem(); drawStage(); }
+  // The template's head shape replaces the synthetic one when it arrives.
+  MEG.mri.onChange(() => { st.digi = null; if (S.tab === 'instrument' && st.stage === 'hpi') drawHPI(); });
 
   MEG.tabs.instrument = {
     needsData: false,

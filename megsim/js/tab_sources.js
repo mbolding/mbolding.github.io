@@ -247,6 +247,7 @@
 
   function render() {
     if (!S.ds) return;
+    MEG.mri.load();
     const arr = S.ds.array;
     $('srcKindBox').hidden = arr.type !== 'planar';
     drawHeads(); syncEditor(); drawTopo();
@@ -256,6 +257,8 @@
     $('decompT').max = Math.max(0, S.ds.dur - 5).toFixed(1);
     drawDecomp(); drawMixing();
   }
+
+  MEG.mri.onChange(() => { MEG.app.dirty('sources'); if (S.tab === 'sources') MEG.app.render(); });
 
   MEG.tabs.sources = {
     init() {
