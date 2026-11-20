@@ -507,6 +507,45 @@ expectError('param N = 64\nlet shots = N / 12\nfor s in 0 .. shots - 1\n  wait 1
     for (const p of P) ok(!compile(p.source).warnings.some(x => warnRe.test(x.msg)), p.id + ': no excitation warning');
 }
 {
+    /* Model blind spots are named, once each, with the fix as the hint.
+       A refocusing flip below 135 deg written without "refocus" is taken
+       for a new excitation (a TSE at 120 deg then loses its echo train). */
+    const roleRe = /is taken as a new excitation: only flips of 135 deg or more/;
+    const sliceRe = /^The slice gradient of this excitation is not rephased by the echo/;
+    const spoilRe = /^No spoil comes between this excitation and the one in the previous repetition/;
+    const tse = P.get('tse').source, gre = P.get('gre_t1').source, se = P.get('se').source;
+    const t120 = compileOk(tse.replace('rf 180 slice phase 90', 'rf 120 slice phase 90'), {}, 'tse with 120 deg refocusing pulses, no role');
+    const rw = t120.warnings.filter(x => roleRe.test(x.msg));
+    ok(rw.length === 1 && rw[0].line === lineOf(tse, 'rf 180 slice phase 90') && rw[0].hint === 'To use it as a refocusing pulse, write the role: rf 120 slice refocus',
+        'tse at 120 deg without refocus: one warning on the pulse line, the hint gives the fix (' + JSON.stringify(rw) + ')');
+    ok(t120.warnings.length === 1, 'tse at 120 deg without refocus: no second warning for the same cause');
+    ok(t120.rf.filter(r => r.flip === 120).every(r => r.role === 'excite'), 'the inference itself is unchanged: 120 deg without a role excites');
+    const t120r = compileOk(tse.replace('rf 180 slice phase 90', 'rf 120 slice refocus phase 90'), {}, 'tse with 120 deg refocus');
+    ok(t120r.warnings.length === 0 && t120r.rf.filter(r => r.flip === 120).every(r => r.role === 'refocus'), 'tse at 120 deg with refocus: no warning');
+    ok(compileOk(tse.replace('rf 180 slice phase 90', 'rf 150 slice phase 90'), {}, 'tse 150').warnings.length === 0, 'tse at 150 deg: inferred refocus, no warning');
+    const hahn = compileOk('param TR = 1000 ms\nmatrix 32\nfor line in 0 .. 31 every TR\n    rf 90 hard as exc\n    gx -prephase, gy -encode line\n    rf 90 hard at exc + 10 ms\n    gx readout, adc at exc + 20 ms\n    spoil\nend', {}, '90-90 echo');
+    ok(hahn.warnings.some(x => roleRe.test(x.msg) && x.line === 6 && /rf 90 hard refocus/.test(x.hint)), '90-90 echo: the second 90 gets the warning, naming its own shape');
+
+    const noReph = compileOk(gre.replace('gz rephase, ', ''), {}, 'gre_t1 without gz rephase');
+    const sw = noReph.warnings.filter(x => sliceRe.test(x.msg));
+    ok(sw.length === 1 && sw[0].line === lineOf(gre, 'rf flip slice dur 1 ms as exc') && /gz rephase/.test(sw[0].hint) && /does not model the slice direction/.test(sw[0].msg),
+        'gre_t1 without gz rephase: one warning at the excitation (' + JSON.stringify(sw) + ')');
+    ok(/\(2\.\d cycles of phase across the slice\)/.test(sw[0].msg), 'the warning gives the phase across the slice: about 2 cycles for a sinc with time-bandwidth 4');
+    ok(compileOk(se.replace('gz rephase, ', ''), {}, 'se without rephase').warnings.some(x => sliceRe.test(x.msg)), 'se without gz rephase: warning');
+    const late = se.replace('gz rephase, ', '').replace(/^(\s*)(rf 180 slice phase 90 at exc \+ TE\/2.*)$/m, '$1$2\n$1gz rephase');
+    ok(late !== se && compileOk(late, {}, 'se with the rephaser after the 180').warnings.some(x => sliceRe.test(x.msg)), 'se with gz rephase after the 180 (it then adds to the twist): warning');
+    ok(compileOk(P.get('epi').source.replace('gz rephase, ', ''), {}, 'epi without rephase').warnings.some(x => sliceRe.test(x.msg)), 'epi without gz rephase: warning');
+
+    const noSpoil = compileOk(gre.replace(/^\s*spoil.*\n/m, ''), {}, 'gre_t1 without spoil');
+    const pw = noSpoil.warnings.filter(x => spoilRe.test(x.msg));
+    ok(pw.length === 1 && pw[0].line === lineOf(gre, 'rf flip slice dur 1 ms as exc') && /spoil/.test(pw[0].hint) && /perfect spoiling/.test(pw[0].msg),
+        'gre_t1 without spoil: one warning at the excitation (' + JSON.stringify(pw) + ')');
+    ok(compileOk(se.replace(/^\s*spoil.*\n/m, ''), {}, 'se without spoil').warnings.some(x => spoilRe.test(x.msg)), 'se without spoil: warning');
+    ok(!compileOk(P.get('epi').source, {}, 'epi').warnings.some(x => spoilRe.test(x.msg)), 'single-shot epi (one recorded repetition, no spoil): no warning');
+    ok(!compileOk(P.get('fid').source, {}, 'fid').warnings.some(x => spoilRe.test(x.msg)), 'spectroscopy fid (no imaging readout): no warning');
+    for (const p of P) ok(compile(p.source).warnings.length === 0, p.id + ': compiles with no warning at all');
+}
+{
     // On failure the params parsed so far are still returned.
     const r = compile('param TE = 20 ms range 1 ms .. 50 ms\nparam N = 64\nrff 90');
     ok(!r.ok && r.params.length === 2 && r.params[0].name === 'TE', 'failed compile still returns params');

@@ -1220,7 +1220,8 @@
     function sweepValues(p) {
         const out = [];
         const integerish = p.kind === 'none' && Number.isInteger(p.min) && Number.isInteger(p.max) && Number.isInteger(p.value);
-        const N = 25;
+        // 61 values: a TI sweep over 3.5 s steps by 58 ms, a flip sweep by 1.4 deg
+        const N = 61;
         for (let j = 0; j < N; j++) {
             let v = p.min + (p.max - p.min) * j / (N - 1);
             if (p.step > 0) v = p.min + Math.round((v - p.min) / p.step) * p.step;

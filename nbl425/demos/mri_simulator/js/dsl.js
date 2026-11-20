@@ -707,6 +707,7 @@
             this.params = [];
             this.lets = {};
             this.warnings = [];
+            this.warned = new Set();       // "kind:line" of the warnings given once per line
             this.name = 'Untitled sequence';
             this.img = { fovX: 0.24, fovY: 0.24, nx: 128, ny: 128, thickness: 0.005, bw: 250, oversample: 2, averages: 1, dummies: 0 };
             this.settingLine = {};
@@ -1177,7 +1178,22 @@
             if (rfE && !rfE.role) {
                 if (rfE.select === 'water' || rfE.select === 'fat') rfE.role = 'saturate';
                 else if (Math.abs(rfE.flip) >= 135) rfE.role = this.excited ? 'refocus' : 'invert';
-                else rfE.role = 'excite';
+                else {
+                    rfE.role = 'excite';
+                    /* A pulse below 135 deg after an excitation, with no spoil
+                       between, is most likely a reduced-flip refocusing pulse
+                       (a TSE train at 120 deg, say), but it could be a second
+                       excitation, so the compiler cannot decide. As an
+                       excitation it throws the first echo away, which looks
+                       like a broken sequence rather than a weaker echo: say
+                       so, once per line, and give the fix. */
+                    if (this.excited) {
+                        const f = num(rfE.flip);
+                        this.warnOnce('roleExcite', s.line, 'This ' + f + ' deg pulse comes after an excitation with no spoil in between, so it is taken as a new excitation: ' +
+                            'only flips of 135 deg or more are taken as refocusing pulses. As an excitation it starts a new signal and the echo of the first one is lost.',
+                            'To use it as a refocusing pulse, write the role: rf ' + f + ' ' + rfE.word + ' refocus');
+                    }
+                }
             }
 
             // The anchor: RF centre, else echo of a readout ADC, else first sample, else block start.
@@ -1237,6 +1253,14 @@
             if (isSpoil) this.excited = false;
         }
 
+        // A warning that a loop would repeat: given once per kind and source line.
+        warnOnce(kind, line, msg, hint) {
+            const key = kind + ':' + line;
+            if (this.warned.has(key)) return;
+            this.warned.add(key);
+            this.warnings.push(hint ? { line, msg, hint } : { line, msg });
+        }
+
         // One ADC window may hold at most MAX_ADC_SAMPLES samples.
         checkAdcSize(n, node) {
             if (n <= MAX_ADC_SAMPLES) return;
@@ -1271,7 +1295,8 @@
             }
             const r = {
                 flip, dur, phase, bw, offsetHz: (shape === 'fat' ? C.FAT_HZ : 0) + off,
-                shape: RF_SHAPE_OUT[shape], select: RF_SELECT_OUT[shape], role: ev.role, off: 0, extent: dur, trap: null
+                shape: RF_SHAPE_OUT[shape], select: RF_SELECT_OUT[shape], role: ev.role, off: 0, extent: dur, trap: null,
+                word: shape                // the shape as written, for messages
             };
             if (shape === 'slice') {
                 // The slice-select gradient maps the pulse bandwidth onto the slice:
@@ -1566,7 +1591,74 @@
                 warnings: this.warnings
             };
             prog.stats = computeStats(prog, this.TR);
+            if (readoutAxis !== null) {
+                this.checkSliceRephased(prog);
+                this.checkSpoiledBetween();
+            }
             return prog;
+        }
+
+        /* The imaging engine follows k in the plane of the slice only: the
+           slice direction is not simulated. So a slice gradient that is not
+           rephased by the echo changes nothing in the image, although on a
+           real scanner the spins would be dephased across the slice and the
+           signal lost. What counts is the net gz area from the excitation to
+           the echo, with its sign flipped at each refocusing pulse (the
+           refocusing pulse's own slice gradient, symmetric about its centre,
+           cancels itself). One warning, at the excitation, when that area
+           winds a quarter of a cycle or more across the slice. */
+        checkSliceRephased(prog) {
+            const rf = this.rf, thk = this.img.thickness;
+            let ri = -1, exc = -1;
+            for (const a of this.adc) {
+                while (ri + 1 < rf.length && rf[ri + 1].t <= a.tc) { ri++; if (rf[ri].role === 'excite') exc = ri; }
+                if (a.dummy || !a.axis || exc < 0 || rf[exc].select !== 'slice') continue;
+                // a pulse already reported as taken for an excitation by mistake: that is the problem to fix
+                if (this.warned.has('roleExcite:' + rf[exc].line)) continue;
+                let m = 0, sgn = 1, t = rf[exc].t;
+                for (let j = exc + 1; j <= ri; j++) {
+                    if (rf[j].role !== 'refocus') continue;
+                    m += sgn * gradientArea(prog, 'z', t, rf[j].t);
+                    sgn = -sgn; t = rf[j].t;
+                }
+                m += sgn * gradientArea(prog, 'z', t, a.tc);
+                const cycles = Math.abs(GB * m * thk);
+                if (cycles < 0.25) continue;
+                this.warnings.push({ line: rf[exc].line,
+                    msg: 'The slice gradient of this excitation is not rephased by the echo (' + num(cycles, 2) + ' cycles of phase across the slice). ' +
+                        'On a real scanner the spins would dephase through the slice and most of the signal would be lost. ' +
+                        'This simulator does not model the slice direction, so the image does not change.',
+                    hint: 'Add gz rephase right after the excitation, before any refocusing pulse.' });
+                return;
+            }
+        }
+
+        /* The imaging engine starts every excitation with no transverse
+           magnetisation left, as if it had been perfectly spoiled, so taking
+           spoil out of a sequence changes nothing in the image. On a real
+           scanner what is left of the previous repetition adds to the
+           signal wherever T2 is not much shorter than TR. One warning, at the
+           excitation of a recorded repetition that follows another recorded
+           repetition's excitation with no spoil in between (a single-shot
+           sequence records one repetition, so it is not affected). */
+        checkSpoiledBetween() {
+            const sp = this.spoil;
+            let prev = null, k = 0;
+            for (const r of this.rf) {
+                if (r.role !== 'excite') continue;
+                if (prev && !prev.dummy && !r.dummy && r.period !== prev.period) {
+                    while (k < sp.length && sp[k].t <= prev.t) k++;
+                    if (!(k < sp.length && sp[k].t < r.t)) {
+                        this.warnings.push({ line: r.line,
+                            msg: 'No spoil comes between this excitation and the one in the previous repetition. ' +
+                                'This simulator starts every excitation with no transverse magnetisation left (perfect spoiling), so the image does not change. ' +
+                                'On a real scanner what is left from the last repetition in long-T2 tissue such as CSF would add to the signal: steady-state (SSFP-like) contrast and banding.',
+                            hint: 'Add spoil at the end of the repetition.' });
+                        return;
+                    }
+                }
+                prev = r;
+            }
         }
 
         /* Signal needs an excitation first. Without an excitation pulse
@@ -1879,10 +1971,10 @@
         '<h3>Blocks and events</h3>',
         '<p>One line of events separated by commas is a <em>block</em>. Its events start together, and the next block starts when the longest one has finished.</p>',
         '<table>',
-        '<tr><td><code>rf 90 slice</code></td><td>RF pulse: the flip angle (degrees), then a shape: <code>hard</code> (non-selective, 0.5 ms), <code>slice</code> (sinc with its own slice-select gradient, 2 ms), <code>water</code> or <code>fat</code> (spectrally selective, 20 ms), <code>adiabatic</code> (inversion, 10 ms). Options <code>dur</code>, <code>phase</code>, <code>bw</code>, <code>offset</code>. A role <code>excite</code>, <code>refocus</code>, <code>invert</code> or <code>saturate</code> is normally worked out for you</td></tr>',
+        '<tr><td><code>rf 90 slice</code></td><td>RF pulse: the flip angle (degrees), then a shape: <code>hard</code> (non-selective, 0.5 ms), <code>slice</code> (sinc with its own slice-select gradient, 2 ms), <code>water</code> or <code>fat</code> (spectrally selective, 20 ms), <code>adiabatic</code> (inversion, 10 ms). Options <code>dur</code>, <code>phase</code>, <code>bw</code>, <code>offset</code>. A role <code>excite</code>, <code>refocus</code>, <code>invert</code> or <code>saturate</code> is normally worked out for you: after an excitation, only a flip of 135 degrees or more is taken as refocusing, so write <code>rf 120 slice refocus</code> for a smaller refocusing flip</td></tr>',
         '<tr><td><code>gx readout</code></td><td>a gradient on <code>gx</code>, <code>gy</code> or <code>gz</code> (shapes below)</td></tr>',
         '<tr><td><code>adc</code></td><td>record the signal. Next to a <code>readout</code> it sits on the flat top; on its own write <code>adc 2048 dwell 250 us</code></td></tr>',
-        '<tr><td><code>spoil</code></td><td>spoiler gradients on all three axes: no transverse magnetisation survives</td></tr>',
+        '<tr><td><code>spoil</code></td><td>spoiler gradients on all three axes: no transverse magnetisation survives. The simulator assumes perfect spoiling at every excitation anyway, so leaving it out does not change the image (on a real scanner it would)</td></tr>',
         '<tr><td><code>wait 10 ms</code></td><td>a pause</td></tr>',
         '</table>',
         '<h3>Gradient shapes</h3>',
@@ -1890,7 +1982,7 @@
         '<tr><td><code>readout</code></td><td>constant gradient while the ADC samples, G = N &times; BW / (&gamma;&#772; &times; FOV)</td></tr>',
         '<tr><td><code>prephase</code></td><td>moves k to the start of the line, so the middle sample lands on k = 0</td></tr>',
         '<tr><td><code>encode L</code>, <code>rewind L</code></td><td>phase encoding to line L (0 to N-1, ky = (L - N/2)/FOV) and its undoing</td></tr>',
-        '<tr><td><code>rephase</code></td><td>on gz: refocuses the dephasing left by the last slice-selective excitation</td></tr>',
+        '<tr><td><code>rephase</code></td><td>on gz: refocuses the dephasing left by the last slice-selective excitation. The slice direction is not simulated, so leaving it out does not change the image (on a real scanner the signal would be lost)</td></tr>',
         '<tr><td><code>crush</code>, <code>blip</code></td><td>a crusher (2 cycles across the slice); a one-line step in k-space (EPI)</td></tr>',
         '<tr><td><code>10 mT/m for 2 ms</code></td><td>an explicit trapezoid (ramps are added at the slew limit)</td></tr>',
         '</table>',

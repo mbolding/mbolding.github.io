@@ -512,7 +512,10 @@ period.
 - Role: `excite | refocus | invert | saturate`. If omitted it is inferred:
   `water`/`fat` shapes are `saturate`; flip ≥ 135° is `refocus` when an
   excitation has happened earlier in the current period with no `spoil`
-  since, else `invert`; everything else is `excite`.
+  since, else `invert`; everything else is `excite`. A pulse below 135°
+  inferred as `excite` after such an excitation (a reduced-flip TSE train
+  written without `refocus`, say) gets a warning, once per line, whose hint
+  is the fix: `rf 120 slice refocus`.
 
 **Gradients.** `gx|gy|gz SPEC [* expr]`, or with a leading minus, `gx -readout`.
 
@@ -588,7 +591,20 @@ non-dummy ADCs, a matrix of 512, 65 536 samples in one ADC and 4 194 304
 recorded samples in all. Warnings include: no ADC at all; dummies without an
 `every` loop; a parameter outside its range; an ADC longer than its readout
 flat top; and, once on the ADC line, a first recorded ADC of a repetition with
-no excitation before it in that repetition. `reference` is HTML with h3
+no excitation before it in that repetition. Three more name what the imaging
+engine leaves out, so that a student who edits a line and sees no change is
+told why (imaging programs only, each once, with a `hint` that gives the fix):
+a pulse below 135° taken for an excitation after an excitation (section 8.5);
+a slice-selective excitation whose gz area is not rephased by the echo
+(the net area from the excitation to the ADC centre, its sign flipped at each
+refocusing pulse, winds a quarter of a cycle or more across the slice): the
+slice direction is not simulated, so the image does not change, though a real
+scan would lose its signal; and an excitation of a recorded repetition that
+follows the previous recorded repetition's excitation with no `spoil` in
+between: the engine treats every excitation as perfectly spoiled, so the
+image does not change, though a real scan would show steady-state contrast.
+Single-shot sequences (one recorded repetition) are not warned about spoiling.
+Warnings are `{ line, msg, hint? }`. `reference` is HTML with h3
 section headings. `compile` must be fast: a 256-line spin echo in well under 50 ms.
 
 ### 8.7 Presets (presets.js)
@@ -823,8 +839,12 @@ of the inverse FFT. Work that does not depend on the options (readout plan,
 sample placement, line analysis, Kaiser-Bessel weights, density compensation,
 gridded k-space) is cached per AcqData object in a WeakMap, so an AcqData must
 not be modified after the scan. Every ReconResult has its own arrays. Zero
-filling at 256² is the one case that still takes about half a second; the app
-shows "Reconstructing" first.
+filling at 256² is the one case that still takes a while: in Chromium on a
+4-core desktop the reconstruction takes about 0.3 s and drawing the 512²
+Image tab about 0.15 to 0.4 s more, so the page pauses for about 0.5 to 0.8 s
+(longer on an older laptop); the app shows "Reconstructing" first. (Timing it
+with a Playwright `page.evaluate` that returns the ReconResult adds about 2 s
+of serialisation, which is not the page.)
 
 ---
 
@@ -873,7 +893,13 @@ relaxed water line) up to `MRI.spectro.followPpm` = 1 ppm, with a note beyond
 that; SpecData without `waterPeakHz` falls back to a strict local-maximum
 search. Heights and areas are taken above a local
 baseline fitted to the lower points around each window (on the spectrum
-smoothed over one original grid step, which cancels zero-fill ripple). A peak
+smoothed over one original grid step, which cancels zero-fill ripple). All
+measurements (peaks, noise SD, FWHM, ratios) use a grid no coarser than 2 Hz:
+when the chosen zero filling leaves a coarser one, the same apodised, phased
+FID is zero-filled further for the measurement only, with a note, and the
+plot keeps the chosen grid. So whether a peak is found depends on the
+acquisition time and the line widths, not on where the grid points fall (at
+NP 256 and SW 4 kHz, Cho and Cr are found at every zero filling). A peak
 with no maximum in its window, height ≤ 0, height below 3 noise SD or area ≤ 0
 has null height, area and snr, `resolved: false` and a reason; the UI shows
 "–". A metabolite peak whose window is dominated by lipid or water gets
@@ -1135,7 +1161,11 @@ Round 3 details per tab:
 - **Image**: SNR = f × mean(signal ROI) / SD(noise ROI), with f = 0.655
   (Rayleigh) for one coil, Roemer or SENSE and the chi factor (0.701 for 8
   coils) for root-sum-of-squares; for Roemer the noise varies across the image
-  and is corrected from the true coil maps. Truth and scan facts come from the
+  and is corrected from the true coil maps. Place both puts the signal ROI on
+  the patch of the truth image nearest the middle among those at least 0.6
+  times as uniform as the most uniform one (the centre of a uniform phantom
+  such as braino), and the line under the tiles gives each ROI's size and
+  centre in mm, because the head array's SNR depends on where the ROI sits. Truth and scan facts come from the
   acquisition the displayed result came from. On coarse pointers the image
   defaults to Scroll mode.
 - **Scanner**: links to artifacts call `showTab('artifacts', {focus: true})`
@@ -1144,7 +1174,9 @@ Round 3 details per tab:
   near the cortex.
 - **Contrast**: tissue colours come from the scope palette (`--sc1..8`); the
   student's pair is drawn bold, other tissues thin and dashed, every curve
-  labelled at its end. CNR uses the current coil's noise model.
+  labelled at its end. CNR uses the current coil's noise model. The sweep
+  compiles 61 values across the parameter's range (fewer when a step makes
+  values coincide).
 - **Artifacts**: groups form an accordion; "Why / where in k-space / how to
   fix" sit in a per-card details; the coil-shading demo sets root-sum-of-squares
   explicitly; the flow card states that blood is stationary tissue here (no
@@ -1237,9 +1269,13 @@ authors in particular need these.
   returns a Promise; tests that read `state.reconResult` afterwards await it.
   `recon:done` may carry the `acq` it came from; tabs pair a result with that
   acquisition rather than with `state.acq`.
-- **Known limitations.** Zero filling at 256² blocks the page for about half a
-  second (a worker would fix it, but workers are blocked from `file://`).
+- **Known limitations.** Zero filling at 256² blocks the page for about 0.5 to
+  0.8 s (section 10; a worker would fix it, but workers are blocked from
+  `file://`).
   Only the superior sagittal sinus pulsates, so flow ghosts are small. Blood is
   stationary tissue (no flow void or inflow enhancement). One coherence
   pathway: no stimulated echoes or balanced SSFP. The object is 2D (through-
-  plane effects are approximated as described in 9.1).
+  plane effects are approximated as described in 9.1), so the slice rephaser
+  and the spoiler do not change the image; the compiler warns when one is
+  missing (section 8.6) and the Sequence tab's timing-diagram note says so.
+  A refocusing train below 135° needs the word `refocus` (section 8.5).

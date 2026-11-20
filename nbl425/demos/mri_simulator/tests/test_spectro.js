@@ -598,4 +598,29 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
     console.log('  timing: braino fid ' + warm.toFixed(0) + ' ms (cold ' + cold + ' ms), brain fid_ws shim 1 ' + tb + ' ms');
 }
 
+{
+    /* Peaks are measured on a grid of 2 Hz or finer, whatever the plotted
+       zero filling. At NP 256 (64 ms) Cho and Cr, 22 Hz apart, are resolved,
+       but on the 7.8 Hz grid of zero filling x2 the 15 Hz Cho and Cr windows
+       hold two points each, and the table used to call both unresolved
+       ("no maximum inside the window") while x4 found them. */
+    const p256 = compile('fid_ws', { NP: 256 });
+    const d = sim(p256, braino, art(), 1);
+    const ref = proc(d, { lb: 1, zf: 8 });
+    for (const zf of [1, 2, 4]) {
+        const sp = proc(d, { lb: 1, zf: zf });
+        ok(sp.n === 256 * zf && sp.ppm.length === 256 * zf, 'NP 256, zf ' + zf + ': the plotted spectrum keeps the chosen grid');
+        for (const id of ['Cho', 'Cr', 'NAA', 'Cr2', 'mI']) {
+            const a = peak(sp, id), b = peak(ref, id);
+            ok(a.resolved && b.resolved, 'NP 256, zf ' + zf + ': ' + id + ' resolved (' + a.reason + ')');
+            if (a.resolved && b.resolved) near(a.height / b.height, 1, 0.01, 'NP 256, zf ' + zf + ': ' + id + ' height as at zf 8');
+        }
+        near(sp.metrics.noiseSd / ref.metrics.noiseSd, 1, 1e-3, 'NP 256, zf ' + zf + ': the same noise SD (original grid points; autophasing from a coarser grid differs by a hair)');
+        ok(sp.notes.some(t => /^The peak table measures the spectrum on a 1\.95 Hz grid \(zero filling ×8\)/.test(t)), 'NP 256, zf ' + zf + ': a note says the table uses a finer grid');
+    }
+    ok(!ref.notes.some(t => /The peak table measures/.test(t)), 'zf 8 (1.95 Hz) is fine enough: no note');
+    const def = proc(sim(FIDWS, braino, art(), 1));
+    ok(!def.notes.some(t => /The peak table measures/.test(t)) && def.n === 4096, 'defaults (NP 2048, zf 2, 0.98 Hz): measured on the plotted grid, no note');
+}
+
 summary('spectro');

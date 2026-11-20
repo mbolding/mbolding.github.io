@@ -545,10 +545,17 @@
         V.snrHow.classList.toggle('is-warn', !!(model && model.warn));
         V.roiWarn.textContent = warn;
         V.roiWarn.hidden = !warn;
+        // Size and centre of each ROI, the centre in mm as the hover readout gives it,
+        // because the SNR of a coil array depends on where the signal ROI sits.
+        const at = function (rc) {
+            const b = rectPixels(rc, im.nx, im.ny);
+            const x = ((b.x0 + b.x1) / 2 - Math.floor(im.nx / 2)) * im.fovX / im.nx, y = ((b.y0 + b.y1) / 2 - Math.floor(im.ny / 2)) * im.fovY / im.ny;
+            return ' centred at x ' + fnum(Math.round(x * 1e3) || 0, 3) + ' mm, y ' + fnum(Math.round(y * 1e3) || 0, 3) + ' mm';
+        };
         const parts = [];
-        if (sig) parts.push('signal ROI ' + sig.w + ' × ' + sig.h + ' px');
-        if (noi) parts.push('noise ROI ' + noi.w + ' × ' + noi.h + ' px');
-        V.roiSize.textContent = parts.length ? parts.join(', ') + '.' : '';
+        if (sig) parts.push('signal ROI ' + sig.w + ' × ' + sig.h + ' px' + at(T.roi.signal));
+        if (noi) parts.push('noise ROI ' + noi.w + ' × ' + noi.h + ' px' + at(T.roi.noise));
+        V.roiSize.textContent = parts.length ? parts.join('; ') + '.' : '';
         V.roiSize.hidden = !parts.length;
     }
 
@@ -776,28 +783,40 @@
         if (T.compare) { V.truth.redraw(); V.diff.redraw(); }
     });
 
-    /* Signal ROI in the middle, noise ROI in the first corner that is air. */
+    /* Signal ROI on a uniform patch as near the middle as the object allows,
+       noise ROI in the first corner that is air. */
     function placeRois() {
         const r = T.result, acq = curAcq();
         if (!r || !r.image) { w().toast('Run a scan first.', 'warn'); return; }
         const im = r.image;
         const truth = truthOnGrid(acq, im.nx, im.ny, im.fovX, im.fovY);
-        // Signal ROI: the most uniform bright patch of the truth, so its SD is
-        // noise rather than anatomy (falls back to the middle of the image).
+        // Signal ROI: a uniform bright patch of the truth, so its SD is noise
+        // rather than anatomy (falls back to the middle of the image). Of the
+        // patches at least 0.6 times as uniform as the most uniform one, the
+        // one nearest the middle: in a uniform phantom every patch ties, and
+        // the first in scan order sat 60 mm off centre, where the head coil's
+        // SNR is much higher, so coil comparisons depended on the phantom.
         T.roi.signal = { x0: 0.45, y0: 0.45, x1: 0.55, y1: 0.55 };
         if (truth) {
             let tmax = 0;
             for (let p = 0; p < truth.length; p++) if (truth[p] > tmax) tmax = truth[p];
+            const sz = 0.08, cands = [];
             let best = -Infinity;
-            const sz = 0.08;
             for (let gy = 0; gy <= 12; gy++) for (let gx = 0; gx <= 12; gx++) {
                 const rc = { x0: 0.2 + 0.6 * gx / 12 - sz / 2, y0: 0.2 + 0.6 * gy / 12 - sz / 2 };
                 rc.x1 = rc.x0 + sz; rc.y1 = rc.y0 + sz;
                 const st = roiStats(truth, im.nx, im.ny, rc);
                 if (!st || st.mean < 0.3 * tmax) continue;
                 const score = st.mean / (st.sd + 0.02 * tmax);
-                if (score > best) { best = score; T.roi.signal = rc; }
+                cands.push({ rc: rc, score: score, d: Math.hypot(gx - 6, gy - 6) });
+                if (score > best) best = score;
             }
+            let chosen = null;
+            for (const c of cands) {
+                if (c.score < 0.6 * best) continue;
+                if (!chosen || c.d < chosen.d - 1e-9 || (Math.abs(c.d - chosen.d) <= 1e-9 && c.score > chosen.score)) chosen = c;
+            }
+            if (chosen) T.roi.signal = chosen.rc;
         }
         const corners = [[0.02, 0.02], [0.86, 0.02], [0.02, 0.86], [0.86, 0.86]];
         let pick = corners[0];
@@ -916,7 +935,7 @@
         roiBox.appendChild(el('h3', { text: 'Signal-to-noise ratio' }));
         roiBox.appendChild(el('div', { class: 'ir-roi-row' }, [
             dragLabel, dragSeg,
-            Wd.button({ label: 'Place both', size: 'sm', onClick: placeRois, title: 'Put a signal ROI in the middle and a noise ROI in a corner of air' }),
+            Wd.button({ label: 'Place both', size: 'sm', onClick: placeRois, title: 'Put a signal ROI on a uniform patch as near the middle as the object allows, and a noise ROI in a corner of air' }),
             Wd.button({ label: 'Clear', size: 'sm', kind: 'ghost', onClick: function () { T.roi.signal = T.roi.noise = null; requestRender(); } })
         ]));
         const roiStats = makeRoiTiles();
