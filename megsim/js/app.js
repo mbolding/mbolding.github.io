@@ -13,7 +13,7 @@
     shield: null,         // { room, nulling, refs, sss: off|sss|tsss, comp, ssp, sspEcg, sspEog, order }
     sum: null,            // running sum of the enabled generators on every channel and reference
     rec: null,            // as recorded: MEG.finish output
-    sup: null,            // after noise rejection: { rows, steps, W, U, ssp, sss, info }
+    sup: null,            // after noise rejection: { rows, steps, W, U, ssp, sss, sssModel, info }
     proc: null,           // offline filters { hp, lp, notch, notchWidth, harmonics, order, phase }
     filt: null,           // { rows, chain }
     clean: null,          // rows after ICA removal (or filt.rows)
@@ -184,7 +184,7 @@
 
   async function suppressStage(gen) {
     const ds = S.ds, arr = ds.array, sh = S.shield, rec = S.rec;
-    const sup = { rows: rec.rows, steps: [], W: null, U: [], ssp: [], sss: null, info: null, notes: [] };
+    const sup = { rows: rec.rows, steps: [], W: null, U: [], ssp: [], sss: null, sssModel: null, info: null, notes: [] };
     S.sup = sup;
     if (rec.saturated) { sup.notes.push('Every OPM is saturated without the shielded room; nothing can be recovered.'); return; }
     let rows = rec.rows;
@@ -206,7 +206,7 @@
           await frame();
           if (gen !== runGen) throw SUPERSEDED;
         });
-        rows = out.rows; sup.info = out.info;
+        rows = out.rows; sup.info = out.info; sup.sssModel = out.model;
         sup.sss = { order: out.info.order, tsss: sh.sss === 'tsss', comp, moving };
         sup.steps.push(sh.sss === 'tsss' ? 'tSSS' : 'SSS');
         if (comp) sup.steps.push('movement compensation');
@@ -602,6 +602,17 @@
     $('btnBuild').addEventListener('click', () => build(ed.value));
     $('btnRevert').addEventListener('click', () => loadExample(S.exIndex, true));
     S.ica = freshICA();
+    /* Opened from the disk, the page cannot fetch the template MRI and a
+       synthetic head stands in, which changes the anatomy and every
+       coregistration number.  Say so at the top of every tab. */
+    const mriNotice = () => {
+      const el = $('mriNotice'), failed = MEG.mri.status === 'failed';
+      el.classList.toggle('err', failed);
+      el.textContent = failed ? 'The template MRI could not be loaded' + (location.protocol === 'file:' ? ', because this page was opened from the disk rather than from a web server' : '') +
+        '. A synthetic head stands in, so the anatomy, the coregistration numbers and where sources are drawn on the MRI differ from the web version. Open the page from the course website (or any web server) to use the template.' : '';
+    };
+    MEG.mri.onChange(mriNotice);
+    if (location.protocol === 'file:') MEG.mri.load();
     Object.values(TABS).forEach(t => { if (t.init) { try { t.init(); } catch (e) { console.error(e); } } });
     // Every canvas is a figure: name it after the panel it sits in
     document.querySelectorAll('canvas').forEach(cv => {

@@ -394,5 +394,47 @@
     return Float64Array.from(model.Sin, row => { let s = 0; for (let k = 0; k < nin; k++) s += row[k] * x[k]; return s; });
   }
 
-  MEG.suppress = { sssAvailable, SSS_WHY, refWeights, applyRefs, emptyRoomCov, sspEmptyRoom, sspFromEvents, orthonormal, applySSP, projectionLoss, projectVector, applySSS, sssModel, sssProjectPattern, defaultOrder, mulRows, decompose, tsssVectors };
+  /* The spatial steps of the noise rejection on some rows, given on the
+     channels and on the reference channels: the references' prediction
+     subtracted, the inside part of SSS kept and the SSP vectors projected
+     out, in the order the page applies them.  tSSS's temporal step is not
+     included.  sup: the page's S.sup, with W, sssModel (the SSS model at the
+     starting head position) and U. */
+  function rowsAfter(sup, rows, refs) {
+    let cur = rows;
+    if (sup && sup.W) cur = applyRefs(cur, refs, sup.W);
+    if (sup && sup.sssModel) { const m = sup.sssModel, n = cur[0].length; cur = mulRows(m.Sin, mulRows(m.P.slice(0, m.nin), cur, n), n); }
+    if (sup && sup.U && sup.U.length) cur = applySSP(cur, sup.U);
+    return cur;
+  }
+  // A generator's pattern at the starting pose, as the data carry it after those steps.
+  function patternAfter(ds, sup, g) {
+    const nch = ds.array.nch, p = ds.topo.static[ds.gens.indexOf(g)];
+    const one = (a, b) => Array.from({ length: b - a }, (_, i) => Float32Array.of(p[a + i]));
+    return Float64Array.from(rowsAfter(sup, one(0, nch), one(nch, p.length)), r => r[0]);
+  }
+
+  /* What the spatial steps do to white sensor noise: for each kind of
+     channel, the RMS over those channels of (noise after) / (noise before),
+     each channel and reference with its own noise density.  Reference
+     compensation adds the references' noise; SSS rebuilds every channel from
+     the inside expansion, which is not orthogonal to the outside one, so on
+     some channels the noise grows. */
+  function sensorNoiseGain(ds, sup) {
+    const arr = ds.array, nch = arr.nch, nref = arr.refs.length, ntot = nch + nref, R = ds.cfg.recording;
+    const sig = Float64Array.from({ length: ntot }, (_, t) => (t < nch ? MEG.chanNoise(arr, arr.channels[t], R.noise) : MEG.ARRAY.noise.ref));
+    // the response of every channel to a unit input on each channel and reference, one input per "sample"
+    const unit = c => { const r = new Float32Array(ntot); r[c] = 1; return r; };
+    const M = rowsAfter(sup, Array.from({ length: nch }, (_, c) => unit(c)), Array.from({ length: nref }, (_, j) => unit(nch + j)));
+    const acc = {};
+    M.forEach((row, c) => {
+      let s = 0; for (let t = 0; t < ntot; t++) s += (row[t] * sig[t]) ** 2;
+      const k = arr.channels[c].kind; (acc[k] = acc[k] || []).push(s / (sig[c] * sig[c]));
+    });
+    const out = {};
+    Object.keys(acc).forEach(k => { out[k] = Math.sqrt(acc[k].reduce((a, b) => a + b, 0) / acc[k].length); });
+    return out;
+  }
+
+  MEG.suppress = { sssAvailable, sensorNoiseGain, SSS_WHY, refWeights, applyRefs, emptyRoomCov, sspEmptyRoom, sspFromEvents, orthonormal, applySSP, projectionLoss, projectVector, applySSS, sssModel, sssProjectPattern, rowsAfter, patternAfter, defaultOrder, mulRows, decompose, tsssVectors };
 })(typeof window !== 'undefined' ? window : globalThis);

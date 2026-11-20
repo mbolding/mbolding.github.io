@@ -37,6 +37,7 @@
     <button role="tab" id="t-guide" aria-controls="tab-guide" aria-selected="false"><span class="num">11</span>Guide</button>
   </nav>
   <div class="status" id="status" aria-live="polite"><span class="busy" id="busy">Working</span></div>
+  <div class="errbox" id="mriNotice" role="status"></div>
 
   <!-- ================= 1. INSTRUMENT ================= -->
   <section role="tabpanel" id="tab-instrument" aria-labelledby="t-instrument">
@@ -556,7 +557,8 @@
       <div class="legend" id="budgetLegend"></div>
       <p class="cap">Each signal's own contribution, RMS over the main sensors in a 10 s stretch of the recording, before and after the noise
         rejection chosen above; all steps are linear, so the parts add up to the whole. The brain's signals are at the top: whatever
-        removes the noise should leave them alone.</p>
+        removes the noise should leave them alone. The sensors' own noise can grow: reference compensation adds the references' noise,
+        and SSS amplifies the magnetometers' (the note under the steps gives the factor and the reason).</p>
     </div>
     <div class="grid2">
       <div class="panel">
@@ -712,7 +714,8 @@
       <div class="prose"><p>ICA assumes the recording is x = A s: a fixed mixture of signals that are statistically independent. It finds an
         unmixing matrix that makes the recovered signals as non-Gaussian as possible, then shows each component's field pattern (a column of A)
         and its time course. Channels are divided by their noise first so magnetometers and gradiometers can be mixed. Mark components to
-        remove and their back-projection is subtracted from the data. Here you can check each decision against the truth.</p></div>
+        remove and their back-projection is subtracted from the data. Here you can check each decision against the truth: "Reveal" names the
+        signal that makes most of a component's variance, passed through the same noise rejection and filters as the data.</p></div>
       <div class="controls tight">
         <div class="ctl"><label for="icaK">Components <span class="val" id="icaKV"></span></label><input type="range" id="icaK" min="4" max="40" step="1" value="20"></div>
         <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="icaTruth"> Reveal what made each component</label></div>
@@ -791,11 +794,15 @@
       </div>
       <div class="panel">
         <h2>Signal to noise grows as &radic;N</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="snrCond">Condition</label><select id="snrCond"></select></div>
+        </div>
         <canvas id="cvSNR"></canvas>
         <div class="legend" id="snrLegend"></div>
         <p class="cap">Noise is the RMS of the average in the baseline (what you can measure) and the RMS of the average minus the true evoked
           field over the whole epoch (what only a simulation can measure). Signal is the true field's largest absolute value after the stimulus.
-          On a log-log plot &radic;N is a straight line of slope one half.</p>
+          On a log-log plot &radic;N is a straight line of slope one half. Each point is one estimate from one set of trials, so the curves
+          wobble around that line: read the slope over a range of N rather than the ratio of two points.</p>
       </div>
     </div>
     <div class="grid2">
@@ -936,8 +943,11 @@
           On the Noise tab, switch to axial gradiometers, then turn the room on. Watch the ladder and the budget.</li>
         <li><strong>Inside versus outside.</strong> Load <em>Dental work and tSSS</em>. Plain SSS removes the environment but keeps the dental
           artifact, because it is inside the helmet; temporal SSS removes it too.</li>
-        <li><strong>ICA.</strong> In the <em>Noise zoo</em>, run ICA, find the heart, the blinks, the eye movements and the bad sensor from their
-          maps and spectra, remove them and check with "Reveal".</li>
+        <li><strong>ICA.</strong> Load the <em>Noise zoo</em>. On the Noise tab, tick the reference sensors (step 3) and, in the list of
+          signals, switch off the dental work. Without the references the environment fills many components; the dental work, a magnet that
+          moves with the jaw and so has no fixed field pattern, fills the largest ones. Then run ICA on the Processing tab, find the heart, the
+          blinks, the eye movements and the bad sensor from their maps, time courses and spectra, remove them and check with "Reveal". Switch
+          the dental work back on and run ICA again to see what it makes of a signal whose map keeps changing.</li>
         <li><strong>&radic;N.</strong> In the <em>Teaching tour</em>, press Play on the Averaging tab and watch the M100 appear out of the noise.
           Deviants are only 15% of trials, so their average stays noisier than the standards' throughout.</li>
         <li><strong>Head movement.</strong> Load <em>Head movement and compensation</em>; compare the three maps in the last panel of the

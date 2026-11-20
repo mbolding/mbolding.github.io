@@ -33,7 +33,19 @@
     if (S.rec && S.rec.saturated) parts.push('Every OPM is saturated: without the shielded room the field at the head is tens of microtesla, a thousand times their range.');
     if (info) parts.push(`SSS: ${info.nin} inside and ${info.nout} outside terms (orders ${info.order.join(' and ')})${info.windows ? `; temporal SSS removed ${info.removed} time courses in ${info.windows} ten-second windows` : ''}.`);
     if (sup && sup.ssp && sup.ssp.length) parts.push(`SSP: ${sup.ssp.map(v => v.label.toLowerCase()).join(', ')}.`);
+    parts.push(...noiseCost(sup));
     $('nzStatus').textContent = parts.concat(notes).join(' ');
+  }
+  // What the steps do to the sensors' own noise, and why: a cost, not a bug.
+  function noiseCost(sup) {
+    if (!sup || !(sup.W || sup.sssModel || (sup.U && sup.U.length))) return [];
+    if (!sup.noiseGain) sup.noiseGain = SUP.sensorNoiseGain(S.ds, sup);
+    const g = sup.noiseGain, kinds = Object.keys(g).filter(k => Math.abs(g[k] - 1) > 0.05);
+    if (!kinds.length) return [];
+    const by = kinds.map(k => `${MEG.fmt(g[k], 2)} on the ${MEG.KIND_LABEL[k]}`).join(' and ');
+    if (sup.sssModel) return [`Sensor noise: ${sup.sss && sup.sss.tsss ? 'the spatial steps multiply' : 'these steps multiply'} it by ${by} (the Sensor noise row of the budget)${sup.sss && sup.sss.tsss ? ', and the time courses temporal SSS projects out take a little of it with them' : ''}. SSS rebuilds every channel from the inside expansion fitted to all of them, and on the magnetometers smooth fields from inside and from outside the helmet look much alike, so the noise in those directions is amplified there. Real software regularizes the inside expansion to limit this; this simulator keeps all of it.`];
+    if (sup.W) return [`Sensor noise: these steps multiply it by ${by} (the Sensor noise row of the budget), because each channel's prediction from the reference sensors carries their own noise.`];
+    return [`Sensor noise: SSP multiplies it by ${by}, because the noise along its vectors is projected out too.`];
   }
 
   /* ---------- the budget ---------- */

@@ -92,7 +92,7 @@
   function drawSNR(k, truth) {
     const T = D.theme(), ep = S.ep, cv = $('cvSNR');
     if (!truth) { D.message(cv, S.truthNone ? 'This recording has no evoked sources,\nso there is no true signal to measure against.' : 'Computing the true evoked field…', 120); ui.legend($('snrLegend'), []); st.snr = null; return; }
-    const ci = focusCond(k, truth);
+    const pick = $('snrCond').value, ci = pick === '' || pick === 'auto' ? focusCond(k, truth) : MEG.clamp(+pick, 0, truth.conds.length - 1);
     const { cum } = st.cums[ci] ? { cum: st.cums[ci] } : cumulative(ci, k);
     const tr = truth.conds[ci].data.subarray(k * ep.nT, (k + 1) * ep.nT);
     const nT = ep.nT, zero = ep.zero, E = S.epoch;
@@ -203,7 +203,7 @@
   function readouts() {
     const conds = S.ds.conditions;
     const pairs = conds.map((c, ci) => { const all = S.ep.list.filter(e => e.ev.ci === ci).length, ok = accepted(ci).length; return [c, `${ok} of ${all} kept`, `${all - ok} rejected`]; });
-    if (st.snr) pairs.push(['SNR now', `${st.snr.snrB.toFixed(1)} (baseline) · ${st.snr.snrT.toFixed(1)} (truth)`, `${st.snr.cond}, N = ${st.snr.N}`], ['To double it', `${st.snr.need2x} trials`, 'four times as many']);
+    if (st.snr) pairs.push([`SNR now, ${st.snr.cond}`, `${st.snr.snrB.toFixed(1)} (baseline) · ${st.snr.snrT.toFixed(1)} (truth)`, `${st.snr.cond}, N = ${st.snr.N}; choose the condition above the SNR plot`], ['To double it', `${st.snr.need2x} trials`, 'four times as many']);
     const rej = S.ep.list.filter(e => e.rejected);
     if (rej.length) {
       const arr = S.ds.array, count = {};
@@ -260,6 +260,7 @@
     $('avgConds').innerHTML = S.ds.conditions.map((c, i) => `<label class="check"><input type="checkbox" data-ci="${i}" ${st.shown.has(i) ? 'checked' : ''}><span class="sw dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${ui.condColor(i)}"></span>${c}</label>`).join('');
     const most = S.ds.conditions.map((_, i) => S.ds.events.filter(e => e.ci === i).length).reduce((b, n, i, a) => (n > a[b] ? i : b), 0);
     ui.fill($('imgCond'), S.ds.conditions.map((c, i) => ({ value: String(i), label: c })), $('imgCond').value || String(most));
+    ui.fill($('snrCond'), [{ value: 'auto', label: 'the one with the best SNR at this sensor' }].concat(S.ds.conditions.map((c, i) => ({ value: String(i), label: c }))), $('snrCond').value || 'auto');
     $('avgDiff').disabled = !diffPair();
     $('avgMapBox').hidden = arr.type !== 'planar';
     syncN();
@@ -300,8 +301,9 @@
       $('avgAll').addEventListener('click', () => { st.N = maxN(); quick(); });
       $('avgReset').addEventListener('click', () => { st.N = 1; quick(); });
       ['imgCond', 'imgSort', 'imgSmooth'].forEach(id => $(id).addEventListener('change', drawImage));
+      $('snrCond').addEventListener('change', () => { drawERP(); readouts(); });
     },
-    onBuild(keep) { if (!keep) { st.N = 1; st.lat = null; st.shown = null; st.resetCh = true; $('imgCond').innerHTML = ''; } S.truthNone = false; },
+    onBuild(keep) { if (!keep) { st.N = 1; st.lat = null; st.shown = null; st.resetCh = true; $('imgCond').innerHTML = ''; $('snrCond').innerHTML = ''; } S.truthNone = false; },
     onArray() { st.resetCh = true; st.lat = null; },
     render
   };

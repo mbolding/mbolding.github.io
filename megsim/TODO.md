@@ -15,3 +15,4 @@
 
 - [ ] Fit the inner shells to the template too. The brain, CSF and skull shells keep their version 1 radii, so the frontal and occipital poles reach past the brain shell: MEG does not mind, but the EEG model clamps sources there.
 - [ ] A boundary element model from the template's inner skull and scalp, to set beside the sphere on the Fields tab.
+- [ ] Regularize the SSS inside expansion, as MaxFilter and MNE do. Unregularized, at orders 8 and 3 it multiplies the magnetometers' white sensor noise by about 3.9 (the gradiometers' by 0.7); the Noise tab states the factor and why.

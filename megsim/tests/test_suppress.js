@@ -82,5 +82,45 @@ const diff = (a, b) => a.map((r, c) => Float32Array.from(r, (x, i) => x - b[c][i
     console.log(`  movement: error without compensation ${MEG.fmtB(ePlain)}, with ${MEG.fmtB(eComp)} (signal ${MEG.fmtB(rmsAll(ref.rows))})`);
     ok(eComp < 0.5 * ePlain, 'movement compensation halves the error or better');
   }
+  // A pattern through the spatial steps equals the data through them: what ICA's Reveal compares components with
+  {
+    const ds = MEG.simulate(MEG.dsl.build(prog('magnetometers', 'environment 50 nT  line 100 nT  cardiac 70 bpm 3 pT')));
+    const W = S.refWeights(ds), U = S.orthonormal(S.sspEmptyRoom(ds, 3, { room: true }).map(x => x.v));
+    const g = ds.gens.find(x => x.group === 'cardiac');
+    const rec = MEG.assemble(ds, { enabled: new Set(['cardiac']), noise: false, filters: false });
+    const i = g.tc.reduce((b, x, k, a) => (Math.abs(x) > Math.abs(a[b]) ? k : b), 0);
+    const data = S.applySSP(S.applyRefs(rec.rows, rec.refs, W), U).map(r => r[i] / g.tc[i]);
+    const pat = S.patternAfter(ds, { W, U }, g);
+    const err = Math.sqrt(pat.reduce((a, x, c) => a + (x - data[c]) ** 2, 0) / pat.reduce((a, x) => a + x * x, 0));
+    ok(err < 1e-4, `the heart's pattern after references and SSP matches the data (relative error ${err.toExponential(1)})`);
+    const raw = MEG.genPattern(ds, g), cosine = (a, b) => { let ab = 0, aa = 0, bb = 0; a.forEach((x, c) => { ab += x * b[c]; aa += x * x; bb += b[c] * b[c]; }); return ab / Math.sqrt(aa * bb); };
+    console.log(`  heart: raw pattern vs after references and SSP, cosine ${cosine(raw, pat).toFixed(2)}`);
+    ok(cosine(raw, pat) < 0.9, 'and differs from the raw pattern, so Reveal must not use the raw one');
+  }
+  {
+    const ds = MEG.simulate(MEG.dsl.build(prog('planar', 'environment 50 nT')));
+    const model = S.sssModel(ds, ds.pose.ref, S.defaultOrder(ds.array.nch));
+    const g = ds.gens.find(x => x.group === 'A');
+    const pat = S.patternAfter(ds, { sssModel: model }, g), ref = S.sssProjectPattern(model, MEG.genPattern(ds, g));
+    const err = Math.sqrt(pat.reduce((a, x, c) => a + (x - ref[c]) ** 2, 0) / ref.reduce((a, x) => a + x * x, 0));
+    ok(err < 1e-4, `a pattern through SSS matches the SSS projection (relative error ${err.toExponential(1)})`);
+  }
+  // The sensor-noise cost of the steps, as the Noise tab states it, matches the noise itself
+  {
+    const rmsKind = (ds, rows, kind) => { const idx = ds.array.channels.map((c, i) => (c.kind === kind ? i : -1)).filter(i => i >= 0); return Math.sqrt(idx.reduce((a, c) => a + MEG.rms(rows[c]) ** 2, 0) / idx.length); };
+    const noiseRows = ds => { const nch = ds.array.nch, ntot = nch + ds.array.refs.length, rows = []; for (let c = 0; c < ntot; c++) rows.push(Float32Array.from(MEG.sensorNoise(ds, c))); return { rows: rows.slice(0, nch), refs: rows.slice(nch) }; };
+    const dm = MEG.simulate(MEG.dsl.build(prog('magnetometers', '')));
+    const nm = noiseRows(dm), W = S.refWeights(dm);
+    const measured = rmsKind(dm, S.applyRefs(nm.rows, nm.refs, W), 'mag') / rmsKind(dm, nm.rows, 'mag');
+    const stated = S.sensorNoiseGain(dm, { W }).mag;
+    near(stated, measured, 0.05 * measured, 'reference compensation: stated noise gain on magnetometers');
+    const dp = MEG.simulate(MEG.dsl.build(prog('planar', '')));
+    const np = noiseRows(dp), model = S.sssModel(dp, dp.pose.ref, S.defaultOrder(dp.array.nch));
+    const sss = await S.applySSS(dp, np.rows, {});
+    const gain = S.sensorNoiseGain(dp, { sssModel: model });
+    near(gain.mag, rmsKind(dp, sss.rows, 'mag') / rmsKind(dp, np.rows, 'mag'), 0.05 * gain.mag, 'SSS: stated noise gain on magnetometers');
+    near(gain.planar, rmsKind(dp, sss.rows, 'planar') / rmsKind(dp, np.rows, 'planar'), 0.05 * gain.planar, 'SSS: stated noise gain on planar gradiometers');
+    console.log(`  sensor noise: references x${stated.toFixed(2)} on magnetometers; SSS x${gain.mag.toFixed(2)} on magnetometers, x${gain.planar.toFixed(2)} on gradiometers`);
+  }
   summary('suppress');
 })();
