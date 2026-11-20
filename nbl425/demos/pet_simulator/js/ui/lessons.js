@@ -345,7 +345,7 @@
                 'Why can the coincidence window not be made much shorter than the largest time difference of a true pair plus the timing resolution?',
                 'Why is the delayed-window estimate noisy, and why does that matter more for FBP than for OSEM?'
             ],
-            takeaway: 'Randoms grow with the square of the activity and in proportion to the coincidence window; they are measured with a delayed window or computed from singles rates, and removed.'
+            takeaway: 'Randoms grow with the square of the activity and, without TOF, in proportion to the coincidence window (with TOF only those inside the TOF bins are kept); they are measured with a delayed window or computed from singles rates, and removed.'
         },
         {
             id: 'tof', group: 'Degradations and corrections', title: 'Time of flight', tab: 'recon',
@@ -353,21 +353,25 @@
             setupText: 'Loads the sphere phantom with time of flight on (coincidence timing resolution 400 ps) and default physics, sets OSEM to 2 iterations of 12 subsets so the speed of convergence shows, and opens the Reconstruction tab.',
             setup: { preset: 'spheres_iq', recon: { method: 'osem', iterations: 2, subsets: 12, tof: true } },
             steps: [
-                { html: 'With TOF each event is placed along its line to within about 6 cm (FWHM) instead of anywhere on it. Note the contrast of the small hot spheres after 2 iterations.' },
-                { html: 'Reconstruct the same data without its TOF information: at equal iterations the spheres are less sharp and the background noisier.',
+                { html: 'With TOF each event is placed along its line to within about 6 cm (FWHM) instead of anywhere on it. After 2 iterations, read the contrast recovery of the 10 mm hot sphere in the <strong>Image quality (NEMA)</strong> table (about 62 %) and the background noise under <strong>Convergence</strong> (CoV about 10 %).' },
+                { html: 'Reconstruct the same data without its TOF information: after the same 2 iterations the 10 mm sphere has much less contrast (about 43 %), because without TOF the image converges more slowly.',
                     label: 'Without TOF', run: { recon: { tof: false } } },
-                { html: 'TOF back on.', label: 'With TOF', run: { recon: { tof: true } } },
-                { html: 'Improve the timing resolution to 200 ps (rewrites the <code>tof</code> line): each event is localised to about 3 cm, so the image converges faster with less noise.',
-                    label: 'CTR 200 ps', run: { edits: [['tof', 'tof on 200 ps', '# set by the Guide']] } },
-                { html: 'Worsen it to 600 ps, then go back to 400 ps.', label: 'CTR 600 ps', run: { edits: [['tof', 'tof on 600 ps', '# set by the Guide']] } },
-                { html: 'Back to 400 ps.', label: 'CTR 400 ps', run: { edits: [['tof', 'tof on 400 ps', '# TOF lifts small-sphere contrast at equal noise']] } }
+                { html: 'Noise is only a fair comparison at equal contrast. Without TOF it takes about 5 iterations to reach the contrast TOF reaches in 3 (about 67 %), and by then the background is noisier (CoV about 13 %).',
+                    label: 'Without TOF, 5 iterations', run: { recon: { tof: false, iterations: 5 } } },
+                { html: 'With TOF, 3 iterations: about the same contrast with less background noise (CoV about 11 %). That is the gain from TOF. Compared at equal iterations instead, TOF can look as noisy or noisier (try 4 or more, or the uniform cylinder), because it has converged further.',
+                    label: 'With TOF, 3 iterations', run: { recon: { tof: true, iterations: 3 } } },
+                { html: 'Back to 2 iterations and improve the timing resolution to 200 ps (rewrites the <code>tof</code> line): each event is localised to about 3 cm, so after the same 2 iterations the 10 mm sphere has more contrast (about 67 % instead of 62 %).',
+                    label: 'CTR 200 ps', run: { edits: [['tof', 'tof on 200 ps', '# set by the Guide']], recon: { tof: true, iterations: 2 } } },
+                { html: 'Worsen it to 600 ps: less contrast after 2 iterations (about 57 %).', label: 'CTR 600 ps', run: { edits: [['tof', 'tof on 600 ps', '# set by the Guide']], recon: { tof: true, iterations: 2 } } },
+                { html: 'Back to 400 ps.', label: 'CTR 400 ps', run: { edits: [['tof', 'tof on 400 ps', '# TOF: faster convergence, less noise at equal contrast']], recon: { tof: true, iterations: 2 } } }
             ],
             questions: [
                 'A timing resolution of 400 ps localises the annihilation to Δx = cΔt/2. How far is that? Is it better or worse than the detector resolution?',
+                'Why is it unfair to compare the noise of TOF and non-TOF images after the same number of iterations?',
                 'Why does TOF reduce noise more in a large patient than in a small one?',
                 'Why does TOF not make a fully converged image sharper?'
             ],
-            takeaway: 'Time of flight localises each event to a few centimetres along its line: images converge faster and with less noise, while the detectors still set the resolution.'
+            takeaway: 'Time of flight localises each event to a few centimetres along its line: images converge in fewer iterations and, compared at equal contrast, are less noisy, while the detectors still set the resolution.'
         },
         {
             id: 'pve', group: 'Quantification', title: 'Partial volume and resolution', tab: 'corrections',
@@ -476,7 +480,7 @@
             questions: [
                 'Why does a late static SUVR overestimate the DVR of a reversibly binding tracer?',
                 'What makes a good reference region for amyloid imaging? Why not white matter?',
-                'FE-PE2I peaks earlier than PE2I (about 26 vs 47 min in the putamen). Why does that make a short static scan at 20 to 40 min more trustworthy?'
+                'In a healthy putamen the FE-PE2I curve peaks earlier than the PE2I curve (about 26 vs 47 min: "Target curve peaks at" under SUVR over time, with the condition set to Normal on the Phantom tab). In the Parkinson putamen both curves peak within the first 2 minutes, because little transporter is left to bind them. Why does a faster tracer make a short static scan at 20 to 40 min more trustworthy?'
             ],
             takeaway: 'SUVR approaches the binding (the DVR) only near equilibrium and with a reference free of the target; a dynamic scan with a Logan plot measures it.'
         }
@@ -519,7 +523,7 @@
         if (p.resetPhysics) { A.resetPhysics(); rescan = true; }
         if (p.resetRecon) A.resetRecon();
         if (p.preset) {
-            if (A.loadPreset(p.preset) === false) return false;
+            if (A.loadPreset(p.preset, { quiet: true }) === false) return false;
             rescan = true;
         }
         if (p.phantom) { A.setPhantom(p.phantom, p.phantomOpts); rescan = true; }

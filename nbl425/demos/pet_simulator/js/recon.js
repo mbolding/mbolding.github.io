@@ -535,7 +535,7 @@
         else if (ctx.dataTof && !o.tof) notes.push('Time of flight was switched off for this reconstruction: the TOF bins were summed.');
         else if (!ctx.dataTof && o.tof && m !== 'fbp') notes.push('This scan has no time-of-flight data (TOF was off in the protocol), so the reconstruction is non-TOF.');
         if (ctx.useTof) notes.push('Time of flight places each event along its line to within about ' + Math.round(ctx.sigma * U.FWHM_PER_SIGMA) + ' mm (FWHM), so ' +
-            (m === 'bp' ? 'the backprojection is much less smeared.' : 'the reconstruction converges in fewer iterations and is less noisy.'));
+            (m === 'bp' ? 'the backprojection is much less smeared.' : 'the reconstruction converges in fewer iterations. Compared at equal contrast it is also less noisy; at equal iterations it can be noisier, because it has gone further.'));
         if (m === 'mlem' && o.subsets > 1) notes.push('MLEM uses every angle in each update, so the subsets setting is ignored and it needs many more iterations than OSEM.');
         if (!iterative && o.psf) notes.push('Resolution modelling (PSF) only works inside MLEM and OSEM; ' + (m === 'fbp' ? 'FBP' : 'backprojection') + ' ignores it.');
         if (!iterative && o.rangeCorrection) notes.push('Positron range correction only works inside MLEM and OSEM; ' + (m === 'fbp' ? 'FBP' : 'backprojection') + ' ignores it.');

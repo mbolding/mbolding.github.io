@@ -699,7 +699,7 @@
         { id: 'coinc', title: 'Coincidence processor', sub: function () { return 'τ = ' + tauText(); },
             what: 'Pairs singles whose time stamps differ by less than half the window, |t<sub>A</sub> − t<sub>B</sub>| &lt; τ/2, between detectors whose LOR crosses the field of view. Three or more in one window (a multiple) are discarded. A second, delayed window, shifted far beyond τ, can only catch accidental pairs: its count estimates the randoms among the prompts.',
             numbers: function () { return 'This protocol: τ = ' + tauText() + '; modern LYSO scanners use 4 to 5 ns. The window must cover the flight-time difference across the field of view (up to about 1 ns each way for 32 cm) plus timing jitter.'; },
-            fails: 'A wider window lets in more randoms; one narrower than the flight-time differences across the object loses trues from its edges.',
+            fails: 'A wider window lets in more randoms (with TOF on, only up to the span of the TOF bins, about 2.3 ns here); one narrower than the flight-time differences across the object loses trues from its edges.',
             artifact: 'Randoms add a smooth background (positive bias, less contrast) unless subtracted; too narrow a window darkens the edge of the object.',
             tab: 'corrections', tabLabel: 'Randoms and their correction' },
         { id: 'sorter', title: 'Sorter / histogrammer', sub: function () { return 'sinogram or list mode'; },

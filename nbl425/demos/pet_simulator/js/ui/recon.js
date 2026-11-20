@@ -117,6 +117,8 @@
 #tab-recon .rc-notes { margin: 10px 0 0; padding: 0; list-style: none; font-size: 0.8rem; color: var(--muted); }
 #tab-recon .rc-notes li { position: relative; padding-left: 14px; margin-bottom: 4px; line-height: 1.45; }
 #tab-recon .rc-notes li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+#tab-recon .rc-notes li.rc-outdated { color: var(--warn); font-weight: 600; }
+#tab-recon .rc-notes li.rc-outdated::before { background: var(--warn); }
 #tab-recon .rc-corr { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 #tab-recon .rc-images .image-grid { --min: 150px; gap: 10px; }
 #tab-recon .rc-images .well { padding: 8px; }
@@ -586,6 +588,9 @@
         const head = el('div', { class: 'panel-head' }, [el('h2', { class: 'panel-title', text: 'Image, truth and difference' })]);
         S.ui.imgSub = el('span', { class: 'panel-sub' });
         head.appendChild(S.ui.imgSub);
+        S.ui.outdated = W().badge('out of date: from the last scan', 'warn');
+        S.ui.outdated.hidden = true;
+        head.appendChild(S.ui.outdated);
         box.appendChild(head);
         const tb = el('div', { class: 'rc-toolbar' });
         S.ui.unitSeg = w.segmented({ options: [{ value: 'conc', label: 'kBq/mL' }, { value: 'suv', label: 'SUV', title: 'Standardised uptake value: concentration / (dose / body weight)' }],
@@ -800,14 +805,14 @@
         const res = curResult(), acq = curAcq();
         if (!res || !res.iterations || !res.iterations.length || !PET.analysis) return;
         const d = convergenceData(res, acq), K = res.iterations.length, k = S.iterK === null ? K - 1 : S.iterK;
-        const series = [{ x: d.x, y: d.rec, label: 'Recovery (mean / true)', color: 'var(--c1)', points: K <= 30 ? 3 : false }];
+        const series = [{ x: d.x, y: d.rec, label: 'ROI recovery (mean / true mean)', color: 'var(--c1)', points: K <= 30 ? 3 : false }];
         if (d.uniName) series.push({ x: d.x, y: d.cov, label: 'Noise (CoV)', color: 'var(--c2)', points: K <= 30 ? 3 : false });
         S.ui.convPlot.draw(series, { includeZero: true, xlim: [1, Math.max(2, K)], hlines: [{ y: 100, label: 'truth', color: 'var(--muted)' }],
             markers: [{ x: k + 1, label: 'shown', color: 'var(--fg)' }], xfmt: function (v) { return Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : ''; },
             yfmt: function (v) { return U.fmtNum(v, 3); } });
         const r0 = d.rec[0], rK = d.rec[K - 1], c0 = d.cov[0], cK = d.cov[K - 1];
         let txt = '';
-        if (isFinite(r0) && isFinite(rK)) txt += 'Recovery in ' + d.hotName + ' goes from ' + Math.round(r0) + ' % after one iteration to ' + Math.round(rK) + ' % after ' + K + '. ';
+        if (isFinite(r0) && isFinite(rK)) txt += 'ROI recovery (ROI mean over the true mean of the same pixels) in ' + d.hotName + ' goes from ' + Math.round(r0) + ' % after one iteration to ' + Math.round(rK) + ' % after ' + K + '. ';
         if (isFinite(c0) && isFinite(cK)) txt += 'Noise (pixel-to-pixel coefficient of variation) in ' + d.uniName + ' goes from ' + fmt(c0, 2) + ' % to ' + fmt(cK, 2) + ' %. ';
         txt += 'Early stopping and post-filtering are both ways of trading resolution for noise.';
         S.ui.convNote.textContent = txt;
@@ -901,9 +906,10 @@
             { label: 'Standard deviation', value: fmt(s.sd * ds.f, 3), unit: ds.unit },
             { label: 'Coefficient of variation (noise)', value: pct(s.cov, 1), hint: 'SD / mean of the pixel values: noise plus any real non-uniformity inside the ROI' },
             { label: 'Maximum', value: fmt(s.max * ds.f, 4), unit: ds.unit },
-            { label: 'True mean', value: isFinite(tm) ? fmt(tm * ds.f, 4) : '-', unit: ds.unit },
-            { label: 'Recovery (mean / true)', value: tm > 0 ? pct(rec, 0) : (isFinite(tm) ? 'no activity' : '-'), kind: recKind,
-                hint: 'Below 100 %: partial volume, missing corrections or too few iterations; above: spill-in or over-correction' },
+            { label: 'True mean, same pixels', value: isFinite(tm) ? fmt(tm * ds.f, 4) : '-', unit: ds.unit,
+                hint: 'The truth image averaged over the same pixels. Edge pixels also hold some of the surroundings, so for a small region this is below the region\'s own concentration (Phantom tab).' },
+            { label: 'ROI recovery (mean / true mean)', value: tm > 0 ? pct(rec, 0) : (isFinite(tm) ? 'no activity' : '-'), kind: recKind,
+                hint: 'Below 100 %: partial volume, missing corrections or too few iterations; above: spill-in or over-correction. Not the NEMA contrast recovery, which subtracts the background.' },
             { label: 'Pixels', value: String(s.nPix) }
         ]);
         const d = defs.find(function (x) { return x.id === id; });
@@ -981,14 +987,14 @@
             return [td(s.d + ' mm ' + s.kind), td(fmt(s.contrast, 3)), td(isFinite(s.trueContrast) ? fmt(s.trueContrast, 3) : '-'), td(pct(s.recovery), k), td(pct(s.variability, 1))];
         });
         const left = el('div', { class: 'rc-table-wrap' });
-        left.appendChild(dataTable(['Sphere', 'Measured ratio', 'True ratio', 'Recovery', 'Bkg variability'], rows));
+        left.appendChild(dataTable(['Sphere', 'Measured ratio', 'True ratio', 'Contrast recovery', 'Bkg variability'], rows));
         const extra = [];
         extra.push('Background ' + fmt(q.bgMean * 1e-3, 3) + ' kBq/mL');
         if (q.lung) extra.push('lung insert residual ' + pct(q.lung.residual, 1) + ' of background (scatter and spill-in; ideally 0)');
         left.appendChild(el('p', { class: 'note mt-1 mb-0' }, extra.join('; ') + '.'));
         two.appendChild(left);
         const right = el('div');
-        const pl = W().plot(right, { height: 190, xlabel: 'sphere diameter (mm)', ylabel: 'recovery (%)', title: 'Recovery vs diameter', legend: true });
+        const pl = W().plot(right, { height: 190, xlabel: 'sphere diameter (mm)', ylabel: 'contrast recovery (%)', title: 'Contrast recovery vs diameter', legend: true });
         const hot = q.spheres.filter(function (s) { return s.kind === 'hot'; }), cold = q.spheres.filter(function (s) { return s.kind === 'cold'; });
         const ser = [];
         if (hot.length) ser.push({ x: hot.map(function (s) { return s.d; }), y: hot.map(function (s) { return 100 * s.recovery; }), label: 'Hot (contrast recovery)', color: 'var(--c1)', points: 4 });
@@ -997,7 +1003,9 @@
         two.appendChild(right);
         body.appendChild(two);
         body.appendChild(el('p', { class: 'note mt-1 mb-0' }, 'Hot spheres smaller than about three times the resolution lose contrast (partial volume); cold spheres fill in from scatter and spill-in. ' +
-            'More iterations, PSF and TOF raise recovery; so does turning off the post-filter, at the price of background variability.'));
+            'More iterations, PSF and TOF raise recovery; so does turning off the post-filter, at the price of background variability. ' +
+            'Contrast recovery is NEMA\'s (sphere / background − 1) / (true ratio − 1), in a circle the size of the sphere: it subtracts the background and compares with the sphere\'s real concentration. ' +
+            'So it reads lower than the ROI recovery under Convergence and Region of interest, which divides the ROI mean by the truth averaged over the same pixels.'));
         body.appendChild(el('p', { class: 'simplification' }, 'NEMA averages five slices and twelve background ROIs; here there is one slice, and in one slice through their centres the spheres behave as rods, so recovery is a little better than for real spheres.'));
     }
 
@@ -1061,7 +1069,7 @@
 
     function specialBrain(res, acq, ph, body) {
         S.ui.specTitle.textContent = 'Regional values';
-        S.ui.specSub.textContent = 'measured against the true concentration of each region';
+        S.ui.specSub.textContent = 'measured against the truth averaged over the same pixels';
         const m = res.n, A = PET.analysis, ds = displayScale(acq), truth = truthFor(acq, res);
         const defs = roiList(ph).filter(function (d) { return ['cortex', 'white_matter', 'striatum', 'putamen_l', 'putamen_r', 'caudate', 'cerebellum'].indexOf(d.id) >= 0; });
         const rows = [];
@@ -1075,7 +1083,7 @@
             rows.push([td(d.name), td(fmt(s.mean * ds.f, 3)), td(fmt(t * ds.f, 3)), td(pct(rec), isFinite(rec) ? (Math.abs(rec - 1) <= 0.1 ? 'good' : (Math.abs(rec - 1) <= 0.25 ? 'warn' : 'bad')) : null)]);
         });
         const wrap = el('div', { class: 'rc-table-wrap' });
-        wrap.appendChild(dataTable(['Region', 'Measured (' + ds.unit + ')', 'True (' + ds.unit + ')', 'Recovery'], rows));
+        wrap.appendChild(dataTable(['Region', 'Measured (' + ds.unit + ')', 'True, same pixels (' + ds.unit + ')', 'ROI recovery'], rows));
         body.appendChild(wrap);
         const parts = [];
         if (vals.cortex && vals.white_matter && vals.white_matter.m > 0) {
@@ -1085,6 +1093,7 @@
             parts.push('Striatum to cerebellum: measured ' + fmt(vals.striatum.m / vals.cerebellum.m, 3) + ', true ' + fmt(vals.striatum.t / vals.cerebellum.t, 3) + '.');
         }
         parts.push('The cortical ribbon is about 3 mm thick, close to the resolution, so it reads low and white matter reads high (spill-in): partial volume, which GTM correction in the next tab can undo.');
+        parts.push('"True, same pixels" is the truth image averaged over the ROI\'s pixels, so the pixel grid\'s own partial volume is already in it; against each region\'s real concentration (Phantom tab, GTM card, Dynamic & quantification) thin regions read lower still.');
         body.appendChild(el('p', { class: 'note mt-1 mb-0' }, parts.join(' ')));
     }
 
@@ -1118,6 +1127,9 @@
     const renderStatus = safe(function () {
         const res = curResult(), acq = curAcq(), s = st();
         if (!S.ui.status) return;
+        // results from before the latest change, and no re-scan coming
+        const out = !!(PET.app && PET.app.resultsOutdated && PET.app.resultsOutdated());
+        if (S.ui.outdated) { S.ui.outdated.hidden = !out; S.ui.outdated.title = out ? PET.app.outdatedReason() : ''; }
         if (!acq) { S.ui.status.textContent = s.scanning ? 'Scanning...' : 'Waiting for the first scan.'; S.ui.notes.textContent = ''; return; }
         if (s.scanning) S.ui.status.textContent = 'Scanning: the image fills in as counts arrive.';
         else if (s.reconstructing) S.ui.status.textContent = 'Reconstructing...';
@@ -1132,6 +1144,7 @@
             S.ui.status.textContent = parts.join(', ') + (isFinite(ms) ? ': ' + U.fmtTime(ms / 1000) : '');
         } else S.ui.status.textContent = PET.recon ? 'Waiting for the reconstruction.' : 'No image: the reconstruction module (js/recon.js) did not load.';
         S.ui.notes.textContent = '';
+        if (out) S.ui.notes.appendChild(el('li', { class: 'rc-outdated', text: PET.app.outdatedReason() }));
         ((res && res.info && res.info.notes) || []).forEach(function (n) { S.ui.notes.appendChild(el('li', { text: n })); });
     }, 'status');
 
@@ -1182,6 +1195,7 @@
         bus.on('scan:start', function () { if (S.visible) renderStatus(); });
         bus.on('scan:done', function () { S.caches.special = null; if (S.visible) { syncControls(); renderFrameBar(); renderStatus(); } else S.dirty = true; });
         bus.on('scan:error', function () { setProgress(null); if (S.visible) renderStatus(); });
+        bus.on('results:outdated', function () { if (S.visible) renderStatus(); });
         bus.on('frame:changed', function () { if (S.visible) renderFrameBar(); });
         bus.on('analysis:changed', function () { if (S.visible) { renderRoi(); redrawOverlays(); } });
         bus.on('theme:changed', function () { if (S.visible) { drawFilter(); renderConvergence(); } });

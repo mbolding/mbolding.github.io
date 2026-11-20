@@ -236,6 +236,10 @@ const CYL = cylinder(100), CYL_TACS = constTACs(CYL, 3400, 10000);
         ok(a.frames[0].expected.trues.length === NLOR, 'expected sinograms are summed over TOF');
         near(a.geom.sigmaTOF, 25.46, 0.05, 'sigmaTOF for 400 ps');
         near(c.randoms / c0.randoms, inside, 1e-9, 'TOF keeps only the randoms inside the TOF bins (' + inside.toFixed(3) + ')');
+        // so with TOF on, widening the window past the bins adds no randoms
+        const w9 = await sim(program({ tof: true, tau: 9e-9 }), HEAD, HEAD_TACS, { noise: false });
+        near(w9.frames[0].counts.randoms / c.randoms, 1, 1e-9, 'TOF on: 9 ns window, same randoms as 4.5 ns');
+        near(c.randoms / c0.randoms, S.timing.randomsWindow(4.5e-9, true) / 4.5e-9, 1e-9, 'randomsWindow matches the engine');
         near(c.trues / c0.trues, 1, 0.01, 'TOF does not change the trues');
         near(c.scatter / c0.scatter, 1, 0.01, 'nor the scatter');
         // a source at x = 60: on the LOR at theta = pi/2 through it, s = -60 mm -> TOF bin 8 - 3 = 5

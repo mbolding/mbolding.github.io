@@ -646,6 +646,14 @@
         ]));
         T.presetGrid = el('div', { class: 'pr-preset-grid' });
         presetPanel.appendChild(T.presetGrid);
+        // A preset is a protocol and a phantom only: say which physics and
+        // reconstruction changes it will not undo, and offer to reset them.
+        T.carryText = el('span');
+        T.carry = el('p', { class: 'note mt-1 mb-0', hidden: true }, [T.carryText, ' ',
+            w.button({ label: 'Reset physics and reconstruction', size: 'xs', kind: 'ghost',
+                title: 'Back to the default physics and the default reconstruction (OSEM 4 x 12, TOF, 128 x 128, 3 mm post-filter)',
+                onClick: function () { if (PET.actions) { PET.actions.resetPhysics(); PET.actions.resetRecon(); } } })]);
+        presetPanel.appendChild(T.carry);
         panel.appendChild(presetPanel);
 
         // 3. editor + side column
@@ -766,11 +774,21 @@
             renderPresets();
         });
         ['phantom:changed', 'scan:start', 'scan:done', 'scan:error', 'frame:changed'].forEach(function (evt) { bus.on(evt, invalidate); });
+        ['physics:changed', 'reconopts:changed', 'preset:loaded'].forEach(function (evt) { bus.on(evt, renderCarry); });
 
         const cur = presetById(st().presetId);
         if (cur && cur.group) { T.group = cur.group; T.groupSeg.set(cur.group); }
         renderPresets();
+        renderCarry();
         onCompiled({ program: st().program });
+    }
+    function renderCarry() {
+        if (!T.carry || !PET.app || !PET.app.changedSettings) return;
+        const c = PET.app.changedSettings(), parts = [];
+        if (c.physics.length) parts.push('physics (' + c.physics.join(', ') + ')');
+        if (c.recon.length) parts.push('reconstruction (' + c.recon.join(', ') + ')');
+        T.carry.hidden = !parts.length;
+        T.carryText.textContent = parts.length ? 'A preset sets only the protocol and the phantom. These changes from the defaults stay when you load one: ' + parts.join('; ') + '.' : '';
     }
 
     /* ---------- actions used by the tab ---------- */
@@ -1067,6 +1085,11 @@
         if (prog.tof.on) {
             const fwhm = PET.const.C_MM_PER_S * prog.tof.ctr / 2;
             rows.push({ label: 'TOF places events to', value: Math.round(fwhm) + ' mm FWHM', hint: 'Position uncertainty along the line = c x timing resolution / 2' });
+            const rw = PET.scanner && PET.scanner.timing.randomsWindow ? PET.scanner.timing.randomsWindow(prog.coincidence, true) : prog.coincidence;
+            if (rw < prog.coincidence - 1e-12) {
+                rows.push({ label: 'Window that limits randoms', value: U.fmtTime(rw, 3) + ' (TOF bins)',
+                    hint: 'With TOF on, randoms whose time difference falls outside the TOF bins are dropped, so a coincidence window wider than ' + U.fmtTime(rw, 3) + ' adds no randoms. Switch TOF off to see randoms grow with the window.' });
+            }
         }
         rows.push(['Mode', prog.acqMode === '2D' ? '2D, septa in' : '3D, septa out']);
         T.statProto.update(rows);
@@ -1258,7 +1281,9 @@
             U.fmtTime(cross, 3) + ' at the edge of the 320 mm field of view. A window (total width) narrower than about ' + U.fmtTime(2 * cross, 2) +
             ' therefore loses true events from the edge, softened by the ' + U.fmtTime(ctr, 3) + ' timing resolution. ' +
             (half >= 160 ? 'This window reaches ' + Math.round(half) + ' mm each way, beyond the field of view. ' : 'This window reaches only ' + Math.round(half) + ' mm each way. ') +
-            'Randoms grow in proportion to the window width, so the window is a trade-off.';
+            'Without TOF, randoms grow in proportion to the window width, so the window is a trade-off. ' +
+            'With TOF on, randoms that fall outside the TOF bins (about ' + U.fmtTime(SC.timing.randomsWindow(20e-9, true), 3) + ' in all) are dropped, ' +
+            'so a window wider than that adds no randoms' + (prog && prog.tof.on ? ' (TOF is on in this protocol).' : '.');
     }
     function tile(host, label, value, hint) {
         host.appendChild(el('div', { class: 'stat', title: hint || null }, [el('div', { class: 'stat-label', text: label }), el('div', { class: 'stat-value', text: value })]));

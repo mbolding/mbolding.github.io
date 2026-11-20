@@ -365,14 +365,17 @@
 
     /* ---------- long true curves for SUVR over time ----------
        The protocol's own curves stop at the end of the scan; the ratio is
-       more telling over two hours, so the same model is run further. */
+       more telling over two hours, so the same model is run further. It
+       runs on the same 2 s grid as the scan's own curves (app.js getTACs),
+       so the window SUVR here is the noise-free SUVR of Static
+       quantification to the last digit, not a slightly different number. */
     function longCurves(ph, prog) {
         const c = T.cache.long;
         if (c && c.ph === ph && c.prog === prog) return c.data;
         const water = /water/i.test(String(prog.tracer || ''));
         const end = water ? Math.max(6 * MIN, 1.5 * (prog.scanEnd || 0)) : Math.max(120 * MIN, (prog.scanEnd || 0) + 15 * MIN);
         const p2 = Object.assign({}, prog, { scanEnd: end, frames: (prog.frames || []).concat([{ t0: end - 1, t1: end }]) });
-        const data = K().regionTACs(ph, p2, { dt: end > 1800 ? 5 : 1, condition: ph.condition || 'normal' });
+        const data = K().regionTACs(ph, p2, { dt: 2, condition: ph.condition || 'normal' });
         T.cache.long = { ph: ph, prog: prog, data: data };
         return data;
     }
@@ -1010,7 +1013,11 @@
             (S.kind === 'brain' ? tracerLabel(S.tracer) : (PET.isotopes ? PET.isotopes.get(S.acq.isotope).label + ' solution' : 'solution'));
         if (S.partial) D.stBadges.appendChild(w().badge('scan in progress', 'accent'));
         else if (T.reconPending) D.stBadges.appendChild(w().badge('updating', 'muted'));
-        if (S.stale && !PET.state.autoRescan) D.stBadges.appendChild(w().badge('settings changed since this scan', 'warn'));
+        if (PET.app && PET.app.resultsOutdated && PET.app.resultsOutdated()) {
+            const b = w().badge('out of date: settings changed since this scan', 'warn');
+            b.title = PET.app.outdatedReason();
+            D.stBadges.appendChild(b);
+        }
         if (!S.decayOn) D.stBadges.appendChild(w().badge('decay correction off', 'warn'));
 
         D.stMain.textContent = '';
@@ -1090,10 +1097,15 @@
                 : 'The target holds no tracer in this model (CSF, ventricles or bone). Pick a tissue region.' }));
             return box;
         }
+        // The total error is a product of parts, each a ratio of two numbers on this card:
+        // reference region (equilibrium ratio / DVR), (a) kinetic (noise-free SUVR / equilibrium
+        // ratio) and (b) imaging (measured SUVR / noise-free SUVR).
+        const refOff = model === '2tcr' && isFinite(S.eq) && Math.abs(S.eq / S.goal - 1) > 0.01;
+        const parts = (refOff ? 'reference region ' + pct(S.eq / S.goal - 1) + ', ' : '') + '(a) kinetic ' + pct(S.ratioTrue / S.eq - 1) + ' and (b) imaging ' + pct(S.ratioMeas / S.ratioTrue - 1);
         let lead;
-        if (model === '2tcr') lead = 'Measured SUVR ' + fix(S.ratioMeas, 2) + ' vs true DVR ' + fix(S.goal, 2) + ': <strong>' + pct(S.ratioMeas / S.goal - 1) + '</strong> in total.';
+        if (model === '2tcr') lead = 'Measured SUVR ' + fix(S.ratioMeas, 2) + ' vs true DVR ' + fix(S.goal, 2) + ': <strong>' + pct(S.ratioMeas / S.goal - 1) + '</strong> in total, made of ' + parts + ' (the parts multiply).';
         else if (model === '2tci') lead = 'FDG is trapped, so there is no DVR. The ratio grows towards the ratio of net influx rates, K<sub>i</sub> ratio ' + fix(S.goal, 2) +
-            ', which the measured SUVR ' + fix(S.ratioMeas, 2) + ' misses by <strong>' + pct(S.ratioMeas / S.goal - 1) + '</strong>.';
+            ', which the measured SUVR ' + fix(S.ratioMeas, 2) + ' misses by <strong>' + pct(S.ratioMeas / S.goal - 1) + '</strong>, made of ' + parts + ' (the parts multiply).';
         else lead = 'Water is not bound: the ratio settles at the ratio of distribution volumes, ' + fix(S.goal, 2) + '; flow itself needs a dynamic scan.';
         box.appendChild(el('div', { class: 'kn-lead', html: lead }));
 
@@ -1103,7 +1115,8 @@
                 '), so even at equilibrium the ratio would only reach V<sub>T</sub>/V<sub>T,ref</sub> = ' + fix(S.eq, 2) + ', not the DVR. A reference must be free of the target.');
             else if (S.kr.blood || S.kr.none) add('<strong>Reference region:</strong> ' + S.dR.name + ' is not tissue that behaves like the target without binding, so the ratio has no simple meaning.');
             else if (isFinite(S.kt.VND) && isFinite(S.kr.VND) && Math.abs(S.kt.VND / S.kr.VND - 1) > 0.02) add('<strong>Reference region:</strong> no specific binding, but its nondisplaceable uptake (V<sub>ND</sub> ' +
-                fix(S.kr.VND, 2) + ') differs from the target\'s (' + fix(S.kt.VND, 2) + '), so at equilibrium the ratio would be ' + fix(S.eq, 2) + ' rather than ' + fix(S.goal, 2) + '.');
+                fix(S.kr.VND, 2) + ') differs from the target\'s (' + fix(S.kt.VND, 2) + '), so at equilibrium the ratio would be ' + fix(S.eq, 2) + ' rather than ' + fix(S.goal, 2) +
+                ' (<strong>' + pct(S.eq / S.goal - 1) + '</strong>). SUVR over time below compares the window with the DVR, so its figure includes this part.');
             else add('<strong>Reference region:</strong> no specific binding and the same nondisplaceable uptake (V<sub>ND</sub> ' + fix(S.kr.VND, 2) + '), so at true equilibrium the ratio would equal the DVR.');
         } else if (model === '2tci' && S.dR && /wm|white/i.test(S.dR.id)) {
             add('<strong>Reference region:</strong> white matter takes up much less FDG than gray matter, so the ratio is large and mostly reflects the reference.');
@@ -1321,11 +1334,18 @@
             D.otPlot.draw(series, { ylim: [ylo, yhi], hlines: hl, markers: markers, xlim: [0, tacs.t[n - 1] / MIN], legend: true });
             D.otSub.textContent = 'true curves of ' + tracerLabel(prog.tracer) + (ph.condition && ph.condition !== 'normal' ? ' (' + conditionName(ph.condition) + ')' : '') + ', no noise, no blur';
             D.otStats.textContent = '';
+            const goalName = model === '2tcr' ? 'DVR' : (model === '2tci' ? 'Ki ratio' : 'VT ratio');
+            const refPart = model === '2tcr' && isFinite(eq) && Math.abs(eq / goal - 1) > 0.01;
             D.otStats.appendChild(tiles([
-                { label: win && prog.dynamic ? 'SUVR, late frames' : 'SUVR, scan window', value: fix(wr, 2), hint: win ? span(win.t0, win.t1) : '' },
+                { label: win && prog.dynamic ? 'SUVR, late frames' : 'SUVR, scan window', value: fix(wr, 2), hint: (win ? span(win.t0, win.t1) + ', ' : '') + (prog.dynamic ? 'noise-free, over the late frames (Static quantification reads the one frame you choose)' : 'noise-free: the same value as the true SUVR under Static quantification') },
                 { label: model === '2tcr' ? 'True DVR' : (model === '2tci' ? 'Ki ratio' : 'VT ratio'), value: fix(goal, 2) },
-                { label: 'Bias of the window', value: pct(wr / goal - 1), kind: Math.abs(wr / goal - 1) > 0.05 ? 'warn' : 'good' },
-                { label: model === '2tci' ? 'Target still rising' : 'Target peaks at', value: peakAtEnd ? 'after ' + minutes(tacs.t[n - 1]) : minutes(peakT), unit: 'min' },
+                { label: 'Window SUVR vs ' + goalName, value: pct(wr / goal - 1), kind: Math.abs(wr / goal - 1) > 0.05 ? 'warn' : 'good',
+                    hint: 'Noise-free window SUVR / ' + goalName + ' − 1' + (refPart ? ': the kinetic part times the reference-region part (' + pct(eq / goal - 1) + ')' : '') },
+                refPart ? { label: 'Kinetic part, vs equilibrium ratio ' + fix(eq, 2), value: pct(wr / eq - 1), kind: Math.abs(wr / eq - 1) > 0.05 ? 'warn' : 'good',
+                    hint: 'Window SUVR / (VT target / VT reference) − 1: the timing bias alone, as in (a) under Static quantification. This reference\'s nondisplaceable uptake differs from the target\'s, which adds ' + pct(eq / goal - 1) + ' even at equilibrium.' } : null,
+                { label: model === '2tci' ? 'Target still rising' : 'Target curve peaks at', value: peakAtEnd ? 'after ' + minutes(tacs.t[n - 1]) : minutes(peakT), unit: 'min',
+                    hint: model === '2tcr' ? 'Peak of the target\'s total activity (free + bound + blood), not of its specific binding. With little binding left, as in a Parkinson putamen, it is the delivery peak of the first minutes; with plenty of binding it comes much later.'
+                        : (model === '2tci' ? '' : 'Peak of the target\'s total activity (tissue + blood)') },
                 model === '2tcr' ? { label: 'Specific binding peaks at', value: bindT === Infinity ? 'after ' + minutes(tacs.t[n - 1]) : minutes(bindT), unit: 'min',
                     hint: 'When bound tracer stops increasing, C2/C1 = k3/k4 = BPND exactly' } : null,
                 isFinite(cross) ? { label: 'Ratio reaches it at', value: minutes(cross), unit: 'min' } : null
@@ -1887,6 +1907,7 @@
         bus.on('scan:start', function () { T.all.error = null; markDirty('statics', 'dynamic'); });
         bus.on('scan:done', function () { T.reconPending = true; T.all.busy = false; markDirty('statics', 'dynamic'); });
         bus.on('scan:error', function () { markDirty('statics', 'dynamic'); });
+        bus.on('results:outdated', function () { markDirty('statics', 'dynamic'); });
         let lastPartial = 0;
         bus.on('recon:done', function (e) {
             if (e && e.partial) {
