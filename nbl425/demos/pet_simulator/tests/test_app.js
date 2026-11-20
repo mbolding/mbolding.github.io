@@ -67,6 +67,13 @@ ok(A._merged({ a: { b: 1, c: 2 } }, { a: { c: 3 } }).a.b === 1, 'deep merge keep
     ok(c.recon.indexOf('iterations') >= 0 && c.recon.indexOf('scatter correction') >= 0, 'recon changes listed (' + c.recon.join(', ') + ')');
     Ac.loadPreset('cyl_uniform');
     ok(App.changedSettings().physics.length === 2, 'loadPreset keeps physics changes (and the Protocol tab says so)');
+    // the loadPreset toast lists only what was carried over, not what a "Try this" button sets right after
+    const snap = JSON.parse(JSON.stringify({ physics: S.physics, recon: S.recon }));
+    Ac.setRecon({ postFilter: 0, iterations: 4 });
+    const kept = App.changedSettings(snap);
+    ok(kept.recon.indexOf('post-filter') < 0 && kept.recon.indexOf('iterations') < 0 && kept.recon.indexOf('scatter correction') >= 0 && kept.physics.length === 2,
+        'carried-over list leaves out settings changed after the snapshot (' + kept.recon.join(', ') + ')');
+    ok(App.changedSettings().recon.indexOf('post-filter') >= 0, 'the full list still has them');
     Ac.resetPhysics(); Ac.resetRecon();
     ok(App.changedSettings().physics.length === 0 && App.changedSettings().recon.length === 0, 'reset clears them');
     await wait(350);

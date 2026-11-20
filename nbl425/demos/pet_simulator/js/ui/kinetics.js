@@ -1346,8 +1346,10 @@
                 { label: model === '2tci' ? 'Target still rising' : 'Target total activity peaks at', value: peakAtEnd ? 'after ' + minutes(tacs.t[n - 1]) : minutes(peakT), unit: 'min',
                     hint: model === '2tcr' ? 'Peak of the target\'s total activity (free + bound + blood), not of its specific binding. It is the delivery peak of the first minutes unless enough tracer binds to outweigh the washout of free tracer, as in a healthy striatum with FE-PE2I (about 26 min) or PE2I (about 47 min).'
                         : (model === '2tci' ? '' : 'Peak of the target\'s total activity (tissue + blood)') },
-                model === '2tcr' ? { label: 'Specific binding peaks at', value: bindT === Infinity ? 'after ' + minutes(tacs.t[n - 1]) : minutes(bindT), unit: 'min',
-                    hint: 'When bound tracer stops increasing, C2/C1 = k3/k4 = BPND exactly' } : null,
+                model === '2tcr' ? (bindT === Infinity || isFinite(bindT)
+                    ? { label: 'Specific binding peaks at', value: bindT === Infinity ? 'after ' + minutes(tacs.t[n - 1]) : minutes(bindT), unit: 'min',
+                        hint: 'When bound tracer stops increasing, C2/C1 = k3/k4 = BPND exactly' }
+                    : { label: 'Specific binding', value: 'none', hint: 'This region has no specific binding in the model' }) : null,
                 isFinite(cross) ? { label: 'Ratio reaches it at', value: minutes(cross), unit: 'min' } : null
             ]));
             let note;

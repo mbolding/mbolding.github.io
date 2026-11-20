@@ -841,18 +841,23 @@ instant re-scan when `autoRescan` is on and the program compiled. `setRecon`
 only re-runs the reconstruction.
 
 A preset sets the protocol and its phantom only; physics and reconstruction
-changes stay. `loadPreset` says so in a toast that lists them (computed on
-the next tick, after any settings the caller applies right after it)
-(`PET.app.changedSettings() -> {physics: [names], recon: [names]}`), unless
+changes stay. `loadPreset` says so in a toast that lists them, unless
 `quiet` (the Guide and the "Show me" demonstrations set physics and
 reconstruction themselves), and the Protocol tab lists them under the preset
-picker with a button that resets both.
+picker with a button that resets both
+(`PET.app.changedSettings(since?) -> {physics: [names], recon: [names]}`).
+The toast is computed on the next tick and lists only the settings that
+still have the value they had before the load (`since`, a snapshot), so a
+setting that a "Try this" button applies right after loading a preset is
+not called kept.
 
 **Out-of-date results.** `PET.app.resultsOutdated()` is true when the
 settings changed since the last scan and no re-scan is coming: the protocol
 does not compile, Auto re-scan is off, or the re-scan failed or was
 stopped. `PET.app.outdatedReason()` says which, in a sentence. Then the scan
-bar shows "Out of date", the Sinogram counts table, the Reconstruction image
+bar shows "Out of date" (after a failed or stopped re-scan it first shows
+that error, and "Out of date" from the next reconstruction on, instead of
+"Done"), the Sinogram counts table, the Reconstruction image
 panel, Static quantification and the Corrections status say the results are
 from the last scan, and the bus carries `results:outdated {outdated, reason}`
 whenever the state or its reason changes.

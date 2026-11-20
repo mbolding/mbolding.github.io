@@ -358,7 +358,8 @@
                     label: 'Without TOF', run: { recon: { tof: false } } },
                 { html: 'Noise is only a fair comparison at equal contrast. Without TOF it takes about 5 iterations to reach the contrast TOF reaches in 3 (about 67 %), and by then the background is noisier (CoV about 13 %).',
                     label: 'Without TOF, 5 iterations', run: { recon: { tof: false, iterations: 5 } } },
-                { html: 'With TOF, 3 iterations: about the same contrast with less background noise (CoV about 11 %). That is the gain from TOF. Compared at equal iterations instead, TOF can look as noisy or noisier (try 4 or more, or the uniform cylinder), because it has converged further.',
+                { html: 'With TOF, 3 iterations: about the same contrast with less background noise (CoV about 11 %). That is the gain from TOF. Compared at equal iterations instead, TOF can look as noisy or noisier (try 4 or more, or the uniform cylinder), because it has converged further. ' +
+                    'Read the noise as the pixel CoV under Convergence: the NEMA table\'s background variability, from only 12 ROI means in one slice, is too noisy to show this difference (here it is a little lower without TOF).',
                     label: 'With TOF, 3 iterations', run: { recon: { tof: true, iterations: 3 } } },
                 { html: 'Back to 2 iterations and improve the timing resolution to 200 ps (rewrites the <code>tof</code> line): each event is localised to about 3 cm, so after the same 2 iterations the 10 mm sphere has more contrast (about 67 % instead of 62 %).',
                     label: 'CTR 200 ps', run: { edits: [['tof', 'tof on 200 ps', '# set by the Guide']], recon: { tof: true, iterations: 2 } } },

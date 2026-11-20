@@ -123,10 +123,15 @@
         }
         return a === b;
     }
-    function changedSettings() {
+    /* since: an earlier {physics, recon} snapshot. Then only the settings
+       that still have the value they had in it are listed (carried over),
+       not those a caller has set since (a "Try this" button). */
+    function changedSettings(since) {
         const out = { physics: [], recon: [] }, pd = physicsDefaults(), rd = reconDefaults(), p = state.physics || {}, r = state.recon || {};
+        const sp = (since && since.physics) || null, sr = (since && since.recon) || null, sc = (sr && sr.corrections) || {};
         const name = function (k) { return SETTING_NAMES[k] || k; };
         Object.keys(pd).forEach(function (k) {
+            if (sp && !sameValue(p[k], sp[k])) return;
             if (k === 'motion') { if (p.motion && p.motion.on) out.physics.push('motion'); return; }
             if (!sameValue(p[k], pd[k])) out.physics.push(name(k));
         });
@@ -135,10 +140,12 @@
             if (k === 'corrections') {
                 const c = r.corrections || {};
                 Object.keys(rd.corrections).forEach(function (j) {
+                    if (sr && !sameValue(c[j], sc[j])) return;
                     if (!sameValue(c[j], rd.corrections[j])) out.recon.push(j === 'randomsMethod' || j === 'normalization' || j === 'decay' ? name(j) : j + ' correction');
                 });
                 return;
             }
+            if (sr && !sameValue(r[k], sr[k])) return;
             if (!sameValue(r[k], rd[k])) out.recon.push(name(k));
         });
         return out;
@@ -563,7 +570,7 @@
         if (!state.autoRescan) return 'Settings changed since the last scan, and Auto re-scan is off: the images and counts are from the last scan. Press Acquire.';
         return 'The re-scan did not finish (it failed or was stopped): the images and counts are from the last scan.';
     }
-    function syncOutdated() {
+    function syncOutdated(fromScanError) {
         const now = resultsOutdated(), reason = outdatedReason();
         // also when only the reason changed (protocol fixed with Auto re-scan off), so the tabs say the right thing
         if (now !== outdatedShown || reason !== outdatedShownReason) {
@@ -571,7 +578,7 @@
             outdatedShownReason = reason;
             bus.emit('results:outdated', { outdated: now, reason: reason });
         }
-        if (now) showOutdated();
+        if (now) showOutdated(fromScanError);
     }
 
     function markStale() { state.stale = true; }
@@ -626,6 +633,7 @@
         loadPreset: function (id, opts) {
             const p = getPreset(id);
             if (!p) { notify('There is no preset called "' + id + '".', 'warn'); return false; }
+            const before = { physics: deepClone(state.physics || {}), recon: deepClone(state.recon || {}) };
             state.presetId = id;
             state.source = p.source;
             markStale();
@@ -644,11 +652,11 @@
             scheduleRescan();
             // A preset is a protocol and a phantom: earlier physics and
             // reconstruction changes stay, which a student should not miss.
-            // Listed after the caller's own settings (a "Try this" button
-            // that loads a preset and then sets the reconstruction).
+            // Checked on the next tick, so a setting that a "Try this" button
+            // applies right after loading the preset is not called kept.
             if (!(opts && opts.quiet) && doc) {
                 setTimeout(function () {
-                    const c = changedSettings(), parts = [];
+                    const c = changedSettings(before), parts = [];
                     if (c.physics.length) parts.push('physics (' + c.physics.join(', ') + ')');
                     if (c.recon.length) parts.push('reconstruction (' + c.recon.join(', ') + ')');
                     if (parts.length) notify('Loaded ' + (p.name || id) + '. These changes from the defaults are kept, because a preset sets only the protocol and the phantom: ' + parts.join(' and ') + '. Reset them on the Protocol tab.', 'info');
@@ -896,15 +904,17 @@
         ['thumbSino', 'thumbImg'].forEach(function (id) { const b = $(id); if (b) b.classList.toggle('stale', !!stale); });
     }
     /* Out-of-date results: say so on the status line, which a student reads
-       far more than the summary under it. A failed re-scan already shows
-       its own error there. */
-    function showOutdated() {
+       far more than the summary under it. A failed or stopped re-scan first
+       shows its own error there (fromScanError); a later reconstruction
+       says "Out of date" instead of "Done". */
+    function showOutdated(fromScanError) {
         if (!doc || !resultsOutdated()) return;
-        const bad = !(state.program && state.program.ok);
-        if (!bad && state.autoRescan) return;
+        const bad = !(state.program && state.program.ok), failed = !bad && state.autoRescan;
+        if (failed && fromScanError) return;
         setState('Out of date', 'warn');
         // short, so it fits the line; the tabs and the tooltip give the whole reason
-        setMessage(bad ? 'protocol errors: the results shown are from the last scan.' : 'settings changed: press Acquire (Auto re-scan is off).', 'warn',
+        setMessage(bad ? 'protocol errors: the results shown are from the last scan.'
+            : (failed ? 'the re-scan did not finish: the results shown are from the last complete scan.' : 'settings changed: press Acquire (Auto re-scan is off).'), 'warn',
             bad ? { label: 'Open the Protocol tab', run: function () { showTab('protocol'); } } : null);
         const m = $('scanMsg');
         if (m) m.title = outdatedReason();
@@ -1024,7 +1034,7 @@
         bus.on('frame:changed', function () { if (state.acq && !playing) drawSinoThumb(state.acq); });
         ['program:compiled', 'phantom:changed', 'physics:changed', 'scan:done'].forEach(function (evt) { bus.on(evt, updateSummary); });
         // after the handlers above, so an out-of-date status is not overwritten by "Done"
-        ['scan:start', 'scan:done', 'scan:error', 'recon:done'].forEach(function (evt) { bus.on(evt, function () { syncOutdated(); }); });
+        ['scan:start', 'scan:done', 'scan:error', 'recon:done'].forEach(function (evt) { bus.on(evt, function () { syncOutdated(evt === 'scan:error'); }); });
     }
 
     /* ----- tab bar ----- */
