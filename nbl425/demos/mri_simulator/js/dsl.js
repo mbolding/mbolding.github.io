@@ -1605,8 +1605,11 @@
            signal lost. What counts is the net gz area from the excitation to
            the echo, with its sign flipped at each refocusing pulse (the
            refocusing pulse's own slice gradient, symmetric about its centre,
-           cancels itself). One warning, at the excitation, when that area
-           winds a quarter of a cycle or more across the slice. */
+           cancels itself, and so does a pair of equal crushers on both sides
+           of it). One warning, at the excitation, when that area winds a
+           quarter of a cycle or more across the slice. The cause can be the
+           rephaser or a crusher without its partner, so the message names
+           both when there is a refocusing pulse. */
         checkSliceRephased(prog) {
             const rf = this.rf, thk = this.img.thickness;
             let ri = -1, exc = -1;
@@ -1615,20 +1618,22 @@
                 if (a.dummy || !a.axis || exc < 0 || rf[exc].select !== 'slice') continue;
                 // a pulse already reported as taken for an excitation by mistake: that is the problem to fix
                 if (this.warned.has('roleExcite:' + rf[exc].line)) continue;
-                let m = 0, sgn = 1, t = rf[exc].t;
+                let m = 0, sgn = 1, t = rf[exc].t, nRef = 0;
                 for (let j = exc + 1; j <= ri; j++) {
                     if (rf[j].role !== 'refocus') continue;
                     m += sgn * gradientArea(prog, 'z', t, rf[j].t);
-                    sgn = -sgn; t = rf[j].t;
+                    sgn = -sgn; t = rf[j].t; nRef++;
                 }
                 m += sgn * gradientArea(prog, 'z', t, a.tc);
                 const cycles = Math.abs(GB * m * thk);
                 if (cycles < 0.25) continue;
                 this.warnings.push({ line: rf[exc].line,
-                    msg: 'The slice gradient of this excitation is not rephased by the echo (' + num(cycles, 2) + ' cycles of phase across the slice). ' +
+                    msg: 'The gz gradients from this excitation to the echo do not cancel: they leave ' + num(cycles, 2) + ' cycles of phase across the slice ' +
+                        '(gz rephase is missing or wrong' + (nRef ? ', or a crusher has no partner on the other side of a refocusing pulse' : '') + '). ' +
                         'On a real scanner the spins would dephase through the slice and most of the signal would be lost. ' +
                         'This simulator does not model the slice direction, so the image does not change.',
-                    hint: 'Add gz rephase right after the excitation, before any refocusing pulse.' });
+                    hint: 'Add gz rephase right after the excitation, before any refocusing pulse' +
+                        (nRef ? ', and put crushers in equal pairs on both sides of a refocusing pulse.' : '.') });
                 return;
             }
         }
@@ -1637,7 +1642,9 @@
            magnetisation left, as if it had been perfectly spoiled, so taking
            spoil out of a sequence changes nothing in the image. On a real
            scanner what is left of the previous repetition adds to the
-           signal wherever T2 is not much shorter than TR. One warning, at the
+           signal wherever T2 is not much shorter than TR: a steady state in
+           a gradient echo, extra echoes from the next refocusing pulse in a
+           spin echo. One warning, at the
            excitation of a recorded repetition that follows another recorded
            repetition's excitation with no spoil in between (a single-shot
            sequence records one repetition, so it is not affected). */
@@ -1652,7 +1659,8 @@
                         this.warnings.push({ line: r.line,
                             msg: 'No spoil comes between this excitation and the one in the previous repetition. ' +
                                 'This simulator starts every excitation with no transverse magnetisation left (perfect spoiling), so the image does not change. ' +
-                                'On a real scanner what is left from the last repetition in long-T2 tissue such as CSF would add to the signal: steady-state (SSFP-like) contrast and banding.',
+                                'On a real scanner what is left from the last repetition in long-T2 tissue such as CSF would add to the signal: ' +
+                                'steady-state (SSFP-like) contrast in a gradient echo, extra echoes and artifacts in a spin echo.',
                             hint: 'Add spoil at the end of the repetition.' });
                         return;
                     }

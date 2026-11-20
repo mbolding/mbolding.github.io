@@ -511,7 +511,7 @@ expectError('param N = 64\nlet shots = N / 12\nfor s in 0 .. shots - 1\n  wait 1
        A refocusing flip below 135 deg written without "refocus" is taken
        for a new excitation (a TSE at 120 deg then loses its echo train). */
     const roleRe = /is taken as a new excitation: only flips of 135 deg or more/;
-    const sliceRe = /^The slice gradient of this excitation is not rephased by the echo/;
+    const sliceRe = /^The gz gradients from this excitation to the echo do not cancel/;
     const spoilRe = /^No spoil comes between this excitation and the one in the previous repetition/;
     const tse = P.get('tse').source, gre = P.get('gre_t1').source, se = P.get('se').source;
     const t120 = compileOk(tse.replace('rf 180 slice phase 90', 'rf 120 slice phase 90'), {}, 'tse with 120 deg refocusing pulses, no role');
@@ -530,16 +530,25 @@ expectError('param N = 64\nlet shots = N / 12\nfor s in 0 .. shots - 1\n  wait 1
     const sw = noReph.warnings.filter(x => sliceRe.test(x.msg));
     ok(sw.length === 1 && sw[0].line === lineOf(gre, 'rf flip slice dur 1 ms as exc') && /gz rephase/.test(sw[0].hint) && /does not model the slice direction/.test(sw[0].msg),
         'gre_t1 without gz rephase: one warning at the excitation (' + JSON.stringify(sw) + ')');
-    ok(/\(2\.\d cycles of phase across the slice\)/.test(sw[0].msg), 'the warning gives the phase across the slice: about 2 cycles for a sinc with time-bandwidth 4');
+    ok(/they leave 2\.\d cycles of phase across the slice/.test(sw[0].msg), 'the warning gives the phase across the slice: about 2 cycles for a sinc with time-bandwidth 4');
+    ok(!/crusher/.test(sw[0].msg + sw[0].hint), 'gre_t1 (no refocusing pulse): the warning does not mention crushers');
     ok(compileOk(se.replace('gz rephase, ', ''), {}, 'se without rephase').warnings.some(x => sliceRe.test(x.msg)), 'se without gz rephase: warning');
     const late = se.replace('gz rephase, ', '').replace(/^(\s*)(rf 180 slice phase 90 at exc \+ TE\/2.*)$/m, '$1$2\n$1gz rephase');
     ok(late !== se && compileOk(late, {}, 'se with the rephaser after the 180').warnings.some(x => sliceRe.test(x.msg)), 'se with gz rephase after the 180 (it then adds to the twist): warning');
     ok(compileOk(P.get('epi').source.replace('gz rephase, ', ''), {}, 'epi without rephase').warnings.some(x => sliceRe.test(x.msg)), 'epi without gz rephase: warning');
+    // A crusher without its partner leaves the same twist although gz rephase is there: the message and hint name it.
+    const crushAt = (src, before, after) => src.replace(/^(\s*)(rf 180 slice phase 90 at exc \+ TE\/2.*)$/m, (m, ind, line) => (before ? ind + 'gz crush\n' : '') + ind + line + (after ? '\n' + ind + 'gz crush' : ''));
+    ok(compileOk(crushAt(se, true, true), {}, 'se with a crusher pair').warnings.length === 0, 'se with crushers in a pair around the 180: no warning');
+    const one = compileOk(crushAt(se, false, true), {}, 'se with one crusher').warnings.filter(x => sliceRe.test(x.msg));
+    ok(one.length === 1 && /crusher has no partner/.test(one[0].msg) && /equal pairs/.test(one[0].hint) && /gz rephase/.test(one[0].hint),
+        'se with one crusher after the 180: one warning naming the unpaired crusher (' + JSON.stringify(one) + ')');
 
     const noSpoil = compileOk(gre.replace(/^\s*spoil.*\n/m, ''), {}, 'gre_t1 without spoil');
     const pw = noSpoil.warnings.filter(x => spoilRe.test(x.msg));
     ok(pw.length === 1 && pw[0].line === lineOf(gre, 'rf flip slice dur 1 ms as exc') && /spoil/.test(pw[0].hint) && /perfect spoiling/.test(pw[0].msg),
         'gre_t1 without spoil: one warning at the excitation (' + JSON.stringify(pw) + ')');
+    ok(/SSFP-like\) contrast in a gradient echo, extra echoes and artifacts in a spin echo/.test(pw[0].msg) && !/banding/.test(pw[0].msg),
+        'the spoil warning says what a real gradient echo and spin echo would show (no banding claim: that needs balanced gradients)');
     ok(compileOk(se.replace(/^\s*spoil.*\n/m, ''), {}, 'se without spoil').warnings.some(x => spoilRe.test(x.msg)), 'se without spoil: warning');
     ok(!compileOk(P.get('epi').source, {}, 'epi').warnings.some(x => spoilRe.test(x.msg)), 'single-shot epi (one recorded repetition, no spoil): no warning');
     ok(!compileOk(P.get('fid').source, {}, 'fid').warnings.some(x => spoilRe.test(x.msg)), 'spectroscopy fid (no imaging readout): no warning');

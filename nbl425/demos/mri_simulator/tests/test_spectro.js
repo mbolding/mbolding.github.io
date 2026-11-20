@@ -617,6 +617,7 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
         }
         near(sp.metrics.noiseSd / ref.metrics.noiseSd, 1, 1e-3, 'NP 256, zf ' + zf + ': the same noise SD (original grid points; autophasing from a coarser grid differs by a hair)');
         ok(sp.notes.some(t => /^The peak table measures the spectrum on a 1\.95 Hz grid \(zero filling ×8\)/.test(t)), 'NP 256, zf ' + zf + ': a note says the table uses a finer grid');
+        ok(sp.notes.some(t => /Zero filling adds no information/.test(t)) && !sp.notes.some(t => /Only the acquisition time/.test(t)), 'NP 256, zf ' + zf + ': the note claims no more than it does');
     }
     ok(!ref.notes.some(t => /The peak table measures/.test(t)), 'zf 8 (1.95 Hz) is fine enough: no note');
     const def = proc(sim(FIDWS, braino, art(), 1));

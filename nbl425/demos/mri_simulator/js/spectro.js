@@ -1203,9 +1203,11 @@
         /* The peak table and the metrics are measured on a frequency grid no
            coarser than MEASURE_STEP_HZ: the same spectrum zero-filled further
            when the chosen zero filling leaves a coarser grid. Whether a peak
-           has a maximum inside its window then depends on the data (the
-           acquisition time and the line widths), not on where the grid points
-           happen to fall: Cho and Cr, 22 Hz apart, are resolved by a 64 ms
+           has a maximum inside its window then depends mostly on the data
+           (the acquisition time and the line widths) rather than on where a
+           coarse grid's points happen to fall (a peak right at the edge of
+           its window can still come and go between a 2 Hz and a 1 Hz grid):
+           Cho and Cr, 22 Hz apart, are resolved by a 64 ms
            acquisition, but a 15 Hz wide window on a 7.8 Hz grid holds two
            points, and a maximum at the edge of a window does not count. Zero
            filling adds no information, so this changes only the sampling of
@@ -1228,7 +1230,7 @@
             for (let k = 0; k < Nm; k++) magM[k] = Math.hypot(totalM.re[k], totalM.im[k]);
             res = measure(Nm, stepM, zfm, ppmM, totalM, compsM, magM);
             res.notes.push('The peak table measures the spectrum on a ' + U.fmtNum(stepM, 3) + ' Hz grid (zero filling ×' + zfm + ') rather than the plotted ' +
-                U.fmtNum(step, 3) + ' Hz grid, so a peak that falls between plotted points is still found. Only the acquisition time and the line widths decide what is resolved.');
+                U.fmtNum(step, 3) + ' Hz grid, so a peak that falls between plotted points is still found. Zero filling adds no information: it only samples the same spectrum more finely.');
         }
 
         return {

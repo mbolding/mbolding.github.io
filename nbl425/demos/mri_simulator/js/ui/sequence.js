@@ -1550,7 +1550,7 @@
             ]),
             el('div', { class: 'seq-periodbar' }, [E.pPrev, E.pRange, E.pNext, E.pLabel, E.pVars, E.pDummy, E.pCentre]),
             timingHost,
-            el('p', { class: 'simplification mb-0', text: 'Pulse shapes are drawn as a scanner plays them, but the simulator applies each pulse as an instant rotation at its centre with an ideal slice profile. The slice direction is not simulated and every excitation starts perfectly spoiled, so gz rephase, crushers and spoil do not change the image; the editor warns when the slice rephaser or the spoiler is missing. Gradient heights are compressed (weak lobes enlarged) unless True amplitudes is on; the hover box gives every exact value.' })
+            el('p', { class: 'simplification mb-0', text: 'Pulse shapes are drawn as a scanner plays them, but the simulator applies each pulse as an instant rotation at its centre with an ideal slice profile. The slice direction is not simulated and every excitation starts perfectly spoiled, so gz rephase, crushers and spoil do not change the image; the editor warns when the slice rephaser or the spoiler is missing, or a crusher has no partner. Gradient heights are compressed (weak lobes enlarged) unless True amplitudes is on; the hover box gives every exact value.' })
         ]);
         panel.appendChild(tPanel);
         if (MRI.ui.timing && MRI.ui.timing.create) {

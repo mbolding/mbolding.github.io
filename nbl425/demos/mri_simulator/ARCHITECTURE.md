@@ -593,16 +593,20 @@ recorded samples in all. Warnings include: no ADC at all; dummies without an
 flat top; and, once on the ADC line, a first recorded ADC of a repetition with
 no excitation before it in that repetition. Three more name what the imaging
 engine leaves out, so that a student who edits a line and sees no change is
-told why (imaging programs only, each once, with a `hint` that gives the fix):
-a pulse below 135° taken for an excitation after an excitation (section 8.5);
-a slice-selective excitation whose gz area is not rephased by the echo
-(the net area from the excitation to the ADC centre, its sign flipped at each
-refocusing pulse, winds a quarter of a cycle or more across the slice): the
-slice direction is not simulated, so the image does not change, though a real
-scan would lose its signal; and an excitation of a recorded repetition that
+told why (each once, with a `hint` that gives the fix): a pulse below 135°
+taken for an excitation after an excitation (section 8.5; any program,
+spectroscopy included); and, for imaging programs only, a slice-selective
+excitation whose gz area is not rephased by the echo (the net area from the
+excitation to the ADC centre, its sign flipped at each refocusing pulse, winds
+a quarter of a cycle or more across the slice; the cause is a missing or wrong
+`gz rephase`, or a crusher without its partner on the other side of a
+refocusing pulse; with a refocusing pulse the message names both): the slice
+direction is not simulated, so the image does not change, though a real scan
+would lose its signal; and an excitation of a recorded repetition that
 follows the previous recorded repetition's excitation with no `spoil` in
 between: the engine treats every excitation as perfectly spoiled, so the
-image does not change, though a real scan would show steady-state contrast.
+image does not change, though a real scan would show steady-state contrast
+(gradient echo) or extra echoes (spin echo).
 Single-shot sequences (one recorded repetition) are not warned about spoiling.
 Warnings are `{ line, msg, hint? }`. `reference` is HTML with h3
 section headings. `compile` must be fast: a 256-line spin echo in well under 50 ms.
@@ -897,9 +901,11 @@ smoothed over one original grid step, which cancels zero-fill ripple). All
 measurements (peaks, noise SD, FWHM, ratios) use a grid no coarser than 2 Hz:
 when the chosen zero filling leaves a coarser one, the same apodised, phased
 FID is zero-filled further for the measurement only, with a note, and the
-plot keeps the chosen grid. So whether a peak is found depends on the
-acquisition time and the line widths, not on where the grid points fall (at
-NP 256 and SW 4 kHz, Cho and Cr are found at every zero filling). A peak
+plot keeps the chosen grid. So whether a peak is found no longer depends
+on a coarse plotted grid (at NP 256 and SW 4 kHz, Cho and Cr are found at
+every zero filling). A peak right at the edge of its window can still come
+and go between a 2 Hz and a 1 Hz grid (the 1.3 ppm lipid line of the
+shimmed brain, for one). A peak
 with no maximum in its window, height ≤ 0, height below 3 noise SD or area ≤ 0
 has null height, area and snr, `resolved: false` and a reason; the UI shows
 "–". A metabolite peak whose window is dominated by lipid or water gets
