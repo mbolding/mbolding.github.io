@@ -123,6 +123,17 @@ const longs = ds => ds.chans.filter(c => !c.short);
   near(pk / truePath * share, 1, 0.05, 'with the true DPF the law shrinks the local change by one over the share of the path');
   const dpf = NIRS.dsp.dpfValues(ds, R.P, c), used = NIRS.dsp.mbll(odRest, ds.lambdas, c.rho, dpf).hbo[0];
   near(pk / used * share * (q.L / (c.rho * dpf[ds.nL - 1])), 1, 0.05, 'and with the DPF in use, by that times the DPF error');
+  // the Beer-Lambert tab builds that optical density from the region's own term (path inside it times the true extinction)
+  const regionOD = (D, ch, h, i) => D.lambdas.map((_, l) => Float64Array.of(1e-6 * ch.per[l].La[0] * (D.extTrue[l][0] * (h.hbo[i] - h.hbo[0]) + D.extTrue[l][1] * (h.hbr[i] - h.hbr[0]))));
+  const own = regionOD(ds, c, hb, ipk);
+  ok(own.every((v, l) => Math.abs(v[0] / odRest[l][0] - 1) < 1e-6), 'with one region its own term equals the light of the whole cortex');
+  // with two regions a channel that sees only the second one must not count its light
+  const Q = record(src('Resting-state connectivity pair')), qd = Q.ds, h0 = qd.regionHb[qd.regions[0].id];
+  let qi = 0; h0.hbo.forEach((v, i) => { if (v > h0.hbo[qi]) qi = i; });
+  const blind = qd.chans.find(x => !x.short && x.per[qd.nL - 1].La[0] === 0 && x.per[qd.nL - 1].La[1] > 0.1);
+  const Iq = NIRS.assemble(qd, { enabled: new Set(qd.groups.filter(g => g.kind === 'brain').map(g => g.id)), noise: false }).I[blind.index];
+  ok(Math.abs(Math.log10(Iq[qd.nL - 1][qi] / Iq[qd.nL - 1][0])) > 1e-5 && regionOD(qd, blind, h0, qi).every(v => v[0] === 0),
+    `${blind.label} sees only the second region of the pair: the cortex's light changes there, the first region's term is zero`);
 }
 // 7d. the GLM lesson: OLS inflation is plain with short-channel regression off, small with it on
 {

@@ -352,7 +352,7 @@ Wavelengths, Head, fNIRS vs fMRI and Tomography tabs are not kept.
 | Experiment | the program editor with highlighting, examples, errors, a summary |
 | Light in tissue | Monte Carlo photons, the banana, the separation trade-off, layer shares, depth profile, time of flight |
 | Wavelengths | absorption and extinction spectra, the 2×2 matrix and its noise gain, all pairs, crosstalk |
-| Beer-Lambert | intensity to OD to concentration at a cursor, DPF choices, partial volume: the largest local change against the law's estimate at the same moment (from rest, DPF in use, unfiltered), split into the share of the true path (as on the Head tab) and the DPF error |
+| Beer-Lambert | intensity to OD to concentration at a cursor, DPF choices, partial volume: the largest local change against the law's estimate from that region's light alone at the same moment (from rest, DPF in use, unfiltered), split into the share of the true path (as on the Head tab, which uses 850 nm) and the DPF error |
 | Head & activation | draggable region, live channel sensitivities, cross-section, apply to the recording; local peak for one average 15 s block and expected peak = local peak × share of the path |
 | Confounds | switch cards, each alone and all together, where and at what frequency |
 | Recording | raw intensity, unprocessed Hb, channel maps, spectrum, all channels |
