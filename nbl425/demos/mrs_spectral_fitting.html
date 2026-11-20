@@ -452,10 +452,13 @@
         <!-- SNR / Noise Level -->
         <div class="ctrl-group">
           <div class="ctrl-label">
-            <span>Signal-to-Noise Ratio (SNR)</span>
+            <span>Reference SNR (NAA peak at 3 T, 5 Hz)</span>
             <span class="ctrl-val" id="snrVal">25</span>
           </div>
           <input type="range" id="snrSlider" min="4" max="50" step="1" value="25">
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;line-height:1.4;">
+            This sets a fixed noise level. A broader line spreads the same peak area lower, so worse shimming lowers the SNR you see. A higher field raises the signal, roughly in proportion to B<sub>0</sub>.
+          </div>
         </div>
 
         <!-- Zero-Order Phase Error -->
@@ -727,6 +730,19 @@
     return out;
   }
 
+  // Noise model. The SNR slider is defined at a reference: the healthy NAA singlet
+  // (2.0 units) at 3 T with a 5 Hz line, divided by the noise SD. Each basis keeps its
+  // area, so a broader line (worse shim) is a lower peak against the same noise. The
+  // signal grows with B0: on this fixed ppm axis each point spans more hertz at higher
+  // field, so the noise per point falls as 1/sqrt(B0), and the SNR of a whole peak
+  // rises in proportion to B0.
+  const REF_B0 = 3.0;
+  const REF_FWHM = 5.0;
+  const REF_PEAK = 2.0 * Math.max(...generateBasis(METABOLITES[0], REF_B0, REF_FWHM));
+  function noiseLevel() {
+    return (REF_PEAK / Math.max(1, currentSNR)) * Math.sqrt(REF_B0 / currentB0);
+  }
+
   // Build current ground truth synthetic data
   function buildSyntheticData() {
     const cleanSignal = new Float64Array(NUM_POINTS);
@@ -744,12 +760,8 @@
       cleanSignal[i] += mmBase[i];
     }
 
-    // Determine peak height to calibrate noise from SNR
-    let maxSignal = 0;
-    for (let i = 0; i < NUM_POINTS; i++) {
-      if (cleanSignal[i] > maxSignal) maxSignal = cleanSignal[i];
-    }
-    const noiseStd = maxSignal / Math.max(1, currentSNR);
+    // Fixed noise level, set by the SNR slider and independent of this spectrum
+    const noiseStd = noiseLevel();
 
     // Apply zero-order phase error
     const phiRad = (currentPhaseDeg * Math.PI) / 180;

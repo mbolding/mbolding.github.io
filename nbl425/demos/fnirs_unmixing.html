@@ -101,14 +101,16 @@
         <input type="range" id="sep" min="1.0" max="5.0" value="3.0" step="0.1">
       </div>
       <div class="col">
-        <label>DPF at &lambda;&#8321;: <span class="value" id="dpf1Val"></span></label>
+        <label>Assumed DPF at &lambda;&#8321;: <span class="value" id="dpf1Val"></span></label>
         <input type="range" id="dpf1" min="3.0" max="9.0" value="6.2" step="0.1">
       </div>
       <div class="col">
-        <label>DPF at &lambda;&#8322;: <span class="value" id="dpf2Val"></span></label>
+        <label>Assumed DPF at &lambda;&#8322;: <span class="value" id="dpf2Val"></span></label>
         <input type="range" id="dpf2" min="3.0" max="9.0" value="5.6" step="0.1">
       </div>
     </div>
+
+    <p class="note">The simulated head has true DPFs of 6.2 at &lambda;&#8321; and 5.6 at &lambda;&#8322; (held fixed here, whichever wavelengths you pick). The recording below is always generated with those. The two sliders set the DPFs the analysis <em>assumes</em> when it solves back, and the matrix and condition number below are built from the assumed values.</p>
 
     <table class="mat" id="matTable"></table>
 
@@ -241,6 +243,9 @@ const ISO=(()=>{
    State
    ============================================================ */
 const S={w1:760,w2:850,sep:3.0,dpf1:6.2,dpf2:5.6,amp:0.45,ratio:0.35,noise:0.0002};
+/* The simulated head's true DPFs at the two wavelengths. The forward model always uses
+   these; S.dpf1 and S.dpf2 are the values the analysis assumes when it solves back. */
+const TRUE_DPF=[6.2,5.6];
 let noiseSeed=20260905;
 
 function mulberry32(a){
@@ -261,9 +266,10 @@ function gaussian(rng){
 /* ============================================================
    Linear algebra on the 2x2 system
    ============================================================ */
-function buildMatrix(){
+function buildMatrix(dpf1,dpf2){
+  if(dpf1===undefined){ dpf1=S.dpf1; dpf2=S.dpf2; }
   const e1=epsAt(S.w1), e2=epsAt(S.w2);
-  const L1=S.sep*S.dpf1, L2=S.sep*S.dpf2;
+  const L1=S.sep*dpf1, L2=S.sep*dpf2;
   return {M:[[e1[0]*L1, e1[1]*L1],[e2[0]*L2, e2[1]*L2]], e1, e2, L1, L2};
 }
 function cond2(M){
@@ -325,9 +331,11 @@ function convolve(x,h){
 }
 
 /* Build ground-truth concentrations, push them forward through the
-   modified Beer-Lambert law, add detector noise, then solve back. */
+   modified Beer-Lambert law with the true DPFs, add detector noise, then
+   solve back with the assumed DPFs from the sliders. */
 function simulate(){
-  const mm=buildMatrix(), M=mm.M;
+  const M=buildMatrix().M;                              // assumed DPFs: used to unmix
+  const Mt=buildMatrix(TRUE_DPF[0],TRUE_DPF[1]).M;      // true DPFs: used to generate
 
   const rawO=convolve(boxcar(0), HRF);
   const rawR=convolve(boxcar(1.0), HRF);       // deoxy lags slightly
@@ -340,8 +348,8 @@ function simulate(){
   const dA1=[], dA2=[], recO=[], recR=[];
   for(let i=0;i<N;i++){
     const cO=trueO[i]*1e-6, cR=trueR[i]*1e-6;           // molar
-    const a1=M[0][0]*cO + M[0][1]*cR + S.noise*gaussian(rng);
-    const a2=M[1][0]*cO + M[1][1]*cR + S.noise*gaussian(rng);
+    const a1=Mt[0][0]*cO + Mt[0][1]*cR + S.noise*gaussian(rng);
+    const a2=Mt[1][0]*cO + Mt[1][1]*cR + S.noise*gaussian(rng);
     dA1.push(a1); dA2.push(a2);
     const c=solve2(M,[a1,a2]);
     recO.push(c[0]*1e6); recR.push(c[1]*1e6);
@@ -553,7 +561,10 @@ function drawRun(){
     st.innerHTML='RMS error in recovered &Delta;[HbO&#8322;] is <strong>'+sim.rmse.toFixed(3)+' &micro;M</strong>, '+
       pct.toFixed(0)+'&#37; of the '+S.amp.toFixed(2)+' &micro;M true peak &mdash; '+verdict+'. '+
       'Condition number &kappa; = '+(isFinite(k)?k.toFixed(1):'&infin;')+', detector noise &sigma; = '+
-      (S.noise*1e4).toFixed(1)+'&times;10<sup>&minus;4</sup> OD.';
+      (S.noise*1e4).toFixed(1)+'&times;10<sup>&minus;4</sup> OD.'+
+      ((S.dpf1!==TRUE_DPF[0]||S.dpf2!==TRUE_DPF[1])
+        ? ' The assumed DPFs ('+S.dpf1.toFixed(1)+' / '+S.dpf2.toFixed(1)+') differ from the true '+TRUE_DPF[0].toFixed(1)+' / '+TRUE_DPF[1].toFixed(1)+', so part of this error is a bias that more averaging would not remove.'
+        : '');
   }
 }
 

@@ -223,7 +223,7 @@
           <canvas id="inverseCanvas" height="460"></canvas>
           <div class="legend-bar">
             <div class="legend-item"><div class="legend-dot" style="background:var(--c-true);border:1px solid #fff;"></div><span>Ground Truth Dipole (Click to place)</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--c-est);"></div><span>Estimated Current Density J&#770;</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--c-est);"></div><span>Estimated Current Density |J&#770;|</span></div>
             <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div><span>Scalp Electrodes (10-20)</span></div>
           </div>
         </div>
@@ -233,7 +233,7 @@
           <div class="m-card">
             <div class="m-lbl">Localization Error</div>
             <div class="m-val" id="metricError">--</div>
-            <div class="m-sub">Peak-to-True Distance</div>
+            <div class="m-sub">Peak to Nearest True Source</div>
           </div>
           <div class="m-card">
             <div class="m-lbl">Point-Spread (PSF FWHM)</div>
@@ -243,7 +243,7 @@
           <div class="m-card">
             <div class="m-lbl">Goodness of Fit (R<sup>2</sup>)</div>
             <div class="m-val" id="metricR2">--</div>
-            <div class="m-sub">Scalp Field Explained</div>
+            <div class="m-sub" id="metricR2Sub">Scalp Field Explained</div>
           </div>
         </div>
       </div>
@@ -254,12 +254,15 @@
         <div class="ctrl-group" id="regGroup">
           <div class="ctrl-label">
             <span>Tikhonov Regularizer (&lambda;)</span>
-            <span class="ctrl-val" id="lambdaVal">0.10</span>
+            <span class="ctrl-val" id="lambdaVal">0.32</span>
           </div>
-          <input type="range" id="lambdaSlider" min="-3" max="1" step="0.1" value="-1.0">
+          <input type="range" id="lambdaSlider" min="-3" max="1" step="0.1" value="-0.5">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
             <span>Under-reg (Noise spikes)</span>
             <span>Over-reg (Over-smoothed)</span>
+          </div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:4px;line-height:1.4;">
+            &lambda; is relative: &lambda;<sup>2</sup> is multiplied by the mean eigenvalue of the leadfield Gram matrix (trace/M), so &lambda; = 1 regularizes as strongly as the average signal the leadfield passes.
           </div>
         </div>
 
@@ -298,7 +301,7 @@
         <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
           <strong>Interactive Guidance:</strong>
           <p style="margin:4px 0 0;color:var(--muted);">
-            Click anywhere on the gray cortical mantle to position the active dipole. Watch how <em>unweighted MNE</em> systematically pulls deep sources toward superficial electrodes, while <em>Depth-Weighted MNE</em> and <em>LCMV Beamforming</em> recover correct deep anatomical coordinates.
+            Click anywhere on the gray cortical mantle to position the active dipole. Watch how <em>unweighted MNE</em> pulls a deep source up toward the superficial electrodes. <em>Depth-Weighted MNE</em> moves much of the estimate back down, but here its peak still sits in the superficial tier, so the localization error barely changes. The <em>LCMV beamformer</em> puts the peak on a single deep source, but fails with <em>Two Sources</em>, because they fire together.
           </p>
         </div>
       </div>
@@ -319,19 +322,19 @@
         <div class="math-block">
           \[ \hat{J}_{\text{MNE}} = \arg\min_J \left( ||V - LJ||_2^2 + \lambda^2 ||J||_2^2 \right) = L^T (L L^T + \lambda^2 I)^{-1} V \]
         </div>
-        While numerically stable, leadfield magnitude falls off rapidly with distance from the scalp (\(||L_p|| \propto 1/r^2\)), inherently biasing unweighted MNE to place spurious activity in the most superficial cortical layers.</p>
+        While numerically stable, leadfield magnitude falls off rapidly with distance from the scalp (\(||L_p|| \propto 1/r^2\)), inherently biasing unweighted MNE to place spurious activity in the most superficial cortical layers. On this page \(\lambda\) is relative, as in most MNE packages: \(\lambda^2\) is multiplied by \(\text{tr}(L L^T)/M\), the mean eigenvalue of \(L L^T\).</p>
       </div>
       <div>
         <strong>3. Depth-Weighted wMNE:</strong>
-        <p>To counteract superficial bias, depth-weighting scales each source by its leadfield norm:
+        <p>To counteract superficial bias, depth-weighting scales each source by its leadfield norm, so that \(W^{-1}\) gives weakly seen (deep) sources a larger prior variance:
         <div class="math-block">
-          \[ W = \text{diag}(||L_{:,p}||^{-\gamma}) \quad (\gamma \approx 0.8) \]
+          \[ W = \text{diag}(||L_{:,p}||^{\gamma}) \quad (\gamma = 0.8) \]
         </div>
         The regularized solution becomes:
         <div class="math-block">
           \[ \hat{J}_{\text{wMNE}} = W^{-1} L^T (L W^{-1} L^T + \lambda^2 I)^{-1} V \]
         </div>
-        This provides uniform sensitivity across both deep sulcal structures and superficial gyral crowns.</p>
+        This shifts much of the estimate toward deep locations. In this model, with \(\gamma = 0.8\), a deep source's own location rises from about 15% to about 60% of the peak, but the peak itself still lands in the superficial tier. Stronger weighting moves deep peaks down but starts to push superficial sources too deep, so no single \(\gamma\) is right everywhere.</p>
       </div>
       <div>
         <strong>4. LCMV Spatial Beamforming:</strong>
@@ -339,7 +342,7 @@
         <div class="math-block">
           \[ w_p = \frac{C_v^{-1} L_p}{L_p^T C_v^{-1} L_p} \quad \text{where } C_v = \text{Cov}(V) \]
         </div>
-        Beamformers achieve remarkably sharp Point-Spread Functions when multiple uncorrelated sources are active simultaneously.</p>
+        The map shows each filter's output divided by its noise gain, \(w_p^T V / ||w_p||\) (the neural activity index). Without that step the unit-gain output grows wherever \(||L_p||\) is small, which biases the map toward deep locations. Beamformers work well when several <em>uncorrelated</em> sources are active. The two sources here fire together in a single snapshot, so they are perfectly correlated, the filter partly cancels them, and the peak lands deep, between them. R<sup>2</sup> is not shown for LCMV, because each location is scanned with its own filter rather than fitted jointly.</p>
       </div>
     </div>
   </div>
@@ -427,7 +430,7 @@
 
   // State
   let activeSolver = 'mne';
-  let lambdaExp = -1.0; // 10^-1 = 0.10
+  let lambdaExp = -0.5; // 10^-0.5 = 0.32, relative to the leadfield scale
   let snrDb = 15;
   let numTrueSources = 1;
 
@@ -447,6 +450,7 @@
   const metricError = document.getElementById('metricError');
   const metricSpread = document.getElementById('metricSpread');
   const metricR2 = document.getElementById('metricR2');
+  const metricR2Sub = document.getElementById('metricR2Sub');
   const lambdaSlider = document.getElementById('lambdaSlider');
   const lambdaVal = document.getElementById('lambdaVal');
   const snrSlider = document.getElementById('snrSlider');
@@ -533,9 +537,13 @@
         G[i][j] = sum;
         G[j][i] = sum;
       }
-      // Add Tikhonov regularizer
-      G[i][i] += regLambda * regLambda;
     }
+    // Add the Tikhonov regularizer. lambda is relative to the leadfield's scale:
+    // lambda^2 is multiplied by the mean eigenvalue of G (its trace / M), as MNE
+    // packages do, so the slider means the same thing whatever the units of L.
+    let traceG = 0;
+    for (let i = 0; i < M; i++) traceG += G[i][i];
+    for (let i = 0; i < M; i++) G[i][i] += regLambda * regLambda * traceG / M;
 
     // Invert G using Gauss-Jordan
     const invG = invertMatrix(G, M);
@@ -554,7 +562,7 @@
       for (let e = 0; e < M; e++) {
         sum += L[e][p] * alpha[e];
       }
-      J_est[p] = Math.max(0, sum * wInv[p]); // Positive current density
+      J_est[p] = sum * wInv[p]; // Signed dipole moment along the cortical normal
     }
   }
 
@@ -563,14 +571,19 @@
     const M = NUM_ELECTRODES;
     const P = NUM_SOURCES;
 
-    // Covariance matrix C_v = V V^T + lambda^2 I
+    // Covariance matrix C_v = V V^T + lambda^2 (trace / M) I, regularized
+    // relative to the data power like the MNE solvers (with a small floor so
+    // the single-snapshot covariance stays invertible)
     const Cv = Array.from({ length: M }, () => new Float64Array(M));
+    let traceC = 0;
     for (let i = 0; i < M; i++) {
       for (let j = 0; j < M; j++) {
         Cv[i][j] = V_meas[i] * V_meas[j];
       }
-      Cv[i][i] += regLambda * regLambda + 1e-3;
+      traceC += Cv[i][i];
     }
+    const loading = Math.max(regLambda * regLambda, 1e-6) * traceC / M;
+    for (let i = 0; i < M; i++) Cv[i][i] += loading;
 
     const invCv = invertMatrix(Cv, M);
 
@@ -585,13 +598,17 @@
         denom += L[i][p] * temp[i];
       }
 
-      // Output power / estimate
-      if (denom > 1e-8) {
+      // Filter output w_p^T V with w_p = C^-1 L_p / (L_p^T C^-1 L_p), divided by the
+      // filter's noise gain ||w_p|| (the neural activity index). The unit-gain output on
+      // its own grows wherever ||L_p|| is small, which biases the map toward deep sources.
+      let noiseGain = 0;
+      for (let i = 0; i < M; i++) noiseGain += temp[i] * temp[i];
+      if (denom > 1e-12 && noiseGain > 0) {
         let num = 0;
         for (let i = 0; i < M; i++) {
           num += temp[i] * V_meas[i];
         }
-        J_est[p] = Math.max(0, num / denom);
+        J_est[p] = num / Math.sqrt(noiseGain);
       } else {
         J_est[p] = 0;
       }
@@ -629,37 +646,35 @@
 
   // Statistics: Error distance (mm), PSF spread (mm), Goodness of fit (R^2)
   function computeStats() {
-    // 1. Peak estimated source location vs True source location
-    let truePeakIdx = 0;
-    let maxTrue = -1;
-    for (let s = 0; s < NUM_SOURCES; s++) {
-      if (J_true[s] > maxTrue) {
-        maxTrue = J_true[s];
-        truePeakIdx = s;
-      }
-    }
+    // 1. Peak estimated source location vs the nearest true source
 
+    // Peak of the estimate's magnitude: a source can come out with either sign
     let estPeakIdx = 0;
     let maxEst = -1;
     for (let s = 0; s < NUM_SOURCES; s++) {
-      if (J_est[s] > maxEst) {
-        maxEst = J_est[s];
+      if (Math.abs(J_est[s]) > maxEst) {
+        maxEst = Math.abs(J_est[s]);
         estPeakIdx = s;
       }
     }
 
-    // Coordinate distance (scaled to realistic 90 mm radius brain)
-    const pTrue = SOURCES[truePeakIdx];
+    // Coordinate distance (scaled to realistic 90 mm radius brain). With two true
+    // sources, the distance to whichever of them the peak is closer to.
     const pEst = SOURCES[estPeakIdx];
-    const dx = (pTrue.x - pEst.x) * 90;
-    const dy = (pTrue.y - pEst.y) * 90;
-    const distMm = Math.hypot(dx, dy);
+    let distMm = Infinity;
+    for (let s = 0; s < NUM_SOURCES; s++) {
+      if (J_true[s] > 0) {
+        const d = Math.hypot((SOURCES[s].x - pEst.x) * 90, (SOURCES[s].y - pEst.y) * 90);
+        if (d < distMm) distMm = d;
+      }
+    }
+    if (!isFinite(distMm)) distMm = 0;
 
     // 2. Spatial dispersion (FWHM equivalent spread around peak)
     let totalWeight = 0;
     let spreadSum = 0;
     for (let s = 0; s < NUM_SOURCES; s++) {
-      const w = J_est[s];
+      const w = Math.abs(J_est[s]);
       if (w > 0.05 * maxEst) {
         const d = Math.hypot((SOURCES[s].x - pEst.x) * 90, (SOURCES[s].y - pEst.y) * 90);
         spreadSum += d * w;
@@ -668,29 +683,31 @@
     }
     const meanSpreadMm = (totalWeight > 0) ? (spreadSum / totalWeight) * 2.355 : 0;
 
-    // 3. Goodness of fit (R^2 between V_meas and V_reconstructed)
-    const V_rec = new Float64Array(NUM_ELECTRODES);
-    for (let e = 0; e < NUM_ELECTRODES; e++) {
-      for (let s = 0; s < NUM_SOURCES; s++) {
-        V_rec[e] += L[e][s] * J_est[s];
+    // 3. Goodness of fit: share of the measured scalp field the estimate reproduces,
+    // 1 - ||V - L J||^2 / ||V||^2. A beamformer scans each location with its own
+    // filter rather than fitting all sources together, so L J is not a fit to V there.
+    let r2 = null;
+    if (activeSolver !== 'lcmv') {
+      const V_rec = new Float64Array(NUM_ELECTRODES);
+      for (let e = 0; e < NUM_ELECTRODES; e++) {
+        for (let s = 0; s < NUM_SOURCES; s++) {
+          V_rec[e] += L[e][s] * J_est[s];
+        }
       }
+      let ssTot = 0;
+      let ssRes = 0;
+      for (let e = 0; e < NUM_ELECTRODES; e++) {
+        ssTot += V_meas[e] * V_meas[e];
+        ssRes += (V_meas[e] - V_rec[e]) * (V_meas[e] - V_rec[e]);
+      }
+      r2 = (ssTot > 1e-12) ? 1 - (ssRes / ssTot) : 0;
     }
-    let ssTot = 0;
-    let ssRes = 0;
-    let meanV = 0;
-    for (let e = 0; e < NUM_ELECTRODES; e++) meanV += V_meas[e];
-    meanV /= NUM_ELECTRODES;
-
-    for (let e = 0; e < NUM_ELECTRODES; e++) {
-      ssTot += (V_meas[e] - meanV) * (V_meas[e] - meanV);
-      ssRes += (V_meas[e] - V_rec[e]) * (V_meas[e] - V_rec[e]);
-    }
-    const r2 = (ssTot > 1e-8) ? Math.max(0, 1 - (ssRes / ssTot)) : 0;
 
     // Update UI
     metricError.innerText = `${distMm.toFixed(1)} mm`;
     metricSpread.innerText = `${meanSpreadMm.toFixed(1)} mm`;
-    metricR2.innerText = `${(r2 * 100).toFixed(1)}%`;
+    metricR2.innerText = (r2 === null) ? 'n/a' : `${(r2 * 100).toFixed(1)}%`;
+    metricR2Sub.innerText = (r2 === null) ? 'Beamformer: no joint fit' : 'Scalp Field Explained';
 
     metricError.style.color = (distMm < 8) ? '#10b981' : (distMm < 20) ? '#f59e0b' : '#ef4444';
   }
@@ -748,16 +765,16 @@
     ctx.fillText('Brain Cortex', cx - R_BRAIN * scale + 10, cy - 40);
 
     // 2. Draw Reconstructed Current Density Heatmap on Cortical Points
-    let maxEst = 1e-4;
+    let maxEst = 1e-12;
     for (let s = 0; s < NUM_SOURCES; s++) {
-      if (J_est[s] > maxEst) maxEst = J_est[s];
+      if (Math.abs(J_est[s]) > maxEst) maxEst = Math.abs(J_est[s]);
     }
 
     for (let s = 0; s < NUM_SOURCES; s++) {
       const src = SOURCES[s];
       const px = cx + src.x * scale;
       const py = cy + src.y * scale;
-      const normJ = Math.min(1.0, J_est[s] / maxEst);
+      const normJ = Math.min(1.0, Math.abs(J_est[s]) / maxEst);
 
       if (normJ > 0.02) {
         ctx.beginPath();

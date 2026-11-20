@@ -703,10 +703,19 @@ document.getElementById('seedRow').addEventListener('click', ()=>{
   for(let i=0;i<9;i++) seedAt(0.08, 0.5+(i-4)*0.016);
   drawSlice();
   const kept=tracks.filter(t=>t.pts.length>1);
-  const crossed=kept.filter(t=>t.pts[t.pts.length-1][0]>0.72).length;
+  // A streamline reaches the far side only if one end leaves the slice through the
+  // right edge within 18 mm of its seed row, i.e. it stayed in the horizontal bundle.
+  // Tracks that leave the slice anywhere else are counted separately.
+  const ROW_TOL=18/FOV_MM, EDGE=1-2*P.stepMm/FOV_MM;
+  const ends=t=>[t.pts[0], t.pts[t.pts.length-1]];
+  const nearEdge=q=>q[0]<=2*P.stepMm/FOV_MM||q[0]>=EDGE||q[1]<=2*P.stepMm/FOV_MM||q[1]>=EDGE;
+  const crossed=kept.filter(t=>ends(t).some(q=>q[0]>=EDGE && Math.abs(q[1]-t.seed[1])<=ROW_TOL)).length;
+  const strayed=kept.filter(t=>!ends(t).some(q=>q[0]>=EDGE && Math.abs(q[1]-t.seed[1])<=ROW_TOL) &&
+                               ends(t).some(q=>nearEdge(q) && q[0]>0.2)).length;
   document.getElementById('trackStatus').innerHTML=
     '<strong>Seeded 9 streamlines down the left edge of the horizontal bundle.</strong><br>'+
-    kept.length+' of 9 produced a tract; <strong>'+crossed+'</strong> reached the far side of the slice.<br>'+
+    kept.length+' of 9 produced a tract; <strong>'+crossed+'</strong> reached the far side of the slice (left through the right edge within 18 mm of their seed row)'+
+    (strayed? '; <strong>'+strayed+'</strong> left the slice somewhere else' : '')+'.<br>'+
     '<em>At the default settings they pile up against the crossing. Lowering the FA threshold will not push them through &mdash; raising the turning-angle limit will, but check where they end up when it does.</em>';
 });
 
