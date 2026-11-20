@@ -319,12 +319,23 @@
           case 'rate': r.fs = getNum(st, 'freq', { required: true, min: 0.5, max: 50, unit: 'Hz' }); break;
           case 'multiplex': r.multiplex = getId(st, { required: true, oneOf: MUX }); break;
           case 'source': r.source = getId(st, { required: true, oneOf: SOURCES }); break;
-          case 'power': r.power = getNum(st, 'power', { required: true, min: 0.1e6, max: 100e6, scale: 1e6, unit: 'mW' }) / 1e6; break;
+          case 'power': r.power = getNum(st, 'power', { required: true, min: 0.1e6, max: 100e6, scale: 1e6, unit: 'mW' }) / 1e6; r.powerLine = st.line; break;
           case 'detector': r.detector = getId(st, { required: true, oneOf: DETECTORS }); break;
           case 'seed': r.seed = Math.round(getNum(st, null, { required: true })); break;
         }
       });
       if (r.wavelengths.length === 1) warn('a single wavelength cannot separate oxy- from deoxyhaemoglobin; the conversion will fail on purpose', { line: 0 });
+      if (r.power > 10) {
+        /* Laser skin exposure limit for more than 10 s (ANSI Z136.1):
+           0.2 C_A W/cm2, averaged over a 3.5 mm circle, with
+           C_A = 10^(0.002 (nm - 700)) from 700 nm.  A note, not a model. */
+        const nm = r.wavelengths[0], lim = 2 * Math.pow(10, 0.002 * Math.max(0, Math.min(nm, 1050) - 700));
+        const irr = r.power / (Math.PI * 1.75 * 1.75);
+        warn(`${fmtNum(r.power)} mW per source is more than most fNIRS systems use. Spread over a 3.5 mm circle, as the skin exposure limits are, it is ` +
+          `${irr.toFixed(1)} mW/mm², ${irr > lim ? 'above' : 'below'} the laser limit for exposures over 10 s at ${Math.round(nm)} nm (about ${lim.toFixed(1)} mW/mm², ANSI Z136.1). ` +
+          'Check that limit and the heating under the optode before raising the power; the simulator models neither.', { line: r.powerLine || 0 });
+      }
+      delete r.powerLine;
     }
 
     function probe(st) {
@@ -677,13 +688,16 @@
       cfg.warnings.push({ msg: 'short-channel regression is on but the probe has no short-separation detectors', line: 0 });
     const r = cfg.recording;
     if (cfg.analysis.lp && cfg.analysis.lp >= r.fs / 2) cfg.analysis.lp = null;
-    if (r.fs < 2.4 && cfg.physiology.cardiac.on) cfg.warnings.push({ msg: `at ${r.fs} Hz the cardiac pulse (${Math.round(cfg.physiology.cardiac.rate * 60)} bpm) is above the Nyquist frequency and will alias`, line: 0 });
+    if (r.fs < 2 * cfg.physiology.cardiac.rate && cfg.physiology.cardiac.on) cfg.warnings.push({ msg: `at ${r.fs} Hz the cardiac pulse (${Math.round(cfg.physiology.cardiac.rate * 60)} bpm) is above the Nyquist frequency and will alias`, line: 0 });
     if (cfg.analysis.dpf.mode === 'fixed' && cfg.analysis.dpf.values.length !== 1 && cfg.analysis.dpf.values.length !== r.wavelengths.length)
       throw new DSLError(`dpf gives ${cfg.analysis.dpf.values.length} values but the recording has ${r.wavelengths.length} wavelengths`, 1, 1);
     const dur = NIRS.timelineDuration(cfg.timeline);
     const nch = geo.channels.length, size = dur * r.fs * nch * r.wavelengths.length;
     if (size > 4e6) throw new DSLError(`that recording is about ${Math.round(dur)} s at ${r.fs} Hz on ${nch} channels and ${r.wavelengths.length} wavelengths, ` +
       `${(size / 1e6).toFixed(1)} million samples; this page holds up to 4 million. Shorten the timeline or lower the rate.`, 1, 1);
+    cfg.samples = size;
+    if (size > 1e6) cfg.warnings.push({ msg: `this recording is large, about ${(size / 1e6).toFixed(1)} million samples. The page stops responding while it builds ` +
+      'and while the GLM view fits, which can take from several seconds to a minute. Lower the rate or shorten the timeline to make it faster.', line: 0 });
     cfg.geometry = geo;
     return cfg;
   }

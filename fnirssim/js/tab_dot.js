@@ -102,16 +102,16 @@
     const seps = Array.from(new Set(M.geo.channels.map(c => c.rho.toFixed(1)))).sort((a, b) => a - b);
     let resolved = '–';
     if (tg.length === 2) {
-      // is there a dip between the two targets along x at the depth of the image peak?
-      const kk = near(M.zs, pkR.z), row = Array.from({ length: n }, (_, i) => xr[kk * n * n + iy0 * n + i]);
-      const ia = near(M.xs, tg[0].x), ib = near(M.xs, tg[1].x), im = near(M.xs, (tg[0].x + tg[1].x) / 2);
-      resolved = Math.min(row[ia], row[ib]) > 0 && row[im] < 0.85 * Math.min(row[ia], row[ib]) ? 'yes, a dip between them' : 'no, they merge';
+      // judged in the slice at the targets' depth, the one the top view shows
+      const rs = NIRS.dotResolved(M, xr, tg);
+      resolved = rs.wrongDepth ? `no, the image puts them at ${(rs.z * 10).toFixed(0)} mm, not ${(tg[0].z * 10).toFixed(0)} mm`
+        : rs.ok ? 'yes, a dip between them' : 'no, they merge';
     }
     ui.readouts($('dotReadouts'), [
       ['Channels', M.nc + ' at ' + seps.join(', ') + ' cm'], ['Voxels', M.nv.toLocaleString()],
       ['Image peak', `(${pkR.x.toFixed(1)}, ${pkR.y.toFixed(1)}) cm, ${(pkR.z * 10).toFixed(0)} mm deep`],
       ['Distance from the true centre', (err * 10).toFixed(0) + ' mm'], ['Peak recovered', (100 * pkR.v / ptrue).toFixed(0) + '% of the true change'],
-      ['Two targets resolved', tg.length === 2 ? resolved : 'one target']
+      ['Two targets resolved', tg.length === 2 ? resolved : 'one target', 'Yes when the image peak lies within 5 mm of the targets\' depth and, in the slice at that depth, the image midway between them is below 85% of its value at each target.']
     ]);
     const txt = {
       hd: 'With overlapping channels at three separations, every voxel is seen by many bananas of different depths. The image finds the target sideways to within a few millimetres; depth is harder, because sensitivity falls so steeply with depth that a deep, strong absorber and a shallower, weaker one look alike. Depth compensation counteracts the pull toward the surface, and regularization trades noise for blur.',

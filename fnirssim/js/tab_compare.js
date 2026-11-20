@@ -12,8 +12,9 @@
     for (let i = Math.round(t0 / dt); i < Math.round((t0 + len) / dt); i++) u[i] = 1;
     const hb = NIRS.balloon(u, dt, ctl.flow.get(), { n: ctl.n.get(), alpha: ctl.alpha.get(), dip: $('cmpDip').checked });
     const t = Float64Array.from({ length: n }, (_, i) => i * dt - t0);
-    return { t, u, hb, dt, len, n };
+    return { t, u, hb, dt, len, n, t0 };
   }
+  // the largest change (signed) and where it is
   const pk = a => { let m = 0, im = 0; for (let i = 0; i < a.length; i++) if (Math.abs(a[i]) > Math.abs(m)) { m = a[i]; im = i; } return [m, im]; };
 
   function render() {
@@ -36,33 +37,39 @@
     ui.legend($('cmpHbLegend'), [{ color: T.hbo, label: 'HbO' }, { color: T.hbr, label: 'HbR' }, { color: T.hbt, label: 'HbT', dash: true }]);
     // sampling
     const noise = $('cmpNoise').checked, TR = ctl.tr.get(), r = NIRS.rng(9);
-    const [po] = pk(hb.hbo), [pr] = pk(hb.hbr), [pb] = pk(hb.bold);
+    // each trace is scaled by the size of its largest excursion, keeping its sign
+    const so = Math.abs(pk(hb.hbo)[0]) || 1, sr = Math.abs(pk(hb.hbr)[0]) || 1, sb = Math.abs(pk(hb.bold)[0]) || 1;
     const fnirsDt = 0.1, step = Math.round(fnirsDt / M.dt);
     const ft = [], fo = [], fr = [];
-    for (let i = 0; i < M.n; i += step) { ft.push(t[i]); fo.push(hb.hbo[i] / po + (noise ? 0.06 * r.gauss() : 0)); fr.push(-hb.hbr[i] / Math.abs(pr) + (noise ? 0.15 * r.gauss() : 0)); }
+    for (let i = 0; i < M.n; i += step) { ft.push(t[i]); fo.push(hb.hbo[i] / so + (noise ? 0.06 * r.gauss() : 0)); fr.push(-hb.hbr[i] / sr + (noise ? 0.15 * r.gauss() : 0)); }
     const bt = [], bv = [];
     const trStep = Math.round(TR / M.dt), off = Math.round(((r.next() * TR) % TR) / M.dt);
-    for (let i = off; i < M.n; i += trStep) { bt.push(t[i]); bv.push(hb.bold[i] / pb + (noise ? 0.06 * r.gauss() : 0)); }
+    for (let i = off; i < M.n; i += trStep) { bt.push(t[i]); bv.push(hb.bold[i] / sb + (noise ? 0.06 * r.gauss() : 0)); }
     if (!st.p3) st.p3 = new D.Plot($('cvCmpSig'), { height: 270 });
     st.p3.draw({
       x: t, xLabel: 'time from stimulus onset (s)', yLabel: 'signal (each scaled to its peak)', yZero: true,
       series: [
         { x: Float64Array.from(ft), y: Float64Array.from(fo), color: T.hbo, width: 1.2, alpha: 0.85, label: 'fNIRS HbO (10 Hz)' },
         { x: Float64Array.from(ft), y: Float64Array.from(fr), color: T.hbr, width: 1.2, alpha: 0.85, label: 'fNIRS −HbR (10 Hz)' },
-        { y: Float64Array.from(hb.bold, v => v / pb), color: T.bold, width: 1.2, dash: [4, 3], label: 'BOLD (underlying)' },
+        { y: Float64Array.from(hb.bold, v => v / sb), color: T.bold, width: 1.2, dash: [4, 3], label: 'BOLD (underlying)' },
         { x: Float64Array.from(bt), y: Float64Array.from(bv), color: T.bold, width: 2.2, label: `fMRI BOLD (TR ${TR.toFixed(1)} s)` }
       ],
       markers: bt.map((x, i) => ({ x, y: bv[i], color: T.bold, r: 4 })),
       bands: band, tipX: x => `${x.toFixed(1)} s`, tipFmt: v => v.toFixed(2)
     });
     ui.legend($('cmpSigLegend'), [{ color: T.hbo, label: 'fNIRS HbO' }, { color: T.hbr, label: 'fNIRS −HbR' }, { color: T.bold, label: 'fMRI BOLD, sampled', dot: true }, { color: T.bold, label: 'BOLD, continuous', dash: true }]);
-    const ttp = a => t[pk(a)[1]].toFixed(1) + ' s';
+    // peaks and times to peak of the main response, not of the transient after a block
+    const mr = NIRS.mainResponse(hb, M.dt, Math.round(M.t0 / M.dt), M.len);
+    const po = mr.hbo.v, pr = mr.hbr.v, pb = mr.bold.v;
+    const sg = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
     const negHbr = Float64Array.from(hb.hbr, v => -v);
     let usO = 0, usB = 0; for (let i = Math.round((M.len + 5 + 6) / M.dt); i < M.n; i++) { usO = Math.min(usO, hb.hbo[i]); usB = Math.min(usB, hb.bold[i]); }
     let dip = 0; for (let i = Math.round(5 / M.dt); i < Math.round(7 / M.dt); i++) dip = Math.max(dip, hb.hbr[i]);
+    const during = st.stim === 'block' ? 'during the 20 s block' : 'in the first 12 s after the event';
     ui.readouts($('cmpReadouts'), [
-      ['Peak HbO / HbR', `+${po.toFixed(1)} / ${pr.toFixed(1)} µM`], ['HbO : HbR', (po / Math.abs(pr)).toFixed(1) + ' : 1'],
-      ['Peak BOLD', '+' + (100 * pb).toFixed(2) + '%'], ['Time to peak HbO / HbR / BOLD', `${ttp(hb.hbo)} / ${ttp(negHbr)} / ${ttp(hb.bold)}`],
+      ['Peak HbO / HbR', `${sg(po, 1)} / ${sg(pr, 1)} µM`, `Largest change ${during}`], ['HbO : HbR', pr < 0 ? (po / -pr).toFixed(1) + ' : 1' : 'HbR rises'],
+      ['Peak BOLD', sg(100 * pb, 2) + '%', `Largest change ${during}`],
+      ['Time to peak HbO / HbR / BOLD', `${mr.hbo.t.toFixed(1)} / ${mr.hbr.t.toFixed(1)} / ${mr.bold.t.toFixed(1)} s`, `Time of the largest change ${during}, from stimulus onset. Changes after a block ends are a separate, post-stimulus transient.`],
       ['Shape of −HbR vs BOLD', 'r = ' + NIRS.corr(negHbr, hb.bold).toFixed(3)],
       ['Samples during the response', `fNIRS ${Math.round((M.len + 15) / fnirsDt)}, fMRI ${Math.round((M.len + 15) / TR)}`],
       ['Post-stimulus undershoot (BOLD)', (100 * usB).toFixed(2) + '%'],

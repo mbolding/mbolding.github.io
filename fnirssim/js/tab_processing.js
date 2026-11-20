@@ -29,7 +29,9 @@
         <td>${x.mean.map(v => NIRS.fmtPower(v)).join(' / ')}</td><td>${x.cv.map(v => (100 * v).toFixed(1)).join(' / ')}%</td><td>${isFinite(x.sci) ? x.sci.toFixed(2) : 'n/a'}</td>
         <td style="text-align:left">${x.bad ? `<span class="badge bad">${x.reasons.join('; ')}</span>` : '<span class="badge ok">kept</span>'}</td></tr>`;
     }).join('');
-    $('qTable').innerHTML = `<tr><th>Channel</th><th>Distance</th><th>Mean light</th><th>CV</th><th>SCI</th><th style="text-align:left">Verdict</th></tr>${rows}`;
+    const band = NIRS.dsp.sciBand(ds);
+    const note = band.ok ? '' : `<tr><td colspan="6" style="text-align:left;color:var(--muted);white-space:normal">SCI n/a: ${band.why}. Coupling is not checked, so only the CV, saturation and the light level can reject a channel.</td></tr>`;
+    $('qTable').innerHTML = `<tr><th>Channel</th><th>Distance</th><th>Mean light</th><th>CV</th><th>SCI</th><th style="text-align:left">Verdict</th></tr>${rows}${note}`;
     $('qTable').querySelectorAll('tr[data-i]').forEach(tr => tr.addEventListener('click', () => { S.selCh = +tr.dataset.i; NIRS.app.markAll(); }));
   }
 
@@ -41,15 +43,16 @@
     // SCI map and time course
     const g = D.fit($('cvQMap'), w => Math.min(260, w * 0.62));
     st.qmap = D.probeMap(g.ctx, ds, { x: 4, y: 4, w: g.w - 8, h: g.h - 8 }, { values: res.quality.map(x => x.sci), sequential: true, range: [0, 1], selected: ch, bad: P.qualityOn ? res.bad : null });
-    D.bindProbe($('cvQMap'), () => st.qmap, () => S.ds, ci => { S.selCh = ci; NIRS.app.markAll(); }, ci => `${S.ds.chans[ci].label}: SCI ${S.res.quality[ci].sci.toFixed(2)}`);
+    D.bindProbe($('cvQMap'), () => st.qmap, () => S.ds, ci => { S.selCh = ci; NIRS.app.markAll(); }, ci => `${S.ds.chans[ci].label}: SCI ${isFinite(S.res.quality[ci].sci) ? S.res.quality[ci].sci.toFixed(2) : 'n/a'}`);
     const sw = NIRS.dsp.sciWindows(ds, S.rec.I[ch], 10);
     if (!st.pSci) st.pSci = new D.Plot($('cvSci'), { height: 150 });
+    $('cvSci').hidden = !sw;
+    $('sciNote').textContent = sw ? '' : `The scalp coupling index cannot be computed here: ${NIRS.dsp.sciBand(ds).why}.`;
     if (sw) st.pSci.draw({
       x: Float64Array.from(sw, w => w.t), xLabel: 'time (s)', yLabel: 'SCI (10 s windows)', yRange: [-0.2, 1.05],
       series: [{ y: Float64Array.from(sw, w => w.sci), color: T.accent, label: ds.chans[ch].label }], hlines: [{ y: P.sci, color: T.crit, dash: [4, 3] }],
       tipX: x => ui.fmtT(x), tipFmt: v => v.toFixed(2)
     });
-    else { const gg = D.fit($('cvSci'), 60); gg.ctx.fillStyle = T.muted; gg.ctx.font = D.font(11); gg.ctx.fillText(`The scalp coupling index needs the heartbeat, so a sampling rate of at least 5 Hz (this recording: ${ds.fs} Hz).`, 8, 30); }
     motion(ch); filt(ch); scr(ch);
   }
 

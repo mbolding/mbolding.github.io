@@ -26,11 +26,12 @@
       return { L, frac: L / tot, tot };
     });
   }
-  function localPeak(flow) {
-    const k = flow.toFixed(2);
+  // HbO peak in the region for one 15 s block of average strength, with the activation's own coupling and dip
+  function localPeak(reg) {
+    const a = reg.ref || {}, k = [reg.flow.toFixed(2), a.n, !!a.dip].join('|');
     if (st.peakCache[k] === undefined) {
       const u = new Float64Array(400); for (let i = 20; i < 170; i++) u[i] = 1;
-      const hb = NIRS.balloon(u, 0.1, flow);
+      const hb = NIRS.balloon(u, 0.1, reg.flow, { n: a.n, dip: a.dip });
       st.peakCache[k] = Math.max(...hb.hbo);
     }
     return st.peakCache[k];
@@ -67,17 +68,16 @@
     // readouts
     const lay = layers(), bt = NIRS.brainTop(lay);
     const c = ds.chans[S.selCh];
-    const dpf = c.per[ds.nL - 1].dpf;
     if (reg && sv) {
       const best = sv.map((v, i) => [v.L, i]).filter(([v, i]) => !ds.chans[i].short).sort((a, b) => b[0] - a[0])[0];
       const s = sv[S.selCh];
-      const peak = reg.kind === 'activation' ? localPeak(reg.flow) : NaN;
+      const peak = reg.kind === 'activation' ? localPeak(reg) : NaN;
       ui.readouts($('headReadouts'), [
         ['Brain begins at', (bt * 10).toFixed(1) + ' mm'], ['Region centre', (reg.depth * 10).toFixed(1) + ' mm deep'],
-        [`${c.label}: path inside region`, (s.L * 10).toFixed(2) + ' mm'], [`${c.label}: share of its path`, (100 * s.frac).toFixed(2) + '%'],
+        [`${c.label}: path inside region`, (s.L * 10).toFixed(2) + ' mm'], [`${c.label}: share of its path`, (100 * s.frac).toFixed(2) + '%', 'path inside the region / whole mean path, at 850 nm. One over this is the partial-volume factor.'],
         ['Most sensitive channel', ds.chans[best[1]].label],
-        ['Local HbO peak (15 s block)', isFinite(peak) ? '+' + peak.toFixed(1) + ' µM' : '–'],
-        [`${c.label}: expected Beer-Lambert peak`, isFinite(peak) ? '≈ +' + (peak * s.L / (c.rho * dpf)).toFixed(3) + ' µM' : '–', 'local peak × path inside the region / (d × DPF)']
+        ['Local HbO peak (one 15 s block)', isFinite(peak) ? '+' + peak.toFixed(1) + ' µM' : '–', 'The change inside the region for one 15 s block of average strength. The Beer-Lambert tab quotes the largest change in the recording, which is bigger because trials vary.'],
+        [`${c.label}: expected Beer-Lambert peak`, isFinite(peak) ? '≈ +' + (peak * s.frac).toFixed(3) + ' µM' : '–', 'local peak × share of the path inside the region: what the law reports with the true DPF, before filtering']
       ]);
       bars(sv);
     } else {

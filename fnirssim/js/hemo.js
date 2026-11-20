@@ -69,6 +69,18 @@
     return { f, v, q, m, hbo, hbr, hbt, bold };
   };
 
+  /* The main response of a balloon run whose stimulus starts at sample i0
+     and lasts len seconds: the largest change (signed) in HbO, HbR and BOLD
+     and its time from onset, while a block lasts or in the first 12 s after
+     a brief event.  After a block ends, flow falls before volume and oxygen
+     use do, and at low coupling n the transient that follows can be larger
+     than the response itself; it is not the response's peak. */
+  NIRS.mainResponse = function (hb, dt, i0, len) {
+    const i1 = Math.min(hb.hbo.length, i0 + Math.round(Math.max(len, 12) / dt));
+    const pk = a => { let m = 0, im = i0; for (let i = i0; i < i1; i++) if (Math.abs(a[i]) > Math.abs(m)) { m = a[i]; im = i; } return { v: m, t: (im - i0) * dt }; };
+    return { hbo: pk(hb.hbo), hbr: pk(hb.hbr), bold: pk(hb.bold) };
+  };
+
   /* ---------- haemodynamic response functions ---------- */
   function gammaPdf(t, k, theta) {
     if (t <= 0) return 0;

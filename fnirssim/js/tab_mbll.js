@@ -104,15 +104,23 @@
     let html = '';
     if (ds.regions.length) {
       const rg = ds.regions[0], hb = ds.regionHb[rg.id];
-      let pk = 0, pr = 0; for (let i = 0; i < hb.hbo.length; i++) { if (hb.hbo[i] > pk) pk = hb.hbo[i]; if (hb.hbr[i] < pr) pr = hb.hbr[i]; }
-      const truthR = NIRS.app.truth();
-      let mo = 0; const tc = truthR.conc[c.index].hbo; for (let i = 0; i < tc.length; i++) mo = Math.max(mo, tc[i]);
-      const pvf = La / (c.rho * dpf[li]);
-      html = `<p>In <strong>${rg.label}</strong> the haemoglobin really changes by up to <strong>+${pk.toFixed(1)} µM HbO</strong> and <strong>${pr.toFixed(1)} µM HbR</strong>.
-        In this channel the Beer-Lambert law reports a peak of <strong>${mo >= 0 ? '+' : ''}${mo.toFixed(3)} µM</strong> HbO from the cortex (the part of the signal that came from the
-        cortex, filtered the same way): ${mo > 0 ? `about <strong>${(pk / mo).toFixed(0)} times smaller</strong>` : 'nothing'}.</p>
-        <p>The reason is the <strong>partial volume</strong>: only ${La.toFixed(2)} cm of the ${(c.rho * dpf[li]).toFixed(1)} cm path the law assumes lies in the active cortex
-        (${(100 * pvf).toFixed(1)}%), so the change is diluted over the whole path. fNIRS concentrations are therefore always underestimates of the local change, and
+      let pk = 0, ipk = 0, pr = 0; for (let i = 0; i < hb.hbo.length; i++) { if (hb.hbo[i] > pk) { pk = hb.hbo[i]; ipk = i; } if (hb.hbr[i] < pr) pr = hb.hbr[i]; }
+      /* Like for like: what the law makes of the cortex's light at that same
+         moment, from rest (the first sample, before any response), with the
+         DPF in use and no filter, as the local change is. */
+      const I = cortexRec().I[c.index];
+      const mo = NIRS.dsp.mbll(I.map(x => Float64Array.of(-Math.log10(x[ipk] / x[0]))), ds.lambdas, c.rho, dpf).hbo[0];
+      const share = La / q.L, scale = q.L / (c.rho * dpf[li]), ratio = pk / mo;
+      html = `<p>In <strong>${rg.label}</strong> the haemoglobin really changes by up to <strong>+${pk.toFixed(1)} µM HbO</strong> and <strong>${pr.toFixed(1)} µM HbR</strong>
+        (the largest change in this recording; the Head tab's local peak is one 15 s block of average strength). At that moment the Beer-Lambert law turns this channel's light
+        from the cortex into ${isFinite(mo) ? `<strong>${mo >= 0 ? '+' : ''}${mo.toFixed(3)} µM</strong> HbO (from rest, with the DPF in use, before filtering):
+        ${mo > 0 ? `about <strong>${ratio.toFixed(0)} times smaller</strong>` : 'nothing'}` : 'nothing: one wavelength cannot separate HbO from HbR'}.</p>
+        <p>The reason is the <strong>partial volume</strong>: only ${La.toFixed(2)} cm of the light's ${q.L.toFixed(1)} cm mean path at ${ds.lambdas[li]} nm lies in the active cortex
+        (${(100 * share).toFixed(2)}%, the share on the Head tab), which on its own makes the change about ${(1 / share).toFixed(0)} times smaller.
+        ${Math.abs(scale - 1) < 0.01 ? 'The DPF in use matches the light model, so it does not change the size further.'
+          : `The DPF in use assumes a path of d × DPF = ${(c.rho * dpf[li]).toFixed(1)} cm instead of ${q.L.toFixed(1)} cm, which makes the result about ${scale.toFixed(2)} times ${scale > 1 ? 'larger' : 'smaller'}.`}
+        ${mo > 0 && Math.abs(ratio * share * scale - 1) > 0.1 ? 'Crosstalk between the two wavelengths accounts for the rest.' : ''}
+        fNIRS concentrations are therefore always underestimates of the local change, and
         their size depends on the probe and the head as much as on the brain. Comparing amplitudes across channels, people or ages has to reckon with that.</p>`;
     } else html = '<p>This recording has no active region. Load an example with one to see how much of the cortical change the Beer-Lambert law recovers.</p>';
     const tr = c.per.map(q2 => q2.dpf), ratioT = tr[0] / tr[tr.length - 1], ratioA = dpf[0] / dpf[dpf.length - 1];

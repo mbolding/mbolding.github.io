@@ -123,4 +123,22 @@
     const k = Math.floor(bq / (M.nxy * M.nxy)), rem = bq % (M.nxy * M.nxy), iy = Math.floor(rem / M.nxy), ix = rem % M.nxy;
     return { x: M.xs[ix], y: M.xs[iy], z: M.zs[k], v: best };
   };
+
+  /* Are two targets at the same depth and y told apart?  Only if the image
+     puts them near their depth (its peak within `tol` cm of it, 5 mm by
+     default) and, in the slice at that depth through both, the image midway
+     between them is below 85% of its value at each target.  Judging the dip
+     at the image's own peak depth instead let a nearest-neighbour image,
+     flattened to the surface where the channel pattern dips everywhere,
+     "resolve" targets the full array could not.
+     Returns { ok, wrongDepth, z } with z the depth of the image peak. */
+  NIRS.dotResolved = function (M, x, targets, tol) {
+    const near = (arr, v) => { let b = 0; for (let i = 0; i < arr.length; i++) if (Math.abs(arr[i] - v) < Math.abs(arr[b] - v)) b = i; return b; };
+    const a = targets[0], b = targets[1], pk = NIRS.dotPeak(M, x);
+    if (Math.abs(pk.z - a.z) > (tol === undefined ? 0.5 : tol) + 1e-9) return { ok: false, wrongDepth: true, z: pk.z };
+    const n = M.nxy, k = near(M.zs, a.z), iy = near(M.xs, a.y);
+    const at = xx => x[k * n * n + iy * n + near(M.xs, xx)];
+    const va = at(a.x), vb = at(b.x), vm = at((a.x + b.x) / 2);
+    return { ok: Math.min(va, vb) > 0 && vm < 0.85 * Math.min(va, vb), wrongDepth: false, z: pk.z };
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

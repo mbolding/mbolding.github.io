@@ -48,7 +48,8 @@
       'Read how the peak-to-standard-error ratio grows with the number of trials. Is it close to the square root?'] },
     { t: 'The GLM', example: 'Event-related: right vs left hand', tab: 'averaging', steps: [
       'Trials 10 s apart overlap, so block averages blur. Open the GLM view and compare the right- and left-hand betas on the statistic map.',
-      'Switch the noise model from AR to OLS. Why do the t values inflate, and what does that do to false positives?'] },
+      'On the Processing tab switch short-channel regression off, then come back and switch the noise model from AR to OLS. Count the significant tests (●), including channels far from the activation. Why do the t values inflate, and what does that do to false positives?',
+      'Switch short-channel regression back on and compare AR and OLS again. Why is the difference now small?'] },
     { t: 'Connectivity and the scalp', example: 'Resting-state connectivity pair', tab: 'averaging', steps: [
       'Open Connectivity. With short-channel regression off, every channel correlates with every other one.',
       'Switch regression on (Processing tab) and look again: the coupled pair stands out from the rest. What is the mean correlation among channels that see neither region, before and after?'] },

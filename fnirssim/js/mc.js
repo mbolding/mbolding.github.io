@@ -11,7 +11,12 @@
    Photons that leave the surface within the detector's ring around the
    source are "detected"; by the cylindrical symmetry of a layered slab
    each is rotated so it exits at the detector.  Their paths, weighted,
-   pile up into the banana. */
+   pile up into the banana.
+
+   With opts.budget set, only the first `budget` photons count toward the
+   statistics, the histograms and the density.  The walker can keep running
+   for the picture, but its numbers stop changing, and with a fixed seed
+   they come out the same on every computer. */
 (function (G) {
   'use strict';
   const NIRS = G.NIRS;
@@ -29,10 +34,10 @@
 
   class MC {
     /* layers: optical layers [{key, z0, z1, mua, musp}]; opts: { rho, aperture,
-       grid: {x0, x1, nx, zmax, nz}, seed, keep } */
+       grid: {x0, x1, nx, zmax, nz}, seed, keep, budget } */
     constructor(layers, opts) {
       this.layers = layers;
-      this.o = Object.assign({ rho: 3, aperture: 0.2, keep: 120, seed: 7 }, opts || {});
+      this.o = Object.assign({ rho: 3, aperture: 0.2, keep: 120, seed: 7, budget: Infinity }, opts || {});
       const g = this.o.grid || { x0: -1.5, x1: this.o.rho + 1.5, nx: 120, zmax: 3, nz: 72 };
       this.grid = g;
       this.r = NIRS.rng(this.o.seed);
@@ -47,6 +52,9 @@
       this.wDepth = 0; this.nLost = 0; this.nShort = 0; this.shortPaths = [];
       this.tof = new Float64Array(48);  // 0..8 ns
       this.tofMax = 8;
+      // finer bins, on the 0.05 ns steps of the gate, with the depth reached
+      this.gateDt = 0.05;
+      this.tofFine = new Float64Array(160); this.tofFineDepth = new Float64Array(160);
       this.maxDepthHist = new Float64Array(40); // 0..4 cm
     }
     layerAt(z) {
@@ -118,17 +126,23 @@
         return null;
       }
       if (Math.abs(rr - rho) > ap) return this.lost(np);
-      this.nDet++; this.wDet += w; this.wL += w * total;
-      for (let i = 0; i < lk.length; i++) this.wLk[i] += w * lk[i];
-      const t = total / NIRS.C_TISSUE, bi = Math.floor(t / this.tofMax * this.tof.length);
-      if (bi < this.tof.length) this.tof[bi] += w;
-      const di = Math.floor(zmaxReached / 4 * this.maxDepthHist.length);
-      if (di < this.maxDepthHist.length) this.maxDepthHist[di] += w;
-      this.wDepth += w * zmaxReached;
+      const t = total / NIRS.C_TISSUE;
+      const counted = this.launched <= this.o.budget;
+      if (counted) {
+        this.nDet++; this.wDet += w; this.wL += w * total;
+        for (let i = 0; i < lk.length; i++) this.wLk[i] += w * lk[i];
+        const bi = Math.floor(t / this.tofMax * this.tof.length);
+        if (bi < this.tof.length) this.tof[bi] += w;
+        const fi = Math.floor(t / this.gateDt + 1e-9);
+        if (fi < this.tofFine.length) { this.tofFine[fi] += w; this.tofFineDepth[fi] += w * zmaxReached; }
+        const di = Math.floor(zmaxReached / 4 * this.maxDepthHist.length);
+        if (di < this.maxDepthHist.length) this.maxDepthHist[di] += w;
+        this.wDepth += w * zmaxReached;
+      }
       // rotate about z so the exit is on the +x axis, at the detector
       const c = x / rr, s = y / rr, buf = this.buf, out = new Float32Array(2 * np);
       for (let i = 0; i < np; i++) { out[2 * i] = buf[3 * i] * c + buf[3 * i + 1] * s; out[2 * i + 1] = buf[3 * i + 2]; }
-      this.accumulate(out, w);
+      if (counted) this.accumulate(out, w);
       const rec = { pts: out, w, L: total, tof: t, depth: zmaxReached };
       this.detected.push(rec);
       if (this.detected.length > this.o.keep) this.detected.shift();
@@ -159,10 +173,22 @@
     stats() {
       const w = this.wDet || 1;
       return {
-        launched: this.launched, detected: this.nDet, weight: this.wDet,
+        launched: Math.min(this.launched, this.o.budget), done: this.launched >= this.o.budget, detected: this.nDet, weight: this.wDet,
         meanL: this.wL / w, dpf: this.wL / w / this.o.rho, layerL: this.wLk.map(v => v / w), meanDepth: this.wDepth / w,
-        perPhoton: this.wDet / Math.max(1, this.launched)
+        perPhoton: this.wDet / Math.max(1, Math.min(this.launched, this.o.budget))
       };
+    }
+    /* Detected photons arriving before and after a time gate (ns): the late
+       share of the detected weight and the mean deepest point of each group,
+       from every counted photon. */
+    gate(g) {
+      const k = Math.round(g / this.gateDt);
+      let wE = 0, dE = 0, wLt = 0, dLt = 0;
+      for (let i = 0; i < this.tofFine.length; i++) {
+        if (i < k) { wE += this.tofFine[i]; dE += this.tofFineDepth[i]; } else { wLt += this.tofFine[i]; dLt += this.tofFineDepth[i]; }
+      }
+      const tot = wE + wLt;
+      return { lateShare: tot ? wLt / tot : 0, earlyDepth: wE ? dE / wE : NaN, lateDepth: wLt ? dLt / wLt : NaN };
     }
   }
   NIRS.MC = MC;

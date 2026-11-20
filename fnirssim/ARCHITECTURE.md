@@ -142,6 +142,10 @@ flow-inducing signal with a neurovascular delay, venous balloon (Grubb α),
 CMRO2 coupled to flow by the ratio n, and an optional initial dip. It returns
 flow, volume, deoxyhaemoglobin, oxygen use, ΔHbO, ΔHbR and ΔHbT (µM in the
 active tissue) and BOLD (Buxton coefficients). `BALLOON` holds the defaults.
+`mainResponse(hb, dt, i0, len)` gives the largest signed change in HbO, HbR
+and BOLD and its time from onset, while a block lasts or in the first 12 s
+after a brief event, so the transient after a block ends (larger than the
+response at low coupling n) is not taken for the peak.
 
 **HRFs.** `hrfCanonical` (double gamma), `hrfGamma`, and
 `convolveHRF(x, fs, hrf, deriv)` for the GLM.
@@ -212,7 +216,11 @@ analysis {
   what was expected.
 - `compile` checks against the probe (an unknown optode, a region under a
   missing channel), limits the recording to 4 million samples, and warns
-  about a single wavelength or a sampling rate that aliases the heartbeat.
+  about a single wavelength, a sampling rate below twice the heart rate, a
+  recording over a million samples (the page freezes while it builds and
+  while the GLM fits), and a source power above 10 mW (a note comparing it
+  with the laser skin exposure limit, not a safety model). `cfg.samples`
+  holds the size.
 
 ### 6.3 API
 
@@ -274,7 +282,7 @@ from any of them, reusing the earlier results in `prev`:
 
 | Stage | What it does |
 |---|---|
-| quality | mean light, CV, saturation, SCI (Pollonini: cardiac-band correlation of the two wavelengths) and windowed SCI; rejects channels that fail |
+| quality | mean light, CV, saturation, SCI (Pollonini: cardiac-band correlation of the two wavelengths) and windowed SCI; rejects channels that fail. `dsp.sciBand` sets the band, 0.5 Hz to 2.5 Hz or 0.45 × fs if lower, and the SCI is computed only when the program's heart rate lies inside it (otherwise it is n/a and the Processing tab says why) |
 | od | optical density from the mean intensity |
 | motion | none, TDDR (Fishburn, as published) or spline correction of detected segments |
 | filter | zero-phase Butterworth band-pass (high-pass and low-pass orders 3 and 5) |
@@ -302,13 +310,21 @@ absorption weighting and Fresnel reflection at the surface. It records
 detected paths (in an annulus at the detector and a short-channel ring), a
 time-of-flight histogram and the density of detected paths, which forms the
 banana. It is for pictures and as a check: the tests compare its layer
-pathlengths with the diffusion solver at 1.5 cm.
+pathlengths with the diffusion solver at 1.5 cm. With `budget` set (the Light
+tab uses 300,000 photons, seed 17), only the first `budget` photons count
+toward the statistics, histograms and density, so the readouts settle to the
+same values on every computer while the animation goes on; `gate(t)` gives
+the late share and the mean deepest point of early and late photons from all
+counted photons.
 
 `dotModel(head, nm, array)` builds the sensitivity matrix of a high-density
 (`hd`), high-density nearest-neighbour (`hdshort`) or sparse array over a
 voxel grid. `dotPrepare(M, γ)` caches the depth-compensated system;
 `dotSolve`/`dotReconstruct` apply Tikhonov minimum-norm regularization with
 λ relative to the largest eigenvalue; `dotPeak` finds the image peak.
+`dotResolved` decides whether two targets are told apart: the image peak must
+lie within 5 mm of their depth, and in the slice at that depth the image
+midway between them must fall below 85% of its value at each.
 
 ---
 
@@ -322,7 +338,13 @@ changes. The selected channel is shared by every tab.
 
 Each tab registers `NIRS.tabs[name] = { init, render, onBuild, show, hide }`
 and renders lazily when shown. The theme and current tab are kept in
-`localStorage` (`fnirssim-theme`, `fnirssim-tab`), both optional.
+`localStorage` (`fnirssim-theme`, `fnirssim-tab`), both optional. The running
+program, the editor text, the example it came from, the analysis settings
+`P`, the switched-on components and the selected channel are kept in
+`sessionStorage` (`fnirssim-session`, this browser tab only), written after
+each build and when the page is hidden, so a reload rebuilds the same
+recording instead of the first example. Slider positions on the Light,
+Wavelengths, Head, fNIRS vs fMRI and Tomography tabs are not kept.
 
 | Tab | Content |
 |---|---|
@@ -330,13 +352,13 @@ and renders lazily when shown. The theme and current tab are kept in
 | Experiment | the program editor with highlighting, examples, errors, a summary |
 | Light in tissue | Monte Carlo photons, the banana, the separation trade-off, layer shares, depth profile, time of flight |
 | Wavelengths | absorption and extinction spectra, the 2×2 matrix and its noise gain, all pairs, crosstalk |
-| Beer-Lambert | intensity to OD to concentration at a cursor, DPF choices, partial volume |
-| Head & activation | draggable region, live channel sensitivities, cross-section, apply to the recording |
+| Beer-Lambert | intensity to OD to concentration at a cursor, DPF choices, partial volume: the largest local change against the law's estimate at the same moment (from rest, DPF in use, unfiltered), split into the share of the true path (as on the Head tab) and the DPF error |
+| Head & activation | draggable region, live channel sensitivities, cross-section, apply to the recording; local peak for one average 15 s block and expected peak = local peak × share of the path |
 | Confounds | switch cards, each alone and all together, where and at what frequency |
 | Recording | raw intensity, unprocessed Hb, channel maps, spectrum, all channels |
 | Processing | quality table and SCI, motion correction, band-pass, short-channel regression |
 | Averaging & GLM | the average emerging trial by trial against the truth, GLM fit, design matrix and t map, connectivity |
-| fNIRS vs fMRI | one balloon model, sampled by fNIRS and by BOLD, and where each one looks |
+| fNIRS vs fMRI | one balloon model, sampled by fNIRS and by BOLD, and where each one looks; peaks and times to peak from `mainResponse` |
 | Tomography | HD array, truth against image from above and in depth |
 | Guide | 14 lessons, each loading an example and opening a tab |
 
