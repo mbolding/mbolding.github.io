@@ -22,7 +22,7 @@
     const step = (t, s) => `<button disabled style="opacity:1;cursor:default"><span>${t}</span><small>${s}</small></button>`;
     const arrow = '<span class="arrow" aria-hidden="true">&rarr;</span>';
     $('pipeline').innerHTML = [
-      step('Recorded', `against ${R.reference}, hardware ${R.hp ? R.hp + ' Hz' : 'DC'} to ${R.lp} Hz`),
+      step('Recorded', `against ${R.reference}, hardware ${R.hp ? R.hp + ' Hz' : 'DC'} to ${R.lp ? R.lp + ' Hz' : 'no low-pass'}`),
       step('1 · Re-reference', REF_INFO[P.reref][0]),
       step('2 · Filters', [P.hp ? 'HP ' + EEG.fmt(P.hp, 2) + ' Hz' : null, P.lp ? 'LP ' + P.lp + ' Hz' : null, P.notch ? 'notch ' + P.notch + ' Hz' : null].filter(Boolean).join(', ') + (P.hp || P.lp || P.notch ? `, order ${P.order}, ${P.phase === 'zero' ? 'zero-phase' : 'causal'}` : 'none')),
       step('3 · ICA', I.model ? (I.stale ? 'out of date, run again' : `${I.rejected.size} of ${I.model.k} removed`) : 'not run'),
@@ -54,7 +54,7 @@
     maps.forEach((o, k) => {
       const cx = (k + 0.5) * w / n, cy = 18 + r + 4;
       const lap = o.m === 'laplacian';
-      const res = D.topo(ctx, cx, cy, r, o.out.labels, o.out.values, { range: lap ? undefined : mx || 1, contours: r > 40 });
+      const res = D.topo(ctx, cx, cy, r, o.out.labels, o.out.values, { range: lap ? undefined : mx || 1, contours: r > 40, unit: lap ? 'µV/cm²' : 'µV' });
       ctx.fillStyle = T.ink2; ctx.font = D.font(11, o.m === S.proc.reref ? 700 : 500); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText(o.m === 'online' ? `as recorded (${S.cfg.recording.reference})` : REF_INFO[o.m][0].replace('Surface ', ''), cx, 2);
       ctx.fillStyle = T.muted; ctx.font = D.font(10);
@@ -168,17 +168,26 @@
     });
     ui.legend($('filtImpLegend'), [{ color: T.series[1], label: 'impulse response, scaled to peak 1' }, { color: T.series[2], label: 'step response' }]);
     // measures
-    const pk = arr => { let m = 0, im = 0; for (let i = a; i < b; i++) if (Math.abs(arr[i]) > Math.abs(m)) { m = arr[i]; im = i; } return { m, t: (im / fs - ts.pre) * 1000 }; };
-    const p0 = pk(ts.x), p1 = pk(y);
+    const pk = arr => { let m = 0, im = a; for (let i = a; i < b; i++) if (Math.abs(arr[i]) > Math.abs(m)) { m = arr[i]; im = i; } return { m, i: im, t: (im / fs - ts.pre) * 1000 }; };
+    const p0 = pk(ts.x);
+    // The filtered peak is the one of the original's sign that the filtered
+    // trace reaches by climbing from the original peak time. A bigger lobe of
+    // the other sign, or a later rebound, is not mistaken for it.
+    const sgn = Math.sign(p0.m) || 1;
+    const climb = d => { let i = p0.i; while (i + d >= a && i + d < b && sgn * y[i + d] > sgn * y[i]) i += d; return i; };
+    const iL = climb(-1), iR = climb(1), ip = sgn * y[iL] >= sgn * y[iR] ? iL : iR;
+    const p1 = { m: y[ip], t: (ip / fs - ts.pre) * 1000 };
+    const kept = sgn * p1.m > 0;
     let preMax = 0; for (let i = a; i < Math.round(ts.pre * fs); i++) preMax = Math.max(preMax, Math.abs(y[i] - ts.x[i]));
-    let opp = 0; for (let i = a; i < b; i++) if (Math.sign(y[i]) === -Math.sign(p0.m) && Math.abs(y[i]) > opp) opp = Math.abs(y[i]);
+    // opposite-sign deflection beyond what the original already has at that moment
+    let opp = 0; for (let i = a; i < b; i++) opp = Math.max(opp, Math.max(0, -sgn * y[i]) - Math.max(0, -sgn * ts.x[i]));
     ui.readouts($('filtReadouts'), [
       ['Peak, original', `${EEG.fmt(p0.m, 1)} µV at ${p0.t.toFixed(0)} ms`],
-      ['Peak, filtered', `${EEG.fmt(p1.m, 1)} µV at ${p1.t.toFixed(0)} ms`],
-      ['Amplitude change', `${((p1.m / (p0.m || 1) - 1) * 100).toFixed(0)}%`],
-      ['Latency shift', `${(p1.t - p0.t).toFixed(0)} ms`],
+      ['Peak, filtered', kept ? `${EEG.fmt(p1.m, 1)} µV at ${p1.t.toFixed(0)} ms` : `none of the same sign`, 'the nearest filtered peak with the same sign as the original peak'],
+      ['Amplitude change', kept ? `${((p1.m / (p0.m || 1) - 1) * 100).toFixed(0).replace(/^-0$/, '0')}%` : '-100%', 'of that peak, compared with the original peak'],
+      ['Latency shift', kept ? `${(p1.t - p0.t).toFixed(0)} ms` : 'none', 'of that peak; negative means earlier'],
       ['Before onset', `${EEG.fmt(preMax, 2)} µV`, 'largest change before the stimulus: only an acausal filter can put it there'],
-      ['Opposite-polarity lobe', `${EEG.fmt(opp, 2)} µV`, 'deflection of the opposite sign that the original does not have']
+      ['Opposite-polarity lobe', `${EEG.fmt(opp, 2)} µV`, 'the largest deflection of the opposite sign beyond what the original has at the same moment']
     ]);
     if (ts.note) $('filtReadouts').insertAdjacentHTML('beforeend', `<div class="note" style="grid-column:1/-1">${ts.note}</div>`);
   }

@@ -17,7 +17,16 @@
   }
   const hasClosed = () => S.ds.blocks.some(b => b.state === 'closed');
   function series(view, label) {
-    if (view === 'raw') { const k = S.rec.labels.indexOf(label); return k >= 0 && k < S.rec.nCap ? S.rec.rows[k] : null; }
+    if (view === 'raw') {
+      const k = S.rec.labels.indexOf(label);
+      if (k >= 0 && k < S.rec.nCap) return S.rec.rows[k];
+      // A bipolar channel such as P7-O1 was never recorded as such: take the
+      // same difference of the two recorded channels, before any offline filter.
+      const p = S.filt.pairs && S.filt.pairs[S.filt.labels.indexOf(label)];
+      if (!p) return null;
+      const a = S.rec.rows[S.rec.labels.indexOf(p[0])], b = S.rec.rows[S.rec.labels.indexOf(p[1])];
+      return Float32Array.from(a, (v, i) => v - b[i]);
+    }
     const k = S.filt.labels.indexOf(label); return k >= 0 ? S.clean[k] : null;
   }
   const fmax = () => Math.min(S.ds.fs / 2, 100);
@@ -54,6 +63,7 @@
       tipFmt: v => EEG.fmt(v, 2), tipX: x => `${x.toFixed(1)} Hz`
     });
     ui.legend($('psdLegend'), runs.map(r => ({ color: r.color, label: r.label, dash: !!r.dash })));
+    if (runs.length && dataKind !== 'proc' && S.filt.pairs) $('psdLegend').insertAdjacentHTML('beforeend', `<span>As recorded here means ${ch.replace('-', ' minus ')} before the offline filters.</span>`);
     if (!runs.length) $('psdLegend').textContent = segKind === 'eyes' ? 'This recording has no eyes-closed or eyes-open blocks.' : 'Nothing to show for this choice.';
   }
 
@@ -209,17 +219,18 @@
     ui.legend($('cohLegend'), series.map(s => ({ color: s.color, label: s.label, dash: !!s.dash })));
     // seed maps
     const cv = $('cvCohMap');
-    if (!S.filt.positions) { const g = D.fit(cv, 60); g.ctx.fillStyle = T.muted; g.ctx.font = D.font(12); g.ctx.fillText('Seed maps need a referential montage.', 10, 30); return; }
+    if (!S.filt.positions) { const g = D.fit(cv, 60); g.ctx.fillStyle = T.muted; g.ctx.font = D.font(12); g.ctx.fillText('Seed maps need a referential montage.', 10, 30); $('cohCap').textContent = 'Seed maps need a referential montage. Choose one under Re-reference on the Processing tab.'; return; }
     const { coh, icoh } = seedCoherence(S.clean, a, fs, Math.round(st.cohF / c.df));
     const { ctx, w, h } = D.fit(cv, w => Math.min(250, w / 2 + 40));
     const r = Math.min(w / 4, h / 2 - 22) * 0.9;
     const marks = {}; marks[labels[a]] = T.accent;
-    D.topo(ctx, w * 0.25, h / 2 + 6, r, labels, coh, { sequential: true, range: [0, 1], marks });
-    D.topo(ctx, w * 0.75, h / 2 + 6, r, labels, icoh, { sequential: true, range: [0, Math.max(0.2, ...icoh)], marks });
+    D.topo(ctx, w * 0.25, h / 2 + 6, r, labels, coh, { sequential: true, range: [0, 1], marks, fmt: v => v.toFixed(2) });
+    D.topo(ctx, w * 0.75, h / 2 + 6, r, labels, icoh, { sequential: true, range: [0, Math.max(0.2, ...icoh)], marks, fmt: v => v.toFixed(2) });
     ctx.fillStyle = T.ink2; ctx.font = D.font(11, 600); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(`|coherence|² with ${labels[a]}, ${st.cohF.toFixed(1)} Hz`, w * 0.25, 2);
     ctx.fillText(`|imaginary coherency|`, w * 0.75, 2);
-    $('cohCap').textContent = `Seed maps at ${st.cohF.toFixed(1)} Hz from ${labels[a]} (marked). Ordinary coherence spreads in a broad halo around the seed, because neighbouring electrodes see the same sources. The imaginary part is close to zero near the seed and survives only where there is a real time lag.`;
+    $('cohCap').textContent = `Seed maps at ${st.cohF.toFixed(1)} Hz from ${labels[a]} (marked). Ordinary coherence spreads in a broad halo around the seed, because neighbouring electrodes see the same sources. The imaginary part is close to zero near the seed and survives only where there is a real time lag.` +
+      (S.proc.reref === 'laplacian' ? '' : ' Every channel also contains the reference, so a strong source can make even distant pairs look coherent through it. The Laplacian is reference-free.');
   }
 
   function fillChannels() {

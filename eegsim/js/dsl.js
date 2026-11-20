@@ -221,6 +221,7 @@
     const fail = (msg, at) => { throw new DSLError(msg, at.line, at.col); };
     const warn = (msg, at) => cfg.warnings.push({ msg, line: at.line });
     const seen = {};
+    let lpGiven = false;
 
     // Value helpers. A unitless number is read in the dimension's base unit.
     function numIn(v, dim, st) {
@@ -304,7 +305,7 @@
           case 'ground': r.ground = getElectrode(st); break;
           case 'rate': r.fs = getNum(st, 'freq', { required: true, min: 100, max: 2000, unit: 'Hz' }); break;
           case 'highpass': r.hp = isOff(st) ? null : getNum(st, 'freq', { required: true, min: 0.01, max: 5, unit: 'Hz' }); break;
-          case 'lowpass': r.lp = isOff(st) ? null : getNum(st, 'freq', { required: true, min: 5, max: 1000, unit: 'Hz' }); break;
+          case 'lowpass': r.lp = isOff(st) ? null : getNum(st, 'freq', { required: true, min: 5, max: 1000, unit: 'Hz' }); lpGiven = true; break;
           case 'bits': r.bits = getNum(st, 'bits', { required: true, min: 4, max: 24 }); break;
           case 'range': r.range = getNum(st, 'volt', { required: true, min: 50, max: 1e6, unit: 'uV' }); break;
           case 'impedance': r.impedance = getNum(st, 'ohm', { required: true, min: 0.5, max: 500, unit: 'kOhm' }); break;
@@ -319,7 +320,6 @@
           case 'seed': r.seed = Math.round(getNum(st, null, { required: true })); break;
         }
       });
-      if (r.lp === null) r.lp = Math.round(r.fs * 0.4);
     }
 
     function head(stmts) {
@@ -569,8 +569,11 @@
 
     // Cross-checks that need more than one block
     const r = cfg.recording;
+    // No lowpass line means the usual anti-alias filter at 0.4 x rate; 'lowpass off' means none at all.
+    if (!lpGiven) r.lp = Math.round(r.fs * 0.4);
     if (!cfg.timeline) cfg.timeline = { segments: [{ kind: 'block', state: 'open', dur: 60 }] };
-    if (r.lp >= r.fs / 2) cfg.warnings.push({ msg: `the online low-pass (${r.lp} Hz) is at or above the Nyquist frequency (${r.fs / 2} Hz): nothing stops aliasing`, line: 0 });
+    if (r.lp === null) cfg.warnings.push({ msg: `the online low-pass is off: nothing stops aliasing above the Nyquist frequency (${r.fs / 2} Hz)`, line: 0 });
+    else if (r.lp >= r.fs / 2) cfg.warnings.push({ msg: `the online low-pass (${r.lp} Hz) is at or above the Nyquist frequency (${r.fs / 2} Hz): nothing stops aliasing`, line: 0 });
     if (cfg.analysis.lp && cfg.analysis.lp >= r.fs / 2) cfg.analysis.lp = null;
     const bad = cfg.artifacts.bad;
     if (bad.on && !EEG.capLabels(r.cap).includes(bad.label) && !['M1', 'M2'].includes(bad.label) && bad.label !== r.reference)

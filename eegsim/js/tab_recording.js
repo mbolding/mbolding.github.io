@@ -134,11 +134,13 @@
       if (g.kind === 'background') return `${R.background} µV RMS of 1/f activity`;
       if (g.kind === 'sensor') return 'thermal noise, scales with impedance';
       const k = g.id;
+      // Artifacts the program does not mention can still be switched on, with default settings
+      const declared = S.cfg.declared && S.cfg.declared.artifacts.includes(k);
       return {
         blinks: `${A.blinks.rate} per s, ${A.blinks.amp} µV`, saccades: `${A.saccades.rate} per s`, muscle: `bursts, ${A.muscle.rate} per s`,
         cardiac: `${Math.round(A.cardiac.rate * 60)} beats per min`, line: `${R.mains} Hz, ${A.line.amp / 1e3} mV common mode`,
         drift: `${A.drift.amp} µV`, pops: `${A.pops.rate} per s`, bad: `${A.bad.label} at ${A.bad.impedance} kΩ`
-      }[k];
+      }[k] + (declared || A[k].on ? '' : '; not in the program, default settings');
     };
     const sections = [['Brain', g => g.kind === 'source' || g.kind === 'background'], ['Artifacts', g => g.kind === 'artifact'], ['Recording', g => g.kind === 'sensor']];
     box.innerHTML = sections.map(([title, f]) => {

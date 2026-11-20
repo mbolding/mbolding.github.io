@@ -240,6 +240,10 @@
         (S.ds.events.length ? `, ${S.ds.events.length} trials` : '') + ` in ${ms} ms.`;
       warnings(cfg);
       experimentSummary();
+      // Keep the running program for this browser tab, so a reload or a trip
+      // to the home page and back does not lose it. Session storage is not
+      // shared with the next person to open the page.
+      try { sessionStorage.setItem('eegsim-program', JSON.stringify({ src, ex: S.exIndex })); } catch (e) {}
     });
     return true;
   }
@@ -295,8 +299,8 @@
       return `<li><span class="sw dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${ui.sourceColor(i)};margin-right:6px"></span><strong>${s.label}</strong>: ${what}, ${where}</li>`;
     }).join('');
     const arts = EEG.ARTIFACTS.filter(k => cfg.artifacts[k].on).map(k => EEG.ARTIFACT_INFO[k].label.toLowerCase());
-    $('expSummary').innerHTML = `<p>${R.cap} channels sampled at ${R.fs} Hz against ${R.reference}, hardware filters
-      ${R.hp ? R.hp + ' Hz' : 'DC'} to ${R.lp} Hz, ${R.bits}-bit digitizer (step ${EEG.fmt(2 * R.range / Math.pow(2, R.bits), 3)} µV).</p>
+    $('expSummary').innerHTML = `<p>${R.cap} channels sampled at ${R.fs} Hz against ${R.reference}, ${R.lp ? `hardware filters
+      ${R.hp ? R.hp + ' Hz' : 'DC'} to ${R.lp} Hz` : `hardware ${R.hp ? 'high-pass ' + R.hp + ' Hz' : 'DC coupling'} and no low-pass`}, ${R.bits}-bit digitizer (step ${EEG.fmt(2 * R.range / Math.pow(2, R.bits), 3)} µV).</p>
       <ul>${src || '<li>No brain sources declared.</li>'}${R.background ? `<li>Background EEG, ${R.background} µV RMS.</li>` : ''}</ul>
       <p>${arts.length ? 'Artifacts on: ' + arts.join(', ') + '.' : 'No artifacts switched on.'} Analysis starts with the ${cfg.analysis.reference} reference.</p>`;
     // timeline
@@ -325,9 +329,10 @@
     ed.value = ex.src;
     $('exDesc').textContent = ex.desc;
     $('exSelect').value = String(i);
-    syncHighlight();
+    syncHighlight(); saveEditor();
     if (buildNow) build(ed.value);
   }
+  function saveEditor() { try { sessionStorage.setItem('eegsim-editor', ed.value); } catch (e) {} }
 
   /* ---------- start ---------- */
   EEG.app.start = function () {
@@ -357,6 +362,7 @@
     ui.fill($('exSelect'), EEG.EXAMPLES.map((e, i) => ({ value: String(i), label: e.name })));
     $('exSelect').addEventListener('change', () => loadExample(+$('exSelect').value, true));
     ed.addEventListener('input', syncHighlight);
+    ed.addEventListener('input', ui.debounce(saveEditor, 300));
     ed.addEventListener('scroll', () => { hi.scrollTop = ed.scrollTop; hi.scrollLeft = ed.scrollLeft; });
     ed.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); build(ed.value); }
@@ -375,6 +381,15 @@
     let first = 'chain';
     try { first = location.hash.slice(1) || localStorage.getItem('eegsim-tab') || 'chain'; } catch (e) {}
     showTab(tabNames.includes(first) ? first : 'chain');
-    loadExample(0, true);
+    // Bring back what this tab was running before a reload, then any unbuilt edits.
+    let saved = null, text = null;
+    try { saved = JSON.parse(sessionStorage.getItem('eegsim-program') || 'null'); text = sessionStorage.getItem('eegsim-editor'); } catch (e) {}
+    if (saved && typeof saved.src === 'string' && EEG.EXAMPLES[saved.ex]) {
+      loadExample(saved.ex, false);
+      ed.value = saved.src; syncHighlight();
+      if (!build(saved.src)) loadExample(0, true);
+    } else loadExample(0, true);
+    if (typeof text === 'string' && text !== ed.value) { ed.value = text; syncHighlight(); }
+    saveEditor();
   };
 })(typeof window !== 'undefined' ? window : globalThis);

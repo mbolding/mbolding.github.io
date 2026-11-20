@@ -165,7 +165,7 @@
     const cell = Math.min(220, w / cols + 30), r = Math.min(w / cols / 2 - 10, cell / 2 - 24);
     maps.forEach((m, i) => {
       const cx = (i % cols + 0.5) * w / cols, cy = Math.floor(i / cols) * cell + 20 + r + 6;
-      D.topo(ctx, cx, cy, r, S.filt.labels, m.v, { range: mx || 1 });
+      D.topo(ctx, cx, cy, r, S.filt.labels, m.v, { range: mx || 1, unit: S.filt.unit });
       ctx.fillStyle = m.color; ctx.font = D.font(11, 600); ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(m.label, cx, cy - r - 20);
     });
     D.colorbar(ctx, w / 2 - Math.min(140, w * 0.35), rowsN * cell + 6, Math.min(280, w * 0.7), 9, mx || 1, { unit: S.filt.unit });
