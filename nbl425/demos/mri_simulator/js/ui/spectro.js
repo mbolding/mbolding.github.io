@@ -534,7 +534,7 @@
             onChange: function (z) { A.spectro.setProcessing({ zf: z }); } });
         R.zfWrap = el('div', {}, [R.segZf]);
         R.tgAuto = w.toggle({ label: 'Auto phase', checked: p.autoPhase !== false,
-            hint: 'ph1 from the known delay (−360° × delay × f), then ph0 so that the tallest peak is absorptive',
+            hint: 'ph1 from the known delay (−360° × delay × f), then ph0 so that the tallest peak is absorptive (turned over when that leaves the rest of the spectrum negative, as with an inverted water residual)',
             onChange: function (b) {
                 const ph = sp().spectrum && sp().spectrum.phase;
                 if (!b && ph) A.spectro.setProcessing({ autoPhase: false, ph0: Math.round(ph.ph0 * 10) / 10, ph1: Math.round(ph.ph1 * 10) / 10 });
@@ -1136,13 +1136,15 @@
             /* A peak spectro.js could not measure (no maximum in its window,
                not above the baseline, a negative area or under 3 noise SD)
                has null height, area and SNR: show a dash and say so, never a
-               negative number. */
+               negative number. The one exception is an inverted water
+               residual (p.inverted), measured as a negative line. */
             const ok = p.resolved !== false && isNum(p.height);
             if (!ok) anyUnresolved = true;
             const why = p.reason ? 'Not resolved: ' + p.reason : 'Not resolved';
-            R.peakBody.appendChild(el('tr', { class: ok ? null : 'is-unresolved', title: ok ? null : why }, [
+            const invTitle = 'Inverted: the second CHESS pulse tipped the residual water past zero, so it points down. Its height is negative.';
+            R.peakBody.appendChild(el('tr', { class: ok ? null : 'is-unresolved', title: ok ? (p.inverted ? invTitle : null) : why }, [
                 el('th', { scope: 'row' }, [sw ? el('span', { class: 'swatch', style: { background: sw }, 'aria-hidden': 'true' }) : null, name,
-                    ok ? null : el('span', { class: 'spec-nr', text: 'not resolved' })]),
+                    ok ? (p.inverted ? el('span', { class: 'spec-nr', text: 'inverted' }) : null) : el('span', { class: 'spec-nr', text: 'not resolved' })]),
                 el('td', { class: 'muted col-exp', text: fixed(nominalPpm(p.id), 2) }),
                 el('td', { class: 'col-ppm' + (ok ? '' : ' muted'), text: ok ? fixed(p.ppm, 3) : '–' }),
                 el('td', { text: isNum(p.height) ? num(p.height * hs, 3) : '–' }),

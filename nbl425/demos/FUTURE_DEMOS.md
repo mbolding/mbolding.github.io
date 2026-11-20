@@ -39,7 +39,7 @@ This document catalogs the interactive simulations and educational tools develop
   * Click the timeline to place stimulus blocks or event impulses (Shift+Click for the second condition).
   * Toggle collinearity / jittering to observe how overlapping trials impact detection power vs. estimation efficiency.
   * Switch the estimator between OLS and prewhitened GLM, and inspect the residual power spectrum against the task regressor's own spectrum.
-  * **Null false-positive audit**: re-runs the current design 500 times with both task effects set to zero and counts how often each estimator claims $p < 0.05$. At $\rho = 0.6$ plain OLS rejects roughly a third of pure-noise datasets where it claims 5%; prewhitening brings it back near nominal.
+  * **Null false-positive audit**: re-runs the current design 500 times with both task effects set to zero and counts how often each estimator claims $p < 0.05$. At $\rho = 0.6$ with no physiological noise, plain OLS rejects roughly a third of pure-noise datasets where it claims 5% (about a quarter at the default physiological noise of 0.5); prewhitening brings it back near nominal.
 
 ### [COMPLETED] EPI Geometric Distortion & Susceptibility Dropout Simulator
 * **Target File**: `nbl425/demos/epi_distortion.html`

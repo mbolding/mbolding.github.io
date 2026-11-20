@@ -188,6 +188,25 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
     // A degraded shim spreads water over many Hz and part of it escapes the narrow CHESS band.
     const dBad = sim(FIDWS, braino, art({ b0: { susceptibility: 1, shim: 1 } }));
     ok(dBad.info.waterSuppression < d1.info.waterSuppression / 3, 'poor shim spoils water suppression: ' + dBad.info.waterSuppression);
+    // Past the best second flip the residual water is inverted. Auto phase must keep the
+    // metabolites upright (and show the water negative), not phase the water upright.
+    for (const flip of [124, 150, 180]) {
+        const src = MRI.presets.get('fid_ws').source.replace('rf 100 water dur 20 ms', 'rf ' + flip + ' water dur 20 ms');
+        const pr = MRI.dsl.compile(src, {});
+        if (!pr.ok) throw new Error('CHESS ' + flip + ' does not compile');
+        const dd = sim(pr, braino, art());
+        ok(dd.info.relativeSignal.water < 0, 'CHESS 2 at ' + flip + ' deg leaves water inverted (Mz ' + dd.info.relativeSignal.water.toFixed(3) + ')');
+        const sp = proc(dd), naa = peak(sp, 'NAA');
+        ok(naa && naa.height > 0, 'CHESS 2 at ' + flip + ' deg: NAA found and upright (' + (naa && naa.height) + ')');
+        if (naa) near(naa.height / peak(s1, 'NAA').height, 1, 0.1, 'CHESS 2 at ' + flip + ' deg: NAA height unchanged');
+        const k = sp.ppm.reduce((b, v, i) => Math.abs(v - 4.7) < Math.abs(sp.ppm[b] - 4.7) ? i : b, 0);
+        ok(sp.re[k] < 0, 'CHESS 2 at ' + flip + ' deg: the water residual shows negative (' + sp.re[k].toFixed(4) + ')');
+        const w = peak(sp, 'water');
+        if (flip >= 150) ok(w && w.height < 0 && w.inverted === true, 'CHESS 2 at ' + flip + ' deg: the peak table reports water as inverted, height ' + (w && w.height));
+    }
+    // Unsuppressed and normally suppressed spectra are not turned over.
+    ok(peak(s0, 'water').height > 0 && !peak(s0, 'water').inverted && peak(s1, 'water').height > 0, 'fid and fid_ws report an upright water line');
+    ok(Math.abs(s0.phase.ph0) < 90 && Math.abs(s1.phase.ph0) < 90, 'fid and fid_ws keep ph0 near 0 (' + s0.phase.ph0.toFixed(1) + ', ' + s1.phase.ph0.toFixed(1) + ')');
 }
 
 /* ---------- 5. Shim: lines broaden when the shim is degraded ---------- */

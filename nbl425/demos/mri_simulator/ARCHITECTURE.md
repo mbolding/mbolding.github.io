@@ -867,7 +867,7 @@ SpecData = { n, dwell, sw, delay /* first sample after excitation centre */, nTr
 Spectrum  = { n, hz: Float64Array, ppm: Float64Array, re, im, mag,
               components: [ { id, name, color, re, im } ],
               peaks: [ { id, name, nominalPpm, window, ppm, height, area, baseline, snr,
-                         resolved, reason, contaminatedBy, componentHeight } ],
+                         resolved, reason, contaminatedBy, componentHeight, inverted? } ],
               metrics: { snr, snrPeak, noiseSd, fwhmHz, tallestPpm, waterOffsetPpm,
                          ratios: {NAA_Cr, Cho_Cr}, componentRatios: {NAA_Cr, Cho_Cr} },
               notes: [string], phase: {ph0, ph1, auto}, params }
@@ -889,7 +889,13 @@ doublet (and its quartet) with J = 6.93 Hz. Processing: exponential (lb, Hz)
 and Gaussian (gb) apodisation, zero-fill ×zf, FFT, fftshift, phase
 `ph0 + ph1·(f/1000)` degrees with f in Hz (ph1 in deg/kHz), autoPhase that
 sets ph1 from the known acquisition delay (−360°·delay·f) and ph0 by
-maximising the real part of the tallest peak. ppm axis = 4.7 + f/PPM_HZ,
+maximising the real part of the tallest peak. With water suppression on,
+ph0 is then turned by 180° when the metabolite region (4.0 to 0.5 ppm) comes
+out clearly negative: a second CHESS flip past the best one leaves the water
+residual inverted, and phasing that line upright would turn every metabolite
+over. The peak table then reports water with a negative height and
+`inverted: true` (only when the net residual, `info.waterResidual`, is
+negative; a residual with lobes of both signs is left unresolved). ppm axis = 4.7 + f/PPM_HZ,
 displayed with ppm increasing to the left.
 
 Measurement: peak windows move by `info.waterPeakHz` (the peak of the fully

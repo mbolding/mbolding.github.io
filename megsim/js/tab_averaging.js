@@ -6,7 +6,7 @@
   'use strict';
   const MEG = G.MEG, D = MEG.draw, ui = MEG.ui, S = MEG.S;
   const $ = ui.$;
-  const st = { N: 1, playing: false, lat: null, shown: null, plots: {}, mapMode: 'rms' };
+  const st = { N: 1, want: null, playing: false, lat: null, shown: null, plots: {}, mapMode: 'rms' };
 
   function chIndex() { return parseInt($('avgCh').value, 10); }
   function accepted(ci) { return S.ep.list.filter(e => e.ev.ci === ci && !e.rejected); }
@@ -214,7 +214,15 @@
     ui.readouts($('avgReadouts'), pairs);
   }
   function maxN() { let m = 1; S.ds.conditions.forEach((_, ci) => { if (st.shown.has(ci)) m = Math.max(m, accepted(ci).length); }); return m; }
-  function syncN() { const m = maxN(); st.N = MEG.clamp(st.N, 1, m); $('avgN').max = m; $('avgN').value = st.N; $('avgNV').textContent = st.N; }
+  /* Rejection can leave fewer trials than the N chosen. Clamp N to what is
+     left, but remember the choice (st.want) so that switching rejection off
+     again restores it; any explicit change of N forgets it. */
+  function syncN() {
+    const m = maxN();
+    if (st.N > m) { st.want = Math.max(st.want || 0, st.N); st.N = m; }
+    else if (st.want && st.want > st.N && m > st.N) { st.N = Math.min(st.want, m); if (st.N >= st.want) st.want = null; }
+    st.N = MEG.clamp(st.N, 1, m); $('avgN').max = m; $('avgN').value = st.N; $('avgNV').textContent = st.N;
+  }
 
   function epochLabels() {
     $('epT0V').textContent = $('epT0').value + ' ms'; $('epT1V').textContent = $('epT1').value + ' ms';
@@ -275,7 +283,7 @@
   function play() {
     if (!st.playing || S.tab !== 'averaging') { st.playing = false; $('avgPlay').textContent = 'Play'; return; }
     if (st.N >= maxN()) { st.playing = false; $('avgPlay').textContent = 'Play'; return; }
-    st.N += st.N < 20 ? 1 : st.N < 60 ? 2 : 4;
+    st.want = null; st.N = Math.min(maxN(), st.N + (st.N < 20 ? 1 : st.N < 60 ? 2 : 4));
     quick();
     st.timer = setTimeout(play, st.N < 20 ? 170 : 120);
   }
@@ -292,18 +300,18 @@
       $('avgConds').addEventListener('change', e => { const ci = +e.target.dataset.ci; if (e.target.checked) st.shown.add(ci); else st.shown.delete(ci); quick(); });
       ['avgSingle', 'avgTruth', 'avgButterfly'].forEach(id => $(id).addEventListener('change', drawERP));
       $('avgDiff').addEventListener('change', () => { drawERP(); drawTopos(); });
-      $('avgN').addEventListener('input', () => { st.N = +$('avgN').value; quick(); });
+      $('avgN').addEventListener('input', () => { st.N = +$('avgN').value; st.want = null; quick(); });
       $('avgPlay').addEventListener('click', () => {
         st.playing = !st.playing; $('avgPlay').textContent = st.playing ? 'Pause' : 'Play';
-        if (st.playing) { if (st.N >= maxN()) st.N = 1; play(); } else clearTimeout(st.timer);
+        if (st.playing) { st.want = null; if (st.N >= maxN()) st.N = 1; play(); } else clearTimeout(st.timer);
       });
-      $('avgStep').addEventListener('click', () => { st.N++; quick(); });
-      $('avgAll').addEventListener('click', () => { st.N = maxN(); quick(); });
-      $('avgReset').addEventListener('click', () => { st.N = 1; quick(); });
+      $('avgStep').addEventListener('click', () => { st.N++; st.want = null; quick(); });
+      $('avgAll').addEventListener('click', () => { st.N = maxN(); st.want = null; quick(); });
+      $('avgReset').addEventListener('click', () => { st.N = 1; st.want = null; quick(); });
       ['imgCond', 'imgSort', 'imgSmooth'].forEach(id => $(id).addEventListener('change', drawImage));
       $('snrCond').addEventListener('change', () => { drawERP(); readouts(); });
     },
-    onBuild(keep) { if (!keep) { st.N = 1; st.lat = null; st.shown = null; st.resetCh = true; $('imgCond').innerHTML = ''; $('snrCond').innerHTML = ''; } S.truthNone = false; },
+    onBuild(keep) { if (!keep) { st.N = 1; st.want = null; st.lat = null; st.shown = null; st.resetCh = true; $('imgCond').innerHTML = ''; $('snrCond').innerHTML = ''; } S.truthNone = false; },
     onArray() { st.resetCh = true; st.lat = null; },
     render
   };
