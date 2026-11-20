@@ -1343,8 +1343,8 @@
                     hint: 'Noise-free window SUVR / ' + goalName + ' − 1' + (refPart ? ': the kinetic part times the reference-region part (' + pct(eq / goal - 1) + ')' : '') },
                 refPart ? { label: 'Kinetic part, vs equilibrium ratio ' + fix(eq, 2), value: pct(wr / eq - 1), kind: Math.abs(wr / eq - 1) > 0.05 ? 'warn' : 'good',
                     hint: 'Window SUVR / (VT target / VT reference) − 1: the timing bias alone, as in (a) under Static quantification. This reference\'s nondisplaceable uptake differs from the target\'s, which adds ' + pct(eq / goal - 1) + ' even at equilibrium.' } : null,
-                { label: model === '2tci' ? 'Target still rising' : 'Target curve peaks at', value: peakAtEnd ? 'after ' + minutes(tacs.t[n - 1]) : minutes(peakT), unit: 'min',
-                    hint: model === '2tcr' ? 'Peak of the target\'s total activity (free + bound + blood), not of its specific binding. With little binding left, as in a Parkinson putamen, it is the delivery peak of the first minutes; with plenty of binding it comes much later.'
+                { label: model === '2tci' ? 'Target still rising' : 'Target total activity peaks at', value: peakAtEnd ? 'after ' + minutes(tacs.t[n - 1]) : minutes(peakT), unit: 'min',
+                    hint: model === '2tcr' ? 'Peak of the target\'s total activity (free + bound + blood), not of its specific binding. It is the delivery peak of the first minutes unless enough tracer binds to outweigh the washout of free tracer, as in a healthy striatum with FE-PE2I (about 26 min) or PE2I (about 47 min).'
                         : (model === '2tci' ? '' : 'Peak of the target\'s total activity (tissue + blood)') },
                 model === '2tcr' ? { label: 'Specific binding peaks at', value: bindT === Infinity ? 'after ' + minutes(tacs.t[n - 1]) : minutes(bindT), unit: 'min',
                     hint: 'When bound tracer stops increasing, C2/C1 = k3/k4 = BPND exactly' } : null,
@@ -1354,6 +1354,10 @@
             if (model === '2tcr') note = 'For a reversibly binding tracer the ratio climbs from about 1 and passes the true DVR, near the time specific binding peaks if the reference tracks the target\'s free tracer well (at that moment bound over free is exactly k3/k4). Afterwards it overshoots: as the plasma falls, free tracer in the reference follows it, while bound tracer in the target lags behind (transient equilibrium). A late static SUVR therefore overestimates the binding, by an amount that depends on the tracer\'s speed and on the scan time.';
             else if (model === '2tci') note = 'FDG is trapped, so the ratio never settles: it keeps rising towards the ratio of the net influx rates as free tracer clears. SUV and SUVR of FDG depend on the uptake time, which is why clinics keep it fixed (about 60 min, or 30 to 60 min for the brain).';
             else note = 'Water is freely diffusible and is not bound, so the ratio settles within minutes at the ratio of distribution volumes. Blood flow is measured from the first minute of a dynamic scan, not from a ratio.';
+            // An early total-activity peak (a Parkinson putamen, PiB) is the delivery peak, not binding: say so in view, not only in a tooltip.
+            if (model === '2tcr' && !peakAtEnd && isFinite(bindT) && bindT > 2 * peakT && peakT < 10 * MIN)
+                note += ' Here the target\'s total activity (free and bound tracer and blood) peaks at ' + minutes(peakT) + ' min, during delivery, well before its specific binding peaks (' + minutes(bindT) + ' min). ' +
+                    'The total curve only peaks late when enough tracer binds to outweigh the washout of free tracer, as in a healthy striatum with FE-PE2I or PE2I.';
             D.otNote.textContent = note + ' Target and reference are chosen under Static quantification.';
         } catch (e) {
             if (root.console) root.console.error('[kinetics tab] SUVR over time failed:', e);

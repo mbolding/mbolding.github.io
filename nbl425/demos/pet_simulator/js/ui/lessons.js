@@ -480,7 +480,7 @@
             questions: [
                 'Why does a late static SUVR overestimate the DVR of a reversibly binding tracer?',
                 'What makes a good reference region for amyloid imaging? Why not white matter?',
-                'In a healthy putamen the FE-PE2I curve peaks earlier than the PE2I curve (about 26 vs 47 min: "Target curve peaks at" under SUVR over time, with the condition set to Normal on the Phantom tab). In the Parkinson putamen both curves peak within the first 2 minutes, because little transporter is left to bind them. Why does a faster tracer make a short static scan at 20 to 40 min more trustworthy?'
+                'In a healthy putamen the FE-PE2I curve peaks earlier than the PE2I curve (about 26 vs 47 min: "Target total activity peaks at" under SUVR over time, with the condition set to Normal on the Phantom tab). In the Parkinson putamen both curves peak within the first 2 minutes, because little transporter is left to bind them. Why does a faster tracer make a short static scan at 20 to 40 min more trustworthy?'
             ],
             takeaway: 'SUVR approaches the binding (the DVR) only near equilibrium and with a reference free of the target; a dynamic scan with a Logan plot measures it.'
         }

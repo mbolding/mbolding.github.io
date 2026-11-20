@@ -331,4 +331,20 @@ function windowMeans(ph, tracer, iso, dose, t0, t1) {
     ok(r[0] === 2 && r[1] === 0, 'SUVR of arrays, 0 where the reference is empty');
 }
 
+// The Kinetics tab runs the model past the end of the scan for "SUVR over
+// time" (to 120 min). On the scan's own 2 s grid (app.js getTACs) its window
+// SUVR must equal the noise-free SUVR of Static quantification, so the tab
+// shows one value (FE-PE2I in Parkinson's disease, 20 to 40 min, posterior
+// left putamen over cerebellar gray matter: the 5 s grid it used before gave
+// 1.863 against 1.866).
+{
+    const ph = brain('pd'), t0 = 20 * 60, t1 = 40 * 60;
+    const prog = program('FE-PE2I', 'F18', 200e6, [{ t0, t1 }]);
+    const own = K.frameMeans(K.regionTACs(ph, prog, { dt: 2, condition: 'pd' }), [{ t0, t1 }])[0];
+    const end = 120 * 60, long = Object.assign({}, prog, { scanEnd: end, frames: prog.frames.concat([{ t0: end - 1, t1: end }]) });
+    const ext = K.frameMeans(K.regionTACs(ph, long, { dt: 2, condition: 'pd' }), [{ t0, t1 }])[0];
+    const iT = idx(ph, 'putamen_l_post'), iR = idx(ph, 'cereb_gm');
+    near(ext[iT] / ext[iR], own[iT] / own[iR], 1e-9, 'window SUVR from the long curves equals the scan\'s own (' + (own[iT] / own[iR]).toFixed(3) + ')');
+}
+
 summary('kinetics');

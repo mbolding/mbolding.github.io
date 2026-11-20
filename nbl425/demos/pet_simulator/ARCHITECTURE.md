@@ -39,7 +39,11 @@ engine. Every design decision follows from that.
    worth seeing. Attenuation correction, computed from the mu map alone,
    then gives the opposite artifact (a hot middle); scatter and randoms
    corrections, estimated from the measured data, fall to zero and change
-   nothing; PSF modelling without the blur over-sharpens a little. Corrections are computed the way a scanner computes them (from
+   nothing, as do normalisation of identical crystals and motion
+   correction of a still object; PSF or positron-range modelling without
+   the blur sharpens too much (edges overshoot, small hot spots peak above
+   the truth). The Corrections concept card says so. Corrections are
+   computed the way a scanner computes them (from
    delayed coincidences, a mu map, a scatter model scaled to the sinogram
    tails), never by peeking at the simulator's ground truth, except where
    this file says so and the UI says so too.
@@ -837,7 +841,8 @@ instant re-scan when `autoRescan` is on and the program compiled. `setRecon`
 only re-runs the reconstruction.
 
 A preset sets the protocol and its phantom only; physics and reconstruction
-changes stay. `loadPreset` says so in a toast that lists them
+changes stay. `loadPreset` says so in a toast that lists them (computed on
+the next tick, after any settings the caller applies right after it)
 (`PET.app.changedSettings() -> {physics: [names], recon: [names]}`), unless
 `quiet` (the Guide and the "Show me" demonstrations set physics and
 reconstruction themselves), and the Protocol tab lists them under the preset
@@ -850,7 +855,7 @@ stopped. `PET.app.outdatedReason()` says which, in a sentence. Then the scan
 bar shows "Out of date", the Sinogram counts table, the Reconstruction image
 panel, Static quantification and the Corrections status say the results are
 from the last scan, and the bus carries `results:outdated {outdated, reason}`
-whenever the state flips.
+whenever the state or its reason changes.
 
 Bus events: `phantom:changed {phantom}` · `program:compiled {program, errors}`
 · `physics:changed {physics}` · `scan:start {animate}` · `scan:progress {frac,

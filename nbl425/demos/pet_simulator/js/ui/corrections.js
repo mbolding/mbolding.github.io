@@ -1008,7 +1008,8 @@
                 'They are independent on purpose: leave a correction out and you see what the effect does. Apply a correction when its effect is absent and the result depends on how the correction is made. ' +
                 '<b>Attenuation</b> correction comes from the mu map alone, so it still multiplies every line and gives the <b>opposite artifact</b>, a hot middle. ' +
                 '<b>Scatter</b> and <b>randoms</b> corrections are estimated from the measured data (the sinogram tails, the delayed window), so their estimates fall to zero and change nothing. ' +
-                'Resolution modelling (PSF) without the blur over-sharpens a little: small hot spheres read a few per cent high. ' +
+                '<b>Normalisation</b> of identical crystals divides by 1, and <b>motion</b> correction of a still object moves nothing. ' +
+                '<b>Resolution modelling</b> (PSF, positron range) for a blur that is not there sharpens too much: edges overshoot and small hot spots peak above their true value. ' +
                 'Corrections are computed the way a scanner computes them, from a mu map, delayed coincidences, a scatter model fitted to the sinogram tails and a normalisation scan.</p>',
             formula: 'y<sub>i</sub> ~ Poisson( n<sub>i</sub> a<sub>i</sub> &kappa; (H x)<sub>i</sub> + s<sub>i</sub> + r<sub>i</sub> )',
             tryThis: [

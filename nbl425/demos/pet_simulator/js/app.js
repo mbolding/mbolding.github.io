@@ -555,19 +555,21 @@
        does not compile, Auto re-scan is off, or the re-scan failed. Tabs
        mark their results then (bus 'results:outdated'), and the scan bar
        says why. */
-    let outdatedShown = false;
+    let outdatedShown = false, outdatedShownReason = '';
     function resultsOutdated() { return !!(state.acq && state.stale && !state.scanning && !rescanPending); }
     function outdatedReason() {
         if (!resultsOutdated()) return '';
         if (!(state.program && state.program.ok)) return 'The protocol has errors, so nothing was re-scanned: the images and counts are from the last scan. First error, ' + compileErrorText(state.program);
         if (!state.autoRescan) return 'Settings changed since the last scan, and Auto re-scan is off: the images and counts are from the last scan. Press Acquire.';
-        return 'The re-scan failed: the images and counts are from the last scan.';
+        return 'The re-scan did not finish (it failed or was stopped): the images and counts are from the last scan.';
     }
     function syncOutdated() {
-        const now = resultsOutdated();
-        if (now !== outdatedShown) {
+        const now = resultsOutdated(), reason = outdatedReason();
+        // also when only the reason changed (protocol fixed with Auto re-scan off), so the tabs say the right thing
+        if (now !== outdatedShown || reason !== outdatedShownReason) {
             outdatedShown = now;
-            bus.emit('results:outdated', { outdated: now, reason: outdatedReason() });
+            outdatedShownReason = reason;
+            bus.emit('results:outdated', { outdated: now, reason: reason });
         }
         if (now) showOutdated();
     }
@@ -642,11 +644,15 @@
             scheduleRescan();
             // A preset is a protocol and a phantom: earlier physics and
             // reconstruction changes stay, which a student should not miss.
+            // Listed after the caller's own settings (a "Try this" button
+            // that loads a preset and then sets the reconstruction).
             if (!(opts && opts.quiet) && doc) {
-                const c = changedSettings(), parts = [];
-                if (c.physics.length) parts.push('physics (' + c.physics.join(', ') + ')');
-                if (c.recon.length) parts.push('reconstruction (' + c.recon.join(', ') + ')');
-                if (parts.length) notify('Loaded ' + (p.name || id) + '. Your changes to the ' + parts.join(' and ') + ' are kept: a preset sets only the protocol and the phantom. Reset them on the Protocol tab.', 'info');
+                setTimeout(function () {
+                    const c = changedSettings(), parts = [];
+                    if (c.physics.length) parts.push('physics (' + c.physics.join(', ') + ')');
+                    if (c.recon.length) parts.push('reconstruction (' + c.recon.join(', ') + ')');
+                    if (parts.length) notify('Loaded ' + (p.name || id) + '. These changes from the defaults are kept, because a preset sets only the protocol and the phantom: ' + parts.join(' and ') + '. Reset them on the Protocol tab.', 'info');
+                }, 0);
             }
             return true;
         },

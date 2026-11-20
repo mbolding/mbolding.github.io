@@ -49,6 +49,15 @@ ok(A._merged({ a: { b: 1, c: 2 } }, { a: { c: 3 } }).a.b === 1, 'deep merge keep
     Ac.setSource(S.source.replace(/^static.*$/m, 'static 10'));
     ok(!S.program.ok && App.resultsOutdated() && /protocol has errors/.test(App.outdatedReason()), 'compile error: out of date');
     ok(events.length > 0 && events[events.length - 1].outdated === true, 'results:outdated event emitted');
+    // fixing the protocol with Auto re-scan off: still out of date, for another reason, and the tabs hear of it
+    Ac.setAutoRescan(false);
+    const before = events.length;
+    Ac.setSource(S.source.replace(/^static.*$/m, 'static DUR'));
+    ok(S.program.ok && App.resultsOutdated() && /Auto re-scan is off/.test(App.outdatedReason()), 'protocol fixed, Auto re-scan off: still out of date');
+    ok(events.length > before && /Auto re-scan is off/.test(events[events.length - 1].reason), 'results:outdated carries the new reason');
+    Ac.setAutoRescan(true);
+    ok(!App.resultsOutdated(), 'Auto re-scan on again: a re-scan is pending, so not out of date');
+    await wait(350);
     // carried-over settings
     ok(App.changedSettings().physics.length === 0 && App.changedSettings().recon.length === 0, 'defaults: nothing carried over');
     Ac.setPhysics({ attenuation: false, muMap: { dx: 8 } });
