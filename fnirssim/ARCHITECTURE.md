@@ -343,8 +343,10 @@ program, the editor text, the example it came from, the analysis settings
 `P`, the switched-on components and the selected channel are kept in
 `sessionStorage` (`fnirssim-session`, this browser tab only), written after
 each build and when the page is hidden, so a reload rebuilds the same
-recording instead of the first example. Slider positions on the Light,
-Wavelengths, Head, fNIRS vs fMRI and Tomography tabs are not kept.
+recording instead of the first example. The exploration controls on the
+System, Light, Wavelengths, Head (before Apply), fNIRS vs fMRI and
+Tomography tabs, the Confounds sliders and the Beer-Lambert cursor are not
+kept.
 
 | Tab | Content |
 |---|---|
