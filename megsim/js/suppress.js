@@ -273,7 +273,8 @@
     const chunk = compensate ? Math.round(1 * fs) : n;
     const out = rows.map(() => new Float32Array(n));
     const model0 = sssModel(ds, ref, order);
-    let info = { order, nin: model0.nin, nout: model0.nout, cond: model0.cond, rank: model0.rank, removed: 0, windows: 0 };
+    // info.tsss keeps the time courses tSSS removes, { s (first sample), Q }, so ICA's Reveal can remove them too
+    let info = { order, nin: model0.nin, nout: model0.nout, cond: model0.cond, rank: model0.rank, removed: 0, windows: 0, tsss: opts.tsss ? [] : null };
     // Coefficients: X = P Y, inside and outside parts
     const coefIn = model0.Sin[0].length;
     const Xin = [], Xout = [];
@@ -308,6 +309,7 @@
           A.forEach(x => { let d = 0; for (let t = 0; t < L; t++) d += x[t] * q[t]; for (let t = 0; t < L; t++) x[t] -= d * q[t]; });
         });
         info.removed += Q.length; info.windows++;
+        if (Q.length) info.tsss.push({ s, Q });
         if (progress) await progress(0.6 + 0.3 * e / n);
       }
     }
@@ -398,8 +400,9 @@
      channels and on the reference channels: the references' prediction
      subtracted, the inside part of SSS kept and the SSP vectors projected
      out, in the order the page applies them.  tSSS's temporal step is not
-     included.  sup: the page's S.sup, with W, sssModel (the SSS model at the
-     starting head position) and U. */
+     included here (it acts on time courses: sup.info.tsss).  sup: the page's
+     S.sup, with W, sssModel (the SSS model at the starting head position)
+     and U. */
   function rowsAfter(sup, rows, refs) {
     let cur = rows;
     if (sup && sup.W) cur = applyRefs(cur, refs, sup.W);

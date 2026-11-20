@@ -143,12 +143,16 @@
      step from a generator to a component's activation is linear: its pattern
      goes through the noise rejection as the data did (references, SSS, SSP),
      the component's unmixing row turns that pattern into a gain on its time
-     course, and the time course goes through the online and offline filters.
-     A signal's share of the activation's variance is how much of the
-     component it made.  A map that merely looks like a blink's is not
-     enough: on magnetometers many smooth maps correlate by 0.7 or more.
-     Patterns are taken at the starting head position, and tSSS's temporal
-     step is left out.
+     course, and the time course goes through the online filters, the time
+     courses tSSS projected out and the offline filters.  A signal's share of
+     the activation's variance is how much of the component it made.  It is
+     taken as the smaller of two numbers that agree when the signals are
+     independent: the variance the signal adds, over the activation's, and
+     the squared correlation of the two time courses.  The second stops two
+     large signals that cancel in a component from naming it.  A map that
+     merely looks like a blink's is not enough: on magnetometers many smooth
+     maps correlate by 0.7 or more.  Patterns are taken at the starting head
+     position.
      opts: { rows (the channels ICA was given, before scaling), sigma, sup
      (the page's S.sup), enabled (Set of group ids), room, chain (the
      offline filters) }.  Returns one { text, share, group } per component. */
@@ -159,10 +163,20 @@
     if (R.hp) online.push(...dsp.butter('high', 1, R.hp, fs));
     if (R.lp && R.lp < fs / 2) online.push(...dsp.butter('low', 4, R.lp, fs));
     const step = Math.max(1, Math.floor(n / 10000)), m = Math.floor((n - 1) / step) + 1;
+    // tSSS removed the same time courses from every channel, window by window
+    const tq = opts.sup && opts.sup.info && opts.sup.info.tsss;
+    const tsss = y => {
+      if (tq) tq.forEach(({ s, Q }) => Q.forEach(q => {
+        const L = q.length; let d = 0;
+        for (let t = 0; t < L; t++) d += y[s + t] * q[t];
+        for (let t = 0; t < L; t++) y[s + t] -= d * q[t];
+      }));
+    };
     // a time course through the filters, sampled every `step`, mean removed
     const sub = x => {
       const y = Float64Array.from(x);
       if (online.length) dsp.sosfilt(online, y);
+      tsss(y);
       if (opts.chain && !opts.chain.empty) opts.chain.apply(y);
       const o = new Float64Array(m); let mu = 0;
       for (let j = 0; j < m; j++) { o[j] = y[j * step]; mu += o[j]; }
@@ -170,15 +184,18 @@
       return o;
     };
     const dot = (a, b) => { let s = 0; for (let j = 0; j < m; j++) s += a[j] * b[j]; return s / m; };
-    // each component's unmixing row on the unscaled channels, and the variance of its activation
+    // each component's unmixing row on the unscaled channels, its activation and that activation's variance
     const W = model.comps.map(c => Float64Array.from(c.unmix, (u, ch) => u / opts.sigma[ch]));
-    const actVar = W.map(w => {
+    const acts = W.map(w => {
       const a = new Float64Array(m);
       for (let ch = 0; ch < nch; ch++) { const wc = w[ch], r = opts.rows[ch]; if (!wc) continue; for (let j = 0; j < m; j++) a[j] += wc * r[j * step]; }
       let mu = 0; for (let j = 0; j < m; j++) mu += a[j]; mu /= m;
-      let v = 0; for (let j = 0; j < m; j++) v += (a[j] - mu) * (a[j] - mu);
-      return v / m || 1;
+      for (let j = 0; j < m; j++) a[j] -= mu;
+      return a;
     });
+    const actVar = acts.map(a => dot(a, a) || 1);
+    // v: the variance a signal adds to component i; cov: its covariance with the activation
+    const share = (v, cov, i) => (v > 0 ? Math.min(v / actVar[i], cov * cov / (v * actVar[i])) : 0);
     // the candidates: each source and artifact as a whole (both auditory cortices
     // of one source share a waveform, both eyes blink together), each muscle and HPI coil apart
     const cands = new Map();
@@ -197,8 +214,9 @@
       const C = F.map(a => F.map(b => dot(a, b)));
       W.forEach((w, i) => {
         const gain = P.map(p => { let s = 0; for (let ch = 0; ch < nch; ch++) s += w[ch] * p[ch]; return s; });
-        let v = 0; gain.forEach((ga, a) => gain.forEach((gb, b) => { v += ga * gb * C[a][b]; }));
-        shares[i].push({ label: cd.label, group: cd.group, share: v / actVar[i] });
+        let v = 0, cov = 0;
+        gain.forEach((ga, a) => { cov += ga * dot(F[a], acts[i]); gain.forEach((gb, b) => { v += ga * gb * C[a][b]; }); });
+        shares[i].push({ label: cd.label, group: cd.group, share: share(v, cov, i) });
       });
     });
     // dental work is a magnet whose pattern changes as it moves, sampled at its own rate
@@ -213,11 +231,17 @@
         const x = new Float64Array(n);
         for (let s = 0; s < n; s++) { const f = Math.min(KJ - 1.0001, s / fs * fsJ), k = Math.floor(f), u = f - k; x[s] = d[k] + (d[k + 1] - d[k]) * u; }
         const o = sub(x);
-        shares[i].push({ label: MEG.ARTIFACT_INFO.dental.label, group: 'dental', share: dot(o, o) / actVar[i] });
+        shares[i].push({ label: MEG.ARTIFACT_INFO.dental.label, group: 'dental', share: share(dot(o, o), dot(o, acts[i]), i) });
       });
     }
     return model.comps.map((c, i) => {
-      const best = shares[i].reduce((a, b) => (b.share > a.share ? b : a), { share: 0, label: null, group: null });
+      let best = shares[i].reduce((a, b) => (b.share > a.share ? b : a), { share: 0, label: null, group: null });
+      // muscles that fire together can share a component: name them together when no one of them makes half of it
+      Object.keys(SPLIT).forEach(gid => {
+        const parts = shares[i].filter(x => x.group === gid && x.share >= 0.1).sort((a, b) => b.share - a.share);
+        const sum = parts.reduce((a, x) => a + x.share, 0);
+        if (parts.length > 1 && best.share < 0.5 && sum >= 0.5) best = { label: gid === 'hpi' ? parts.map(x => x.label).join(' and ') : `${MEG.ARTIFACT_INFO[gid].label}: ${parts.map(x => x.label.split(': ').pop()).join(' and ')}`, group: gid, share: sum };
+      });
       let e = 0, mx = 0, at = 0; c.topo.forEach((x, ch) => { e += x * x; if (x * x > mx) { mx = x * x; at = ch; } });
       if (best.share >= 0.5) return { text: `≈ ${best.label}`, share: best.share, group: best.group };
       if (mx / e > 0.5) return { text: `one sensor, ${arr.channels[at].name}: a flux jump or a bad channel`, share: null, group: 'single' };

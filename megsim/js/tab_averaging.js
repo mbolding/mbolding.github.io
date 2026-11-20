@@ -106,7 +106,7 @@
       let stt = 0; for (let t = 0; t < nT; t++) stt += (a[t] - tr[t]) ** 2;
       Ns.push(n); snrB.push(sig / Math.sqrt(sb / (b1 - b0) || 1e-30)); snrT.push(sig / Math.sqrt(stt / nT || 1e-30));
     }
-    if (!Ns.length) { D.message(cv, 'No accepted trials.'); return; }
+    if (!Ns.length) { D.message(cv, 'No accepted trials.'); ui.legend($('snrLegend'), []); st.snr = null; return; }
     let a = 0; Ns.forEach((n, i) => { a += Math.log(snrT[i]) - 0.5 * Math.log(n); }); a = Math.exp(a / Ns.length);
     const theory = Ns.map(n => a * Math.sqrt(n));
     const curN = Math.min(st.N, Ns.length);
