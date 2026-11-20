@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG Simulator</title>
+<meta name="description" content="A teaching EEG simulator: describe a recording in a small language, record from dipole sources through a layered head, add artifacts, then re-reference, filter, run ICA, average ERPs and localize sources.">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Apply a remembered theme before first paint.
+  try { const t = localStorage.getItem('eegsim-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topline">
+    <a class="back" href="../index.html">&larr; Back to home</a>
+    <button class="ghost small" id="btnTheme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+  <h1>EEG Simulator</h1>
+  <p class="sub">A sibling to the <a href="../petdemo.html">PET scanner simulator</a>. Describe a recording in a few lines,
+    record it from dipole sources inside a layered head, contaminate it with the artifacts every lab knows, and then do
+    what an analyst does: re-reference, filter, remove components, average and localize. Every view is computed from the
+    same simulated data, and the simulator always knows the truth, so you can check every answer.</p>
+
+  <nav class="tabs" role="tablist" aria-label="Simulator sections">
+    <button role="tab" id="t-chain" aria-controls="tab-chain" aria-selected="true"><span class="num">1</span>Signal chain</button>
+    <button role="tab" id="t-experiment" aria-controls="tab-experiment" aria-selected="false"><span class="num">2</span>Experiment</button>
+    <button role="tab" id="t-sources" aria-controls="tab-sources" aria-selected="false"><span class="num">3</span>Sources &amp; head</button>
+    <button role="tab" id="t-recording" aria-controls="tab-recording" aria-selected="false"><span class="num">4</span>Recording</button>
+    <button role="tab" id="t-spectra" aria-controls="tab-spectra" aria-selected="false"><span class="num">5</span>Spectra</button>
+    <button role="tab" id="t-processing" aria-controls="tab-processing" aria-selected="false"><span class="num">6</span>Processing</button>
+    <button role="tab" id="t-averaging" aria-controls="tab-averaging" aria-selected="false"><span class="num">7</span>ERP averaging</button>
+    <button role="tab" id="t-localization" aria-controls="tab-localization" aria-selected="false"><span class="num">8</span>Localization</button>
+    <button role="tab" id="t-guide" aria-controls="tab-guide" aria-selected="false"><span class="num">9</span>Guide</button>
+  </nav>
+  <div class="status" id="status" aria-live="polite"><span class="busy" id="busy">Working</span></div>
+
+  <!-- ================= 1. SIGNAL CHAIN ================= -->
+  <section role="tabpanel" id="tab-chain" aria-labelledby="t-chain">
+    <details class="concept" open>
+      <summary>The idea: from a synapse to a number in a file</summary>
+      <div>
+        <p>An EEG sample is the end of a chain of five physical steps. Synaptic currents in thousands of aligned
+          pyramidal cells add up to a <strong>current dipole</strong>. The dipole drives volume currents through the brain,
+          the cerebrospinal fluid, the skull and the scalp, so a <strong>potential</strong> appears everywhere on the head.
+          <strong>Electrodes</strong> sample that potential at standard positions. A <strong>differential amplifier</strong>
+          measures each electrode against a reference and rejects what they share. A <strong>digitizer</strong> samples the
+          result in time and rounds it to whole steps. Each stage below is interactive; each one leaves a fingerprint you
+          will meet again in the recording.</p>
+      </div>
+    </details>
+    <div class="chain" id="chainStages" role="group" aria-label="Stages of the signal chain">
+      <button data-stage="neurons" aria-pressed="true"><span>1 · Neurons</span><small>pyramidal cells form a dipole</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="layers" aria-pressed="false"><span>2 · Head</span><small>CSF, skull and scalp</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="electrodes" aria-pressed="false"><span>3 · Electrodes</span><small>the 10-20 cap</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="amplifier" aria-pressed="false"><span>4 · Amplifier</span><small>differential, with a reference</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="digitizer" aria-pressed="false"><span>5 · Digitizer</span><small>sampling and quantization</small></button>
+    </div>
+
+    <div class="panel" id="stage-neurons">
+      <h2>Pyramidal cells and the dipole they form <span class="hint">animated; the current loop of an excitatory synapse on the apical dendrite</span></h2>
+      <div class="grid-wide">
+        <div>
+          <canvas id="cvNeurons"></canvas>
+          <p class="cap">A fold of cortex. Pyramidal cells stand perpendicular to the cortical surface, so on the crown of a gyrus they
+            point at the scalp and on the wall of a sulcus they lie along it. Positive current enters the apical dendrites at the
+            synapses (a current <em>sink</em> in the extracellular space, so negative there), flows down inside the cell and leaves
+            near the soma (a <em>source</em>). Seen from far away the loop is a current dipole.</p>
+        </div>
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="nrnPatch">Active patch</label>
+              <select id="nrnPatch">
+                <option value="crown">Crown of a gyrus (radial)</option>
+                <option value="wall">Wall of a sulcus (tangential)</option>
+                <option value="both">Both walls of a sulcus (opposed)</option>
+              </select></div>
+            <div class="ctl"><label for="nrnArea">Active area <span class="val" id="nrnAreaV"></span></label><input type="range" id="nrnArea" min="0.2" max="20" step="0.1" value="6"></div>
+            <div class="ctl"><label for="nrnSync">Synchrony <span class="val" id="nrnSyncV"></span></label><input type="range" id="nrnSync" min="0" max="20" step="0.1" value="2"></div>
+          </div>
+          <div class="readouts" id="nrnReadouts"></div>
+          <canvas id="cvNeuronTopo"></canvas>
+          <p class="cap">Scalp map for the active patch, computed with the same head model the rest of the simulator uses.
+            Synchronous cells add linearly, N of them making N times one cell's dipole; asynchronous cells add like a random walk, as the square root of N.
+            That is why EEG sees synchrony, not activity. The numbers are order-of-magnitude estimates.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-layers" hidden>
+      <h2>Volume conduction through the head <span class="hint">four concentric shells: brain, CSF, skull, scalp</span></h2>
+      <div class="grid2">
+        <div>
+          <canvas id="cvLayers"></canvas>
+          <p class="cap">A coronal slice through the model head with a radial dipole under the vertex. The coloured band on the scalp is
+            the potential the dipole produces there, computed exactly for the layered sphere. The skull is the layer that matters:
+            it conducts tens of times worse than brain, so current spreads sideways in the CSF and scalp before it can cross it.</p>
+        </div>
+        <div>
+          <canvas id="cvProfile"></canvas>
+          <div class="legend" id="profileLegend"></div>
+          <div class="controls tight">
+            <div class="ctl"><label for="lyrRatio">Brain : skull conductivity <span class="val" id="lyrRatioV"></span></label><input type="range" id="lyrRatio" min="5" max="120" step="1" value="40"></div>
+            <div class="ctl"><label for="lyrDepth">Source depth below scalp <span class="val" id="lyrDepthV"></span></label><input type="range" id="lyrDepth" min="1.3" max="6" step="0.1" value="1.6"></div>
+            <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="lyrCSF" checked> CSF layer present</label></div>
+          </div>
+          <div class="readouts" id="lyrReadouts"></div>
+          <div class="btnrow" style="margin-top:10px"><button class="ghost small" id="btnUseSkull">Use this skull in the simulation</button><span class="note" id="useSkullNote"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-electrodes" hidden>
+      <h2>Electrodes and the 10-20 system <span class="hint">click an electrode</span></h2>
+      <div class="grid-wide">
+        <div>
+          <div class="btnrow" style="margin-bottom:8px"><span class="lbl" style="margin:0">Cap</span>
+            <div class="seg" id="capSeg"><button data-n="19" aria-pressed="false">19 channels</button><button data-n="32" aria-pressed="true">32</button><button data-n="64" aria-pressed="false">64</button></div></div>
+          <canvas id="cvCap"></canvas>
+        </div>
+        <div>
+          <canvas id="cvCapSide"></canvas>
+          <div class="prose" id="capInfo" style="margin-top:10px"></div>
+          <div class="prose">
+            <p>Positions are proportional, not absolute. The midline from nasion to inion is divided 10%, 20%, 20%, 20%, 20%, 10%,
+              and the same rule runs from ear to ear, so every head gets the same anatomical coverage. Letters name the region
+              (<strong>Fp</strong> frontopolar, <strong>F</strong> frontal, <strong>C</strong> central, <strong>T</strong> temporal, <strong>P</strong> parietal,
+              <strong>O</strong> occipital); odd numbers are on the left, even on the right, and <strong>z</strong> marks the midline.
+              The 10-10 extension fills in the 10% positions between them (AF, FC, CP, PO and the 1, 2, 5, 6 columns) for denser caps.
+              M1 and M2 sit on the mastoid bones behind the ears and are a common reference.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-amplifier" hidden>
+      <h2>The differential amplifier <span class="hint">why the reference electrode and impedance matter</span></h2>
+      <div class="grid2">
+        <div><canvas id="cvAmp"></canvas>
+          <p class="cap">The body picks up mains voltage capacitively, so every electrode carries the same large common-mode signal
+            on top of a few microvolts of brain activity. The amplifier outputs the <em>difference</em> between its two inputs.
+            Each electrode impedance and the amplifier's input impedance form a voltage divider; if the two electrodes have
+            different impedances the common mode reaches the two inputs at slightly different sizes and part of it survives the
+            subtraction. The ground electrode gives the amplifier a common point. It is not the reference.</p></div>
+        <div>
+          <canvas id="cvAmpTraces"></canvas>
+          <div class="controls tight">
+            <div class="ctl"><label for="ampZa">Active electrode impedance <span class="val" id="ampZaV"></span></label><input type="range" id="ampZa" min="0" max="2.7" step="0.01" value="0.7"></div>
+            <div class="ctl"><label for="ampZr">Reference electrode impedance <span class="val" id="ampZrV"></span></label><input type="range" id="ampZr" min="0" max="2.7" step="0.01" value="1.18"></div>
+            <div class="ctl"><label for="ampZin">Amplifier input impedance <span class="val" id="ampZinV"></span></label><input type="range" id="ampZin" min="0" max="3" step="0.05" value="2"></div>
+            <div class="ctl"><label for="ampCMRR">Common-mode rejection <span class="val" id="ampCMRRV"></span></label><input type="range" id="ampCMRR" min="40" max="130" step="1" value="100"></div>
+            <div class="ctl"><label for="ampVcm">Common-mode voltage on the body <span class="val" id="ampVcmV"></span></label><input type="range" id="ampVcm" min="1" max="500" step="1" value="50"></div>
+            <div class="ctl"><label for="ampSig">Brain signal (10 Hz) <span class="val" id="ampSigV"></span></label><input type="range" id="ampSig" min="1" max="50" step="1" value="20"></div>
+          </div>
+          <div class="readouts" id="ampReadouts"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-digitizer" hidden>
+      <h2>The digitizer: sampling and quantization <span class="hint">0.25 s of a test signal</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvDig"></canvas><div class="legend" id="digLegend"></div></div>
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="digFreq">Signal frequency <span class="val" id="digFreqV"></span></label><input type="range" id="digFreq" min="1" max="250" step="1" value="10"></div>
+            <div class="ctl"><label for="digAmp">Signal amplitude <span class="val" id="digAmpV"></span></label><input type="range" id="digAmp" min="1" max="200" step="1" value="40"></div>
+            <div class="ctl"><label for="digFs">Sampling rate <span class="val" id="digFsV"></span></label><input type="range" id="digFs" min="20" max="1000" step="5" value="250"></div>
+            <div class="ctl"><label for="digBits">Bits <span class="val" id="digBitsV"></span></label><input type="range" id="digBits" min="3" max="16" step="1" value="8"></div>
+            <div class="ctl"><label for="digRange">Input range &plusmn; <span class="val" id="digRangeV"></span></label><input type="range" id="digRange" min="20" max="2000" step="10" value="200"></div>
+            <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="digAA"> Anti-alias filter at fs/3</label></div>
+          </div>
+          <div class="readouts" id="digReadouts"></div>
+          <p class="cap">The sampling theorem says a signal is captured only if it contains nothing above half the sampling rate, the
+            Nyquist frequency. Anything faster is not lost, it folds back and masquerades as a slower signal. That is why every EEG
+            amplifier low-pass filters <em>before</em> the digitizer: once a 60 Hz hum has aliased to 40 Hz no later filter can tell it
+            from brain activity. Quantization rounds every sample to a step of range / 2<sup>bits</sup>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2. EXPERIMENT ================= -->
+  <section role="tabpanel" id="tab-experiment" aria-labelledby="t-experiment" hidden>
+    <details class="concept">
+      <summary>A recording is a description</summary>
+      <div><p>Every EEG study can be written down as a handful of decisions: which cap and how many channels, which electrode is the
+        online reference, how fast to sample, what the hardware filters do, what the participant does and when, and what is in the
+        head. The program on the left is exactly that, in a small language. Change a line and press <strong>Build recording</strong>:
+        the simulator records a new session and every other tab updates. The examples are a good place to start. The language is
+        described under the editor.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Program <span class="hint">Ctrl or &#8984; + Enter builds</span></h2>
+        <div class="btnrow" style="margin-bottom:8px">
+          <select id="exSelect" aria-label="Example programs" style="width:auto;max-width:100%"></select>
+          <button id="btnBuild">Build recording</button>
+          <button class="ghost" id="btnRevert">Revert to example</button>
+        </div>
+        <p class="note" id="exDesc"></p>
+        <div class="editor"><pre id="edHi" aria-hidden="true"></pre><textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Recording program"></textarea></div>
+        <div class="errbox" id="errbox" role="status"></div>
+        <ul class="warnlist" id="warnlist"></ul>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>What the program describes</h2>
+          <canvas id="cvExpCap"></canvas>
+          <div class="legend" id="expCapLegend"></div>
+          <div class="prose" id="expSummary" style="margin-top:10px"></div>
+        </div>
+        <div class="panel">
+          <h2>Timeline</h2>
+          <canvas id="cvTimeline"></canvas>
+          <div class="legend" id="tlLegend"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The language</h2>
+      <div class="prose"><p>A program is a few blocks in braces. Inside a block each statement is a keyword and its values. A number takes a unit
+        (<code>Hz</code>, <code>ms</code>, <code>s</code>, <code>uV</code>, <code>mV</code>, <code>nAm</code>, <code>kOhm</code>, <code>cm</code>,
+        <code>deg</code>, <code>S/m</code>, <code>bpm</code>, <code>dB</code>) or a <code>%</code>, and the unit says what the number is, so
+        <code>blinks 0.2 Hz 150 uV</code> and <code>blinks 150 uV 0.2 Hz</code> mean the same. In a run of numbers the last unit applies to all:
+        <code>epoch -200 800 ms</code>. Line breaks are only spacing, and <code>#</code> starts a comment.</p></div>
+      <div class="tablewrap"><table class="ref">
+        <thead><tr><th>Statement</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><th colspan="2">recording { ... }</th></tr>
+          <tr><td>cap 19 | 32 | 64</td><td>Number of channels on a standard 10-20 / 10-10 cap.</td></tr>
+          <tr><td>reference Cz</td><td>Online reference electrode, the minus input of every channel. Any 10-10 name, or M1 / M2 for a mastoid.</td></tr>
+          <tr><td>ground AFz</td><td>Ground electrode (drawn on the cap; it does not enter the measurement).</td></tr>
+          <tr><td>rate 250 Hz</td><td>Sampling rate, 100 to 2000 Hz.</td></tr>
+          <tr><td>highpass 0.1 Hz | off</td><td>Hardware high-pass (first order, causal). <code>off</code> records DC.</td></tr>
+          <tr><td>lowpass 70 Hz | off</td><td>Hardware anti-alias low-pass (fourth-order Butterworth). Default 0.4 &times; rate.</td></tr>
+          <tr><td>bits 16 &nbsp; range 3.2 mV</td><td>Digitizer resolution and input range (&plusmn;). Step = 2 &times; range / 2<sup>bits</sup>.</td></tr>
+          <tr><td>impedance 5 kOhm</td><td>Typical electrode impedance; each electrode varies around it.</td></tr>
+          <tr><td>mains 60 Hz</td><td>Line frequency, 50 or 60 Hz.</td></tr>
+          <tr><td>cmrr 100 dB &nbsp; input 100 MOhm</td><td>Amplifier common-mode rejection and input impedance.</td></tr>
+          <tr><td>background 8 uV | off</td><td>RMS of ongoing background EEG (random 1/f cortical dipoles).</td></tr>
+          <tr><td>seed 1</td><td>Random seed. The same program and seed always produce the same recording.</td></tr>
+          <tr><th colspan="2">head { ... }</th></tr>
+          <tr><td>brain 0.33 S/m &nbsp; csf 1.79 S/m &nbsp; skull 0.0083 S/m &nbsp; scalp 0.33 S/m</td><td>Shell conductivities. <code>homogeneous</code> replaces the shells with one sphere of brain.</td></tr>
+          <tr><th colspan="2">source dipole | pair | alpha | erp | spike <i>name</i> { ... }</th></tr>
+          <tr><td>at Pz depth 3 cm</td><td>Place a dipole 3 cm under the scalp beneath an electrode. Or <code>pos x y z cm</code> (x right, y forward, z up).</td></tr>
+          <tr><td>orient radial | tangential | inward | 40 deg</td><td>Tilt from pointing straight out. Add <code>toward C4</code> or <code>dir 90 deg</code> for the direction of the tangential part.</td></tr>
+          <tr><td>amp 20 nAm</td><td>Dipole moment.</td></tr>
+          <tr><td>signal sine | burst | pink 10 Hz</td><td><code>dipole</code>: a steady sinusoid, a waxing and waning rhythm, or 1/f noise.</td></tr>
+          <tr><td>dipole A { at C3 ... } &nbsp; rhythm 20 Hz &nbsp; coupling 0.6 &nbsp; lag 15 ms</td><td><code>pair</code>: two dipoles sharing a fraction of a common rhythm, the second lagging the first.</td></tr>
+          <tr><td>freq 10 Hz &nbsp; closed 100% &nbsp; open 20% &nbsp; erd 50%</td><td><code>alpha</code>: bilateral occipital generators; amplitude with eyes closed and open, and the event-related desynchronization after each stimulus.</td></tr>
+          <tr><td>latency 300 ms &nbsp; width 100 ms &nbsp; peak 170 ms 40 ms -1 &nbsp; jitter 40 ms</td><td><code>erp</code>: Gaussian peaks (width is full width at half maximum) after each stimulus, with trial-to-trial latency jitter.</td></tr>
+          <tr><td>condition target 1</td><td><code>erp</code>: gain for each condition; conditions not listed get no response.</td></tr>
+          <tr><td>rate 0.2 Hz &nbsp; width 70 ms &nbsp; wave 50%</td><td><code>spike</code>: interictal spikes at random times, with an aftergoing slow wave.</td></tr>
+          <tr><th colspan="2">timeline { ... }</th></tr>
+          <tr><td>block closed | open 20 s</td><td>A rest block with the eyes closed or open.</td></tr>
+          <tr><td>trials 120 isi 1 s jitter 0.3 s { condition a 80% ... }</td><td>A run of stimuli, one every isi plus a random 0 to jitter, in random, <code>alternate</code> or <code>sequence</code> order.</td></tr>
+          <tr><th colspan="2">artifacts { ... }</th></tr>
+          <tr><td>blinks 0.2 Hz 150 uV</td><td>Eye blinks (eyes open only).</td></tr>
+          <tr><td>saccades 0.15 Hz 40 uV</td><td>Horizontal eye movements.</td></tr>
+          <tr><td>muscle 0.05 Hz 25 uV</td><td>Bursts of temporalis, frontalis or neck muscle activity.</td></tr>
+          <tr><td>cardiac 70 bpm 6 uV</td><td>ECG picked up from the heart's distant field.</td></tr>
+          <tr><td>line 50 mV</td><td>Common-mode mains voltage on the body.</td></tr>
+          <tr><td>drift 25 uV &nbsp; pops 0.02 Hz 200 uV</td><td>Slow electrode drift, and sudden electrode pops.</td></tr>
+          <tr><td>bad T8 80 kOhm</td><td>One electrode with a high impedance.</td></tr>
+          <tr><td>&hellip; off</td><td>Declare an artifact but start with it switched off. Every artifact can be toggled on the Recording tab.</td></tr>
+          <tr><th colspan="2">analysis { ... }</th></tr>
+          <tr><td>reference average</td><td>Starting re-reference: <code>online</code>, <code>mastoids</code>, <code>average</code>, <code>Cz</code>, <code>bipolar</code>, <code>transverse</code>, <code>laplacian</code>.</td></tr>
+          <tr><td>highpass 0.3 Hz &nbsp; lowpass 30 Hz &nbsp; notch 60 Hz &nbsp; order 4 &nbsp; phase zero | causal</td><td>Starting offline filters.</td></tr>
+          <tr><td>epoch -200 800 ms &nbsp; baseline -200 0 ms &nbsp; reject 100 uV &nbsp; ica 20</td><td>Starting epoch window, baseline, rejection threshold and number of ICA components.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= 3. SOURCES & HEAD ================= -->
+  <section role="tabpanel" id="tab-sources" aria-labelledby="t-sources" hidden>
+    <details class="concept">
+      <summary>Volume conduction: every electrode records every source</summary>
+      <div><p>The head is a conductor, so a dipole anywhere in the brain changes the potential everywhere on the scalp. What an
+        electrode records is a weighted sum of all the sources, each weighted by how well it projects to that spot. The weights depend
+        on the source's position, depth and orientation and on the conductivities of the tissues in between, and they form the
+        <strong>mixing matrix</strong>, one column per source, one row per electrode. Closer is not the whole story: a tangential dipole
+        directly under an electrode can leave it nearly silent while the electrodes on either side see opposite polarities. Move the
+        sources here and watch the maps, the mixing matrix and the recording change together.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Sources in the head <span class="hint">click a source to select it</span></h2>
+        <canvas id="cvHeads"></canvas>
+        <div class="legend" id="srcLegend"></div>
+        <h3 style="margin-top:14px">Selected source</h3>
+        <div class="controls tight" id="srcControls">
+          <div class="ctl"><label for="srcSel">Source</label><select id="srcSel"></select></div>
+          <div class="ctl"><label for="srcAt">Beneath electrode</label><select id="srcAt"></select></div>
+          <div class="ctl"><label for="srcDepth">Depth below scalp <span class="val" id="srcDepthV"></span></label><input type="range" id="srcDepth" min="1.3" max="7" step="0.1"></div>
+          <div class="ctl"><label for="srcTilt">Tilt from radial <span class="val" id="srcTiltV"></span></label><input type="range" id="srcTilt" min="0" max="180" step="1"></div>
+          <div class="ctl"><label for="srcDir">Direction of tilt <span class="val" id="srcDirV"></span></label><input type="range" id="srcDir" min="0" max="359" step="1"></div>
+          <div class="ctl"><label for="srcAmp">Strength <span class="val" id="srcAmpV"></span></label><input type="range" id="srcAmp" min="0" max="3" step="0.01"></div>
+        </div>
+        <div class="btnrow" style="margin-top:8px"><button class="ghost small" id="btnWriteBack">Copy these settings into the program</button><span class="note" id="srcNote"></span></div>
+        <h3 style="margin-top:16px">Head model</h3>
+        <div class="controls tight">
+          <div class="ctl"><label for="skullRatio">Brain : skull conductivity <span class="val" id="skullRatioV"></span></label><input type="range" id="skullRatio" min="5" max="120" step="1" value="40"></div>
+          <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="homog"> No layers (homogeneous head)</label></div>
+        </div>
+        <p class="note">Direction of tilt is measured in the plane of the scalp above the source: 0&deg; toward the nose, 90&deg; toward the right ear.</p>
+      </div>
+      <div class="panel">
+        <h2>Scalp map of the selected source <span class="hint">average reference</span></h2>
+        <canvas id="cvSrcTopo"></canvas>
+        <div class="readouts" id="srcReadouts"></div>
+        <p class="cap">The map is the source's column of the mixing matrix: the potential it would produce at each scalp point, per 10 nAm of moment.
+          A radial source makes one pole over itself; a tangential source makes a positive and a negative pole on either side, with the
+          zero line right above it.</p>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>One electrode, many sources <span class="hint">5 s from the recording</span></h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="decompCh">Electrode</label><select id="decompCh"></select></div>
+          <div class="ctl"><label for="decompT">Start time <span class="val" id="decompTV"></span></label><input type="range" id="decompT" min="0" max="100" step="0.5" value="0"></div>
+        </div>
+        <canvas id="cvDecomp"></canvas>
+        <p class="cap">The top trace is what the electrode records, with the current re-reference and no filtering. Below it, each signal's share,
+          all on the same scale. They add up exactly to the top trace. Change the electrode and the same sources appear with different weights.</p>
+      </div>
+      <div class="panel">
+        <h2>The mixing matrix <span class="hint">rows: electrodes, columns: generators</span></h2>
+        <canvas id="cvMixing"></canvas>
+        <p class="cap">Each column is one generator's scalp pattern, scaled to its largest value, after the current re-reference. Hover for values.
+          This is the matrix A in x = A s. ICA tries to recover it from the recording alone.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4. RECORDING ================= -->
+  <section role="tabpanel" id="tab-recording" aria-labelledby="t-recording" hidden>
+    <details class="concept">
+      <summary>Reading a raw recording</summary>
+      <div><p>Traces are stacked from front to back and left to right, each with its own baseline. The montage, the choice of what each trace is
+        measured against, changes how the same data look, and so does filtering, so the view can show the data either exactly as recorded
+        (against the online reference, through the hardware filters only) or after the current processing. Switch the signals on and off on
+        the right to learn each one's signature: where on the head it appears, how big, how fast and how often. Click in the traces to put a
+        cursor there and see the scalp map at that instant.</p></div>
+    </details>
+    <div class="grid-side">
+      <div class="panel">
+        <div class="btnrow" style="margin-bottom:10px">
+          <div class="seg" id="recView"><button data-v="raw" aria-pressed="true">As recorded</button><button data-v="proc" aria-pressed="false">Processed</button></div>
+          <select id="recWin" aria-label="Window length" style="width:auto"><option value="2">2 s</option><option value="5">5 s</option><option value="10" selected>10 s</option><option value="20">20 s</option><option value="30">30 s</option></select>
+          <select id="recScale" aria-label="Scale" style="width:auto"><option value="5">5 µV</option><option value="10">10 µV</option><option value="20">20 µV</option><option value="50">50 µV</option><option value="100" selected>100 µV</option><option value="200">200 µV</option><option value="500">500 µV</option></select>
+          <select id="recHighlight" aria-label="Highlight a signal" style="width:auto"></select>
+          <label class="check"><input type="checkbox" id="recButterfly"> Butterfly</label>
+          <label class="check" title="Clinical convention: negative voltages are drawn upward"><input type="checkbox" id="recNeg"> Negative up</label>
+          <button class="ghost small" id="recPrev" aria-label="Previous page">&larr;</button>
+          <button class="small" id="recPlay">Play</button>
+          <button class="ghost small" id="recNext" aria-label="Next page">&rarr;</button>
+        </div>
+        <canvas id="cvTraces"></canvas>
+        <input type="range" id="recTime" min="0" max="100" step="0.1" value="0" aria-label="Time">
+        <div class="legend" id="recLegend"></div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Map at the cursor <span class="hint" id="cursorTime"></span></h2>
+          <canvas id="cvCursorTopo"></canvas>
+        </div>
+        <div class="panel">
+          <h2>Signals in the recording</h2>
+          <div class="layers" id="layers"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. SPECTRA ================= -->
+  <section role="tabpanel" id="tab-spectra" aria-labelledby="t-spectra" hidden>
+    <details class="concept">
+      <summary>Frequency: rhythms, noise and what the filters leave</summary>
+      <div><p>A power spectrum asks how much of the signal's variance sits at each frequency. Background EEG falls off roughly as 1/f; rhythms
+        stand out as peaks above it, alpha near 10 Hz over the back of the head with the eyes closed; line noise is a needle at 50 or 60 Hz;
+        muscle lifts everything above 20 Hz. A spectrum averages over time, so a time-frequency map is used to see when power changes: alpha
+        appearing as the eyes close, or dropping after a stimulus (event-related desynchronization). Coherence asks whether two channels share
+        a rhythm with a consistent phase, and here volume conduction sets a trap: one source seen by two electrodes is perfectly coherent with
+        itself.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Power spectrum</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="psdCh">Channel</label><select id="psdCh"></select></div>
+          <div class="ctl"><label for="psdSeg">Segments</label><select id="psdSeg"><option value="all">Whole recording</option><option value="eyes">Eyes closed vs open</option><option value="task">Task blocks only</option></select></div>
+          <div class="ctl"><label for="psdData">Data</label><select id="psdData"><option value="raw">As recorded</option><option value="proc">Processed</option><option value="both">Both</option></select></div>
+        </div>
+        <canvas id="cvPSD"></canvas>
+        <div class="legend" id="psdLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Band power across the scalp</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="bandSel">Band</label><select id="bandSel">
+            <option value="1,4">Delta 1–4 Hz</option><option value="4,8">Theta 4–8 Hz</option><option value="8,13" selected>Alpha 8–13 Hz</option>
+            <option value="13,30">Beta 13–30 Hz</option><option value="30,45">Gamma 30–45 Hz</option><option value="line">Mains &plusmn;1 Hz</option></select></div>
+          <div class="ctl"><label for="bandSeg">Segments</label><select id="bandSeg"><option value="all">Whole recording</option><option value="closed">Eyes closed</option><option value="open">Eyes open</option><option value="ratio">Closed / open ratio</option></select></div>
+        </div>
+        <canvas id="cvBandTopo"></canvas>
+        <p class="cap">Processed data. Power is integrated over the band from each channel's spectrum and interpolated between electrodes.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Time-frequency <span class="hint">Morlet wavelets</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="tfCh">Channel</label><select id="tfCh"></select></div>
+        <div class="ctl"><label for="tfMode">View</label><select id="tfMode"><option value="cont">Continuous recording</option><option value="erp">Event-related (ERSP)</option></select></div>
+        <div class="ctl" id="tfStartBox"><label for="tfStart">Start <span class="val" id="tfStartV"></span></label><input type="range" id="tfStart" min="0" max="100" step="1" value="0"></div>
+        <div class="ctl" id="tfLenBox"><label for="tfLen">Length</label><select id="tfLen"><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select></div>
+        <div class="ctl" id="tfCondBox" hidden><label for="tfCond">Condition</label><select id="tfCond"></select></div>
+        <div class="ctl" id="tfKindBox" hidden><label for="tfKind">Power</label><select id="tfKind"><option value="total">Total (mean of single trials)</option><option value="evoked">Evoked (of the average)</option><option value="induced">Induced (average removed first)</option></select></div>
+      </div>
+      <canvas id="cvTF"></canvas>
+      <p class="cap" id="tfCap"></p>
+    </div>
+    <div class="panel">
+      <h2>Coherence: connectivity or volume conduction?</h2>
+      <div class="grid-wide">
+        <div>
+          <div class="controls tight">
+            <div class="ctl"><label for="cohA">Channel A</label><select id="cohA"></select></div>
+            <div class="ctl"><label for="cohB">Channel B</label><select id="cohB"></select></div>
+          </div>
+          <canvas id="cvCoh"></canvas>
+          <div class="legend" id="cohLegend"></div>
+        </div>
+        <div>
+          <canvas id="cvCohMap"></canvas>
+          <p class="cap" id="cohCap">Seed map: coherence between channel A and every other channel at the frequency marked on the left. Click the
+            spectrum to choose the frequency.</p>
+        </div>
+      </div>
+      <div class="prose"><p>Magnitude-squared coherence counts any consistent phase relation, including the zero-lag one that volume conduction
+        produces when a single source reaches both electrodes. The <strong>imaginary part of coherency</strong> keeps only the out-of-phase
+        part, which a single source cannot produce instantaneously, at the cost of also missing true zero-lag coupling. Try the
+        <em>Two dipoles</em> example with coupling 0, then with coupling 0.7 and a 15 ms lag.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= 6. PROCESSING ================= -->
+  <section role="tabpanel" id="tab-processing" aria-labelledby="t-processing" hidden>
+    <details class="concept">
+      <summary>Processing changes the data; know what each step does</summary>
+      <div><p>Every processing step is a choice with a cost. Re-referencing never adds information, it changes which question each channel
+        answers. Filters remove what you do not want and distort what you do, more so the steeper and closer to the signal they are, and a
+        filter that does not shift latencies must look into the future. ICA can separate artifacts from brain activity only to the extent
+        that they have different, fixed scalp patterns and independent time courses. The pipeline below runs in order; the Recording,
+        Spectra and Averaging tabs all show its output.</p></div>
+    </details>
+    <div class="panel">
+      <h2>Pipeline</h2>
+      <div class="chain" id="pipeline"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>1 · Re-reference</h2>
+        <div class="seg" id="refSeg" style="margin-bottom:8px"></div>
+        <div class="prose" id="refText"></div>
+        <canvas id="cvRefCompare"></canvas>
+        <div class="controls tight"><div class="ctl"><label for="refTime">Instant shown <span class="val" id="refTimeV"></span></label><input type="range" id="refTime" min="0" max="100" step="0.004" value="0"></div></div>
+        <p class="cap">The same instant, as recorded, under each reference. All maps share one colour scale except the Laplacian, which is in different units.
+          Choosing a reference moves the zero; it does not change the differences between electrodes, except for the Laplacian, which is
+          reference-free and sharpens local sources at the expense of deep and broad ones.</p>
+      </div>
+      <div class="panel">
+        <h2>2 · Filters</h2>
+        <div class="controls tight">
+          <div class="ctl"><label class="check"><input type="checkbox" id="fHpOn"> High-pass <span class="val" id="fHpV"></span></label><input type="range" id="fHp" min="-2" max="1" step="0.01" value="-0.5"></div>
+          <div class="ctl"><label class="check"><input type="checkbox" id="fLpOn"> Low-pass <span class="val" id="fLpV"></span></label><input type="range" id="fLp" min="3" max="120" step="1" value="30"></div>
+          <div class="ctl"><label for="fNotch">Notch</label><select id="fNotch"><option value="0">Off</option><option value="50">50 Hz</option><option value="60">60 Hz</option></select></div>
+          <div class="ctl"><label for="fNotchW">Notch width <span class="val" id="fNotchWV"></span></label><input type="range" id="fNotchW" min="0.5" max="8" step="0.5" value="2"></div>
+          <div class="ctl"><label for="fOrder">Order <span class="val" id="fOrderV"></span></label><input type="range" id="fOrder" min="1" max="8" step="1" value="4"></div>
+          <div class="ctl"><label for="fPhase">Phase</label><select id="fPhase"><option value="zero">Zero-phase</option><option value="causal">Causal, like hardware</option></select></div>
+          <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="fHarm"> Notch the harmonics too</label></div>
+        </div>
+        <canvas id="cvFiltResp"></canvas>
+        <div class="legend" id="filtRespLegend"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>What the filters do to a waveform <span class="hint">the current filter settings, applied to a clean test signal</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="testSig">Test signal</label><select id="testSig">
+          <option value="erp">The true ERP of this experiment</option><option value="p300">A P300-like slow positivity</option><option value="spike">An epileptiform spike</option>
+          <option value="step">A step (electrode pop)</option><option value="burst">A 10 Hz burst</option></select></div>
+        <div class="ctl"><label for="testCh">Channel (true ERP)</label><select id="testCh"></select></div>
+      </div>
+      <div class="grid2">
+        <div><canvas id="cvFiltTest"></canvas><div class="legend" id="filtTestLegend"></div></div>
+        <div><canvas id="cvFiltImpulse"></canvas><div class="legend" id="filtImpLegend"></div></div>
+      </div>
+      <div class="readouts" id="filtReadouts"></div>
+    </div>
+    <div class="panel">
+      <h2>3 · Independent component analysis</h2>
+      <div class="prose"><p>ICA assumes the recording is x = A s: a fixed mixture of signals that are statistically independent. It finds an
+        unmixing matrix that makes the recovered signals as non-Gaussian as possible, then shows each component's scalp pattern (a column of A)
+        and its time course. Mark components to remove and their back-projection is subtracted from the data. Here you can check each
+        decision against the truth.</p></div>
+      <div class="controls tight">
+        <div class="ctl"><label for="icaK">Components <span class="val" id="icaKV"></span></label><input type="range" id="icaK" min="4" max="40" step="1" value="20"></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="icaTruth"> Reveal what made each component</label></div>
+        <div class="ctl" style="align-self:end"><button id="btnICA">Run ICA</button></div>
+      </div>
+      <div class="progress" id="icaProgress"><div></div></div>
+      <p class="note" id="icaStatus">ICA has not been run on this recording.</p>
+      <div class="ica-grid" id="icaGrid"></div>
+      <div class="grid2" style="margin-top:14px">
+        <div><canvas id="cvICAAct"></canvas><p class="cap" id="icaActCap">Select a component to see its time course and spectrum.</p></div>
+        <div><canvas id="cvICAClean"></canvas><div class="legend" id="icaCleanLegend"></div>
+          <div class="controls tight"><div class="ctl"><label for="icaCh">Channel</label><select id="icaCh"></select></div><div class="ctl"><label for="icaT">Start <span class="val" id="icaTV"></span></label><input type="range" id="icaT" min="0" max="100" step="0.5" value="0"></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 7. AVERAGING ================= -->
+  <section role="tabpanel" id="tab-averaging" aria-labelledby="t-averaging" hidden>
+    <details class="concept">
+      <summary>Why averaging works, and what it costs</summary>
+      <div><p>An event-related potential is a few microvolts buried in tens of microvolts of everything else. If the response is the same on
+        every trial and the rest is not time-locked to the stimulus, averaging N trials leaves the response untouched and shrinks the rest by a
+        factor of &radic;N. Signal-to-noise ratio grows as &radic;N, so doubling it costs four times the trials. The assumptions are the catch:
+        if the latency varies from trial to trial the average is smeared, smaller and wider than any single response; if artifacts are
+        time-locked or huge they survive. Epochs are cut around each event, baseline corrected, screened for artifacts, and then averaged.</p></div>
+    </details>
+    <div class="panel">
+      <h2>Epoching, baseline and rejection</h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="avgCh">Channel</label><select id="avgCh"></select></div>
+        <div class="ctl"><label for="epT0">Epoch start <span class="val" id="epT0V"></span></label><input type="range" id="epT0" min="-1000" max="-50" step="10" value="-200"></div>
+        <div class="ctl"><label for="epT1">Epoch end <span class="val" id="epT1V"></span></label><input type="range" id="epT1" min="200" max="2000" step="10" value="800"></div>
+        <div class="ctl"><label class="check"><input type="checkbox" id="blOn" checked> Baseline to 0 ms from <span class="val" id="blV"></span></label><input type="range" id="bl0" min="-1000" max="-10" step="10" value="-200"></div>
+        <div class="ctl"><label class="check"><input type="checkbox" id="rjOn"> Reject epochs beyond &plusmn; <span class="val" id="rjV"></span></label><input type="range" id="rj" min="20" max="400" step="5" value="100"></div>
+      </div>
+      <div class="checks" id="avgConds"></div>
+      <div class="readouts" id="avgReadouts"></div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>The average emerging from the noise</h2>
+        <div class="btnrow" style="margin-bottom:8px">
+          <button class="small" id="avgPlay">Play</button>
+          <button class="ghost small" id="avgStep">+1 trial</button>
+          <button class="ghost small" id="avgAll">All trials</button>
+          <button class="ghost small" id="avgReset">Reset</button>
+          <div style="flex:1;min-width:140px"><label class="lbl" for="avgN">Trials per condition <span class="val" id="avgNV"></span></label><input type="range" id="avgN" min="1" max="100" step="1" value="1"></div>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="avgSingle" checked> Latest single trial</label>
+          <label class="check"><input type="checkbox" id="avgTruth" checked> True ERP, same filters</label>
+          <label class="check"><input type="checkbox" id="avgTruthRaw"> True ERP, unfiltered</label>
+          <label class="check"><input type="checkbox" id="avgDiff"> Difference wave</label>
+          <label class="check"><input type="checkbox" id="avgNeg"> Negative up</label>
+        </div>
+        <canvas id="cvERP"></canvas>
+        <div class="legend" id="erpLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Signal to noise grows as &radic;N</h2>
+        <canvas id="cvSNR"></canvas>
+        <div class="legend" id="snrLegend"></div>
+        <p class="cap">Noise is the RMS of the average in the baseline window (what you can measure) and the RMS of the average minus the true ERP
+          over the whole epoch (what only a simulation can measure). Signal is the true ERP's largest absolute value after the baseline. On a
+          log-log plot &radic;N is a straight line of slope one half.</p>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Trial by trial <span class="hint">ERP image</span></h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="imgCond">Condition</label><select id="imgCond"></select></div>
+          <div class="ctl"><label for="imgSort">Sort trials by</label><select id="imgSort"><option value="order">Order in the session</option><option value="jitter">True latency jitter</option><option value="amp">Peak amplitude</option></select></div>
+        </div>
+        <canvas id="cvERPImage"></canvas>
+        <p class="cap">One row per epoch of the selected channel, colour for voltage. Rejected epochs are marked on the left. Sorting by the true
+          latency jitter, which the simulator knows and an experimenter does not, shows how the average blurs a response that wanders in time.</p>
+      </div>
+      <div class="panel">
+        <h2>Scalp maps of the average <span class="hint" id="latLabel">click the ERP plot to choose a latency</span></h2>
+        <canvas id="cvERPTopo"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 8. LOCALIZATION ================= -->
+  <section role="tabpanel" id="tab-localization" aria-labelledby="t-localization" hidden>
+    <details class="concept">
+      <summary>Forward and inverse problems</summary>
+      <div><p>The <strong>forward problem</strong>, from a known source to the scalp map, has exactly one answer, and physics supplies it. The
+        <strong>inverse problem</strong>, from a scalp map back to the source, has infinitely many: Helmholtz showed in 1853 that infinitely many
+        current distributions inside a conductor produce the same outside potentials. Every inverse method adds assumptions to pick one. The
+        simplest assumes a single dipole and finds the one whose map best fits the data. Even then the answer is only as good as the data and
+        the head model: noise, few electrodes, a deep source, a wrong skull conductivity or a second source all move it, sometimes by
+        centimetres, and the fit can still look excellent.</p></div>
+    </details>
+    <div class="panel">
+      <h2>The forward problem: a dipole and its scalp map</h2>
+      <div class="grid-wide">
+        <div>
+          <canvas id="cvLocHeads"></canvas>
+          <div class="controls tight">
+            <div class="ctl"><label for="locAt">Beneath electrode</label><select id="locAt"></select></div>
+            <div class="ctl"><label for="locDepth">Depth below scalp <span class="val" id="locDepthV"></span></label><input type="range" id="locDepth" min="1.3" max="7" step="0.1" value="2.5"></div>
+            <div class="ctl"><label for="locTilt">Tilt from radial <span class="val" id="locTiltV"></span></label><input type="range" id="locTilt" min="0" max="180" step="1" value="30"></div>
+            <div class="ctl"><label for="locDir">Direction of tilt <span class="val" id="locDirV"></span></label><input type="range" id="locDir" min="0" max="359" step="1" value="90"></div>
+            <div class="ctl"><label for="locAmp">Moment <span class="val" id="locAmpV"></span></label><input type="range" id="locAmp" min="1" max="100" step="1" value="20"></div>
+            <div class="ctl"><label>Electrodes</label><div class="seg" id="locCount"><button data-n="19" aria-pressed="false">19</button><button data-n="32" aria-pressed="true">32</button><button data-n="64" aria-pressed="false">64</button></div></div>
+          </div>
+        </div>
+        <div>
+          <canvas id="cvLocForward"></canvas>
+          <div class="readouts" id="fwdReadouts"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The inverse problem: fitting one dipole</h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="locNoise">Noise per electrode <span class="val" id="locNoiseV"></span></label><input type="range" id="locNoise" min="0" max="5" step="0.05" value="0.5"></div>
+        <div class="ctl"><label for="locModel">Head model used for the fit</label><select id="locModel">
+          <option value="true">The true head (1 : 40 skull)</option><option value="homog">No skull (homogeneous sphere)</option><option value="r80">Skull too resistive (1 : 80)</option><option value="r20">Skull too conductive (1 : 20)</option></select></div>
+        <div class="ctl"><label for="locRuns">Noise draws</label><select id="locRuns"><option value="1">1</option><option value="30" selected>30</option><option value="100">100</option></select></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="locSecond"> Add a second source (mirror image)</label></div>
+        <div class="ctl" style="align-self:end"><div class="btnrow"><button id="btnFit">Fit</button></div></div>
+      </div>
+      <div class="grid3" style="margin-top:6px">
+        <div><canvas id="cvLocMeasured"></canvas></div>
+        <div><canvas id="cvLocFitted"></canvas></div>
+        <div><canvas id="cvLocResidual"></canvas></div>
+      </div>
+      <div class="grid2" style="margin-top:14px">
+        <div><canvas id="cvLocResult"></canvas><div class="legend" id="locLegend"></div></div>
+        <div><canvas id="cvLocLandscape"></canvas><p class="cap">Error landscape: the fraction of the data the best dipole at each grid position leaves unexplained,
+          on the horizontal slice through the true source; the strongest colour marks the best fits. A small, sharp spot means a well-determined answer;
+          a long shallow valley means many positions fit almost equally well.</p></div>
+      </div>
+      <div class="readouts" id="invReadouts"></div>
+    </div>
+  </section>
+
+  <!-- ================= 9. GUIDE ================= -->
+  <section role="tabpanel" id="tab-guide" aria-labelledby="t-guide" hidden>
+    <div class="panel prose">
+      <h2>How to use this in class</h2>
+      <p>The tabs follow the life of a recording. Start with the <strong>Signal chain</strong> to see where the voltage comes from. Use the
+        <strong>Experiment</strong> tab to choose or write a session; everything else is computed from it. The <strong>Sources</strong> and
+        <strong>Recording</strong> tabs show what the electrodes pick up and why; <strong>Spectra</strong>, <strong>Processing</strong> and
+        <strong>ERP averaging</strong> are the analysis; <strong>Localization</strong> runs the problem backwards. The concept boxes at the top
+        of each tab open and close, so a projected screen can stay uncluttered.</p>
+      <h3>Things worth trying</h3>
+      <ul>
+        <li><strong>Berger's alpha.</strong> Load <em>Eyes closed, eyes open</em>. On Spectra choose O1 and "Eyes closed vs open": the 10 Hz peak
+          rises by an order of magnitude with the eyes closed. The band map shows it over the back of the head, and the time-frequency view
+          shows it switching on and off with each block.</li>
+        <li><strong>The reference is part of the measurement.</strong> In the <em>Teaching tour</em>, look at Cz as recorded: it is flat,
+          because it is the reference. Re-reference to average and it comes back. Then compare mastoid and average reference maps on the
+          Processing tab.</li>
+        <li><strong>A bad channel and line noise.</strong> In the <em>Artifact zoo</em>, switch every artifact off except line noise and the
+          high-impedance channel. T8 hums at 60 Hz and the others barely do. The Amplifier stage of the signal chain explains why: the
+          impedance mismatch turns common-mode voltage into a differential one.</li>
+        <li><strong>Phase reversal.</strong> Load <em>Interictal spikes</em>. In the longitudinal bipolar montage the spike points one way in
+          F7-T7 and the other way in T7-P7: the two channels share T7, once as the second input and once as the first. Tick
+          "Negative up" to see it the way clinical EEG is drawn.</li>
+        <li><strong>&radic;N.</strong> Load <em>P300 oddball</em> and press Play on the averaging tab. Targets are only 20% of trials, so
+          their average stays noisier than the standards' at every point in the session. Then set the P3 jitter to 0 ms and rebuild: the peak
+          grows and narrows.</li>
+        <li><strong>Filters distort.</strong> On Processing set the high-pass to 2 Hz with the true ERP as the test signal. The P300 shrinks
+          and grows negative lobes that were never there. Switch to causal phase and the peak moves later; switch back to zero phase and
+          ripples appear before the stimulus.</li>
+        <li><strong>ICA.</strong> In the <em>Artifact zoo</em>, run ICA, find the blink, eye movement, muscle and heart components from their
+          maps and spectra, remove them and check with "Reveal". Then look at the ERP before and after.</li>
+        <li><strong>Depth and the inverse.</strong> On Localization fit a source 2 cm deep, then 5 cm deep with the same noise. The cloud of
+          fitted positions spreads mostly in depth. Use 19 electrodes, then 64. Fit with the homogeneous head and watch a systematic error
+          appear that no amount of averaging removes.</li>
+        <li><strong>Two sources fitted as one.</strong> Add the mirror-image source and fit a single dipole: it lands between them, deep, with a
+          goodness of fit that looks respectable.</li>
+      </ul>
+      <h3>What the simulation computes</h3>
+      <ul>
+        <li><strong>Head and forward model.</strong> Four concentric spheres (brain 8.0 cm, CSF 8.2, skull 8.7, scalp 9.2 cm radius) with
+          conductivities 0.33, 1.79, 0.0083 and 0.33 S/m by default. The scalp potential of a current dipole is the exact series solution for
+          the layered sphere, summed to convergence. Eye, muscle and heart fields use dipoles outside the skull.</li>
+        <li><strong>Sources.</strong> Every source is a dipole with a fixed position and orientation and a time course: sinusoids, narrow-band
+          rhythms (white noise through a resonator), 1/f noise, Gaussian ERP peaks with trial-to-trial jitter and amplitude variability, and
+          sharp spikes with slow waves. Background EEG comes from sixteen random cortical dipoles with 1/f time courses.</li>
+        <li><strong>Recording chain.</strong> Electrode noise scales as the square root of impedance. Each channel is its electrode minus the
+          online reference electrode, so anything at the reference appears inverted in every channel. Then amplifier noise, a first-order
+          high-pass and a fourth-order Butterworth low-pass (causal), line pickup through the impedance divider and the CMRR, and finally
+          rounding to the digitizer step and clipping at its range.</li>
+        <li><strong>Analysis.</strong> Re-referencing is exact, the surface Laplacian uses spherical splines (Perrin and colleagues, 1989),
+          filters are Butterworth or biquad notch sections, spectra use Welch's method, time-frequency maps use Morlet wavelets, ICA is FastICA
+          with a tanh contrast after PCA, and the inverse is a least-squares single-dipole fit by grid search and Nelder-Mead.</li>
+      </ul>
+      <h3>What it does not model</h3>
+      <ul>
+        <li>Real head shapes, holes in the skull, anisotropic white matter and the face. Spheres are the classroom model and they get the
+          main ideas right, but real localization uses MRI-based boundary or finite element models.</li>
+        <li>Extended sources. Every generator here is a point dipole, so the cancellation within folded patches is only illustrated on the
+          signal chain tab.</li>
+        <li>Amplifier specifics such as driven-right-leg circuits, active electrodes and DC offsets at the electrodes.</li>
+        <li>Neural dynamics. Sources are waveforms chosen to look like EEG, not the output of a model of neurons.</li>
+      </ul>
+      <p class="note">Built for NBL 425/625, Methods in Human Neuroimaging. See also the course's
+        <a href="../nbl425/demos/eeg_forward_model.html">forward model</a>, <a href="../nbl425/demos/eeg_inverse_solution.html">inverse solution</a>
+        and <a href="../nbl425/demos/eeg_vs_meg_dipoles.html">EEG versus MEG</a> demos.</p>
+    </div>
+  </section>
+
+  <footer>EEG simulator. Single dipoles in a four-shell spherical head, with the artifacts and the analysis steps of a real recording. A teaching tool, not a biophysical model.</footer>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/head.js"></script>
+<script src="js/dsl.js"></script>
+<script src="js/examples.js"></script>
+<script src="js/dsp.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/ica.js"></script>
+<script src="js/localize.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tab_chain.js"></script>
+<script src="js/tab_sources.js"></script>
+<script src="js/tab_recording.js"></script>
+<script src="js/tab_spectra.js"></script>
+<script src="js/tab_processing.js"></script>
+<script src="js/tab_averaging.js"></script>
+<script src="js/tab_localize.js"></script>
+<script>EEG.app.start();</script>
+</body>
+</html>

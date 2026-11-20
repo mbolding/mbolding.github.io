@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>k-space</title>
+<style>
+/* The look of mbolding.sdf.org, where this page started. */
+:root {
+  --font-body: Georgia, "Times New Roman", serif;
+  --font-ui: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 6px;
+}
+
+/* Light, the default */
+:root {
+  --bg: #fdfdfb;          /* the page */
+  --surface: #ffffff;     /* cards, tables, boards */
+  --panel: #f3f3ef;       /* buttons, inputs, code, table heads */
+  --text: #222;
+  --muted: #777;
+  --rule: #ddd;
+  --link: #0b5cad;        /* links and the accent: selected tabs, primary buttons */
+  --on-link: #fff;        /* text on the accent */
+  --good: #2e7d32;
+  --bad: #c62828;
+  --warn: #b26a00;
+  color-scheme: light;
+}
+
+/* Dark, from the system */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d; --surface: #1c1f25; --panel: #23262d;
+    --text: #ddd; --muted: #999; --rule: #333;
+    --link: #8ab4f8; --on-link: #16181d;
+    --good: #81c995; --bad: #f28b82; --warn: #fdd663;
+    color-scheme: dark;
+  }
+}
+
+/* Page */
+*, *::before, *::after { box-sizing: border-box; }
+body { font: 17px/1.6 var(--font-body); max-width: 40em; margin: 2.5em auto; padding: 0 1.2em; color: var(--text); background: var(--bg); }
+body.wide { max-width: 64em; }   /* cheatsheets, boards and games that need the room */
+a { color: var(--link); }
+h1 { line-height: 1.25; margin: 0 0 0.3em; }
+h2 { font: 600 13px/1.5 var(--font-ui); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 2.2em 0 0.6em; }
+h3 { font: 600 16px/1.4 var(--font-ui); margin: 1.6em 0 0.4em; }
+header, .tagline, .small, footer, .note { font: 14px/1.5 var(--font-ui); color: var(--muted); }
+header { margin-bottom: 2em; }
+.tagline { margin-top: 0; }
+footer { margin-top: 3em; border-top: 1px solid var(--rule); padding-top: 1em; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2em 0; }
+img, canvas, svg { max-width: 100%; }
+
+/* Boxes and lists */
+.box, .card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.9em 1.1em; margin: 1em 0; }
+.box { margin: 1.8em 0; }
+.box p { margin: 0.2em 0; }
+.box .title { font-size: 1.15em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15em, 1fr)); gap: 0.8em; }
+.grid > .card { margin: 0; }
+ul.links { list-style: none; padding: 0; margin: 0; }
+ul.links li { margin: 0.25em 0; }
+
+/* Code and tables */
+code, kbd, pre, .cmd { font-family: var(--font-mono); font-size: 0.88em; }
+code, kbd, .cmd { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 0.05em 0.35em; white-space: nowrap; }
+pre { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.8em 1em; overflow-x: auto; line-height: 1.45; }
+pre code { background: none; border: 0; padding: 0; white-space: pre; }
+table { width: 100%; border-collapse: collapse; margin: 0.6em 0 1.2em; background: var(--surface); font: 15px/1.5 var(--font-ui); }
+th, td { border-bottom: 1px solid var(--rule); padding: 0.45em 0.7em; text-align: left; vertical-align: top; }
+th { background: var(--panel); font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+
+/* Controls */
+label { font: 15px/1.5 var(--font-ui); }
+input, select, textarea, button { font: 15px var(--font-ui); color: var(--text); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.4em 0.7em; }
+textarea { width: 100%; line-height: 1.5; }
+input[type=number] { width: 5em; }
+input[type=checkbox], input[type=radio], input[type=range] { accent-color: var(--link); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary, button.active { background: var(--link); border-color: var(--link); color: var(--on-link); }
+.row { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; margin: 0.8em 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.4em; margin: 1em 0; }
+.search { width: 100%; margin: 0.6em 0 1em; }
+.good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+.hidden { display: none !important; }
+</style>
+<script>
+// What the SDF site's theme script provides, cut down to light and dark from the system:
+// colours read from the CSS variables, and a 'themechange' event when the system flips.
+const SiteTheme = {
+    color(name) { return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim(); },
+    isDark() { return matchMedia('(prefers-color-scheme: dark)').matches; },
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => window.dispatchEvent(new Event('themechange')));
+</script>
+<style>
+/* The pictures are data, so they're drawn grey on black whatever the theme. */
+.views { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: auto auto; gap: 0.8em; }
+.views figure { margin: 0; }
+.views .big { grid-row: span 2; }
+@media (max-width: 640px) { .views { grid-template-columns: 1fr 1fr; } .views .big { grid-column: 1 / -1; grid-row: auto; } }
+.views canvas { display: block; width: 100%; aspect-ratio: 1; background: #000; border-radius: var(--radius); }
+#k { image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+figcaption { font: 13px/1.4 var(--font-ui); color: var(--muted); margin: 0.3em 0 0; display: flex; justify-content: space-between; gap: 0.5em; }
+figcaption span:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+.status { font: 14px/1.5 var(--font-ui); color: var(--muted); margin: 0.8em 0 0; min-height: 1.5em; }
+.controls { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5em, 1fr)); gap: 0.8em; margin-top: 1em; }
+.controls .card { margin: 0; }
+.controls h2 { margin: 0 0 0.4em; }
+.slider { display: grid; grid-template-columns: 1fr auto; margin: 0.5em 0; font: 14px/1.4 var(--font-ui); }
+.slider span:last-of-type { color: var(--muted); font-variant-numeric: tabular-nums; }
+.controls input[type=range] { grid-column: 1 / -1; width: 100%; padding: 0; margin: 0.2em 0 0; border: 0; background: none; }
+.controls select { width: 100%; }
+.controls .tabs { margin: 0.4em 0; gap: 0.3em; }
+.controls .tabs button, .controls .row button { padding: 0.3em 0.6em; font-size: 14px; }
+.controls .row { margin: 0.5em 0; gap: 0.4em; }
+.controls .note { margin: 0.4em 0; }
+body.over .views canvas { outline: 2px dashed var(--link); outline-offset: 3px; }
+[hidden] { display: none !important; }
+.about p { margin: 0.6em 0; }
+</style>
+</head>
+<body class="wide">
+<header><a href="../">Commonplace Book</a></header>
+<h1>k-space</h1>
+<p class="tagline">An MR scanner measures a picture's spatial frequencies, not the picture. Erase, undersample and spoil the frequencies here and watch what happens to the image. Drop in a picture of your own if you like; it stays in your browser.</p>
+
+<div class="views">
+  <figure class="big">
+    <canvas id="k" aria-label="k-space: the picture's spatial frequencies"></canvas>
+    <figcaption><span>k-space, log magnitude</span><span id="k-info"></span></figcaption>
+  </figure>
+  <figure>
+    <canvas id="recon" aria-label="The picture rebuilt from k-space"></canvas>
+    <figcaption><span id="recon-label">Rebuilt</span><span id="err"></span></figcaption>
+  </figure>
+  <figure>
+    <canvas id="orig" aria-label="The original picture"></canvas>
+    <figcaption><span>Original</span><span id="kept"></span></figcaption>
+  </figure>
+</div>
+<p class="status" id="status"></p>
+
+<div class="controls">
+  <div class="card">
+    <h2>Draw on k-space</h2>
+    <div class="tabs" id="tools">
+      <button type="button" data-tool="erase">Erase</button>
+      <button type="button" data-tool="restore">Restore</button>
+      <button type="button" data-tool="spike">Spike</button>
+      <button type="button" data-tool="wave">One wave</button>
+    </div>
+    <label class="slider" id="brush-row"><span>Brush</span><span id="brush-out"></span><input type="range" id="brush" min="1" max="40" step="1"></label>
+    <p class="note" id="tool-note"></p>
+  </div>
+
+  <div class="card">
+    <h2>Sampling</h2>
+    <select id="mask" aria-label="Which part of k-space is kept">
+      <option value="full">All of it</option>
+      <option value="centre">The centre only</option>
+      <option value="edges">The edges only</option>
+      <option value="truncate">A central square</option>
+      <option value="lines">Every Rth line</option>
+      <option value="partial">Partial Fourier</option>
+      <option value="random">Random, denser at the centre</option>
+      <option value="radial">Radial spokes</option>
+    </select>
+    <label class="slider" id="amount-row"><span id="amount-label"></span><span id="amount-out"></span><input type="range" id="amount"></label>
+    <p class="note" id="mask-note"></p>
+  </div>
+
+  <div class="card">
+    <h2>Spoil the data</h2>
+    <label class="slider"><span>Noise</span><span id="noise-out"></span><input type="range" id="noise" min="0" max="100" step="1"></label>
+    <label class="slider"><span>Breathing</span><span id="motion-out"></span><input type="range" id="motion" min="0" max="100" step="1"></label>
+    <div class="row"><button type="button" id="clear">Clear spikes and paint</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Picture</h2>
+    <div class="row">
+      <button type="button" id="phantom">Phantom</button>
+      <button type="button" id="choose">Choose…</button>
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+    <div class="tabs" id="sizes">
+      <button type="button" data-size="128">128²</button>
+      <button type="button" data-size="256">256²</button>
+    </div>
+    <h2 style="margin-top:0.9em">Show</h2>
+    <div class="tabs" id="shows">
+      <button type="button" data-show="mag">Magnitude</button>
+      <button type="button" data-show="real">Real part</button>
+      <button type="button" data-show="diff">Difference</button>
+    </div>
+  </div>
+</div>
+
+<div class="about">
+  <h2>How to read it</h2>
+  <p>Every point in k-space is one striped wave; the picture is all of them added up. The middle holds the slow waves, which carry contrast and the broad shapes. The edges hold the fast ones, which carry fine detail and sharp edges. Use <i>One wave</i> and click around to see the stripes each point stands for: further from the centre, finer stripes.</p>
+  <p>Across is the frequency-encode direction, up and down is phase encode, read one line at a time. That's why skipping lines folds the picture over on itself vertically (aliasing, which parallel imaging undoes), why motion between lines leaves ghosts along that direction, and why a single bad data point, a spike, lays stripes over the whole image. Cutting k-space off sharply leaves rings at edges (Gibbs ringing); keeping just over half and filling the rest with zeros is partial Fourier.</p>
+</div>
+
+<footer><a href="../">Back to the Commonplace Book</a> · Also on <a href="https://mbolding.sdf.org/">mbolding.sdf.org</a></footer>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// ---- Settings ----------------------------------------------------------------------------
+const AMOUNTS = {
+    centre:   { label: 'Radius', min: 1, max: 60, def: 20, fmt: v => v + '%' },
+    edges:    { label: 'Hole radius', min: 1, max: 40, def: 4, fmt: v => v + '%' },
+    truncate: { label: 'Width', min: 5, max: 100, def: 30, fmt: v => v + '%' },
+    lines:    { label: 'R', min: 2, max: 6, def: 2, fmt: v => 'every ' + v + (v === 2 ? 'nd' : v === 3 ? 'rd' : 'th') },
+    partial:  { label: 'Kept', min: 50, max: 100, def: 62, fmt: v => v + '%' },
+    random:   { label: 'Kept', min: 5, max: 100, def: 30, fmt: v => v + '%' },
+    radial:   { label: 'Spokes', min: 2, max: 200, def: 40, fmt: v => v },
+};
+const MASK_NOTES = {
+    full: 'Everything the scanner measured.',
+    centre: 'A low-pass filter: contrast survives, detail blurs.',
+    edges: 'A high-pass filter: only edges and fine detail are left.',
+    truncate: 'Cut off sharply, which leaves ringing beside edges.',
+    lines: 'Skipping phase-encode lines halves the field of view, so the picture folds over vertically.',
+    partial: 'Just over half the lines, the rest filled with zeros. Real scanners fill them from symmetry.',
+    random: 'Incoherent undersampling, as compressed sensing uses: noise-like error rather than a fold.',
+    radial: 'Spokes through the centre, as radial scans take: too few leave streaks.',
+};
+const TOOL_NOTES = {
+    erase: 'Drag across k-space to wipe out frequencies.',
+    restore: 'Drag to bring back frequencies you erased.',
+    spike: 'Click to add one bad data point, as a static discharge in the scanner room would.',
+    wave: 'Click a point to see the single wave it stands for, in the real part.',
+};
+const S = { mask: 'full', amounts: {}, noise: 0, motion: 0, brush: 8, tool: 'erase', show: 'mag', size: 256 };
+for (const k in AMOUNTS) S.amounts[k] = AMOUNTS[k].def;
+try {
+    const saved = JSON.parse(localStorage.getItem('kspace') || '{}');
+    Object.assign(S.amounts, saved.amounts || {});
+    for (const k of ['mask', 'brush', 'tool', 'show', 'size']) if (k in saved) S[k] = saved[k];
+} catch (e) {}
+if (!(S.mask in MASK_NOTES)) S.mask = 'full';
+function save() {
+    try { localStorage.setItem('kspace', JSON.stringify({ mask: S.mask, amounts: S.amounts, brush: S.brush, tool: S.tool, show: S.show, size: S.size })); } catch (e) {}
+}
+
+// ---- FFT ---------------------------------------------------------------------------------
+// In-place radix-2 on one row or column; n is a power of two.
+function fft1(re, im, n, inv) {
+    for (let i = 1, j = 0; i < n; i++) {
+        let bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+        const ang = (inv ? 2 : -2) * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
+        for (let i = 0; i < n; i += len) {
+            let cr = 1, ci = 0;
+            for (let j = 0; j < half; j++) {
+                const a = i + j, b = a + half;
+                const xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+                re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+                const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+            }
+        }
+    }
+}
+// 2D, with k-space centred: multiplying by (−1)^(x+y) before the forward transform puts
+// zero frequency in the middle, and again after the inverse undoes it.
+function fft2(re, im, n, inv) {
+    const rr = new Float64Array(n), ri = new Float64Array(n);
+    if (!inv) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if ((x + y) & 1) { re[y * n + x] = -re[y * n + x]; im[y * n + x] = -im[y * n + x]; }
+    for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) { rr[x] = re[y * n + x]; ri[x] = im[y * n + x]; }
+        fft1(rr, ri, n, inv);
+        for (let x = 0; x < n; x++) { re[y * n + x] = rr[x]; im[y * n + x] = ri[x]; }
+    }
+    for (let x = 0; x < n; x++) {
+        for (let y = 0; y < n; y++) { rr[y] = re[y * n + x]; ri[y] = im[y * n + x]; }
+        fft1(rr, ri, n, inv);
+        for (let y = 0; y < n; y++) { re[y * n + x] = rr[y]; im[y * n + x] = ri[y]; }
+    }
+    if (inv) {
+        const s = 1 / (n * n);
+        for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+            const i = y * n + x, f = (x + y) & 1 ? -s : s;
+            re[i] *= f; im[i] *= f;
+        }
+    }
+}
+
+// A seeded random source, so noise and masks stay put between redraws.
+function rng(seed) {
+    return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function gauss(r) { return Math.sqrt(-2 * Math.log(r() || 1e-12)) * Math.cos(2 * Math.PI * r()); }
+
+// ---- The picture -------------------------------------------------------------------------
+let N = S.size, img, imgMax = 1, Kre, Kim, Kdc = 1, mask, noiseRe, noiseIm, spikes = [], wave = null, source = null;
+let Dre, Dim, Rre, Rim;   // the data as spoiled, and the picture rebuilt from it
+
+// The modified Shepp–Logan head phantom: [intensity, a, b, x0, y0, angle°].
+const SHEPP = [
+    [1, .69, .92, 0, 0, 0], [-.8, .6624, .874, 0, -.0184, 0], [-.2, .11, .31, .22, 0, -18],
+    [-.2, .16, .41, -.22, 0, 18], [.1, .21, .25, 0, .35, 0], [.1, .046, .046, 0, .1, 0],
+    [.1, .046, .046, 0, -.1, 0], [.1, .046, .023, -.08, -.605, 0], [.1, .023, .023, 0, -.606, 0],
+    [.1, .023, .046, .06, -.605, 0],
+];
+function phantom(n) {
+    const out = new Float32Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        const x = (2 * c + 1) / n - 1, y = 1 - (2 * r + 1) / n;
+        let v = 0;
+        for (const [A, a, b, x0, y0, deg] of SHEPP) {
+            const t = deg * Math.PI / 180, dx = x - x0, dy = y - y0;
+            const u = dx * Math.cos(t) + dy * Math.sin(t), w = -dx * Math.sin(t) + dy * Math.cos(t);
+            if (u * u / (a * a) + w * w / (b * b) <= 1) v += A;
+        }
+        out[r * n + c] = v;
+    }
+    return out;
+}
+// A picture, cropped square from the middle and turned to grey.
+function fromBitmap(bmp, n) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    const s = Math.min(bmp.width, bmp.height);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, n, n);
+    ctx.drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, n, n);
+    const d = ctx.getImageData(0, 0, n, n).data, out = new Float32Array(n * n);
+    for (let i = 0; i < n * n; i++) out[i] = (0.2126 * d[4 * i] + 0.7152 * d[4 * i + 1] + 0.0722 * d[4 * i + 2]) / 255;
+    return out;
+}
+
+function load() {
+    N = S.size;
+    img = source ? fromBitmap(source, N) : phantom(N);
+    imgMax = 0; for (const v of img) imgMax = Math.max(imgMax, v);
+    imgMax = imgMax || 1;
+    Kre = Float64Array.from(img); Kim = new Float64Array(N * N);
+    fft2(Kre, Kim, N, false);
+    Kdc = Math.hypot(Kre[(N / 2) * N + N / 2], Kim[(N / 2) * N + N / 2]) || 1;
+    const r = rng(7);
+    noiseRe = new Float32Array(N * N); noiseIm = new Float32Array(N * N);
+    for (let i = 0; i < N * N; i++) { noiseRe[i] = gauss(r); noiseIm[i] = gauss(r); }
+    spikes = []; wave = null;
+    buildMask();
+    for (const cv of [$('k'), $('recon'), $('orig')]) { cv.width = cv.height = N; }
+    drawOrig();
+    update();
+}
+
+// ---- Sampling masks ----------------------------------------------------------------------
+function buildMask() {
+    const n = N, h = n / 2, a = S.amounts[S.mask];
+    mask = new Uint8Array(n * n);
+    const set = (fn) => { for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) mask[y * n + x] = fn(x - h, y - h) ? 1 : 0; };
+    switch (S.mask) {
+        case 'centre': { const r = a / 100 * h; set((kx, ky) => kx * kx + ky * ky <= r * r); break; }
+        case 'edges': { const r = a / 100 * h; set((kx, ky) => kx * kx + ky * ky > r * r); break; }
+        case 'truncate': { const w = a / 100 * h; set((kx, ky) => Math.abs(kx) <= w && Math.abs(ky) <= w); break; }
+        case 'lines': set((kx, ky) => ((ky % a) + a) % a === 0); break;
+        case 'partial': { const top = -h + a / 100 * n; set((kx, ky) => ky < top); break; }
+        case 'random': {
+            // Keep each line with a probability that falls away from the centre, scaled to
+            // the fraction asked for; the centre few lines are always kept.
+            const r = rng(11), want = a / 100, p = [];
+            for (let y = 0; y < n; y++) p.push(Math.exp(-Math.pow((y - h) / (0.28 * n), 2)));
+            let lo = 0, hi = 50;
+            for (let it = 0; it < 40; it++) { const m = (lo + hi) / 2; const got = p.reduce((s, v) => s + Math.min(1, v * m), 0) / n; got < want ? lo = m : hi = m; }
+            const keep = p.map(v => r() < Math.min(1, v * hi));
+            for (let y = 0; y < n; y++) if (Math.abs(y - h) < Math.max(2, n * 0.02)) keep[y] = true;
+            set((kx, ky) => keep[ky + h]);
+            break;
+        }
+        case 'radial': {
+            mask.fill(0);
+            for (let s = 0; s < a; s++) {
+                const t = Math.PI * s / a, c = Math.cos(t), si = Math.sin(t);
+                for (let r = -h; r < h; r += 0.5) {
+                    const x = Math.round(h + r * c), y = Math.round(h + r * si);
+                    if (x >= 0 && x < n && y >= 0 && y < n) mask[y * n + x] = 1;
+                }
+            }
+            break;
+        }
+        default: mask.fill(1);
+    }
+}
+
+// ---- Rebuilding --------------------------------------------------------------------------
+function update() {
+    const n = N, h = n / 2;
+    Dre = new Float64Array(n * n); Dim = new Float64Array(n * n);
+    // Noise sized so that at 100% it's a fifth of the brightest pixel, per pixel.
+    const sigma = S.noise / 100 * 0.2 * imgMax * n;
+    // Breathing: the object moves up and down between phase-encode lines, which puts a
+    // phase ramp on each line, and leaves ghosts spaced by how many lines a breath takes.
+    const amp = S.motion / 100 * 0.06 * n, period = 17;
+    if (wave) {
+        // One point and its mirror, so the wave is real.
+        for (const [x, y] of [[wave.x, wave.y], [n - wave.x, n - wave.y]]) {
+            if (x < 0 || x >= n || y < 0 || y >= n) continue;
+            const i = y * n + x;
+            Dre[i] = 0.25 * imgMax * n * n; Dim[i] = 0;
+        }
+    } else {
+        for (let y = 0; y < n; y++) {
+            const ky = y - h, shift = amp * Math.sin(2 * Math.PI * y / period);
+            for (let x = 0; x < n; x++) {
+                const i = y * n + x;
+                if (!mask[i]) continue;
+                let re = Kre[i], im = Kim[i];
+                if (shift) {
+                    // A shift of d pixels in y multiplies by exp(−2πi·ky·d/n).
+                    const a = -2 * Math.PI * ky * shift / n, c = Math.cos(a), s = Math.sin(a);
+                    const t = re * c - im * s; im = re * s + im * c; re = t;
+                }
+                if (sigma) { re += noiseRe[i] * sigma; im += noiseIm[i] * sigma; }
+                Dre[i] = re; Dim[i] = im;
+            }
+        }
+        for (const s of spikes) Dre[s.y * n + s.x] += 0.12 * imgMax * n * n;
+    }
+    Rre = Float64Array.from(Dre); Rim = Float64Array.from(Dim);
+    fft2(Rre, Rim, n, true);
+    drawK(); drawRecon(); stats();
+}
+
+// ---- Drawing -----------------------------------------------------------------------------
+function paint(cv, fn) {
+    const ctx = cv.getContext('2d'), id = ctx.createImageData(N, N), d = id.data;
+    for (let i = 0; i < N * N; i++) {
+        const [r, g, b] = fn(i);
+        d[4 * i] = r; d[4 * i + 1] = g; d[4 * i + 2] = b; d[4 * i + 3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+}
+const grey = v => { v = clamp(v, 0, 1) * 255; return [v, v, v]; };
+
+function drawOrig() { paint($('orig'), i => grey(img[i] / imgMax)); }
+
+function drawK() {
+    // Log magnitude, scaled to the unspoiled centre so erasing reads as black. Erased
+    // and never-sampled points get a red tint, so you can see the mask where data is faint.
+    const ref = Kdc * 3e-4, top = Math.log(1 + Kdc / ref);
+    paint($('k'), i => {
+        const v = Math.log(1 + Math.hypot(Dre[i], Dim[i]) / ref) / top;
+        if (!wave && !mask[i]) return [70 + 60 * v, 18, 24];
+        return grey(v);
+    });
+}
+
+function drawRecon() {
+    const n = N;
+    let scale = imgMax;
+    if (wave) { scale = 0; for (let i = 0; i < n * n; i++) scale = Math.max(scale, Math.abs(Rre[i])); scale = scale || 1; }
+    const show = wave ? 'real' : S.show;
+    $('recon-label').textContent = show === 'real' ? 'Rebuilt, real part' : show === 'diff' ? 'Rebuilt minus original' : 'Rebuilt';
+    paint($('recon'), i => {
+        if (show === 'real') return grey(0.5 + 0.5 * Rre[i] / scale);
+        const m = Math.hypot(Rre[i], Rim[i]);
+        if (show === 'diff') return grey(0.5 + (m - img[i]) / imgMax);
+        return grey(m / scale);
+    });
+}
+
+function stats() {
+    const n = N;
+    let kept = 0; for (let i = 0; i < n * n; i++) kept += mask[i];
+    $('kept').textContent = wave ? '' : Math.round(100 * kept / (n * n)) + '% kept';
+    if (wave) { $('err').textContent = ''; return; }
+    let e = 0, s = 0;
+    for (let i = 0; i < n * n; i++) { const d = Math.hypot(Rre[i], Rim[i]) - img[i]; e += d * d; s += img[i] * img[i]; }
+    $('err').textContent = 'error ' + (100 * Math.sqrt(e / (s || 1))).toFixed(1) + '%';
+}
+
+// ---- Drawing on k-space ------------------------------------------------------------------
+const kc = $('k');
+function kAt(e) {
+    const r = kc.getBoundingClientRect();
+    return { x: clamp(Math.floor((e.clientX - r.left) / r.width * N), 0, N - 1), y: clamp(Math.floor((e.clientY - r.top) / r.height * N), 0, N - 1) };
+}
+function describe(p) {
+    const kx = p.x - N / 2, ky = -(p.y - N / 2), k = Math.hypot(kx, ky);
+    let s = `k = (${kx}, ${ky})`;
+    if (k) s += ` · ${(N / k).toFixed(k > N / 8 ? 1 : 0)} px a cycle`;
+    $('k-info').textContent = s;
+}
+let pending = false;
+function soon() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; update(); }); } }
+function brush(p) {
+    const r = S.brush * N / 256, v = S.tool === 'erase' ? 0 : 1;
+    for (let y = Math.max(0, Math.floor(p.y - r)); y <= Math.min(N - 1, Math.ceil(p.y + r)); y++)
+        for (let x = Math.max(0, Math.floor(p.x - r)); x <= Math.min(N - 1, Math.ceil(p.x + r)); x++)
+            if ((x - p.x) ** 2 + (y - p.y) ** 2 <= r * r) mask[y * N + x] = v;
+    soon();
+}
+let down = false, lastP = null;
+kc.addEventListener('pointerdown', e => {
+    const p = kAt(e);
+    if (S.tool === 'spike') { spikes.push(p); wave = null; soon(); return; }
+    if (S.tool === 'wave') { wave = p; describe(p); soon(); return; }
+    wave = null;
+    down = true; lastP = p; try { kc.setPointerCapture(e.pointerId); } catch (err) {} brush(p);
+});
+kc.addEventListener('pointermove', e => {
+    const p = kAt(e);
+    describe(p);
+    if (S.tool === 'wave' && e.buttons && wave) { wave = p; soon(); return; }
+    if (!down) return;
+    // Fill in between samples so a fast drag leaves an unbroken stroke.
+    const steps = Math.ceil(Math.hypot(p.x - lastP.x, p.y - lastP.y) / Math.max(1, S.brush * N / 512));
+    for (let k = 1; k <= steps; k++) brush({ x: lastP.x + (p.x - lastP.x) * k / steps, y: lastP.y + (p.y - lastP.y) * k / steps });
+    lastP = p;
+});
+const up = () => { down = false; };
+kc.addEventListener('pointerup', up);
+kc.addEventListener('pointercancel', up);
+kc.addEventListener('pointerleave', () => { if (!down) $('k-info').textContent = ''; });
+
+// ---- Controls ----------------------------------------------------------------------------
+function marks() {
+    for (const b of $('tools').children) b.classList.toggle('active', b.dataset.tool === S.tool);
+    for (const b of $('sizes').children) b.classList.toggle('active', +b.dataset.size === S.size);
+    for (const b of $('shows').children) b.classList.toggle('active', b.dataset.show === S.show);
+    $('brush-row').hidden = !(S.tool === 'erase' || S.tool === 'restore');
+    $('tool-note').textContent = TOOL_NOTES[S.tool];
+    $('mask').value = S.mask;
+    const A = AMOUNTS[S.mask], am = $('amount');
+    $('amount-row').hidden = !A;
+    if (A) {
+        am.min = A.min; am.max = A.max; am.step = 1; am.value = S.amounts[S.mask];
+        $('amount-label').textContent = A.label; $('amount-out').textContent = A.fmt(S.amounts[S.mask]);
+    }
+    $('mask-note').textContent = MASK_NOTES[S.mask];
+    $('brush-out').textContent = S.brush;
+    $('noise-out').textContent = S.noise + '%';
+    $('motion-out').textContent = S.motion ? S.motion + '%' : 'still';
+    status();
+}
+function status() {
+    let s = '';
+    if (wave) s = 'One wave: click elsewhere on k-space to try another, or pick another tool to go back.';
+    else if (spikes.length) s = spikes.length === 1 ? 'One spike lays stripes across the whole picture.' : `${spikes.length} spikes, each its own set of stripes.`;
+    else if (S.motion) s = 'Breathing during the scan leaves ghosts above and below.';
+    $('status').textContent = s;
+}
+
+$('tools').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.tool = b.dataset.tool;
+    if (S.tool !== 'wave' && wave) { wave = null; update(); }
+    save(); marks();
+});
+$('shows').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.show = b.dataset.show; save(); marks(); drawRecon();
+});
+$('sizes').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.size = +b.dataset.size; save(); marks(); load();
+});
+$('mask').addEventListener('change', () => { S.mask = $('mask').value; wave = null; buildMask(); save(); marks(); update(); });
+$('amount').addEventListener('input', () => { S.amounts[S.mask] = +$('amount').value; buildMask(); save(); marks(); soon(); });
+$('brush').value = S.brush;
+$('brush').addEventListener('input', () => { S.brush = +$('brush').value; save(); marks(); });
+for (const k of ['noise', 'motion']) {
+    $(k).value = S[k];
+    $(k).addEventListener('input', () => { S[k] = +$(k).value; wave = null; marks(); soon(); });
+}
+$('clear').addEventListener('click', () => { spikes = []; wave = null; buildMask(); marks(); update(); });
+$('phantom').addEventListener('click', () => { source = null; load(); marks(); });
+$('choose').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f) openPicture(f); $('file').value = ''; });
+
+async function openPicture(file) {
+    if (!file || !file.type.startsWith('image/')) { $('status').textContent = 'That doesn’t look like a picture.'; return; }
+    try { source = await createImageBitmap(file); load(); marks(); }
+    catch (e) { $('status').textContent = 'Couldn’t read that picture.'; }
+}
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('over'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('over'); });
+addEventListener('drop', e => { e.preventDefault(); document.body.classList.remove('over'); openPicture(e.dataTransfer.files[0]); });
+addEventListener('paste', e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item) openPicture(item.getAsFile());
+});
+
+marks();
+load();
+</script>
+</body>
+</html>

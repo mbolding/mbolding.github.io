@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Emit the four NBL425 card games, the rules page and the index's category
-lists from one table.
+"""Emit the NBL425 card games, the rules page and the hub index from one
+table.
 
 The categories were previously written out in three places — each game's own
 blurb, rules.html and index.html — and two of the three had drifted. The MRI
@@ -8,23 +8,30 @@ game deals Magnets/Organs/Processes/Applications while both listings promised
 Imaging Techniques/Applications/Processes/Equipment; PET was wrong the same
 way; the EEG game's blurb said "Frequency Bands" where it deals "Brain Waves".
 Generating all three from this table is what stops them drifting again.
+
+The index used to be patched in place, which only replaced the first
+category block and left a stale copy of the old lists hanging under it.
+It is written whole now. Run this file after editing GAMES:
+
+    python3 nbl425_games/build_games.py
 """
 import json
 import os
 
-ROOT = "/home/user/mbolding.github.io"
-OUT = os.path.join(ROOT, "nbl425_games")
+OUT = os.path.dirname(os.path.abspath(__file__))
 
 GAMES = {
     "eeg": {
         "title": "EEG",
         "file": "eeggame.html",
         "blurb": "Electroencephalography: scalp potentials, sampled fast.",
+        "sim": "../eegsim/index.html",
         "categories": {
             "Electrodes": ["Scalp Electrodes", "Intracranial Electrodes",
                            "Dry Electrodes", "Wet Electrodes"],
             "Brain Waves": ["Alpha", "Beta", "Theta", "Delta"],
-            "Processes": ["Signal Acquisition", "Filtering", "Amplification"],
+            "Processes": ["Signal Acquisition", "Re-referencing", "Filtering",
+                          "Artifact Removal"],
             "Applications": ["Epilepsy", "Sleep Studies",
                              "Brain-Computer Interface", "Cognitive Research"],
         },
@@ -33,11 +40,12 @@ GAMES = {
         "title": "MEG",
         "file": "meggame.html",
         "blurb": "Magnetoencephalography: the fields those currents throw off.",
+        "sim": "../megsim/index.html",
         "categories": {
-            "Sensors": ["SQUID sensor", "Optically Pumped sensor",
-                        "Planar Gradiometer sensor"],
+            "Sensors": ["SQUID Magnetometer", "Optically Pumped Magnetometer",
+                        "Planar Gradiometer"],
             "Brain Waves": ["Alpha", "Beta", "Theta", "Gamma"],
-            "Processes": ["Magnetic Field Detection", "Signal Processing",
+            "Processes": ["Magnetic Shielding", "Signal Space Separation",
                           "Source Localization"],
             "Applications": ["Epilepsy", "Language Mapping",
                              "Sensory Processing", "Cognitive Research"],
@@ -47,12 +55,13 @@ GAMES = {
         "title": "MRI",
         "file": "mrigame.html",
         "blurb": "Magnetic resonance imaging: spins, gradients and contrast.",
+        "sim": "../nbl425/demos/mri_simulator/index.html",
         "categories": {
             "Magnets": ["Superconducting Magnet", "Permanent Magnet",
                         "Resistive Magnet"],
             "Organs": ["Brain", "Heart", "Spine", "Joints", "Abdomen"],
-            "Processes": ["RF Excitation", "Relaxation Process",
-                          "RF Signal Detection"],
+            "Processes": ["RF Excitation", "T1 and T2 Relaxation",
+                          "Spatial Encoding", "Image Reconstruction"],
             "Applications": ["Neurology", "Cardiology", "Orthopedics", "Oncology"],
         },
     },
@@ -60,17 +69,34 @@ GAMES = {
         "title": "PET",
         "file": "petgame.html",
         "blurb": "Positron emission tomography: tracers, annihilation, counts.",
+        "sim": "../nbl425/demos/pet_simulator/index.html",
         "categories": {
             "Radioisotopes": ["Fluorine-18", "Carbon-11", "Oxygen-15", "Nitrogen-13"],
             "Organs": ["Brain", "Heart", "Lungs", "Liver", "Kidneys"],
-            "Processes": ["Annihilation", "Detection", "Reconstruction", "Emission"],
+            "Processes": ["Positron Emission", "Annihilation",
+                          "Coincidence Detection", "Reconstruction"],
             "Applications": ["Cancer Detection", "Neurology", "Cardiology",
                              "Pulmonology"],
         },
     },
+    "fnirs": {
+        "title": "fNIRS",
+        "file": "fnirsgame.html",
+        "blurb": "Functional near-infrared spectroscopy: light in, light out, haemoglobin in between.",
+        "sim": "../fnirssim/index.html",
+        "categories": {
+            "Optodes": ["Light Source", "Detector", "Short-Separation Channel"],
+            "Chromophores": ["Oxyhaemoglobin", "Deoxyhaemoglobin", "Water",
+                             "Melanin"],
+            "Processes": ["Modified Beer-Lambert Law", "Motion Correction",
+                          "Short-Channel Regression", "Block Averaging"],
+            "Applications": ["Infant Studies", "Hyperscanning",
+                             "Stroke Rehabilitation", "Brain-Computer Interface"],
+        },
+    },
 }
 
-ORDER = ["eeg", "meg", "mri", "pet"]
+ORDER = ["eeg", "meg", "mri", "pet", "fnirs"]
 
 GAME_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -310,6 +336,9 @@ def categories_js(cats):
     return "{\n" + ",\n".join(lines) + "\n            }"
 
 
+NUMBER = {4: "Four", 5: "Five", 6: "Six"}
+
+
 def prose(names):
     return ", ".join(names[:-1]) + " and " + names[-1]
 
@@ -333,9 +362,6 @@ def build_games():
         print("wrote", g["file"], os.path.getsize(path), "bytes")
 
 
-if __name__ == "__main__":
-    build_games()
-
 
 RULES = """<!DOCTYPE html>
 <html lang="en">
@@ -344,7 +370,7 @@ RULES = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Card Game Rules</title>
-    <meta name="description" content="Rules and category lists for the four NBL425 imaging card games.">
+    <meta name="description" content="Rules and category lists for the NBL425 imaging card games.">
     <link rel="stylesheet" href="cards.css">
     <link rel="stylesheet" href="../archive.css">
     <style>
@@ -395,7 +421,7 @@ RULES = """<!DOCTYPE html>
 
     <main>
         <h1>Little Imaging Card Games</h1>
-        <p class="blurb">Four decks, one shape of game. Collect one card from each category.</p>
+        <p class="blurb">{count} decks, one shape of game. Collect one card from each category.</p>
 
         <div class="game-links">
 {links}
@@ -447,30 +473,159 @@ def build_rules():
                 for n, c in GAMES[k]["categories"].items()))
         for k in ORDER)
     path = os.path.join(OUT, "rules.html")
-    open(path, "w", encoding="utf-8").write(RULES.format(links=links, sections=sections))
+    open(path, "w", encoding="utf-8").write(
+        RULES.format(links=links, sections=sections, count=NUMBER[len(ORDER)]))
     print("wrote rules.html", os.path.getsize(path), "bytes")
 
 
-def build_index_categories():
-    """Rewrite the category blocks inside index.html in place."""
-    path = os.path.join(OUT, "index.html")
-    t = open(path, encoding="utf-8").read()
-    blocks = []
-    for k in ORDER:
-        g = GAMES[k]
-        items = "\n".join(
-            '                        <li><strong>{}:</strong> {}</li>'.format(n, ", ".join(c))
-            for n, c in g["categories"].items())
-        blocks.append(
-            '                <div class="category-item">\n'
-            '                    <h3>{}</h3>\n'
-            '                    <ul>\n{}\n'
-            '                    </ul>\n'
-            '                </div>'.format(g["title"], items))
+INDEX = """<!DOCTYPE html>
+<html lang="en">
 
-    start = t.index('<div class="category-list">')
-    start = t.index("\n", start) + 1
-    end = t.index("            </div>", start)
-    t = t[:start] + "\n".join(blocks) + "\n" + t[end:]
-    open(path, "w", encoding="utf-8").write(t)
-    print("rewrote index.html category lists")
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBL425 Games</title>
+    <meta name="description" content="Imaging card games for NBL 425/625: {decks}, plus Conway's Game of Life and the course's modality simulators.">
+    <link rel="stylesheet" href="cards.css">
+    <link rel="stylesheet" href="../archive.css">
+    <style>
+        .decks {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }}
+
+        .deck {{
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 16px;
+            color: var(--fg);
+            text-decoration: none;
+            background-color: var(--panel);
+            border: 1px solid var(--rule);
+            border-radius: 10px;
+            box-shadow: 0 2px 6px var(--shadow);
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }}
+
+        .deck:hover {{
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }}
+
+        .deck-title {{
+            color: var(--accent);
+            font-size: 1.3rem;
+            font-weight: 800;
+        }}
+
+        .deck-blurb {{
+            font-size: 0.88rem;
+            line-height: 1.45;
+        }}
+
+        .deck-cats {{
+            margin-top: auto;
+            color: var(--muted);
+            font-size: 0.75rem;
+            line-height: 1.5;
+        }}
+
+        .links {{
+            margin: 0;
+            padding: 16px 18px 16px 34px;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            background-color: var(--panel-2);
+            border: 1px solid var(--rule);
+            border-radius: 8px;
+        }}
+
+        .links a {{
+            color: var(--accent);
+            font-weight: 600;
+        }}
+
+        .links span {{
+            color: var(--muted);
+        }}
+
+        @media (prefers-reduced-motion: reduce) {{
+            .deck {{
+                transition: none;
+            }}
+
+            .deck:hover {{
+                transform: none;
+            }}
+        }}
+    </style>
+</head>
+
+<body class="ar-touch ar-motion">
+    <nav class="ar-bar">
+        <a href="../archive.html">&larr; Archive</a>
+        <span class="ar-here">NBL425 Games</span>
+        <span class="ar-spacer"></span>
+        <a href="../nbl425/index.html">NBL 425/625</a>
+    </nav>
+
+    <main>
+        <h1>Imaging Card Games</h1>
+        <p class="blurb">{count} decks, one per modality. Draw, discard, and hold one card from
+            each of a deck's four categories to win.</p>
+
+        <div class="decks">
+{decks_html}
+        </div>
+
+        <section class="zone">
+            <h2>Also here</h2>
+            <ul class="links">
+                <li><a href="rules.html">Rules</a> <span>and every deck's full category list</span></li>
+                <li><a href="conway.html">Game of Life</a> <span>draw a pattern, then step it a generation at a time</span></li>
+            </ul>
+        </section>
+
+        <section class="zone">
+            <h2>The simulators</h2>
+            <ul class="links">
+{sims_html}
+            </ul>
+        </section>
+    </main>
+</body>
+
+</html>
+"""
+
+DECK = """            <a class="deck" href="{file}">
+                <span class="deck-title">{title}</span>
+                <span class="deck-blurb">{blurb}</span>
+                <span class="deck-cats">{cats}</span>
+            </a>"""
+
+SIM = ('                <li><a href="{sim}">{title} Simulator</a> '
+       '<span>the real thing behind the {title} deck</span></li>')
+
+
+def build_index():
+    decks = [GAMES[k] for k in ORDER]
+    html = INDEX.format(
+        decks=", ".join(g["title"] for g in decks),
+        count=NUMBER[len(decks)],
+        decks_html="\n".join(
+            DECK.format(cats=" &middot; ".join(g["categories"]), **g) for g in decks),
+        sims_html="\n".join(SIM.format(**g) for g in decks),
+    )
+    path = os.path.join(OUT, "index.html")
+    open(path, "w", encoding="utf-8").write(html)
+    print("wrote index.html", os.path.getsize(path), "bytes")
+
+
+if __name__ == "__main__":
+    build_games()
+    build_rules()
+    build_index()

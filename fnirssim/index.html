@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fNIRS Simulator</title>
+<meta name="description" content="A teaching fNIRS simulator: describe a recording in a small language, watch light scatter through scalp, skull and cortex, pick wavelengths, convert intensity to haemoglobin with the modified Beer-Lambert law, switch confounds and artifacts on and off, and process, average and model the data.">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Apply a remembered theme before first paint.
+  try { const t = localStorage.getItem('fnirssim-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topline">
+    <a class="back" href="../index.html">&larr; Back to home</a>
+    <button class="ghost small" id="btnTheme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+  <h1>fNIRS Simulator</h1>
+  <p class="sub">A sibling to the <a href="../nbl425/demos/mri_simulator/index.html">MRI</a>, <a href="../nbl425/demos/pet_simulator/index.html">PET</a>,
+    <a href="../eegsim/index.html">EEG</a> and <a href="../megsim/index.html">MEG</a> simulators. Describe a recording in a few lines, shine near-infrared
+    light through scalp, skull and cortex, catch what comes back, and turn it into oxy- and deoxyhaemoglobin. Then let the heartbeat, the breath,
+    blood-pressure waves, the scalp, a loose optode and the room lights in, and do what an fNIRS lab does: check, correct, filter, regress, average
+    and model. The simulator always knows what the cortex really did, so every answer can be checked.</p>
+
+  <nav class="tabs" role="tablist" aria-label="Simulator sections">
+    <button role="tab" id="t-system" aria-controls="tab-system" aria-selected="true"><span class="num">1</span>System</button>
+    <button role="tab" id="t-experiment" aria-controls="tab-experiment" aria-selected="false"><span class="num">2</span>Experiment</button>
+    <button role="tab" id="t-light" aria-controls="tab-light" aria-selected="false"><span class="num">3</span>Light in tissue</button>
+    <button role="tab" id="t-spectra" aria-controls="tab-spectra" aria-selected="false"><span class="num">4</span>Wavelengths</button>
+    <button role="tab" id="t-mbll" aria-controls="tab-mbll" aria-selected="false"><span class="num">5</span>Beer&ndash;Lambert</button>
+    <button role="tab" id="t-head" aria-controls="tab-head" aria-selected="false"><span class="num">6</span>Head &amp; activation</button>
+    <button role="tab" id="t-confounds" aria-controls="tab-confounds" aria-selected="false"><span class="num">7</span>Confounds</button>
+    <button role="tab" id="t-recording" aria-controls="tab-recording" aria-selected="false"><span class="num">8</span>Recording</button>
+    <button role="tab" id="t-processing" aria-controls="tab-processing" aria-selected="false"><span class="num">9</span>Processing</button>
+    <button role="tab" id="t-averaging" aria-controls="tab-averaging" aria-selected="false"><span class="num">10</span>Averaging &amp; GLM</button>
+    <button role="tab" id="t-compare" aria-controls="tab-compare" aria-selected="false"><span class="num">11</span>fNIRS vs fMRI</button>
+    <button role="tab" id="t-dot" aria-controls="tab-dot" aria-selected="false"><span class="num">12</span>Tomography</button>
+    <button role="tab" id="t-guide" aria-controls="tab-guide" aria-selected="false"><span class="num">13</span>Guide</button>
+  </nav>
+  <div class="status" id="status" aria-live="polite"><span class="busy" id="busy">Working</span></div>
+
+  <!-- ================= 1. SYSTEM ================= -->
+  <section role="tabpanel" id="tab-system" aria-labelledby="t-system">
+    <details class="concept" open>
+      <summary>The idea: shine light in, catch what comes back</summary>
+      <div>
+        <p>Skin, bone and brain are nearly transparent to near-infrared light between about 650 and 950 nm, but they scatter it fiercely:
+          a photon changes direction every tenth of a millimetre. Light shone into the scalp at one point therefore diffuses through the head,
+          and a little of it, a billionth or so, comes back out a few centimetres away. On its way it passes through the cortex, where
+          <strong>oxyhaemoglobin</strong> and <strong>deoxyhaemoglobin</strong> absorb it, each with its own colour. When neurons fire, blood flow
+          rises and the mix changes, and so does the light that comes out. An fNIRS system is a set of <strong>light sources</strong> at two or more
+          wavelengths, <strong>optodes</strong> held against the scalp by a cap, <strong>detectors</strong> sensitive enough to see a few picowatts,
+          and a way of <strong>multiplexing</strong> so each detector knows which source its light came from. Click a part of the system or a stage below.</p>
+      </div>
+    </details>
+    <div class="panel">
+      <h2>The system <span class="hint">continuous wave; click a part to read about it</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvSystem"></canvas></div>
+        <div class="prose" id="sysInfo"></div>
+      </div>
+    </div>
+    <div class="chain" id="sysStages" role="group" aria-label="Parts of the system">
+      <button data-stage="sources" aria-pressed="true"><span>1 · Sources</span><small>lasers or LEDs, two colours</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="cap" aria-pressed="false"><span>2 · Optodes &amp; cap</span><small>coupling through hair</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="tissue" aria-pressed="false"><span>3 · Tissue</span><small>five layers</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="detectors" aria-pressed="false"><span>4 · Detectors</span><small>picowatts to microwatts</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="mux" aria-pressed="false"><span>5 · Multiplexing</span><small>which light is whose</small></button>
+      <span class="arrow" aria-hidden="true">&rarr;</span>
+      <button data-stage="modes" aria-pressed="false"><span>6 · CW, FD, TD</span><small>three ways to measure</small></button>
+    </div>
+
+    <div class="panel" id="stage-sources">
+      <h2>Light sources <span class="hint">emission against the haemoglobin spectra</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvSrcSpec"></canvas><div class="legend" id="srcSpecLegend"></div></div>
+        <div>
+          <div class="btnrow" style="margin-bottom:8px"><span class="lbl" style="margin:0">Source</span>
+            <div class="seg" id="srcTypeSeg"><button data-v="laser" aria-pressed="true">Laser diode</button><button data-v="led" aria-pressed="false">LED</button></div></div>
+          <div class="controls tight">
+            <div class="ctl"><label for="srcL1">Wavelength 1 <span class="val" id="srcL1V"></span></label><input type="range" id="srcL1" min="650" max="950" step="1" value="760"></div>
+            <div class="ctl"><label for="srcL2">Wavelength 2 <span class="val" id="srcL2V"></span></label><input type="range" id="srcL2" min="650" max="950" step="1" value="850"></div>
+            <div class="ctl"><label for="srcFwhm">LED bandwidth <span class="val" id="srcFwhmV"></span></label><input type="range" id="srcFwhm" min="10" max="60" step="1" value="35"></div>
+          </div>
+          <div class="readouts" id="srcReadouts"></div>
+          <p class="cap">A laser diode emits a line a nanometre or two wide; an LED spreads over 30 to 50 nm. The conversion to haemoglobin uses the
+            extinction coefficients at the nominal wavelength, but an LED's photons sample the spectrum across its whole band, weighted toward
+            wherever haemoglobin absorbs least. Where the spectrum is steep (below 750 nm for deoxyhaemoglobin) the effective coefficient differs from
+            the nominal one by several percent, and the error leaks between HbO and HbR. Lasers need fibres and safety interlocks; LEDs can sit on
+            the scalp, which is why most wearable systems use them. Either way the power at the skin is kept to a few milliwatts per square millimetre.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-cap" hidden>
+      <h2>Optodes, the cap and coupling <span class="hint">the most common reason a channel fails</span></h2>
+      <div class="grid2">
+        <div><canvas id="cvCap"></canvas>
+          <p class="cap">The cap holds sources (squares) and detectors (circles) in a fixed layout over a 10-20 position. A <strong>channel</strong> is a
+            source-detector pair close enough to see each other's light, usually 3 cm apart, and its signal comes from the tissue between them.
+            The small circles are <strong>short-separation</strong> detectors, 8 mm from a source, that see almost only scalp.</p></div>
+        <div>
+          <canvas id="cvCoupling"></canvas>
+          <div class="btnrow" style="margin:8px 0"><span class="lbl" style="margin:0">Hair</span>
+            <div class="seg" id="hairSeg"><button data-v="none" aria-pressed="true">None</button><button data-v="light" aria-pressed="false">Light</button><button data-v="dense" aria-pressed="false">Dense</button><button data-v="dark" aria-pressed="false">Dense &amp; dark</button></div></div>
+          <div class="readouts" id="capReadouts"></div>
+          <p class="cap">Light has to get from the optode tip into the skin and back out at the detector. Hair in between blocks it, scatters it and,
+            if dark, absorbs it: melanin absorbs more strongly at shorter wavelengths, so dark hair costs more light at 760 nm than at 850. Each
+            optode is pushed through the hair and wiggled into place, which is why setting up a cap takes longer than recording with it. The
+            numbers are the light reaching a 3 cm detector through two optodes, relative to bare skin.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-tissue" hidden>
+      <h2>The tissue <span class="hint">what light passes through on its way to the cortex and back</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvSysTissue"></canvas></div>
+        <div>
+          <div class="btnrow" style="margin-bottom:8px"><span class="lbl" style="margin:0">Head</span>
+            <div class="seg" id="sysHeadSeg"><button data-v="adult" aria-pressed="true">Adult</button><button data-v="thick" aria-pressed="false">Thick skull</button><button data-v="infant" aria-pressed="false">Infant</button></div>
+            <span class="lbl" style="margin:0 0 0 10px">at</span><select id="sysTissueNm" style="width:auto"><option>690</option><option selected>760</option><option>800</option><option>850</option><option>900</option></select><span class="note">nm</span></div>
+          <div class="tablewrap"><table class="qtable" id="tissueTable"></table></div>
+          <p class="cap">Absorption coefficient &mu;<sub>a</sub> (how often light is absorbed) and reduced scattering coefficient &mu;<sub>s</sub>&prime; (how often it
+            effectively changes direction) of each layer, computed from its blood, water and background content. Scattering is a hundred times
+            stronger than absorption everywhere except in the cerebrospinal fluid, a clear layer through which light channels sideways.
+            The Light in tissue tab follows photons through these layers.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-detectors" hidden>
+      <h2>Detectors and dynamic range <span class="hint">light falls about tenfold for every centimetre</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvDynRange"></canvas><div class="legend" id="dynLegend"></div></div>
+        <div>
+          <div class="btnrow" style="margin-bottom:8px"><span class="lbl" style="margin:0">Detector</span>
+            <div class="seg" id="detSeg"><button data-v="photodiode" aria-pressed="false">Photodiode</button><button data-v="apd" aria-pressed="true">APD</button><button data-v="sipm" aria-pressed="false">SiPM</button></div></div>
+          <div class="controls tight">
+            <div class="ctl"><label for="detPower">Source power <span class="val" id="detPowerV"></span></label><input type="range" id="detPower" min="0" max="2" step="0.01" value="1"></div>
+            <div class="ctl"><label for="detRho">Separation <span class="val" id="detRhoV"></span></label><input type="range" id="detRho" min="0.5" max="5.5" step="0.1" value="3"></div>
+          </div>
+          <div class="readouts" id="detReadouts"></div>
+          <p class="cap">The detected power at each separation for a 10 mW source (adult head, 850 nm, bare skin). An 8 mm channel and a 4 cm channel on the
+            same detector differ by four orders of magnitude, so a detector must handle microwatts without saturating and picowatts without drowning in
+            its own noise. A <strong>photodiode</strong> is linear over a huge range but noisy; an <strong>avalanche photodiode</strong> multiplies its
+            photocurrent internally; a <strong>silicon photomultiplier</strong> counts single photons but saturates early, which makes short channels
+            hard. The shaded band is where a detector gives a usable signal (signal-to-noise above 100 at 10 Hz).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-mux" hidden>
+      <h2>Multiplexing: telling the sources apart <span class="hint">animated</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvMux"></canvas></div>
+        <div>
+          <div class="btnrow" style="margin-bottom:8px">
+            <div class="seg" id="muxSeg"><button data-v="time" aria-pressed="true">Time</button><button data-v="frequency" aria-pressed="false">Frequency</button><button data-v="none" aria-pressed="false">None</button></div>
+            <button class="ghost small" id="muxPlay">Pause</button></div>
+          <div class="checks"><label class="check"><input type="checkbox" id="muxAmbient" checked> Room light (steady plus 120 Hz flicker)</label></div>
+          <div class="readouts" id="muxReadouts"></div>
+          <div class="prose" id="muxInfo"></div>
+          <div class="btnrow" style="margin-top:10px"><button class="ghost small" id="btnUseMux">Use this scheme in the recording</button><span class="note" id="useMuxNote"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="stage-modes" hidden>
+      <h2>Continuous wave, frequency domain and time domain <span class="hint">homogeneous tissue, diffusion theory</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="mdMua">Absorption &mu;<sub>a</sub> <span class="val" id="mdMuaV"></span></label><input type="range" id="mdMua" min="0.03" max="0.4" step="0.005" value="0.15"></div>
+        <div class="ctl"><label for="mdMusp">Scattering &mu;<sub>s</sub>&prime; <span class="val" id="mdMuspV"></span></label><input type="range" id="mdMusp" min="4" max="25" step="0.5" value="12"></div>
+        <div class="ctl"><label for="mdRho">Separation <span class="val" id="mdRhoV"></span></label><input type="range" id="mdRho" min="1" max="5" step="0.1" value="3"></div>
+        <div class="ctl"><label for="mdFreq">FD modulation <span class="val" id="mdFreqV"></span></label><input type="range" id="mdFreq" min="50" max="500" step="10" value="110"></div>
+      </div>
+      <div class="grid3">
+        <div><canvas id="cvCW"></canvas><div class="legend" id="cwLegend"></div><p class="cap"><strong>Continuous wave</strong> measures only how much light arrives. Many pairs of absorption and scattering give the same
+          intensity (the curve), so CW cannot tell them apart and reports only <em>changes</em>, through a pathlength it must assume (the DPF). It is
+          cheap, simple and the basis of most fNIRS systems, and of this simulator.</p></div>
+        <div><canvas id="cvFD"></canvas><div class="legend" id="fdLegend"></div><p class="cap"><strong>Frequency domain</strong> modulates the source at around 100 MHz. The light arrives smaller (demodulated) and late
+          (phase shifted); the phase is the mean time of flight, so it measures the pathlength, and with intensity it separates
+          &mu;<sub>a</sub> from &mu;<sub>s</sub>&prime; to give absolute concentrations.</p></div>
+        <div><canvas id="cvTD"></canvas><div class="legend" id="tdLegend"></div><p class="cap"><strong>Time domain</strong> sends picosecond pulses and times each returning photon. The distribution of times of flight
+          holds everything: its decay gives &mu;<sub>a</sub>, its rise &mu;<sub>s</sub>&prime;, and photons that arrive late have travelled further and
+          deeper, so gating on late photons rejects the scalp. The most informative, and the most expensive.</p></div>
+      </div>
+      <div class="readouts" id="modeReadouts"></div>
+    </div>
+  </section>
+
+  <!-- ================= 2. EXPERIMENT ================= -->
+  <section role="tabpanel" id="tab-experiment" aria-labelledby="t-experiment" hidden>
+    <details class="concept">
+      <summary>A recording is a description</summary>
+      <div><p>Every fNIRS study can be written down as a handful of decisions: which wavelengths, how fast to sample and how to multiplex; where the
+        probe goes and how its sources and detectors are laid out, including short channels; whose head it is; what the cortex does and when; what
+        the body does anyway; what goes wrong; and how the data will be analysed. The program on the left is exactly that, in a small language.
+        Change a line and press <strong>Build recording</strong>: the simulator records a new session and every other tab updates. The examples are a
+        good place to start. The language is described under the editor.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Program <span class="hint">Ctrl or &#8984; + Enter builds</span></h2>
+        <div class="btnrow" style="margin-bottom:8px">
+          <select id="exSelect" aria-label="Example programs" style="width:auto;max-width:100%"></select>
+          <button id="btnBuild">Build recording</button>
+          <button class="ghost" id="btnRevert">Revert to example</button>
+        </div>
+        <p class="note" id="exDesc"></p>
+        <div class="editor"><pre id="edHi" aria-hidden="true"></pre><textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Recording program"></textarea></div>
+        <div class="errbox" id="errbox" role="status"></div>
+        <ul class="warnlist" id="warnlist"></ul>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>What the program describes</h2>
+          <div class="grid2">
+            <canvas id="cvExpHead"></canvas>
+            <canvas id="cvExpProbe"></canvas>
+          </div>
+          <div class="legend" id="expLegend"></div>
+          <div class="prose" id="expSummary" style="margin-top:10px"></div>
+        </div>
+        <div class="panel">
+          <h2>Timeline</h2>
+          <canvas id="cvTimeline"></canvas>
+          <div class="legend" id="tlLegend"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The language</h2>
+      <div class="prose"><p>A program is a few blocks in braces. Inside a block each statement is a keyword and its values. A number takes a unit
+        (<code>nm</code>, <code>Hz</code>, <code>bpm</code>, <code>/min</code>, <code>s</code>, <code>ms</code>, <code>cm</code>, <code>mm</code>,
+        <code>uM</code>, <code>mW</code>, <code>nW</code>, <code>deg</code>) or a <code>%</code>, and the unit says what the number is, so
+        <code>cardiac 70 bpm 1 uM</code> and <code>cardiac 1 uM 70 bpm</code> mean the same. In a run of numbers the last unit applies to all:
+        <code>bandpass 0.01 0.2 Hz</code>. Line breaks are only spacing, and <code>#</code> starts a comment.</p></div>
+      <div class="tablewrap"><table class="ref">
+        <thead><tr><th>Statement</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><th colspan="2">recording { ... }</th></tr>
+          <tr><td>wavelengths 760 850 nm</td><td>One, two or three wavelengths between 600 and 1000 nm. One is allowed so you can watch the conversion fail.</td></tr>
+          <tr><td>rate 10 Hz</td><td>Sampling rate, 0.5 to 50 Hz.</td></tr>
+          <tr><td>multiplex time | frequency | none</td><td>How the sources are told apart: in turn with a dark slot, by modulation and lock-in detection, or not at all.</td></tr>
+          <tr><td>source laser | led &nbsp; power 10 mW</td><td>Source type (an LED is 35 nm wide) and power at each source.</td></tr>
+          <tr><td>detector photodiode | apd | sipm</td><td>Detector type, which sets the noise floor and the saturation level.</td></tr>
+          <tr><td>system cw &nbsp; seed 1</td><td>The recording is always continuous wave; <code>fd</code> and <code>td</code> are shown on the System tab. The seed fixes every random choice.</td></tr>
+          <tr><th colspan="2">probe over C3 { ... }</th></tr>
+          <tr><td>layout motor | forehead</td><td>A ready-made array: four sources and four detectors on a 3 cm checkerboard, or a forehead strip. Each comes with short channels.</td></tr>
+          <tr><td>source S1 at -3 1.5 cm &nbsp; detector D1 at 0 1.5 cm</td><td>Your own optodes on the probe patch, in cm from its centre (x to the right, y toward the nose).</td></tr>
+          <tr><td>short S1 8 mm [90 deg] &nbsp; short off</td><td>A short-separation detector beside a source, at an optional angle; <code>short off</code> removes them.</td></tr>
+          <tr><td>channels 3.5 cm &nbsp; channel S1 D1</td><td>Every pair from 1.5 cm up to this distance is a channel, or list the channels yourself.</td></tr>
+          <tr><td>rotate 30 deg</td><td>Turn the probe on the head. <code>over</code> takes any of the 10-20 positions drawn on the cap.</td></tr>
+          <tr><th colspan="2">head adult | thick | infant { ... }</th></tr>
+          <tr><td>hair none | light | dense | dark</td><td>Hair under the optodes: less light, more at short wavelengths when dark, and more variable from optode to optode.</td></tr>
+          <tr><td>scalp 5 mm &nbsp; skull 7 mm &nbsp; csf 2 mm &nbsp; gray 4 mm</td><td>Override a layer's thickness; white matter fills the rest.</td></tr>
+          <tr><th colspan="2">activation <i>name</i> { ... }</th></tr>
+          <tr><td>at 0 0 cm &nbsp; under S3 D1</td><td>Where the active cortex lies under the probe: a position, or the midpoint of a channel.</td></tr>
+          <tr><td>depth 15 mm &nbsp; radius 8 mm</td><td>Depth of its centre below the scalp (default: just inside the gray matter) and its size.</td></tr>
+          <tr><td>flow 50% &nbsp; coupling 2.5 &nbsp; dip</td><td>Peak rise in blood flow for a sustained block; the ratio of flow change to oxygen-consumption change; an initial dip.</td></tr>
+          <tr><td>condition tap 1</td><td>Gain for each condition; with none listed, every condition drives it equally.</td></tr>
+          <tr><th colspan="2">pair <i>name</i> { ... }</th></tr>
+          <tr><td>region A { under S1 D1 } &nbsp; region B { at 3 0 cm }</td><td>Two regions with shared spontaneous activity, for connectivity.</td></tr>
+          <tr><td>coupling 0.7 &nbsp; fluctuation 15% &nbsp; band 0.01 0.1 Hz</td><td>Fraction of activity they share, size of the flow fluctuations, and their frequency band.</td></tr>
+          <tr><th colspan="2">timeline { ... }</th></tr>
+          <tr><td>rest 30 s &nbsp; block tap 20 s</td><td>A rest period, or a single block of a condition.</td></tr>
+          <tr><td>blocks 10 on 20 s off 20 s jitter 5 s { condition tap }</td><td>A block design. With several conditions, they appear in random, <code>alternate</code> or <code>sequence</code> order.</td></tr>
+          <tr><td>events 40 isi 12 s jitter 6 s duration 1 s { condition a 50% ... }</td><td>An event-related design: a trial every isi plus a random 0 to jitter.</td></tr>
+          <tr><th colspan="2">physiology { ... }</th></tr>
+          <tr><td>cardiac 72 bpm 1 uM &nbsp; respiration 15 bpm 0.35 uM</td><td>Heart rate and breathing, with their peak-to-peak size in the scalp.</td></tr>
+          <tr><td>mayer 0.1 Hz 0.6 uM &nbsp; drift 0.8 uM</td><td>Blood-pressure (Mayer) waves, and spontaneous low-frequency fluctuations.</td></tr>
+          <tr><td>taskbp 1.5 uM [2 s]</td><td>The task raises blood pressure and scalp blood flow: a response in the scalp that mimics activation. Optional delay.</td></tr>
+          <tr><td>heterogeneity 15% &nbsp; brain 100%</td><td>How much the scalp signals vary across the probe, and how much systemic physiology reaches the brain.</td></tr>
+          <tr><td>&hellip; off</td><td>Declare a signal but start with it off. Unlisted signals are off when the block is present; all are switchable on the Confounds tab.</td></tr>
+          <tr><th colspan="2">artifacts { ... }</th></tr>
+          <tr><td>spikes 2 /min 50%</td><td>Motion spikes: sudden changes in optode coupling that recover within seconds.</td></tr>
+          <tr><td>shifts 3 30%</td><td>Baseline shifts: an optode slips and stays slipped.</td></tr>
+          <tr><td>poor D3 2%</td><td>One optode that barely touches the scalp (2% of normal coupling).</td></tr>
+          <tr><td>ambient 3 nW flicker 120 Hz change 200 s</td><td>Room light reaching the detectors, flickering at twice the mains frequency, tripled from a time on.</td></tr>
+          <tr><th colspan="2">analysis { ... }</th></tr>
+          <tr><td>quality sci 0.75 cv 15%</td><td>Reject channels whose scalp coupling index is below, or coefficient of variation above, these thresholds.</td></tr>
+          <tr><td>motion none | tddr | spline</td><td>Motion correction: none, temporal derivative distribution repair, or spline interpolation.</td></tr>
+          <tr><td>bandpass 0.01 0.2 Hz &nbsp; highpass &nbsp; lowpass</td><td>Zero-phase Butterworth filters on optical density.</td></tr>
+          <tr><td>dpf 6 | dpf 6.3 5.2 | dpf age 30 | dpf model</td><td>Differential pathlength factor: one value, one per wavelength, from age, or the true one from the light model.</td></tr>
+          <tr><td>short off | nearest | mean &nbsp; glm | before</td><td>Short-channel regression: which short channel, and whether its weight is estimated inside the GLM or subtracted first.</td></tr>
+          <tr><td>epoch -5 25 s &nbsp; baseline -5 0 s</td><td>Block-averaging window and baseline.</td></tr>
+          <tr><td>hrf canonical | gamma &nbsp; derivative on &nbsp; noise ar | ols</td><td>GLM: response shape, an added temporal derivative, and the noise model.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= 3. LIGHT IN TISSUE ================= -->
+  <section role="tabpanel" id="tab-light" aria-labelledby="t-light" hidden>
+    <details class="concept" open>
+      <summary>Why the light path is a banana, and why that is a trade-off</summary>
+      <div><p>Each photon takes a random walk: a straight step, a new direction, another step, until it is absorbed or escapes. Most escape close to the
+        source. The few that reach a detector centimetres away must have wandered deep enough to get there and back, and the region they visited, weighted
+        by how likely each route is, is shaped like a banana between source and detector. Its depth grows with separation, roughly a third to a half
+        of it, but every extra centimetre costs about a factor of ten in light. A short channel sees the scalp; a 3 cm channel reaches the cortex but
+        still spends most of its path in scalp and skull; a 5 cm channel goes deeper still but gets almost no light. The orange paths are individual
+        photons from a Monte Carlo random walk; the shaded banana is the sensitivity from diffusion theory, which the photons fill in as they accumulate.</p></div>
+    </details>
+    <div class="panel">
+      <h2>Photons in a layered head <span class="hint">cross-section through source and detector</span></h2>
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Head</span><div class="seg" id="lightHeadSeg"><button data-v="adult" aria-pressed="true">Adult</button><button data-v="thick" aria-pressed="false">Thick skull</button><button data-v="infant" aria-pressed="false">Infant</button></div></div>
+        <div class="ctl"><label for="lightRho">Source-detector separation <span class="val" id="lightRhoV"></span></label><input type="range" id="lightRho" min="0.5" max="5" step="0.1" value="3"></div>
+        <div class="ctl"><label for="lightNm">Wavelength <span class="val" id="lightNmV"></span></label><input type="range" id="lightNm" min="650" max="950" step="5" value="850"></div>
+        <div class="ctl"><span class="lbl">Show</span><div class="seg" id="lightViewSeg"><button data-v="both" aria-pressed="true">Both</button><button data-v="photons" aria-pressed="false">Photons</button><button data-v="banana" aria-pressed="false">Banana</button><button data-v="mc" aria-pressed="false">Density</button></div></div>
+      </div>
+      <div class="btnrow" style="margin:4px 0 10px"><button class="ghost small" id="mcPlay">Pause photons</button><button class="ghost small" id="mcReset">Clear</button>
+        <label class="check"><input type="checkbox" id="lightShort" checked> Compare an 8 mm short channel</label>
+        <label class="check"><input type="checkbox" id="lightLate"> Only late photons (time gating)</label></div>
+      <canvas id="cvLight"></canvas>
+      <div class="readouts" id="lightReadouts"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Depth reached versus light detected <span class="hint">the separation trade-off</span></h2>
+        <canvas id="cvTradeLight"></canvas>
+        <canvas id="cvTradeDepth" style="margin-top:8px"></canvas>
+        <p class="cap">Top: detected power from a 10 mW source on a log scale, with the noise floor of an avalanche photodiode. Bottom: the share of each channel's
+          path that lies in the brain (gray and white matter). The marker is the current separation. Separations of 3 to 4 cm are the compromise every adult
+          probe makes; in an infant the brain is so close that 2 cm already reaches it.</p>
+      </div>
+      <div class="panel">
+        <h2>Where the path goes <span class="hint">partial pathlengths</span></h2>
+        <canvas id="cvLayerBars"></canvas>
+        <canvas id="cvDepthProfile" style="margin-top:8px"></canvas>
+        <p class="cap">Top: mean pathlength in each layer, from diffusion theory and from the photons detected so far (which agree to within the noise of
+          the count and the approximations of each method). Bottom: how sensitivity is spread over depth for this separation and for the short channel.
+          The modified Beer-Lambert law treats the whole path as if it were in the cortex; this is the partial volume it ignores.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Time of flight <span class="hint">what a time-domain system would see</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvTOF"></canvas></div>
+        <div>
+          <div class="controls tight"><div class="ctl"><label for="lightGate">Late gate starts at <span class="val" id="lightGateV"></span></label><input type="range" id="lightGate" min="0.2" max="4" step="0.05" value="1.2"></div></div>
+          <div class="readouts" id="tofReadouts"></div>
+          <p class="cap">The arrival times of the detected photons (pathlength divided by the speed of light in tissue, 21 cm/ns). Early photons took short,
+            shallow paths; late photons wandered long and deep. Tick "only late photons" to draw only those after the gate: their paths dive into the
+            brain. This is how time-domain systems separate scalp from cortex with a single source-detector pair.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4. WAVELENGTHS ================= -->
+  <section role="tabpanel" id="tab-spectra" aria-labelledby="t-spectra" hidden>
+    <details class="concept" open>
+      <summary>Two unknowns need two equations</summary>
+      <div><p>A change in light at one wavelength could be a change in oxyhaemoglobin, a change in deoxyhaemoglobin, or any mix of the two. Measure at a
+        second wavelength where the two absorb in a different ratio and you have two equations in two unknowns, which can be solved. How well depends on
+        how different the ratios are. Below the <strong>isosbestic point</strong> near 800 nm, deoxyhaemoglobin absorbs more; above it, oxyhaemoglobin does.
+        One wavelength on each side gives well-separated equations; two on the same side give nearly parallel ones, and the solution amplifies noise and
+        mixes the two. Below 650 nm haemoglobin absorbs so strongly that little light survives; above 950 nm water does. Between lies the
+        <strong>near-infrared window</strong>.</p></div>
+    </details>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Absorption in gray matter <span class="hint">log scale; click to move the nearest wavelength</span></h2>
+        <canvas id="cvAbs"></canvas><div class="legend" id="absLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Extinction coefficients <span class="hint">the numbers the conversion uses</span></h2>
+        <canvas id="cvExt"></canvas><div class="legend" id="extLegend"></div>
+      </div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>Pick the wavelengths</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="spL1">Wavelength 1 <span class="val" id="spL1V"></span></label><input type="range" id="spL1" min="600" max="1000" step="1" value="760"></div>
+          <div class="ctl"><label for="spL2">Wavelength 2 <span class="val" id="spL2V"></span></label><input type="range" id="spL2" min="600" max="1000" step="1" value="850"></div>
+          <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="spUse3"> A third wavelength</label></div>
+          <div class="ctl"><label for="spL3">Wavelength 3 <span class="val" id="spL3V"></span></label><input type="range" id="spL3" min="600" max="1000" step="1" value="690"></div>
+        </div>
+        <div class="btnrow" style="margin:8px 0" id="spPresets">
+          <button class="ghost small" data-p="760,850">760 / 850 (common)</button>
+          <button class="ghost small" data-p="690,830">690 / 830</button>
+          <button class="ghost small" data-p="830,850">830 / 850 (same side)</button>
+          <button class="ghost small" data-p="797,850">797 / 850 (one isosbestic)</button>
+          <button class="ghost small" data-p="650,950">650 / 950 (window edges)</button>
+          <button class="ghost small" data-p="800">800 only</button>
+        </div>
+        <div class="eq" id="spMatrix"></div>
+        <div class="readouts" id="spReadouts"></div>
+        <div id="spCallout"></div>
+        <div class="btnrow" style="margin-top:10px"><button class="ghost small" id="btnUseLambda">Use these wavelengths in the recording</button><span class="note" id="useLambdaNote"></span></div>
+      </div>
+      <div class="panel">
+        <h2>Every pair at once <span class="hint">noise amplification; click to choose</span></h2>
+        <canvas id="cvCond"></canvas>
+        <p class="cap">For every pair of wavelengths, how much measurement noise is amplified in the recovered HbO and HbR, relative to the best pair, at a
+          3 cm separation. Dark is good. The diagonal is useless (one wavelength twice), and so is anything with both wavelengths above about 800 nm. The cross
+          is the current pair.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>What a poor choice does <span class="hint">the same cortical response through two different pairs</span></h2>
+      <div class="controls tight">
+        <div class="ctl"><label for="spNoise">Optical density noise <span class="val" id="spNoiseV"></span></label><input type="range" id="spNoise" min="0" max="3" step="0.05" value="0.2"></div>
+        <div class="ctl"><label for="spDpfErr">Error in the DPF ratio between wavelengths <span class="val" id="spDpfErrV"></span></label><input type="range" id="spDpfErr" min="-30" max="30" step="1" value="0"></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="spLight" checked> Count the light each wavelength loses</label></div>
+      </div>
+      <div class="grid2"><canvas id="cvCrossA"></canvas><canvas id="cvCrossB"></canvas></div><div class="legend" id="crossLegend"></div>
+      <p class="cap">A block response (HbO up, HbR down, dashed: the truth) passed through the forward model at the chosen wavelengths, with noise added
+        to the optical densities, then converted back. With a well-conditioned pair the recovered curves follow the truth; with a poor pair the noise is
+        amplified and a wrong pathlength ratio makes some of HbO appear as HbR and vice versa (crosstalk), even with no noise at all. Left: the common
+        760 / 850 nm pair; right: your choice, with exactly the same noise.</p>
+    </div>
+  </section>
+
+  <!-- ================= 5. BEER-LAMBERT ================= -->
+  <section role="tabpanel" id="tab-mbll" aria-labelledby="t-mbll" hidden>
+    <details class="concept" open>
+      <summary>From light to haemoglobin in three steps</summary>
+      <div><p>The instrument reports <strong>intensity</strong>. Taking minus the logarithm of the intensity relative to its baseline gives the
+        <strong>optical density</strong> change, which for small changes is proportional to the change in absorption along the path. The
+        <strong>modified Beer-Lambert law</strong> says how: &Delta;OD(&lambda;) = [&epsilon;<sub>HbO</sub>(&lambda;) &Delta;HbO + &epsilon;<sub>HbR</sub>(&lambda;) &Delta;HbR] &times; d &times; DPF(&lambda;),
+        where d is the source-detector distance and the <strong>differential pathlength factor</strong> says how much longer than d the light really travelled.
+        With two wavelengths that is two equations, solved for &Delta;HbO and &Delta;HbR. A continuous-wave system cannot measure the DPF, so it is assumed,
+        and the law also assumes the change fills the whole path, when in fact it is confined to a patch of cortex that the light only grazes.</p></div>
+    </details>
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl"><label for="mbCh">Channel</label><select id="mbCh"></select></div>
+        <div class="ctl"><span class="lbl">Signal</span><div class="seg" id="mbSigSeg"><button data-v="cortex" aria-pressed="true">Cortex only</button><button data-v="all" aria-pressed="false">Everything</button></div></div>
+        <div class="ctl"><span class="lbl">DPF from</span><div class="seg" id="mbDpfSeg"><button data-v="fixed" aria-pressed="false">Fixed</button><button data-v="age" aria-pressed="true">Age</button><button data-v="model" aria-pressed="false">Model</button></div></div>
+        <div class="ctl"><label for="mbDpf1">DPF at &lambda;1 <span class="val" id="mbDpf1V"></span></label><input type="range" id="mbDpf1" min="2" max="12" step="0.1" value="6"></div>
+        <div class="ctl"><label for="mbDpf2">DPF at &lambda;2 <span class="val" id="mbDpf2V"></span></label><input type="range" id="mbDpf2" min="2" max="12" step="0.1" value="6"></div>
+        <div class="ctl"><label for="mbAge">Age <span class="val" id="mbAgeV"></span></label><input type="range" id="mbAge" min="0" max="80" step="0.5" value="30"></div>
+      </div>
+      <p class="note">Click any plot to move the cursor; the equation below uses the values there. "Model" uses the true pathlength from the light model, which
+        no real continuous-wave instrument knows. I<sub>0</sub> is the mean intensity of the whole recording, so rest periods sit a little below zero.</p>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h2>1 · Detected intensity</h2><canvas id="cvM1"></canvas><div class="legend" id="m1Legend"></div></div>
+      <div class="panel"><h2>2 · Optical density change <span class="hint">&minus;log<sub>10</sub>(I / I<sub>0</sub>)</span></h2><canvas id="cvM2"></canvas><div class="legend" id="m2Legend"></div></div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel"><h2>3 · Solve for HbO and HbR</h2><div class="eq" id="mbEq"></div><div class="readouts" id="mbReadouts"></div></div>
+      <div class="panel"><h2>4 · Concentration changes</h2><canvas id="cvM3"></canvas><div class="legend" id="m3Legend"></div></div>
+    </div>
+    <div class="panel">
+      <h2>What the law gets wrong, and by how much <span class="hint">this channel, from the light model</span></h2>
+      <div class="grid-wide">
+        <div><canvas id="cvPartial"></canvas></div>
+        <div class="prose" id="mbPartialText"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6. HEAD & ACTIVATION ================= -->
+  <section role="tabpanel" id="tab-head" aria-labelledby="t-head" hidden>
+    <details class="concept">
+      <summary>What the probe can see</summary>
+      <div><p>Each channel is sensitive to a banana-shaped volume, and only the deep end of the banana reaches the brain. A patch of active cortex shows up in
+        a channel only as much as the two overlap: move the activation sideways and it leaves one channel and enters another; push it deeper and it fades
+        from all of them; thicken the skull and the whole brain recedes. The colours on the probe are each channel's sensitivity to the region, the
+        centimetres of mean path that lie inside it. Drag the region on the probe, or use the sliders, then press <strong>Apply</strong> to record with it.</p></div>
+    </details>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2>The probe and the active region <span class="hint">drag the region</span></h2>
+        <div class="grid2"><canvas id="cvHeadTop"></canvas><canvas id="cvHeadProbe"></canvas></div>
+        <div class="legend" id="headLegend"></div>
+        <div class="controls tight" style="margin-top:10px">
+          <div class="ctl"><label for="hdRegion">Region</label><select id="hdRegion"></select></div>
+          <div class="ctl"><label for="hdHead">Head</label><select id="hdHead"><option value="adult">Adult</option><option value="thick">Adult, thick skull</option><option value="infant">Infant</option></select></div>
+          <div class="ctl"><label for="hdHair">Hair</label><select id="hdHair"><option value="none">None</option><option value="light">Light</option><option value="dense">Dense</option><option value="dark">Dense, dark</option></select></div>
+          <div class="ctl"><label for="hdX">Position x <span class="val" id="hdXV"></span></label><input type="range" id="hdX" min="-6" max="6" step="0.1" value="0"></div>
+          <div class="ctl"><label for="hdY">Position y <span class="val" id="hdYV"></span></label><input type="range" id="hdY" min="-4" max="4" step="0.1" value="0"></div>
+          <div class="ctl"><label for="hdDepth">Depth of centre <span class="val" id="hdDepthV"></span></label><input type="range" id="hdDepth" min="0.4" max="3.5" step="0.05" value="1.6"></div>
+          <div class="ctl"><label for="hdRadius">Radius <span class="val" id="hdRadiusV"></span></label><input type="range" id="hdRadius" min="0.3" max="2" step="0.05" value="0.8"></div>
+          <div class="ctl"><label for="hdFlow">Blood flow rise <span class="val" id="hdFlowV"></span></label><input type="range" id="hdFlow" min="0" max="1.2" step="0.05" value="0.5"></div>
+        </div>
+        <div class="btnrow" style="margin-top:10px"><button id="btnHeadApply">Apply to the recording</button><button class="ghost small" id="btnHeadRevert">Undo changes</button><span class="note" id="headNote"></span></div>
+      </div>
+      <div class="panel">
+        <h2>Cross-section through the region <span class="hint" id="headSecHint">through the selected channel's banana</span></h2>
+        <canvas id="cvHeadSection"></canvas>
+        <div class="readouts" id="headReadouts"></div>
+        <canvas id="cvHeadSens" style="margin-top:10px"></canvas>
+        <p class="cap">Bars: each channel's sensitivity to the region at 850 nm (cm of path inside it) and, as a percentage, the share of its whole path
+          that is. The expected measured HbO change is roughly the true local change times that share divided by the share the Beer-Lambert law assumes (all of it).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 7. CONFOUNDS ================= -->
+  <section role="tabpanel" id="tab-confounds" aria-labelledby="t-confounds" hidden>
+    <details class="concept" open>
+      <summary>Everything that is not the cortex</summary>
+      <div><p>The light that reaches a detector has crossed the scalp twice, and the scalp is full of blood vessels that pulse with every heartbeat, swell
+        with every breath and wave with the blood pressure. Worse, the scalp's blood flow responds to the task itself, through the blood pressure, so its
+        changes are time-locked to the stimulus and look like activation. On top of the body come the instrument's problems: optodes that move, slip or
+        barely touch the skin, and light from the room. Each is switchable here without changing anything else in the recording, so you can see its
+        fingerprint alone or in company. The other tabs update as you switch.</p></div>
+    </details>
+    <div class="panel">
+      <h2>Switch confounds on and off <span class="hint">click a card to look at it alone</span></h2>
+      <div class="toggles" id="confToggles"></div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel">
+        <h2 id="confTitle">Its fingerprint</h2>
+        <div class="controls tight">
+          <div class="ctl"><label for="confCh">Channel</label><select id="confCh"></select></div>
+          <div class="ctl"><span class="lbl">Show as</span><div class="seg" id="confAsSeg"><button data-v="hb" aria-pressed="true">Hb</button><button data-v="i" aria-pressed="false">Intensity</button></div></div>
+          <div class="ctl"><label for="confT">Start <span class="val" id="confTV"></span></label><input type="range" id="confT" min="0" max="100" step="1" value="0"></div>
+          <div class="ctl"><label for="confWin">Window <span class="val" id="confWinV"></span></label><input type="range" id="confWin" min="10" max="300" step="5" value="60"></div>
+        </div>
+        <canvas id="cvConfAlone"></canvas>
+        <canvas id="cvConfAll" style="margin-top:8px"></canvas>
+        <div class="legend" id="confLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Where and at what frequency</h2>
+        <canvas id="cvConfMap"></canvas>
+        <canvas id="cvConfSpec" style="margin-top:8px"></canvas>
+        <div class="prose" id="confInfo" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 8. RECORDING ================= -->
+  <section role="tabpanel" id="tab-recording" aria-labelledby="t-recording" hidden>
+    <details class="concept">
+      <summary>What comes out of the instrument</summary>
+      <div><p>For every channel and every wavelength the instrument writes one number per sample: the light that arrived. Before any processing you can
+        already read a lot from it: the heartbeat riding on every good channel, the slow waves, the steps and spikes of motion, a channel with no light at
+        all. The haemoglobin traces here use the plain Beer-Lambert conversion with no filtering or correction; the Processing tab does the rest.
+        Click a channel on the map to show it.</p></div>
+    </details>
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl"><label for="recCh">Channel</label><select id="recCh"></select></div>
+        <div class="ctl"><label for="recT">Start <span class="val" id="recTV"></span></label><input type="range" id="recT" min="0" max="100" step="1" value="0"></div>
+        <div class="ctl"><label for="recWin">Window <span class="val" id="recWinV"></span></label><input type="range" id="recWin" min="10" max="600" step="5" value="120"></div>
+        <div class="ctl"><span class="lbl">Intensity as</span><div class="seg" id="recUnitSeg"><button data-v="pct" aria-pressed="true">% of mean</button><button data-v="nw" aria-pressed="false">Power</button></div></div>
+      </div>
+    </div>
+    <div class="grid-wide">
+      <div>
+        <div class="panel"><h2>Raw intensity, each wavelength</h2><canvas id="cvRecI"></canvas><div class="legend" id="recILegend"></div></div>
+        <div class="panel"><h2>Oxy- and deoxyhaemoglobin <span class="hint">unprocessed</span></h2><canvas id="cvRecHb"></canvas><div class="legend" id="recHbLegend"></div></div>
+      </div>
+      <div>
+        <div class="panel"><h2>Channel map</h2>
+          <div class="btnrow" style="margin-bottom:6px"><div class="seg" id="recMapSeg"><button data-v="intensity" aria-pressed="true">Light level</button><button data-v="sci" aria-pressed="false">Coupling (SCI)</button><button data-v="hbo" aria-pressed="false">HbO variability</button></div></div>
+          <canvas id="cvRecMap"></canvas><div class="legend" id="recMapLegend"></div></div>
+        <div class="panel"><h2>Power spectrum <span class="hint">whole recording</span></h2><canvas id="cvRecSpec"></canvas><div class="legend" id="recSpecLegend"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>All channels <span class="hint">HbO, whole recording, task blocks shaded</span></h2>
+      <canvas id="cvRecStack"></canvas>
+    </div>
+  </section>
+
+  <!-- ================= 9. PROCESSING ================= -->
+  <section role="tabpanel" id="tab-processing" aria-labelledby="t-processing" hidden>
+    <details class="concept">
+      <summary>A standard fNIRS pipeline</summary>
+      <div><p>Most analyses follow the same steps: reject channels that are not really measuring tissue, convert intensity to optical density, repair motion
+        artifacts, filter out the heartbeat and the slowest drifts, convert to haemoglobin, and remove what the short channels say came from the scalp.
+        Each step has a choice and a cost. Switch them here and watch each one's effect on the selected channel; the Averaging and GLM tab uses the result.</p></div>
+    </details>
+    <div class="pipeline" id="pipeChips"></div>
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl"><label for="prCh">Channel</label><select id="prCh"></select></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="prQual" checked> Reject bad channels</label></div>
+        <div class="ctl"><label for="prSci">SCI threshold <span class="val" id="prSciV"></span></label><input type="range" id="prSci" min="0" max="1" step="0.01" value="0.75"></div>
+        <div class="ctl"><label for="prCv">CV threshold <span class="val" id="prCvV"></span></label><input type="range" id="prCv" min="0.01" max="0.5" step="0.01" value="0.15"></div>
+        <div class="ctl"><span class="lbl">Motion correction</span><div class="seg" id="prMotionSeg"><button data-v="none" aria-pressed="true">None</button><button data-v="tddr" aria-pressed="false">TDDR</button><button data-v="spline" aria-pressed="false">Spline</button></div></div>
+        <div class="ctl"><label for="prHp">High-pass <span class="val" id="prHpV"></span></label><input type="range" id="prHp" min="0" max="0.1" step="0.001" value="0.01"></div>
+        <div class="ctl"><label for="prLp">Low-pass <span class="val" id="prLpV"></span></label><input type="range" id="prLp" min="0.05" max="2" step="0.01" value="0.2"></div>
+        <div class="ctl"><span class="lbl">Short-channel regression</span><div class="seg" id="prShortSeg"><button data-v="off" aria-pressed="true">Off</button><button data-v="nearest" aria-pressed="false">Nearest</button><button data-v="mean" aria-pressed="false">Mean</button></div></div>
+        <div class="ctl"><span class="lbl">Estimate its weight</span><div class="seg" id="prShortModeSeg"><button data-v="glm" aria-pressed="true">With the task</button><button data-v="before" aria-pressed="false">Before</button></div></div>
+      </div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel"><h2>1 · Signal quality</h2><div class="tablewrap" style="max-height:440px;overflow:auto"><table class="qtable" id="qTable"></table></div></div>
+      <div class="panel"><h2>Scalp coupling index <span class="hint">cardiac-band correlation of the two wavelengths</span></h2><canvas id="cvQMap"></canvas><canvas id="cvSci" style="margin-top:8px"></canvas></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h2>2 · Motion correction <span class="hint">optical density at the longer wavelength</span></h2><canvas id="cvMotion"></canvas><div class="legend" id="motionLegend"></div><div class="prose" id="motionText"></div></div>
+      <div class="panel"><h2>3 · Band-pass filter <span class="hint">HbO spectrum before and after</span></h2><canvas id="cvFilt"></canvas><div class="legend" id="filtLegend"></div><div class="prose" id="filtText"></div></div>
+    </div>
+    <div class="panel"><h2>4 · Short-channel regression <span class="hint">HbO</span></h2>
+      <canvas id="cvSCR"></canvas><div class="legend" id="scrLegend"></div><div class="prose" id="scrText"></div></div>
+  </section>
+
+  <!-- ================= 10. AVERAGING & GLM ================= -->
+  <section role="tabpanel" id="tab-averaging" aria-labelledby="t-averaging" hidden>
+    <details class="concept">
+      <summary>Finding the response in the noise</summary>
+      <div><p>A single trial's response is a fraction of a micromolar, smaller than the heartbeat and the Mayer waves. Averaging trials time-locked to the
+        stimulus shrinks everything that is not time-locked by the square root of the number of trials, so the canonical shape emerges: HbO rising over
+        five or six seconds, HbR falling by a third as much, both returning after the stimulus ends. What is time-locked survives averaging, including the
+        scalp's response to the task. The <strong>GLM</strong> does the same job with a model, fitting a predicted response shape to the whole time series at
+        once, which copes with overlapping trials and can include the short channel as a regressor.</p></div>
+    </details>
+    <div class="btnrow" style="margin-bottom:12px"><div class="seg" id="avViewSeg"><button data-v="avg" aria-pressed="true">Block average</button><button data-v="glm" aria-pressed="false">GLM</button><button data-v="conn" aria-pressed="false">Connectivity</button></div></div>
+    <div id="avPanelAvg">
+      <div class="grid-wide">
+        <div class="panel">
+          <h2>The average emerging <span class="hint">trial by trial</span></h2>
+          <div class="controls tight">
+            <div class="ctl"><label for="avCh">Channel</label><select id="avCh"></select></div>
+            <div class="ctl"><label for="avCond">Condition</label><select id="avCond"></select></div>
+            <div class="ctl"><label for="avN">Trials averaged <span class="val" id="avNV"></span></label><input type="range" id="avN" min="1" max="10" step="1" value="10"></div>
+            <div class="ctl"><button class="ghost small" id="avPlay" style="margin-top:16px">Play from one trial</button></div>
+          </div>
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="avTruth" checked> True cortical response</label>
+            <label class="check"><input type="checkbox" id="avTrials"> Single trials</label>
+            <label class="check"><input type="checkbox" id="avCompare" checked> Without short-channel regression</label>
+          </div>
+          <canvas id="cvAvg"></canvas><div class="legend" id="avLegend"></div>
+          <div class="readouts" id="avReadouts"></div>
+        </div>
+        <div class="panel">
+          <h2>Every channel <span class="hint">HbO and HbR averages at each channel; click one</span></h2>
+          <canvas id="cvAvgMap"></canvas>
+          <div id="avCallout"></div>
+        </div>
+      </div>
+    </div>
+    <div id="avPanelGlm" hidden>
+      <div class="grid-wide">
+        <div class="panel">
+          <h2>Model fit <span class="hint">selected channel</span></h2>
+          <div class="controls tight">
+            <div class="ctl"><label for="glCh">Channel</label><select id="glCh"></select></div>
+            <div class="ctl"><label for="glCond">Condition</label><select id="glCond"></select></div>
+            <div class="ctl"><span class="lbl">Response shape</span><div class="seg" id="glHrfSeg"><button data-v="canonical" aria-pressed="true">Canonical</button><button data-v="gamma" aria-pressed="false">Gamma</button></div></div>
+            <div class="ctl"><span class="lbl">Noise model</span><div class="seg" id="glNoiseSeg"><button data-v="ar" aria-pressed="true">AR model</button><button data-v="ols" aria-pressed="false">OLS</button></div></div>
+            <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="glDeriv"> Temporal derivative</label></div>
+          </div>
+          <canvas id="cvGlmFit"></canvas><div class="legend" id="glmLegend"></div>
+          <canvas id="cvDesign" style="margin-top:8px"></canvas>
+          <p class="cap">The design matrix, one column per regressor and time running down: the task regressors (stimulus timing convolved with the
+            response shape, scaled to a peak of 1 so that &beta; is the response size in µM), slow cosine drifts and a constant. The model is fitted to
+            motion-corrected but unfiltered data, with the drifts doing the high-pass and an autoregressive noise model of up to 4 s of lags; the short channel,
+            when used, is first subtracted with the weight found on the Processing tab.</p>
+        </div>
+        <div class="panel">
+          <h2>Statistic map</h2>
+          <div class="btnrow" style="margin-bottom:6px"><div class="seg" id="glMapSeg"><button data-v="hbo" aria-pressed="true">HbO</button><button data-v="hbr" aria-pressed="false">HbR</button></div>
+            <div class="seg" id="glStatSeg"><button data-v="t" aria-pressed="true">t</button><button data-v="beta" aria-pressed="false">&beta; (µM)</button></div></div>
+          <canvas id="cvGlmMap"></canvas><div class="legend" id="glmMapLegend"></div>
+          <div class="tablewrap" style="max-height:300px;overflow:auto;margin-top:8px"><table class="qtable" id="glmTable"></table></div>
+        </div>
+      </div>
+    </div>
+    <div id="avPanelConn" hidden>
+      <div class="grid-wide">
+        <div class="panel">
+          <h2>Correlation between channels <span class="hint">HbO, long channels, after processing</span></h2>
+          <canvas id="cvConn"></canvas><div class="legend" id="connLegend"></div>
+        </div>
+        <div class="panel">
+          <h2>Seed map <span class="hint">click a channel as the seed</span></h2>
+          <canvas id="cvConnMap"></canvas>
+          <div class="readouts" id="connReadouts"></div>
+          <div class="prose" id="connText"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 11. FNIRS VS FMRI ================= -->
+  <section role="tabpanel" id="tab-compare" aria-labelledby="t-compare" hidden>
+    <details class="concept" open>
+      <summary>One neurovascular event, two measurements</summary>
+      <div><p>fNIRS and BOLD fMRI watch the same thing: active neurons trigger a rise in blood flow larger than the rise in oxygen use, so the blood in
+        and downstream of the active cortex becomes more oxygenated. More oxygenated blood means more HbO and less HbR. fNIRS measures both changes
+        directly, optically. fMRI measures HbR indirectly: deoxyhaemoglobin is paramagnetic and dephases the MR signal, so less of it means more
+        signal. The same balloon model drives both here, from one neural event: flow, blood volume and oxygen use in, HbO, HbR, total haemoglobin
+        and BOLD out. Then each modality samples it in its own way.</p></div>
+    </details>
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Stimulus</span><div class="seg" id="cmpStimSeg"><button data-v="event" aria-pressed="false">2 s event</button><button data-v="block" aria-pressed="true">20 s block</button></div></div>
+        <div class="ctl"><label for="cmpFlow">Peak blood flow rise <span class="val" id="cmpFlowV"></span></label><input type="range" id="cmpFlow" min="0.1" max="1" step="0.05" value="0.5"></div>
+        <div class="ctl"><label for="cmpN">Flow / oxygen-use coupling n <span class="val" id="cmpNV"></span></label><input type="range" id="cmpN" min="1.3" max="5" step="0.1" value="2.5"></div>
+        <div class="ctl"><label for="cmpAlpha">Grubb's exponent &alpha; <span class="val" id="cmpAlphaV"></span></label><input type="range" id="cmpAlpha" min="0.1" max="0.45" step="0.01" value="0.25"></div>
+        <div class="ctl"><label for="cmpTR">fMRI repetition time <span class="val" id="cmpTRV"></span></label><input type="range" id="cmpTR" min="0.5" max="3" step="0.1" value="2"></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="cmpDip"> Initial dip</label></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="cmpNoise" checked> Measurement noise</label></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h2>1 · Neural activity, flow and oxygen use</h2><canvas id="cvCmpDrive"></canvas><div class="legend" id="cmpDriveLegend"></div></div>
+      <div class="panel"><h2>2 · Haemoglobin in the active tissue</h2><canvas id="cvCmpHb"></canvas><div class="legend" id="cmpHbLegend"></div></div>
+    </div>
+    <div class="grid-wide">
+      <div class="panel"><h2>3 · What each modality reports <span class="hint">each scaled to its own peak</span></h2><canvas id="cvCmpSig"></canvas><div class="legend" id="cmpSigLegend"></div><div class="readouts" id="cmpReadouts"></div></div>
+      <div class="panel"><h2>4 · Where each one looks</h2><canvas id="cvCmpSpace"></canvas>
+        <p class="cap">The same slab of head. fMRI samples every 2.5 mm voxel (green grid, one filled in the cortex) through the whole depth; one fNIRS
+          channel (orange) sees a banana a centimetre or two deep, blurred over a few centimetres, and nothing below it.</p></div>
+    </div>
+    <div class="panel">
+      <h2>Side by side</h2>
+      <div class="tablewrap"><table class="cmp">
+        <thead><tr><th></th><th>fNIRS</th><th>BOLD fMRI</th></tr></thead>
+        <tbody>
+          <tr><td>Measures</td><td>Changes in HbO and HbR (and their sum, HbT), optically, in µM</td><td>Mostly the change in HbR content, through its magnetic effect, in % signal change</td></tr>
+          <tr><td>Sign of activation</td><td>HbO up, HbR down</td><td>Signal up (because HbR went down)</td></tr>
+          <tr><td>Sampling</td><td>10 Hz or faster; the heartbeat is resolved</td><td>One volume every 0.5 to 3 s; the heartbeat aliases</td></tr>
+          <tr><td>Spatial resolution</td><td>1 to 3 cm, set by the banana</td><td>1 to 3 mm voxels (the vessels blur it a little)</td></tr>
+          <tr><td>Depth</td><td>Outer 1 to 2 cm of cortex only</td><td>The whole brain</td></tr>
+          <tr><td>Absolute or relative</td><td>Relative (CW): needs an assumed pathlength</td><td>Relative: % change from baseline</td></tr>
+          <tr><td>Main confounds</td><td>Scalp blood flow, hair, coupling, motion</td><td>Head motion, physiology, susceptibility artifacts</td></tr>
+          <tr><td>Setting</td><td>Portable, quiet, tolerant of movement; infants, walking, conversation</td><td>Lying still in a loud, strong magnet</td></tr>
+          <tr><td>Cost</td><td>Tens of thousands of dollars</td><td>Millions of dollars, and a building</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= 12. TOMOGRAPHY ================= -->
+  <section role="tabpanel" id="tab-dot" aria-labelledby="t-dot" hidden>
+    <details class="concept" open>
+      <summary>From channels to images: diffuse optical tomography</summary>
+      <div><p>A sparse probe with one separation gives one number per channel: a map at best (<strong>topography</strong>), blurred over centimetres and
+        with no depth. A <strong>high-density</strong> array overlaps many channels at several separations, so every point in the tissue is seen by many
+        bananas of different depths. Writing the sensitivity of every channel to every voxel as a matrix, the measurements are that matrix times the
+        absorption change, and inverting it, with regularization because there are far more voxels than channels, gives a three-dimensional image.
+        Short separations pin down the shallow part, long ones the deep part. This is what modern HD-DOT systems do with hundreds of channels.</p></div>
+    </details>
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl"><label for="dotArray">Array</label><select id="dotArray"></select></div>
+        <div class="ctl"><label for="dotX">Target x <span class="val" id="dotXV"></span></label><input type="range" id="dotX" min="-3" max="3" step="0.1" value="0.7"></div>
+        <div class="ctl"><label for="dotY">Target y <span class="val" id="dotYV"></span></label><input type="range" id="dotY" min="-3" max="3" step="0.1" value="-0.4"></div>
+        <div class="ctl"><label for="dotZ">Target depth <span class="val" id="dotZV"></span></label><input type="range" id="dotZ" min="0.5" max="2.6" step="0.05" value="1.6"></div>
+        <div class="ctl"><label for="dotR">Target radius <span class="val" id="dotRV"></span></label><input type="range" id="dotR" min="0.2" max="1.2" step="0.05" value="0.5"></div>
+        <div class="ctl"><label class="check" style="margin-top:18px"><input type="checkbox" id="dotTwo"> A second target</label></div>
+        <div class="ctl"><label for="dotSep">Separation of targets <span class="val" id="dotSepV"></span></label><input type="range" id="dotSep" min="0.5" max="4" step="0.1" value="2"></div>
+        <div class="ctl"><label for="dotNoise">Noise <span class="val" id="dotNoiseV"></span></label><input type="range" id="dotNoise" min="0" max="20" step="0.5" value="2"></div>
+        <div class="ctl"><label for="dotLam">Regularization &lambda; <span class="val" id="dotLamV"></span></label><input type="range" id="dotLam" min="-5" max="0" step="0.1" value="-2"></div>
+        <div class="ctl"><label for="dotGamma">Depth compensation <span class="val" id="dotGammaV"></span></label><input type="range" id="dotGamma" min="0" max="1" step="0.05" value="0.5"></div>
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="panel"><h2>The array</h2><canvas id="cvDotArray"></canvas></div>
+      <div class="panel"><h2>Truth and image from above <span class="hint">slice at the target depth</span></h2><canvas id="cvDotTop"></canvas></div>
+      <div class="panel"><h2>Truth and image in depth <span class="hint">slice through the target</span></h2><canvas id="cvDotSide"></canvas></div>
+    </div>
+    <div class="panel"><div class="readouts" id="dotReadouts"></div><div class="prose" id="dotText" style="margin-top:8px"></div></div>
+  </section>
+
+  <!-- ================= 13. GUIDE ================= -->
+  <section role="tabpanel" id="tab-guide" aria-labelledby="t-guide" hidden>
+    <div class="panel prose" id="guideLessons"></div>
+    <div class="panel prose">
+      <h3>What the simulation computes</h3>
+      <ul>
+        <li><strong>Optical properties.</strong> Each of five layers (scalp, skull, CSF, gray and white matter) has a blood, water and background content;
+          absorption follows from Prahl's tabulation of the haemoglobin extinction coefficients and Hale and Querry's water absorption, and reduced scattering
+          from a power law in wavelength. The values give adult differential pathlength factors of 6 to 7 at 3 cm, near the measured ones.</li>
+        <li><strong>Light transport.</strong> The diffusion equation for a point source on a layered half-space is solved by finite volumes on an axisymmetric
+          grid (0.5 mm cells), with the partial-current boundary condition at the surface. By reciprocity one solution per wavelength gives the sensitivity of
+          every source-detector pair, J = G(s,x) G(x,d) / G(s,d), whose integrals are the partial pathlengths. The Monte Carlo on the Light tab is an
+          independent, isotropic-scattering random walk in the same layers, used for the pictures and as a check.</li>
+        <li><strong>Haemodynamics.</strong> Neural activity drives the balloon model (Buxton, Wong and Frank; Friston and colleagues): flow, venous volume,
+          deoxyhaemoglobin and oxygen use, with a flow / oxygen-use coupling ratio and an optional initial dip. HbO, HbR and BOLD all come from it.</li>
+        <li><strong>The recording.</strong> Every contribution (each cortical region, each systemic signal, each artifact) is turned into a change in log
+          intensity through the channel's partial pathlengths, and the instrument adds coupling, ambient light after demultiplexing, detector noise and
+          saturation. Every stochastic part has its own random stream, so switching one off changes nothing else.</li>
+        <li><strong>Analysis.</strong> Optical density from the mean intensity; scalp coupling index (Pollonini), coefficient of variation, saturation and
+          signal level for quality; TDDR (Fishburn) and spline interpolation (Scholkmann) for motion; zero-phase Butterworth filters; the modified Beer-Lambert law
+          with fixed, age-dependent (Scholkmann and Wolf) or modelled DPF; short-channel regression subtracted first or estimated jointly with the task;
+          block averaging; and a GLM with a canonical or gamma response, cosine drifts and optional AR prewhitening (as in AR-IRLS, without the robust weights).</li>
+        <li><strong>Tomography.</strong> The sensitivity matrix of a high-density array over a voxel grid at one wavelength, and a Tikhonov-regularized
+          minimum-norm reconstruction with optional depth compensation.</li>
+      </ul>
+      <h3>What it does not model</h3>
+      <ul>
+        <li>A real head. The tissue is flat layers under a small probe, so the curvature of the head, the folding of the cortex and the varying
+          thickness of the CSF are absent; a deep activation stands in for one in a sulcus.</li>
+        <li>Photon transport in detail. Diffusion theory is approximate within a few millimetres of the optodes and in the clear CSF; the Monte Carlo uses
+          isotropic scattering. Neither matters for the ideas here, and both are much faster than a full transport code.</li>
+        <li>Real physiology. The heartbeat, breathing and Mayer waves are realistic in frequency and size, but their spread across the layers is a
+          set of fixed weights, and the scalp's response to the task is a simple smoothed copy of the task.</li>
+        <li>Instrument specifics: detector gain switching, source drift with temperature, crosstalk between channels, and the exact timing of any real system.</li>
+      </ul>
+      <p class="note">Built for NBL 425/625, Methods in Human Neuroimaging. See also the course's
+        <a href="../nbl425/demos/fnirs_unmixing.html">Beer-Lambert unmixer</a>, <a href="../nbl425/demos/fnirs_photon_transport.html">photon transport and short-channel regression</a>
+        and <a href="../neuroengineering/fnirs.html">banana path</a> demos.</p>
+    </div>
+  </section>
+
+  <footer>fNIRS simulator. Diffusion of light through a five-layer head, a balloon-model cortex, and the confounds and analysis steps of a real recording. A teaching tool, not a photon transport code.</footer>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/optics.js"></script>
+<script src="js/hemo.js"></script>
+<script src="js/probe.js"></script>
+<script src="js/dsl.js"></script>
+<script src="js/examples.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/dsp.js"></script>
+<script src="js/pipeline.js"></script>
+<script src="js/mc.js"></script>
+<script src="js/dot.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tab_system.js"></script>
+<script src="js/tab_light.js"></script>
+<script src="js/tab_spectra.js"></script>
+<script src="js/tab_mbll.js"></script>
+<script src="js/tab_head.js"></script>
+<script src="js/tab_confounds.js"></script>
+<script src="js/tab_recording.js"></script>
+<script src="js/tab_processing.js"></script>
+<script src="js/tab_averaging.js"></script>
+<script src="js/tab_compare.js"></script>
+<script src="js/tab_dot.js"></script>
+<script src="js/tab_guide.js"></script>
+<script>NIRS.app.start();</script>
+</body>
+</html>

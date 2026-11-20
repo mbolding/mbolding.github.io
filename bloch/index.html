@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bloch</title>
+<style>
+/* The look of mbolding.sdf.org, where this page started. */
+:root {
+  --font-body: Georgia, "Times New Roman", serif;
+  --font-ui: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 6px;
+}
+
+/* Light, the default */
+:root {
+  --bg: #fdfdfb;          /* the page */
+  --surface: #ffffff;     /* cards, tables, boards */
+  --panel: #f3f3ef;       /* buttons, inputs, code, table heads */
+  --text: #222;
+  --muted: #777;
+  --rule: #ddd;
+  --link: #0b5cad;        /* links and the accent: selected tabs, primary buttons */
+  --on-link: #fff;        /* text on the accent */
+  --good: #2e7d32;
+  --bad: #c62828;
+  --warn: #b26a00;
+  color-scheme: light;
+}
+
+/* Dark, from the system */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d; --surface: #1c1f25; --panel: #23262d;
+    --text: #ddd; --muted: #999; --rule: #333;
+    --link: #8ab4f8; --on-link: #16181d;
+    --good: #81c995; --bad: #f28b82; --warn: #fdd663;
+    color-scheme: dark;
+  }
+}
+
+/* Page */
+*, *::before, *::after { box-sizing: border-box; }
+body { font: 17px/1.6 var(--font-body); max-width: 40em; margin: 2.5em auto; padding: 0 1.2em; color: var(--text); background: var(--bg); }
+body.wide { max-width: 64em; }   /* cheatsheets, boards and games that need the room */
+a { color: var(--link); }
+h1 { line-height: 1.25; margin: 0 0 0.3em; }
+h2 { font: 600 13px/1.5 var(--font-ui); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 2.2em 0 0.6em; }
+h3 { font: 600 16px/1.4 var(--font-ui); margin: 1.6em 0 0.4em; }
+header, .tagline, .small, footer, .note { font: 14px/1.5 var(--font-ui); color: var(--muted); }
+header { margin-bottom: 2em; }
+.tagline { margin-top: 0; }
+footer { margin-top: 3em; border-top: 1px solid var(--rule); padding-top: 1em; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2em 0; }
+img, canvas, svg { max-width: 100%; }
+
+/* Boxes and lists */
+.box, .card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.9em 1.1em; margin: 1em 0; }
+.box { margin: 1.8em 0; }
+.box p { margin: 0.2em 0; }
+.box .title { font-size: 1.15em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15em, 1fr)); gap: 0.8em; }
+.grid > .card { margin: 0; }
+ul.links { list-style: none; padding: 0; margin: 0; }
+ul.links li { margin: 0.25em 0; }
+
+/* Code and tables */
+code, kbd, pre, .cmd { font-family: var(--font-mono); font-size: 0.88em; }
+code, kbd, .cmd { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 0.05em 0.35em; white-space: nowrap; }
+pre { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.8em 1em; overflow-x: auto; line-height: 1.45; }
+pre code { background: none; border: 0; padding: 0; white-space: pre; }
+table { width: 100%; border-collapse: collapse; margin: 0.6em 0 1.2em; background: var(--surface); font: 15px/1.5 var(--font-ui); }
+th, td { border-bottom: 1px solid var(--rule); padding: 0.45em 0.7em; text-align: left; vertical-align: top; }
+th { background: var(--panel); font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+
+/* Controls */
+label { font: 15px/1.5 var(--font-ui); }
+input, select, textarea, button { font: 15px var(--font-ui); color: var(--text); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.4em 0.7em; }
+textarea { width: 100%; line-height: 1.5; }
+input[type=number] { width: 5em; }
+input[type=checkbox], input[type=radio], input[type=range] { accent-color: var(--link); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary, button.active { background: var(--link); border-color: var(--link); color: var(--on-link); }
+.row { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; margin: 0.8em 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.4em; margin: 1em 0; }
+.search { width: 100%; margin: 0.6em 0 1em; }
+.good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+.hidden { display: none !important; }
+</style>
+<script>
+// What the SDF site's theme script provides, cut down to light and dark from the system:
+// colours read from the CSS variables, and a 'themechange' event when the system flips.
+const SiteTheme = {
+    color(name) { return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim(); },
+    isDark() { return matchMedia('(prefers-color-scheme: dark)').matches; },
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => window.dispatchEvent(new Event('themechange')));
+</script>
+<style>
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 16em; gap: 1.4em; align-items: start; }
+@media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.stage { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+#view { display: block; width: 100%; height: min(26em, 78vw); touch-action: none; cursor: grab; }
+#view.dragging { cursor: grabbing; }
+#chart { display: block; width: 100%; height: 190px; border-top: 1px solid var(--rule); }
+.readout { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.3em; font: 14px/1.4 var(--font-ui); margin: 0.6em 0 0; }
+.readout div { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.25em 0.5em; }
+.readout b { display: block; font-weight: 600; font-size: 12px; color: var(--muted); }
+.readout span { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+@media (max-width: 460px) { .readout { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.legend { font: 13px/1.5 var(--font-ui); color: var(--muted); margin: 0.5em 0 0; display: flex; flex-wrap: wrap; gap: 0.3em 1.1em; }
+.legend i { display: inline-block; width: 1.4em; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 0.35em; }
+.legend i.dot { border-top-style: dotted; }
+.status { font: 14px/1.5 var(--font-ui); color: var(--muted); margin: 0.5em 0 0; min-height: 1.5em; }
+.panel h2:first-child { margin-top: 0; }
+.panel h2 { margin: 1.5em 0 0.4em; }
+.slider { display: grid; grid-template-columns: 1fr auto; margin: 0.5em 0; font: 14px/1.4 var(--font-ui); }
+.slider span:last-of-type { color: var(--muted); font-variant-numeric: tabular-nums; }
+.panel input[type=range] { grid-column: 1 / -1; width: 100%; padding: 0; margin: 0.2em 0 0; border: 0; background: none; }
+.panel select { width: 100%; margin: 0.3em 0; }
+.check { display: flex; gap: 0.5em; align-items: center; margin: 0.4em 0; font: 14px/1.4 var(--font-ui); }
+.panel .tabs { margin: 0.5em 0; gap: 0.3em; }
+.panel .tabs button { padding: 0.3em 0.55em; font-size: 14px; }
+.panel .row { margin: 0.5em 0; gap: 0.4em; }
+.panel .note { margin: 0.4em 0; }
+[hidden] { display: none !important; }
+.about { margin-top: 2em; }
+.about p { margin: 0.6em 0; }
+</style>
+</head>
+<body class="wide">
+<header><a href="../">Commonplace Book</a></header>
+<h1>Bloch</h1>
+<p class="tagline">Watch magnetisation tip, precess, fan out and relax, following the Bloch equations. Pick a pulse sequence and run it, or tip the spins yourself. Drag the sphere to turn it.</p>
+
+<div class="layout">
+  <div>
+    <div class="stage">
+      <canvas id="view" aria-label="The magnetisation vector on a sphere"></canvas>
+      <canvas id="chart" aria-label="Signal and longitudinal magnetisation over time"></canvas>
+    </div>
+    <div class="legend" id="legend">
+      <span><i id="lg-xy"></i>|M<sub>xy</sub>|, the signal</span>
+      <span><i id="lg-z"></i>M<sub>z</sub></span>
+      <span id="lg-xyparts"><i id="lg-x"></i>M<sub>x′</sub>, M<sub>y′</sub></span>
+      <span id="lg-env"><i class="dot" id="lg-t2"></i>T2 decay <i class="dot" id="lg-t2s" style="margin-left:0.5em"></i>T2*</span>
+    </div>
+    <div class="readout">
+      <div><b>t</b><span id="o-t"></span></div>
+      <div><b>M<sub>x′</sub></b><span id="o-x"></span></div>
+      <div><b>M<sub>y′</sub></b><span id="o-y"></span></div>
+      <div><b>M<sub>z</sub></b><span id="o-z"></span></div>
+      <div><b>|M<sub>xy</sub>|</b><span id="o-xy"></span></div>
+    </div>
+    <p class="status" id="status"></p>
+  </div>
+
+  <div class="panel">
+    <h2>Sequence</h2>
+    <div class="tabs" id="seqs">
+      <button type="button" data-seq="free">Free</button>
+      <button type="button" data-seq="fid">FID</button>
+      <button type="button" data-seq="se">Spin echo</button>
+      <button type="button" data-seq="ir">Inversion recovery</button>
+      <button type="button" data-seq="cpmg">CPMG</button>
+    </div>
+    <div class="row">
+      <button type="button" class="primary" id="play">Run</button>
+      <button type="button" id="restart">Restart</button>
+    </div>
+    <label class="slider" data-for="se"><span>TE</span><span id="TE-out"></span><input type="range" id="TE"></label>
+    <label class="slider" data-for="ir"><span>TI</span><span id="TI-out"></span><input type="range" id="TI"></label>
+    <label class="slider" data-for="cpmg"><span>Echo spacing</span><span id="ES-out"></span><input type="range" id="ES"></label>
+    <label class="slider" data-for="cpmg"><span>Echoes</span><span id="echoes-out"></span><input type="range" id="echoes" min="2" max="16" step="1"></label>
+    <label class="check" data-for="fid se ir cpmg"><input type="checkbox" id="repeat"> Repeat every TR</label>
+    <label class="slider" data-for="repeat"><span>TR</span><span id="TR-out"></span><input type="range" id="TR"></label>
+    <label class="slider"><span>Speed</span><span id="speed-out"></span><input type="range" id="speed"></label>
+
+    <h2>Tip the spins</h2>
+    <label class="slider"><span>Flip angle</span><span id="angle-out"></span><input type="range" id="angle" min="5" max="180" step="5"></label>
+    <div class="tabs" id="phases">
+      <button type="button" data-phase="0">x′</button>
+      <button type="button" data-phase="90">y′</button>
+      <button type="button" data-phase="180">−x′</button>
+      <button type="button" data-phase="270">−y′</button>
+    </div>
+    <div class="row">
+      <button type="button" id="tip">Tip</button>
+      <button type="button" id="spoil" title="Destroy the transverse magnetisation, as a spoiler gradient does">Spoil</button>
+      <button type="button" id="equil" title="Put the magnetisation back along B0">Relax</button>
+    </div>
+
+    <h2>Tissue</h2>
+    <select id="preset" aria-label="Tissue preset">
+      <option value="">Your own T1 and T2</option>
+      <option value="830,80">White matter</option>
+      <option value="1330,110">Grey matter</option>
+      <option value="4000,2000">CSF</option>
+      <option value="1650,250">Arterial blood</option>
+      <option value="1410,50">Muscle</option>
+      <option value="380,130">Fat</option>
+    </select>
+    <p class="note">Rough values at 3 T.</p>
+    <label class="slider"><span>T1</span><span id="T1-out"></span><input type="range" id="T1"></label>
+    <label class="slider"><span>T2</span><span id="T2-out"></span><input type="range" id="T2"></label>
+
+    <h2>Field</h2>
+    <label class="slider"><span>Off resonance</span><span id="df-out"></span><input type="range" id="df" min="-25" max="25" step="0.5"></label>
+    <label class="slider"><span>Spread (FWHM)</span><span id="fwhm-out"></span><input type="range" id="fwhm" min="0" max="40" step="0.5"></label>
+    <label class="slider"><span>Isochromats</span><span id="n-out"></span><input type="range" id="n" min="1" max="64" step="1"></label>
+    <p class="note" id="t2star"></p>
+
+    <h2>View</h2>
+    <label class="check"><input type="checkbox" id="lab"> Lab frame</label>
+    <label class="check"><input type="checkbox" id="spins"> Show each isochromat</label>
+    <label class="check"><input type="checkbox" id="trail"> Trace the tip</label>
+    <label class="check"><input type="checkbox" id="xy"> Plot M<sub>x′</sub> and M<sub>y′</sub></label>
+  </div>
+</div>
+
+<div class="about">
+  <h2>What you're looking at</h2>
+  <p>The sphere is drawn in the rotating frame, which turns with the spins at the Larmor frequency, so spins exactly on resonance stand still. B0 points up the z axis. Each thin arrow is an isochromat, a group of spins that see the same field; the thick one is their sum, M, the magnetisation you can measure. Its part in the x′y′ plane is the signal a coil picks up.</p>
+  <p>The spread gives the isochromats a Lorentzian range of frequencies, the way a slightly uneven field does. They fan out and the signal decays with T2*, faster than T2 alone. A 180° pulse flips the fan over so it closes again into a spin echo; only true T2 decay is left, which the CPMG train makes plain. Inversion recovery shows T1: the signal vanishes when the 90° pulse lands at T1 ln 2, as M<sub>z</sub> crosses zero.</p>
+  <p>Pulses are hard pulses, drawn slowly so you can follow them; relaxation stops while they play. The lab frame adds the Larmor precession back, a turn a second rather than a hundred million.</p>
+</div>
+
+<footer><a href="../">Back to the Commonplace Book</a> · Also on <a href="https://mbolding.sdf.org/">mbolding.sdf.org</a></footer>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// ---- Settings, kept between visits ----------------------------------------------------
+const DEFAULTS = {
+    seq: 'se', T1: 1000, T2: 100, df: 0, fwhm: 6, n: 24, speed: 80,
+    TE: 80, TI: 700, ES: 40, echoes: 8, TR: 2000, repeat: false,
+    lab: false, spins: true, trail: true, xy: false, angle: 90, phase: 0,
+};
+const S = Object.assign({}, DEFAULTS);
+try { Object.assign(S, JSON.parse(localStorage.getItem('bloch') || '{}')); } catch (e) {}
+function save() { try { localStorage.setItem('bloch', JSON.stringify(S)); } catch (e) {} }
+
+// Sliders that move on a log scale: the input runs 0..1000.
+const LOG = { T1: [50, 5000], T2: [10, 2500], speed: [10, 2000], TE: [10, 500], TI: [20, 5000], ES: [10, 200], TR: [200, 8000] };
+const fromLog = (k, v) => { const [a, b] = LOG[k]; return Math.round(a * Math.pow(b / a, v / 1000)); };
+const toLog = (k, x) => { const [a, b] = LOG[k]; return Math.round(1000 * Math.log(x / a) / Math.log(b / a)); };
+
+const fmtMs = ms => ms >= 1000 ? (ms / 1000).toFixed(ms >= 10000 ? 1 : 2).replace(/\.?0+$/, '') + ' s' : Math.round(ms) + ' ms';
+const OUT = {
+    T1: v => fmtMs(v), T2: v => fmtMs(v), TE: v => fmtMs(v), TI: v => fmtMs(v), ES: v => fmtMs(v), TR: v => fmtMs(v),
+    speed: v => fmtMs(v) + ' a second', echoes: v => v, angle: v => v + '°',
+    df: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + ' Hz', fwhm: v => v + ' Hz', n: v => v,
+};
+
+// T2* for a Lorentzian spread of this width: 1/T2* = 1/T2 + π·FWHM.
+const T2star = () => 1000 / (1000 / S.T2 + Math.PI * S.fwhm);
+
+// ---- Spins -------------------------------------------------------------------------------
+// Each isochromat i has an offset in Hz and a vector m[i] = [x, y, z], with M0 = 1.
+let offs = [], spins = [];
+function buildOffsets() {
+    offs = [];
+    const n = S.n, w = S.fwhm;
+    for (let i = 0; i < n; i++) {
+        // Lorentzian quantiles, with the long tails clipped so nothing spins in a blur.
+        const u = n === 1 ? 0.5 : (i + 0.5) / n;
+        const o = w ? clamp(w / 2 * Math.tan(Math.PI * (u - 0.5)), -4 * w, 4 * w) : 0;
+        offs.push(S.df + o);
+    }
+}
+function net() {
+    const m = [0, 0, 0];
+    for (const s of spins) { m[0] += s[0]; m[1] += s[1]; m[2] += s[2]; }
+    const n = spins.length || 1;
+    return [m[0] / n, m[1] / n, m[2] / n];
+}
+// Change the number or spread of isochromats without losing where M is: every new
+// isochromat starts at the current net vector.
+function respin() {
+    const m = spins.length ? net() : [0, 0, 1];
+    buildOffsets();
+    spins = offs.map(() => m.slice());
+}
+function equilibrium() { spins = offs.map(() => [0, 0, 1]); }
+
+// Free precession and relaxation for dt ms, exactly.
+function evolve(dt) {
+    if (dt <= 0) return;
+    const e2 = Math.exp(-dt / S.T2), e1 = Math.exp(-dt / S.T1);
+    for (let i = 0; i < spins.length; i++) {
+        const s = spins[i];
+        // Clockwise seen from above, as for protons (the left-hand rule).
+        const a = -2 * Math.PI * offs[i] * dt / 1000, c = Math.cos(a), si = Math.sin(a);
+        const x = s[0] * c - s[1] * si, y = s[0] * si + s[1] * c;
+        s[0] = x * e2; s[1] = y * e2; s[2] = 1 + (s[2] - 1) * e1;
+    }
+}
+
+// Rotate v about the unit axis u by angle a (Rodrigues).
+function rotate(v, u, a) {
+    const c = Math.cos(a), s = Math.sin(a), d = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    return [
+        v[0] * c + (u[1] * v[2] - u[2] * v[1]) * s + u[0] * d * (1 - c),
+        v[1] * c + (u[2] * v[0] - u[0] * v[2]) * s + u[1] * d * (1 - c),
+        v[2] * c + (u[0] * v[1] - u[1] * v[0]) * s + u[2] * d * (1 - c),
+    ];
+}
+const axisOf = phase => [Math.cos(phase * Math.PI / 180), Math.sin(phase * Math.PI / 180), 0];
+const phaseName = p => ({ 0: 'x′', 90: 'y′', 180: '−x′', 270: '−y′' })[p];
+
+// ---- Sequences ---------------------------------------------------------------------------
+// Each gives its pulses (time in ms, flip angle, phase; excite marks the one that starts
+// the signal), its echo times, and how long it runs.
+const P = (t, angle, phase, excite) => ({ t, angle, phase, excite: !!excite });
+function sequence() {
+    const t2s = T2star();
+    switch (S.seq) {
+        case 'fid': return { pulses: [P(0, 90, 0, true)], echoes: [], end: clamp(3 * S.T2, 150, 4000) };
+        case 'se': return { pulses: [P(0, 90, 0, true), P(S.TE / 2, 180, 90)], echoes: [S.TE], end: Math.max(2 * S.TE, S.TE + 3 * t2s) };
+        case 'ir': return { pulses: [P(0, 180, 0), P(S.TI, 90, 0, true)], echoes: [], end: S.TI + clamp(3 * S.T2, 100, 1500) };
+        case 'cpmg': {
+            const pulses = [P(0, 90, 0, true)], echoes = [];
+            for (let k = 0; k < S.echoes; k++) { pulses.push(P(S.ES / 2 + k * S.ES, 180, 90)); echoes.push((k + 1) * S.ES); }
+            return { pulses, echoes, end: S.echoes * S.ES + S.ES / 2 };
+        }
+        default: return { pulses: [], echoes: [], end: Infinity };
+    }
+}
+const repeating = () => S.repeat && S.seq !== 'free';
+
+// ---- Run state ---------------------------------------------------------------------------
+const st = {
+    t: 0, running: false, done: false,
+    rep: 0, next: 0,            // repetition and index of the next pulse in it
+    pulse: null, queue: [],     // the pulse being played, and manual ones waiting
+    samples: [], marks: [], excite: null,
+    trail: [], labAngle: 0,
+};
+let seq = sequence();
+
+function restart(run) {
+    seq = sequence();
+    st.t = 0; st.rep = 0; st.next = 0; st.done = false;
+    st.pulse = null; st.queue = [];
+    st.samples = []; st.marks = []; st.excite = null; st.trail = [];
+    st.labAngle = 0;
+    equilibrium();
+    sample();
+    st.running = run;
+    updateButtons();
+}
+
+// After a change to the timing, find the next pulse that hasn't happened yet.
+function resequence() {
+    seq = sequence();
+    const base = repeating() ? st.rep * S.TR : 0;
+    st.next = seq.pulses.findIndex(p => base + p.t > st.t);
+    if (st.next < 0) st.next = seq.pulses.length;
+    if (!repeating() && st.t < seq.end) st.done = false;
+}
+
+// The next pulse due: its time, and which repetition and pulse it is. When repeating,
+// pulses at or beyond TR are cut off and the next repetition starts over.
+function nextPulse() {
+    const ps = seq.pulses, rep = repeating();
+    if (st.next < ps.length && (!rep || ps[st.next].t < S.TR))
+        return { time: (rep ? st.rep * S.TR : 0) + ps[st.next].t, rep: st.rep, idx: st.next };
+    if (rep && ps.length && ps[0].t < S.TR)
+        return { time: (st.rep + 1) * S.TR + ps[0].t, rep: st.rep + 1, idx: 0 };
+    return null;
+}
+
+function startPulse(p, manual) {
+    st.pulse = {
+        angle: p.angle, phase: p.phase, excite: p.excite, axis: axisOf(p.phase),
+        from: spins.map(s => s.slice()), progress: 0, dur: 0.25 + 0.0028 * p.angle,
+    };
+    st.marks.push({ t: st.t, label: p.angle + '°' + phaseName(p.phase), manual });
+}
+
+function stepPulse(dtReal) {
+    const p = st.pulse;
+    p.progress = Math.min(1, p.progress + dtReal / p.dur);
+    const k = p.progress < 1 ? 0.5 - 0.5 * Math.cos(Math.PI * p.progress) : 1;
+    // Negative angle: x′ pulses tip +z toward +y′, the usual textbook picture.
+    const a = -p.angle * Math.PI / 180 * k;
+    spins = p.from.map(v => rotate(v, p.axis, a));
+    if (p.progress >= 1) {
+        st.pulse = null;
+        if (p.excite) { const m = net(); st.excite = { t: st.t, m: Math.hypot(m[0], m[1]) }; }
+    }
+}
+
+// Move simulated time on by dt ms, stopping at the next pulse if there is one.
+function advance(dt) {
+    const target = st.t + dt;
+    const np = nextPulse();
+    const end = repeating() ? Infinity : seq.end;
+    if (np && np.time <= target && np.time <= end) {
+        evolve(np.time - st.t); st.t = np.time;
+        st.rep = np.rep; st.next = np.idx + 1;
+        startPulse(seq.pulses[np.idx]);
+        return;
+    }
+    if (target >= end) {
+        evolve(end - st.t); st.t = end;
+        st.running = false; st.done = true; updateButtons();
+        return;
+    }
+    evolve(dt); st.t = target;
+}
+
+function sample() {
+    const m = net();
+    st.samples.push({ t: st.t, x: m[0], y: m[1], z: m[2] });
+}
+
+// ---- Drawing -----------------------------------------------------------------------------
+const view = $('view'), vctx = view.getContext('2d');
+const chart = $('chart'), cctx = chart.getContext('2d');
+let VW = 0, VH = 0, CW = 0, CH = 0;
+let C = {};
+function readColors() {
+    for (const k of ['bg', 'surface', 'panel', 'text', 'muted', 'rule', 'link', 'good', 'bad', 'warn']) C[k] = SiteTheme.color(k);
+    C.dark = SiteTheme.isDark();
+    $('lg-xy').style.borderColor = C.link; $('lg-z').style.borderColor = C.good;
+    $('lg-x').style.borderColor = C.muted; $('lg-t2').style.borderColor = C.bad; $('lg-t2s').style.borderColor = C.warn;
+}
+function sizeCanvas(cv, ctx) {
+    const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return [r.width, r.height];
+}
+function resize() {
+    [VW, VH] = sizeCanvas(view, vctx);
+    [CW, CH] = sizeCanvas(chart, cctx);
+    dirty = true;
+}
+
+// Camera: turn about z, then tilt. Orthographic, z up.
+const cam = { az: -Math.PI / 2 - 0.55, el: 0.38 };
+function project(v) {
+    const ca = Math.cos(cam.az), sa = Math.sin(cam.az), ce = Math.cos(cam.el), se = Math.sin(cam.el);
+    const x1 = v[0] * ca - v[1] * sa, y1 = v[0] * sa + v[1] * ca;
+    return { x: x1, y: v[2] * ce + y1 * se, d: y1 * ce - v[2] * se };   // d > 0 is behind
+}
+
+function arrow(ctx, cx, cy, R, v, color, width, head) {
+    const p = project(v), x = cx + R * p.x, y = cy - R * p.y;
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+    const len = Math.hypot(x - cx, y - cy);
+    if (head && len > 6) {
+        const ux = (x - cx) / len, uy = (y - cy) / len, h = Math.min(head, len * 0.4);
+        ctx.beginPath();
+        ctx.moveTo(x + ux * h * 0.3, y + uy * h * 0.3);
+        ctx.lineTo(x - ux * h + uy * h * 0.5, y - uy * h - ux * h * 0.5);
+        ctx.lineTo(x - ux * h - uy * h * 0.5, y - uy * h + ux * h * 0.5);
+        ctx.closePath(); ctx.fill();
+    }
+}
+
+function labRot(v) {
+    if (!S.lab) return v;
+    const c = Math.cos(st.labAngle), s = Math.sin(st.labAngle);
+    return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+}
+
+function spinColor(i, n) {
+    if (n === 1) return C.muted;
+    const f = i / (n - 1);   // low frequency to high
+    const hue = 210 - 210 * f;
+    return `hsl(${hue} 70% ${C.dark ? 62 : 45}% / 0.55)`;
+}
+
+function drawView() {
+    const ctx = vctx, w = VW, h = VH;
+    const R = Math.min(w, h) * 0.37, cx = w / 2, cy = h / 2 + R * 0.04;
+    ctx.fillStyle = C.surface; ctx.fillRect(0, 0, w, h);
+
+    // The sphere's outline and its equator, the back half dashed.
+    ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.stroke();
+    const ring = (back) => {
+        ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+        ctx.beginPath();
+        let pen = false;
+        for (let k = 0; k <= 96; k++) {
+            const a = k / 96 * 2 * Math.PI, p = project([Math.cos(a), Math.sin(a), 0]);
+            if ((p.d > 0) === back) { pen ? ctx.lineTo(cx + R * p.x, cy - R * p.y) : ctx.moveTo(cx + R * p.x, cy - R * p.y); pen = true; }
+            else pen = false;
+        }
+        ctx.stroke();
+    };
+    ctx.setLineDash([3, 4]); ring(true); ctx.setLineDash([]);
+
+    // Axes. In the lab frame x and y turn with the precession they describe.
+    const axes = [[[1, 0, 0], S.lab ? 'x' : 'x′'], [[0, 1, 0], S.lab ? 'y' : 'y′'], [[0, 0, 1], 'z, B0']];
+    ctx.font = '13px ' + getComputedStyle(document.body).getPropertyValue('--font-ui');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const [a, label] of axes) {
+        const p = project(a), q = project([-a[0], -a[1], -a[2]]);
+        ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx + R * 1.12 * q.x, cy - R * 1.12 * q.y); ctx.lineTo(cx + R * 1.12 * p.x, cy - R * 1.12 * p.y); ctx.stroke();
+        ctx.fillStyle = C.muted;
+        ctx.fillText(label, cx + R * 1.24 * p.x, cy - R * 1.24 * p.y);
+    }
+
+    // The isochromats, their sum's trail, and the sum.
+    if (S.spins && spins.length > 1) {
+        spins.forEach((s, i) => arrow(ctx, cx, cy, R, labRot(s), spinColor(i, spins.length), 1.5, 7));
+    }
+    if (S.trail && st.trail.length > 1) {
+        ctx.strokeStyle = C.link; ctx.lineWidth = 1.5;
+        for (let i = 1; i < st.trail.length; i++) {
+            const a = project(st.trail[i - 1]), b = project(st.trail[i]);
+            ctx.globalAlpha = 0.6 * i / st.trail.length;
+            ctx.beginPath(); ctx.moveTo(cx + R * a.x, cy - R * a.y); ctx.lineTo(cx + R * b.x, cy - R * b.y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+    const m = labRot(net());
+    // Its shadow on the x′y′ plane: the part a coil can see.
+    const sh = project([m[0], m[1], 0]), tip = project(m);
+    ctx.strokeStyle = C.link; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(cx + R * tip.x, cy - R * tip.y); ctx.lineTo(cx + R * sh.x, cy - R * sh.y); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    arrow(ctx, cx, cy, R, [m[0], m[1], 0], C.link, 1.5, 0);
+    arrow(ctx, cx, cy, R, m, C.link, 3.5, 13);
+
+    // B1 while a pulse plays.
+    if (st.pulse) {
+        arrow(ctx, cx, cy, R, labRot(st.pulse.axis).map(c => c * 1.05), C.warn, 3, 11);
+        const p = project(labRot(st.pulse.axis));
+        ctx.fillStyle = C.warn;
+        ctx.fillText('B1', cx + R * 1.15 * p.x, cy - R * 1.15 * p.y + 14);
+    }
+    ring(false);
+}
+
+function niceStep(span, target) {
+    const raw = span / target, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const k of [1, 2, 5, 10]) if (raw <= k * p) return k * p;
+    return 10 * p;
+}
+
+// The time span the chart shows.
+function chartWindow() {
+    if (S.seq === 'free') { const W = 8 * S.speed; return [Math.max(0, st.t - W), Math.max(W, st.t)]; }
+    if (repeating()) { const W = 2 * S.TR; return [Math.max(0, st.t - W), Math.max(W, st.t)]; }
+    return [0, seq.end];
+}
+
+function drawChart() {
+    const ctx = cctx, w = CW, h = CH;
+    const L = 34, Rm = 10, T = 14, B = 20, pw = w - L - Rm, ph = h - T - B;
+    const [t0, t1] = chartWindow();
+    const X = t => L + (t - t0) / (t1 - t0) * pw, Y = v => T + (1 - v) / 2 * ph;
+    ctx.fillStyle = C.surface; ctx.fillRect(0, 0, w, h);
+    ctx.font = '11px ' + getComputedStyle(document.body).getPropertyValue('--font-ui');
+    ctx.lineWidth = 1;
+
+    // Grid: −1, 0, 1 and the time ticks.
+    ctx.strokeStyle = C.rule; ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const v of [-1, 0, 1]) {
+        ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); ctx.stroke();
+        ctx.fillText(v, L - 6, Y(v));
+    }
+    const step = niceStep(t1 - t0, Math.max(3, Math.floor(pw / 80)));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let t = Math.ceil(t0 / step) * step; t <= t1 + 1e-9; t += step) {
+        ctx.beginPath(); ctx.moveTo(X(t), T + ph); ctx.lineTo(X(t), T + ph + 4); ctx.stroke();
+        ctx.fillText(fmtMs(t), X(t), T + ph + 6);
+    }
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(L, 0, pw, h); ctx.clip();
+
+    // Pulses and echo times.
+    ctx.textBaseline = 'top';
+    let free = -Infinity;   // where the last label ends, so they don't overprint
+    for (const mk of st.marks) {
+        if (mk.t < t0 || mk.t > t1) continue;
+        ctx.strokeStyle = C.warn; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(X(mk.t), T); ctx.lineTo(X(mk.t), T + ph); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = C.warn; ctx.textAlign = 'left';
+        if (X(mk.t) + 3 >= free) { ctx.fillText(mk.label, X(mk.t) + 3, 1); free = X(mk.t) + 9 + ctx.measureText(mk.label).width; }
+    }
+    if (S.seq !== 'free') {
+        const reps = repeating() ? [st.rep - 1, st.rep, st.rep + 1] : [0];
+        for (const r of reps) for (const e of seq.echoes) {
+            const t = (repeating() ? r * S.TR : 0) + e;
+            if (t < t0 || t > t1 || (repeating() && e >= S.TR)) continue;
+            ctx.fillStyle = C.muted;
+            ctx.beginPath(); ctx.moveTo(X(t), T + ph); ctx.lineTo(X(t) - 4, T + ph - 7); ctx.lineTo(X(t) + 4, T + ph - 7); ctx.fill();
+        }
+    }
+
+    // Decay envelopes from the last excitation.
+    if (st.excite) {
+        const e = st.excite;
+        const curve = (tau, color) => {
+            ctx.strokeStyle = color; ctx.setLineDash([2, 3]); ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let k = 0; k <= 80; k++) {
+                const t = e.t + k / 80 * (t1 - e.t);
+                const px = X(t), py = Y(e.m * Math.exp(-(t - e.t) / tau));
+                k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+            }
+            ctx.stroke(); ctx.setLineDash([]);
+        };
+        if (e.t < t1) { curve(S.T2, C.bad); if (S.fwhm > 0 && S.n > 1) curve(T2star(), C.warn); }
+    }
+
+    // The traces.
+    const line = (get, color, width) => {
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        let started = false;
+        for (const s of st.samples) {
+            if (s.t < t0 - 1) continue;
+            const px = X(s.t), py = Y(get(s));
+            started ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+            started = true;
+        }
+        ctx.stroke();
+    };
+    if (S.xy) {
+        ctx.globalAlpha = 0.8;
+        line(s => s.x, C.muted, 1); ctx.setLineDash([4, 3]); line(s => s.y, C.muted, 1); ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+    }
+    line(s => s.z, C.good, 2);
+    line(s => Math.hypot(s.x, s.y), C.link, 2.2);
+
+    // Now.
+    if (st.t >= t0 && st.t <= t1) {
+        ctx.strokeStyle = C.muted; ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.moveTo(X(st.t), T); ctx.lineTo(X(st.t), T + ph); ctx.stroke();
+        ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+}
+
+function readout() {
+    const m = net(), f = v => (v < -0.0005 ? '−' : ' ') + Math.abs(v).toFixed(3);
+    $('o-t').textContent = fmtMs(st.t);
+    $('o-x').textContent = f(m[0]); $('o-y').textContent = f(m[1]); $('o-z').textContent = f(m[2]);
+    $('o-xy').textContent = ' ' + Math.hypot(m[0], m[1]).toFixed(3);
+}
+
+function status() {
+    let s = '';
+    if (S.seq === 'ir') {
+        const nul = S.T1 * Math.LN2;
+        s = `M<sub>z</sub> crosses zero at T1 ln 2 = ${fmtMs(nul)}` + (Math.abs(S.TI - nul) < 0.04 * nul ? ', about now: the signal is nulled.' : '. Set TI there to null it.');
+    } else if (S.seq === 'se') s = `The 180° lands at TE/2 = ${fmtMs(S.TE / 2)} and the echo forms at TE = ${fmtMs(S.TE)}.`;
+    else if (S.seq === 'cpmg') s = 'The echo peaks follow the red T2 curve; without the 180°s the signal would follow T2*.';
+    else if (S.seq === 'fid') s = 'One 90° pulse, then the free induction decay.';
+    else s = 'No sequence: tip the spins yourself and watch them relax.';
+    if (repeating() && seq.pulses.some(p => p.t >= S.TR)) s += ' TR is too short for the whole sequence, so it is cut off.';
+    else if (repeating() && S.TR < 3 * S.T1) s += ' TR is short against T1, so M<sub>z</sub> settles below its full value.';
+    $('status').innerHTML = s;
+}
+
+// ---- The loop ----------------------------------------------------------------------------
+let last = performance.now(), dirty = true;
+function frame(now) {
+    const dtReal = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    const moving = st.running || st.pulse || st.queue.length;
+    if (st.pulse) stepPulse(dtReal);
+    else if (st.queue.length) startPulse(st.queue.shift(), true);
+    else if (st.running) {
+        advance(dtReal * S.speed);
+        if (S.lab) st.labAngle -= dtReal * 2 * Math.PI;   // a turn a second
+    }
+    if (moving) {
+        sample();
+        if (st.samples.length > 6000) st.samples.splice(0, st.samples.length - 6000);
+        const [t0] = chartWindow();
+        while (st.samples.length > 2 && st.samples[1].t < t0 - 1) st.samples.shift();
+        st.marks = st.marks.filter(mk => mk.t >= t0 - 1);
+        st.trail.push(labRot(net()));
+        if (st.trail.length > 500) st.trail.shift();
+    }
+    if (moving || dirty) { drawView(); drawChart(); readout(); dirty = false; }
+    requestAnimationFrame(frame);
+}
+
+// ---- Controls ----------------------------------------------------------------------------
+function updateButtons() {
+    const b = $('play');
+    if (st.running) b.textContent = 'Pause';
+    else if (st.done || (st.t === 0 && S.seq !== 'free')) b.textContent = 'Run';
+    else b.textContent = 'Resume';
+}
+
+function showFor() {
+    for (const b of $('seqs').children) b.classList.toggle('active', b.dataset.seq === S.seq);
+    for (const b of $('phases').children) b.classList.toggle('active', +b.dataset.phase === S.phase);
+    for (const el of document.querySelectorAll('[data-for]')) {
+        const f = el.dataset.for.split(' ');
+        el.hidden = !(f.includes(S.seq) || (f.includes('repeat') && repeating()));
+    }
+    $('lg-xyparts').hidden = !S.xy;
+    $('lg-env').hidden = S.seq === 'free' && !st.excite;
+    const t2s = T2star();
+    $('t2star').textContent = S.n > 1 && S.fwhm > 0
+        ? `T2* is about ${fmtMs(t2s)}, against a T2 of ${fmtMs(S.T2)}.`
+        : 'With one isochromat or no spread, T2* is just T2.';
+    status();
+}
+
+function setOut(k) { $(k + '-out').textContent = OUT[k](S[k]); }
+
+for (const k of ['T1', 'T2', 'speed', 'TE', 'TI', 'ES', 'TR']) {
+    const el = $(k);
+    el.min = 0; el.max = 1000; el.step = 1; el.value = toLog(k, S[k]);
+    el.addEventListener('input', () => {
+        S[k] = fromLog(k, +el.value);
+        if (k === 'T2' && S.T2 > S.T1) { S.T1 = S.T2; $('T1').value = toLog('T1', S.T1); setOut('T1'); }
+        if (k === 'T1' && S.T2 > S.T1) { S.T2 = S.T1; $('T2').value = toLog('T2', S.T2); setOut('T2'); }
+        if (k === 'T1' || k === 'T2') $('preset').value = '';
+        if (['TE', 'TI', 'ES', 'TR', 'T2'].includes(k)) resequence();
+        setOut(k); showFor(); save(); dirty = true;
+    });
+    setOut(k);
+}
+for (const k of ['echoes', 'angle', 'df', 'fwhm', 'n']) {
+    const el = $(k);
+    el.value = S[k];
+    el.addEventListener('input', () => {
+        S[k] = +el.value;
+        if (k === 'echoes') resequence();
+        if (k === 'df' || k === 'fwhm' || k === 'n') { if (k === 'n') respin(); else buildOffsets(); resequence(); }
+        setOut(k); showFor(); save(); dirty = true;
+    });
+    setOut(k);
+}
+for (const k of ['repeat', 'lab', 'spins', 'trail', 'xy']) {
+    const el = $(k);
+    el.checked = S[k];
+    el.addEventListener('change', () => {
+        S[k] = el.checked;
+        if (k === 'lab' || k === 'trail') st.trail = [];
+        if (k === 'repeat') { resequence(); if (!S.repeat && st.t >= seq.end) { st.running = false; st.done = true; updateButtons(); } }
+        showFor(); save(); dirty = true;
+    });
+}
+$('preset').addEventListener('change', () => {
+    const v = $('preset').value;
+    if (!v) return;
+    [S.T1, S.T2] = v.split(',').map(Number);
+    for (const k of ['T1', 'T2']) { $(k).value = toLog(k, S[k]); setOut(k); }
+    resequence(); showFor(); save(); dirty = true;
+});
+$('seqs').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    S.seq = b.dataset.seq;
+    save(); showFor();
+    restart(S.seq !== 'free');
+});
+$('phases').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    S.phase = +b.dataset.phase; save(); showFor();
+});
+$('play').addEventListener('click', () => {
+    if (st.running) st.running = false;
+    else if (st.done || (st.t === 0 && !st.samples.length)) restart(true);
+    else st.running = true;
+    updateButtons();
+});
+$('restart').addEventListener('click', () => restart(S.seq !== 'free'));
+$('tip').addEventListener('click', () => {
+    st.queue.push({ angle: S.angle, phase: S.phase, excite: true });
+    // In free mode, tipping starts the clock so you see the result relax.
+    if (S.seq === 'free' && !st.running) { st.running = true; updateButtons(); }
+});
+$('spoil').addEventListener('click', () => {
+    for (const s of spins) { s[0] = 0; s[1] = 0; }
+    st.excite = null; st.marks.push({ t: st.t, label: 'spoil' }); sample(); dirty = true;
+});
+$('equil').addEventListener('click', () => {
+    equilibrium(); st.excite = null; st.trail = []; sample(); dirty = true;
+});
+
+// Turn the sphere by dragging.
+let drag = null;
+view.addEventListener('pointerdown', e => {
+    drag = { x: e.clientX, y: e.clientY, az: cam.az, el: cam.el };
+    view.setPointerCapture(e.pointerId); view.classList.add('dragging');
+});
+view.addEventListener('pointermove', e => {
+    if (!drag) return;
+    cam.az = drag.az - (e.clientX - drag.x) * 0.01;
+    cam.el = clamp(drag.el + (e.clientY - drag.y) * 0.01, -1.4, 1.4);
+    dirty = true;
+});
+const endDrag = () => { drag = null; view.classList.remove('dragging'); };
+view.addEventListener('pointerup', endDrag);
+view.addEventListener('pointercancel', endDrag);
+view.addEventListener('dblclick', () => { cam.az = -Math.PI / 2 - 0.55; cam.el = 0.38; dirty = true; });
+
+document.addEventListener('keydown', e => {
+    if (e.target.closest('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+});
+
+window.addEventListener('themechange', () => { readColors(); dirty = true; });
+window.addEventListener('resize', resize);
+
+readColors();
+buildOffsets();
+showFor();
+restart(false);
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

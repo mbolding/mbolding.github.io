@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanism to Measurement: an fNIRS / SIDS causal map</title>
+    <meta name="description"
+        content="A qualitative teaching model of the asphyxia causal chain, letting students see what an instrument set can and cannot observe. IDNE 701, UAB.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --phase1: #2dd4bf;
+            --phase2: #a78bfa;
+            --phase3: #fb923c;
+            --phase4: #f472b6;
+            --phase5: #38bdf8;
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --neural-line: #d4d4d4;
+            /* semantic */
+            --up: #dc2626;
+            --down: #2563eb;
+            --same: #9ca3af;
+            --lane-bg: rgba(0, 0, 0, 0.025);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #0a0a0b;
+                --bg-secondary: #141416;
+                --bg-card: #1a1a1e;
+                --text-primary: #fafafa;
+                --text-secondary: #a1a1aa;
+                --text-muted: #71717a;
+                --border: #27272a;
+                --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+                --neural-line: #333;
+                --up: #f87171;
+                --down: #60a5fa;
+                --same: #6b7280;
+                --lane-bg: rgba(255, 255, 255, 0.03);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1.75rem 1.25rem 4rem;
+            position: relative;
+        }
+
+        a {
+            color: var(--phase5);
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 1.25rem;
+        }
+
+        .course-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.9rem;
+            border-radius: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(1.9rem, 5.5vw, 3rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            line-height: 1.08;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--phase3);
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            max-width: 760px;
+            margin-top: 0.75rem;
+        }
+
+        .banner {
+            margin-top: 1rem;
+            display: inline-flex;
+            gap: 0.5rem;
+            align-items: center;
+            font-size: 0.72rem;
+            background: color-mix(in srgb, var(--phase3) 14%, transparent);
+            border: 1px solid var(--phase3);
+            color: var(--text-primary);
+            padding: 0.45rem 0.85rem;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+        .section-label {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin: 1.75rem 0 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .ctl-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.85rem 0.95rem;
+            box-shadow: var(--shadow);
+        }
+
+        .ctl-card h3 {
+            font-size: 0.63rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-bottom: 0.65rem;
+            font-weight: 700;
+        }
+
+        .field {
+            margin-bottom: 0.65rem;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            font-size: 0.75rem;
+            display: block;
+        }
+
+        select,
+        input[type="range"] {
+            width: 100%;
+            font-family: inherit;
+            font-size: 0.78rem;
+        }
+
+        select {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 0.4rem 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .check {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: 0.76rem;
+            padding: 0.28rem 0;
+            cursor: pointer;
+        }
+
+        .check input {
+            margin-top: 0.28rem;
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            accent-color: var(--phase3);
+        }
+
+        .check .tag {
+            font-size: 0.56rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0 0.3rem;
+            margin-left: 0.25rem;
+            white-space: nowrap;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .slider-row output {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--phase3);
+            min-width: 2.8rem;
+            text-align: right;
+        }
+
+        .btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.72rem;
+            padding: 0.45rem 0.7rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn:hover {
+            border-color: var(--text-muted);
+        }
+
+        .btn:focus-visible,
+        select:focus-visible,
+        .check input:focus-visible,
+        input[type="range"]:focus-visible {
+            outline: 2px solid var(--phase5);
+            outline-offset: 2px;
+        }
+
+        .btn.primary {
+            background: var(--phase3);
+            border-color: var(--phase3);
+            color: #1a1a1a;
+            font-weight: 700;
+        }
+
+        .lesson-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.4rem;
+        }
+
+        /* Graph */
+        .graph-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .graph-scroll-hint {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            margin: 0.35rem 0.2rem 0;
+            display: none;
+        }
+
+        svg#graph {
+            display: block;
+            min-width: 940px;
+            width: 100%;
+            height: auto;
+        }
+
+        .lane-rect {
+            fill: var(--lane-bg);
+        }
+
+        .lane-label {
+            fill: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node rect {
+            fill: var(--bg-secondary);
+            stroke: var(--border);
+            stroke-width: 1.5;
+            transition: opacity 0.2s, stroke 0.2s;
+        }
+
+        .node.composite rect {
+            stroke-dasharray: 2 2;
+            stroke-width: 2;
+        }
+
+        .node .nlabel {
+            fill: var(--text-primary);
+            font-size: 11.5px;
+            font-family: 'Space Mono', monospace;
+            pointer-events: none;
+        }
+
+        .node .nsub {
+            fill: var(--text-muted);
+            font-size: 9px;
+            pointer-events: none;
+        }
+
+        .node .glyph {
+            font-size: 15px;
+            font-weight: 700;
+            pointer-events: none;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .node.dim {
+            opacity: 0.28;
+        }
+
+        .node.observed rect {
+            stroke-width: 3;
+            stroke: var(--phase5);
+        }
+
+        .node.selected rect {
+            stroke: var(--phase3);
+            stroke-width: 3;
+        }
+
+        .node:focus {
+            outline: none;
+        }
+
+        .node:focus-visible rect {
+            stroke: var(--phase5);
+            stroke-width: 3;
+        }
+
+        .node .obseye {
+            font-size: 11px;
+            pointer-events: none;
+        }
+
+        .edge {
+            fill: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .edge.pos {
+            stroke: var(--text-muted);
+        }
+
+        .edge.neg {
+            stroke: var(--down);
+        }
+
+        .edge-hit {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 12;
+            cursor: pointer;
+        }
+
+        .edge.ev-established {
+            stroke-dasharray: none;
+        }
+
+        .edge.ev-animal {
+            stroke-dasharray: 7 4;
+        }
+
+        .edge.ev-hypothesized {
+            stroke-dasharray: 2 4;
+        }
+
+        .edge.weak {
+            stroke-width: 1;
+            opacity: 0.6;
+        }
+
+        .edge.dim,
+        .edge-hit.dim {
+            opacity: 0.08;
+        }
+
+        .edge.hl {
+            stroke: var(--phase3) !important;
+            stroke-width: 3;
+        }
+
+        .instr-node rect {
+            fill: var(--bg-secondary);
+            stroke: var(--border);
+            stroke-width: 1.5;
+            cursor: pointer;
+        }
+
+        .instr-node.on rect {
+            stroke: var(--phase5);
+            stroke-width: 2.5;
+            fill: color-mix(in srgb, var(--phase5) 12%, var(--bg-secondary));
+        }
+
+        .instr-node text {
+            fill: var(--text-primary);
+            font-size: 10px;
+            pointer-events: none;
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem 1.25rem;
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .legend .li {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .legend svg {
+            flex-shrink: 0;
+        }
+
+        .lg-glyph {
+            font-weight: 700;
+            width: 1.1em;
+            display: inline-block;
+            text-align: center;
+        }
+
+        /* Coverage */
+        .coverage {
+            margin-top: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--phase5);
+            border-radius: 6px;
+            padding: 0.7rem 0.9rem;
+            font-size: 0.78rem;
+        }
+
+        .coverage b {
+            color: var(--phase5);
+        }
+
+        /* Two-column lower area */
+        .lower {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 860px) {
+            .lower {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 1rem 1.1rem;
+        }
+
+        .panel-card h2 {
+            font-family: 'Instrument Serif', serif;
+            font-weight: 400;
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .panel-card h2 .sm {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .tc-channel-label {
+            font-size: 0.6rem;
+        }
+
+        /* Discriminability */
+        .disc-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .verdict {
+            padding: 0.7rem 0.9rem;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            margin-top: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .verdict.yes {
+            border-left: 3px solid var(--phase1);
+            background: color-mix(in srgb, var(--phase1) 10%, transparent);
+        }
+
+        .verdict.no {
+            border-left: 3px solid var(--phase4);
+            background: color-mix(in srgb, var(--phase4) 10%, transparent);
+        }
+
+        .verdict .hd {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 0.72rem;
+        }
+
+        .disc-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+            margin-top: 0.6rem;
+        }
+
+        .disc-table th,
+        .disc-table td {
+            text-align: left;
+            padding: 0.25rem 0.4rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .disc-table th {
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+        }
+
+        .chip {
+            font-weight: 700;
+            padding: 0 0.3rem;
+            border-radius: 3px;
+        }
+
+        .chip.up {
+            color: var(--up);
+        }
+
+        .chip.down {
+            color: var(--down);
+        }
+
+        .chip.same {
+            color: var(--same);
+        }
+
+        .muted {
+            color: var(--text-muted);
+        }
+
+        /* Side panel / bottom sheet */
+        .scrim {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 40;
+        }
+
+        .scrim.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .sidepanel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: min(420px, 92vw);
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+            transform: translateX(105%);
+            transition: transform 0.25s ease;
+            z-index: 50;
+            overflow-y: auto;
+            padding: 1.25rem 1.3rem 2.5rem;
+        }
+
+        .sidepanel.open {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 640px) {
+            .sidepanel {
+                top: auto;
+                bottom: 0;
+                right: 0;
+                left: 0;
+                width: 100%;
+                height: auto;
+                max-height: 82vh;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                border-radius: 14px 14px 0 0;
+                transform: translateY(105%);
+            }
+
+            .sidepanel.open {
+                transform: translateY(0);
+            }
+
+            .graph-scroll-hint {
+                display: block;
+            }
+        }
+
+        .sp-close {
+            float: right;
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .sp-kicker {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--text-muted);
+        }
+
+        .sp-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.6rem;
+            font-weight: 400;
+            margin: 0.1rem 0 0.75rem;
+            line-height: 1.15;
+        }
+
+        .sp-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.3rem 0.8rem;
+            font-size: 0.76rem;
+            margin: 0.75rem 0;
+        }
+
+        .sp-meta dt {
+            color: var(--text-muted);
+        }
+
+        .sp-body {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .sp-body p {
+            margin-bottom: 0.6rem;
+        }
+
+        .sp-refs {
+            margin-top: 0.9rem;
+            font-size: 0.72rem;
+        }
+
+        .sp-refs li {
+            margin-bottom: 0.45rem;
+            list-style: none;
+            padding-left: 1rem;
+            text-indent: -1rem;
+        }
+
+        .ev-pill {
+            display: inline-block;
+            font-size: 0.62rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 3px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .ev-established {
+            background: color-mix(in srgb, var(--phase1) 22%, transparent);
+            color: var(--text-primary);
+        }
+
+        .ev-animal {
+            background: color-mix(in srgb, var(--phase2) 22%, transparent);
+            color: var(--text-primary);
+        }
+
+        .ev-hypothesized {
+            background: color-mix(in srgb, var(--phase4) 22%, transparent);
+            color: var(--text-primary);
+        }
+
+        /* Prompts + refs */
+        .prompts {
+            list-style: none;
+            counter-reset: p;
+        }
+
+        .prompts li {
+            position: relative;
+            padding-left: 2rem;
+            margin-bottom: 0.7rem;
+            font-size: 0.8rem;
+            counter-increment: p;
+        }
+
+        .prompts li::before {
+            content: counter(p);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1.4rem;
+            height: 1.4rem;
+            background: var(--phase3);
+            color: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .reflist {
+            list-style: none;
+            font-size: 0.74rem;
+            color: var(--text-secondary);
+        }
+
+        .reflist li {
+            margin-bottom: 0.6rem;
+            padding-left: 1.6rem;
+            text-indent: -1.6rem;
+        }
+
+        .reflist .rid {
+            color: var(--phase3);
+            font-weight: 700;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2.5rem 0 1rem;
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .skip {
+            position: absolute;
+            left: -999px;
+            top: 0;
+            background: var(--phase3);
+            color: #1a1a1a;
+            padding: 0.5rem 1rem;
+            z-index: 100;
+            border-radius: 0 0 6px 0;
+        }
+
+        .skip:focus {
+            left: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="#graph-section" class="skip">Skip to the causal map</a>
+    <div class="container">
+        <header>
+            <span class="course-tag">IDNE 701 · Diagnostic Biomarker Systems</span>
+            <h1>Mechanism <em>to</em> Measurement</h1>
+            <p class="subtitle">A causal map from an asphyxial challenge, through chemoreceptors and the brainstem, to
+                the signals your instruments actually record. Switch on a perturbation, pick a set of instruments, and
+                ask the question that matters for a biomarker: <strong>can these instruments tell two scenarios
+                    apart?</strong></p>
+            <div class="banner" role="note">⚠ Qualitative teaching model. Not fitted to data.</div>
+        </header>
+
+        <!-- CONTROLS -->
+        <div class="section-label">Set up the scenario</div>
+        <div class="controls">
+            <div class="ctl-card">
+                <h3>Challenge</h3>
+                <div class="field">
+                    <label for="stimType">Stimulus type</label>
+                    <select id="stimType"></select>
+                </div>
+                <div class="field">
+                    <label for="dur">Apnea / rebreathing duration</label>
+                    <div class="slider-row">
+                        <input type="range" id="dur" min="5" max="30" step="1" value="15"
+                            aria-describedby="durOut">
+                        <output id="durOut">15 s</output>
+                    </div>
+                </div>
+            </div>
+            <div class="ctl-card">
+                <h3>Perturbations (combinable)</h3>
+                <div id="pertList"></div>
+            </div>
+            <div class="ctl-card">
+                <h3>Instruments</h3>
+                <div id="instrList"></div>
+            </div>
+            <div class="ctl-card">
+                <h3>Guided lessons</h3>
+                <div class="lesson-row" id="lessonBtns"></div>
+                <button class="btn" id="resetBtn" style="margin-top:0.3rem">↺ Reset everything</button>
+                <p id="lessonCaption" style="font-size:0.74rem;color:var(--text-secondary);margin-top:0.6rem"></p>
+            </div>
+        </div>
+
+        <div class="coverage" id="coverage" aria-live="polite"></div>
+
+        <!-- GRAPH -->
+        <div class="section-label" id="graph-section">The causal map <span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">&nbsp;— click a node or edge for detail; Tab + Enter to navigate</span></div>
+        <div class="graph-wrap">
+            <svg id="graph" role="group" aria-label="Interactive causal map laid out in lanes from challenge to instruments"></svg>
+        </div>
+        <p class="graph-scroll-hint">↔ scroll the map sideways to see every lane</p>
+
+        <div class="legend" id="legend"></div>
+
+        <!-- LOWER: time course + discriminability -->
+        <div class="lower">
+            <div class="panel-card">
+                <h2>Time course <span class="sm">illustrative units · baseline vs perturbed</span></h2>
+                <p style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.4rem">Solid = baseline (no
+                    perturbation). Dashed = your perturbed scenario. The shaded band is the apnea/rebreathing event.</p>
+                <svg id="timecourse" role="img" aria-label="Illustrative time courses for baseline and perturbed scenarios"></svg>
+                <div id="tcLegend" style="display:flex;flex-wrap:wrap;gap:0.4rem 0.9rem;margin-top:0.5rem;font-size:0.64rem"></div>
+            </div>
+            <div class="panel-card">
+                <h2>Discriminability check <span class="sm">the key question</span></h2>
+                <p style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.5rem">Pick two scenarios. The
+                    page compares only the channels your <strong>currently selected instruments</strong> can observe.</p>
+                <div class="disc-controls">
+                    <div>
+                        <label for="scenA" style="font-size:0.64rem;color:var(--text-muted)">Scenario A</label>
+                        <select id="scenA"></select>
+                    </div>
+                    <div>
+                        <label for="scenB" style="font-size:0.64rem;color:var(--text-muted)">Scenario B</label>
+                        <select id="scenB"></select>
+                    </div>
+                </div>
+                <div id="verdict" class="verdict" aria-live="polite"></div>
+                <table class="disc-table" id="discTable"></table>
+            </div>
+        </div>
+
+        <!-- STUDENT PROMPTS -->
+        <div class="section-label">Student prompts</div>
+        <div class="panel-card">
+            <ol class="prompts">
+                <li>Pick the <em>smallest</em> instrument set that distinguishes a 5-HT deficit from prone sleeping. Why
+                    does it work? Which node carries the distinguishing signal?</li>
+                <li>Which node would you need to observe to test the hypothesis that a deficit blunts <em>arousal
+                        specifically</em>, rather than ventilation or gas exchange?</li>
+                <li>Using fNIRS only, find a pair of scenarios whose cortical-HbO change has the <em>opposite
+                        sign</em>. What does that tell you about using ΔHbO alone as a biomarker?</li>
+                <li>You can only add one instrument to fNIRS. Which single channel removes the most ambiguity, and what
+                    confound does it leave untouched?</li>
+            </ol>
+        </div>
+
+        <!-- REFERENCES -->
+        <div class="section-label">References</div>
+        <div class="panel-card">
+            <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.75rem">Every citation below was verified
+                against PubMed / its DOI before inclusion. Edge and node panels link to the relevant entries by number.</p>
+            <ol class="reflist" id="refList"></ol>
+        </div>
+
+        <footer>
+            Built for IDNE 701, Introduction to Neuroengineering · UAB · FA26 · A teaching tool, not a clinical or
+            research instrument.
+        </footer>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="scrim" id="scrim"></div>
+    <aside class="sidepanel" id="sidepanel" role="dialog" aria-modal="false" aria-labelledby="spTitle" tabindex="-1">
+        <button class="sp-close" id="spClose" aria-label="Close panel">✕</button>
+        <div id="spContent"></div>
+    </aside>
+
+    <script>
+        /* ============================================================
+         *  MODEL  —  edit the physiology here, not the rendering code.
+         *  All nodes, edges, perturbations, instruments, references,
+         *  and tuning parameters live in this single object.
+         * ============================================================ */
+        const MODEL = {
+            params: {
+                // a node counts as "changed" vs baseline only if its relative
+                // change exceeds this fraction (the +/-10% band in the brief)
+                sameBand: 0.10,
+                // discriminability tolerance on an observed channel (relative)
+                discTol: 0.10,
+                raphaeDeficitMultiplier: 0.3,
+                iterations: 80,
+                relax: 0.5,
+                // saturation ceiling applied to cortical arousal drive (tanh)
+                arousalSaturation: 0.4
+            },
+
+            // lanes, left to right
+            lanes: [
+                { id: 'challenge', name: 'Challenge' },
+                { id: 'gases', name: 'Blood gases' },
+                { id: 'sensors', name: 'Sensors' },
+                { id: 'brainstem', name: 'Brainstem integration' },
+                { id: 'outputs', name: 'Effectors & outputs' },
+                { id: 'instruments', name: 'Instruments' }
+            ],
+
+            nodes: {
+                apnea: {
+                    lane: 'challenge', label: 'Apnea /', sub: 'rebreathing',
+                    what: 'The driving event: a spontaneous central apnea, face-down rebreathing of exhaled gas, or a controlled mild hypercapnic challenge. This is the only externally imposed input; everything downstream is the body’s response.',
+                    location: 'Whole-organism state (sleeping infant).',
+                    timescale: 'Seconds (set by the duration slider, 5–30 s).',
+                    evidence: 'Established', isInput: true, refs: [1]
+                },
+                paco2_up: {
+                    lane: 'gases', label: '↑ PaCO₂', sub: '↓ pH',
+                    what: 'Arterial CO₂ rises and pH falls as gas exchange stalls. This is the chemical stimulus that most of the control loop is actually built to defend against, and it is also what drives local cerebral vasodilation.',
+                    location: 'Arterial blood / perivascular compartment.',
+                    timescale: 'Seconds; rises steadily through the event.',
+                    evidence: 'Established', refs: [4, 5]
+                },
+                pao2_down: {
+                    lane: 'gases', label: '↓ PaO₂', sub: '↓ SpO₂',
+                    what: 'Arterial O₂ falls, lowering peripheral SpO₂. Systemic desaturation also directly lowers the measured cerebral HbO, independent of flow — an important confound for fNIRS.',
+                    location: 'Arterial blood.',
+                    timescale: 'Seconds; often lags the CO₂ rise slightly.',
+                    evidence: 'Established', refs: [1]
+                },
+                carotid_body: {
+                    lane: 'sensors', label: 'Carotid', sub: 'body',
+                    what: 'Peripheral chemoreceptors (glomus cells). Mainly sense ↓O₂, and also ↑CO₂/↓pH. Fast. Afferents travel via the carotid sinus nerve (CN IX) to the NTS. These sensors keep working under a 5-HT deficit — they report a bigger stimulus, not a smaller one.',
+                    location: 'Carotid bifurcation (neck), extracranial, peripheral.',
+                    depth: 'Not an intracranial target; irrelevant to fNIRS depth.',
+                    timescale: 'Sub-second to seconds.',
+                    evidence: 'Established', refs: [4, 5]
+                },
+                central_chemo: {
+                    lane: 'sensors', label: 'Central', sub: 'chemoreceptors',
+                    what: 'CO₂/pH sensing in the brainstem. The retrotrapezoid nucleus (RTN) is the principal CO₂/pH sensor; medullary raphé 5-HT neurons and the locus coeruleus are also CO₂-sensitive. Sensing is largely intact under a 5-HT deficit; it is the downstream drive and arousal that suffer.',
+                    location: 'Ventral medulla (RTN) and nearby brainstem nuclei.',
+                    depth: 'Brainstem, roughly 50–80 mm from the infant scalp — unreachable by fNIRS.',
+                    timescale: 'Seconds.',
+                    evidence: 'Established', refs: [4]
+                },
+                nts: {
+                    lane: 'brainstem', label: 'NTS', sub: 'n. tractus solitarius',
+                    what: 'The nucleus tractus solitarius is the first central relay for carotid-body (and other visceral) afferents, distributing drive to the respiratory rhythm generator, autonomic nuclei, and arousal relays.',
+                    location: 'Dorsomedial medulla.',
+                    depth: 'Brainstem, ~50–80 mm from scalp — unreachable by fNIRS.',
+                    timescale: 'Sub-second relay.',
+                    evidence: 'Established', refs: [4]
+                },
+                raphe_5ht: {
+                    lane: 'brainstem', label: 'Raphé 5-HT', sub: 'serotonergic',
+                    what: 'Medullary raphé serotonergic neurons — the node implicated in SIDS neuropathology (reduced 5-HT and TPH2, altered 5-HT1A receptor binding in SIDS cases). They are CO₂-sensitive and modulate respiratory drive, support gasping/autoresuscitation, and help drive CO₂ arousal. This is the node the "Medullary 5-HT deficit" perturbation scales down.',
+                    location: 'Midline medulla (raphé obscurus / magnus / pallidus).',
+                    depth: 'Brainstem, ~50–80 mm from scalp — unreachable by fNIRS.',
+                    timescale: 'Seconds; modulatory, slow relative to direct reflexes.',
+                    evidence: 'Established (pathology) / Animal models (function)', refs: [2, 9, 10, 11, 12, 13]
+                },
+                prebotc: {
+                    lane: 'brainstem', label: 'preBötC', sub: 'rhythm generator',
+                    what: 'The preBötzinger complex, the core inspiratory rhythm generator. It integrates central- and peripheral-chemoreceptor drive (and 5-HT modulation) into the breathing command sent to respiratory motor output.',
+                    location: 'Ventrolateral medulla.',
+                    depth: 'Brainstem, ~50–80 mm from scalp — unreachable by fNIRS.',
+                    timescale: 'Breath-by-breath (sub-second to seconds).',
+                    evidence: 'Established', refs: [4]
+                },
+                parabrachial: {
+                    lane: 'brainstem', label: 'Parabrachial', sub: 'arousal relay',
+                    what: 'The parabrachial nucleus is a key relay for CO₂-induced arousal, projecting (via glutamatergic / CGRP neurons) to forebrain arousal systems. In the SIDS hypothesis, raphé 5-HT input helps drive this arousal pathway.',
+                    location: 'Dorsolateral pons (external lateral parabrachial).',
+                    depth: 'Brainstem/pons, ~50–75 mm from scalp — unreachable by fNIRS.',
+                    timescale: 'Seconds.',
+                    evidence: 'Animal models', refs: [6, 7, 8]
+                },
+                lc: {
+                    lane: 'brainstem', label: 'Locus', sub: 'coeruleus (NA)',
+                    what: 'The locus coeruleus, a noradrenergic arousal nucleus. It is CO₂-sensitive and contributes to cortical arousal, providing an arousal pathway partly parallel to the raphé → parabrachial route.',
+                    location: 'Dorsal pons.',
+                    depth: 'Brainstem/pons, ~50–75 mm from scalp — unreachable by fNIRS.',
+                    timescale: 'Seconds.',
+                    evidence: 'Established (arousal) / Animal models (CO₂-sensitivity)', refs: [4]
+                },
+                autonomic: {
+                    lane: 'brainstem', label: 'Autonomic', sub: 'vagal / sympathetic',
+                    what: 'Autonomic output nuclei (vagal and sympathetic premotor), driven largely via the NTS. They set the heart-rate and blood-pressure response to the challenge.',
+                    location: 'Medulla (nucleus ambiguus, dorsal vagal, RVLM).',
+                    depth: 'Brainstem, ~50–80 mm from scalp — unreachable by fNIRS.',
+                    timescale: 'Sub-second to seconds.',
+                    evidence: 'Established', refs: [4]
+                },
+                ventilation: {
+                    lane: 'outputs', label: 'Ventilation', sub: 'sighs / hyperpnea',
+                    what: '↑ ventilation, sighs and hyperpnea. This is the effector that closes the loop: increased ventilation lowers PaCO₂ and raises PaO₂. Arousal also terminates the apnea and restores breathing. A blunted ventilatory response lets PaCO₂ rise further.',
+                    location: 'Respiratory muscles / airflow.',
+                    timescale: 'Breath-by-breath (seconds).',
+                    evidence: 'Established', refs: [4]
+                },
+                gasping: {
+                    lane: 'outputs', label: 'Gasping', sub: 'autoresuscitation',
+                    what: 'Gasping and autoresuscitation — the last-ditch mechanism that restarts breathing and heart rate after a severe hypoxic/anoxic episode. In rodent models this is strongly 5-HT-dependent: 5-HT-deficient pups show delayed gasping and failed autoresuscitation at a critical postnatal age.',
+                    location: 'Brainstem-generated motor pattern.',
+                    timescale: 'Seconds, triggered late in a severe event.',
+                    evidence: 'Animal models', refs: [10, 11, 12, 13]
+                },
+                hr_bp: {
+                    lane: 'outputs', label: 'HR & BP', sub: 'cardiovascular',
+                    what: 'Heart-rate and blood-pressure response to the challenge. Failed heart-rate recovery is a feature of 5-HT-deficient mouse models of SIDS. Systemic BP also drives extracerebral (scalp) blood flow, an fNIRS confound.',
+                    location: 'Systemic cardiovascular.',
+                    timescale: 'Sub-second to seconds.',
+                    evidence: 'Established', refs: [11]
+                },
+                cortical_arousal: {
+                    lane: 'outputs', label: 'Cortical', sub: 'arousal',
+                    what: 'Cortical arousal — EEG desynchronization, movement, head-turning. Driven by the parabrachial and locus-coeruleus pathways. Impaired arousal to CO₂/hypoxia is central to the SIDS hypothesis, and it is depressed by prone sleeping, prematurity and prenatal nicotine.',
+                    location: 'Forebrain / cortex (behavioural state).',
+                    depth: 'Cortex, ~5–15 mm from infant scalp — its EEG correlate is observable; its brainstem drivers are not.',
+                    timescale: 'Seconds.',
+                    evidence: 'Animal models / Established', refs: [6, 7, 8, 9, 16, 17]
+                },
+                nvc: {
+                    lane: 'outputs', label: 'NVC', sub: 'neurovascular coupling',
+                    what: 'Neurovascular coupling: arousal-related cortical activation produces a local increase in oxygenated hemoglobin. This is a flow response to neural activity, distinct from the direct CO₂ vasodilation — and it rides on whether arousal happens at all.',
+                    location: 'Cortical microvasculature.',
+                    depth: 'Gyral cortex, ~5–15 mm from scalp — within fNIRS reach, but mixed with other sources.',
+                    timescale: 'A few seconds (hemodynamic lag).',
+                    evidence: 'Established', refs: [5]
+                },
+                cvr: {
+                    lane: 'outputs', label: 'CVR', sub: 'CO₂ vasodilation',
+                    what: 'Cerebrovascular reactivity: cerebral vasodilation to CO₂. This is <strong>mostly local</strong> — driven by perivascular pH, NO and astrocytes — and only weakly dependent on brainstem 5-HT. This is the heart of the conflation: fNIRS CO₂ reactivity largely does not route through the raphé, so it is a poor readout of a serotonergic arousal deficit.',
+                    location: 'Cerebral resistance vessels (local).',
+                    depth: 'Cortical / pial vessels, ~5–15 mm — within fNIRS reach.',
+                    timescale: 'Seconds (hemodynamic).',
+                    evidence: 'Established (local mechanism)', refs: [5]
+                },
+                scalp_flow: {
+                    lane: 'outputs', label: 'Scalp flow', sub: 'extracerebral',
+                    what: 'Extracerebral (scalp) blood flow, driven by systemic BP and sympathetic tone. Because continuous-wave fNIRS light passes through scalp and skull twice, scalp hemodynamics contaminate the signal — a major confound, especially without short-separation regression.',
+                    location: 'Scalp / skin.',
+                    depth: '0–3 mm — the most superficial compartment, heavily weighted in CW-fNIRS.',
+                    timescale: 'Seconds.',
+                    evidence: 'Established', refs: [5]
+                },
+                motion: {
+                    lane: 'outputs', label: 'Motion', sub: 'head / body',
+                    what: 'Head and body movement during arousal. Motion is a confound for both fNIRS (optode coupling artifacts) and EEG (movement artifact). It is also, through actigraphy/video, a behavioural readout of arousal.',
+                    location: 'Whole body.',
+                    timescale: 'Seconds, coincident with arousal.',
+                    evidence: 'Established', refs: [16]
+                },
+                cortical_hbo: {
+                    lane: 'outputs', label: 'Cortical HbO/HbR', sub: 'what fNIRS reports', composite: true,
+                    what: 'The cortical HbO/HbR signal — a <strong>composite</strong> of everything fNIRS actually reports: CO₂ vasodilation (CVR) + neurovascular coupling (NVC) + scalp blood flow + systemic desaturation (↓SpO₂) + motion artifact. Because it sums sources with opposing signs, its net change is not interpretable without also measuring the stimulus and arousal.',
+                    location: 'Optically sampled tissue volume (scalp + skull + superficial cortex).',
+                    depth: 'CW-fNIRS at 20–25 mm source–detector separation samples roughly the top ~1 cm of tissue in an infant; it reports <em>changes</em>, not absolute saturation, and cannot see the brainstem.',
+                    timescale: 'Seconds (hemodynamic).',
+                    evidence: 'Established (as a mixture)', refs: [5, 14, 15]
+                }
+            },
+
+            // edges: gain is the qualitative weight used by the propagation model
+            edges: [
+                { from: 'apnea', to: 'paco2_up', sign: '+', gain: 1.0, latency: '1–5 s', evidence: 'Established', why: 'Apnea/rebreathing halts CO₂ clearance, so arterial CO₂ climbs.', refs: [1] },
+                { from: 'apnea', to: 'pao2_down', sign: '+', gain: 0.8, latency: '2–10 s', evidence: 'Established', why: 'With no fresh gas, arterial O₂ falls; rate depends on reserve.', refs: [1] },
+                { from: 'pao2_down', to: 'carotid_body', sign: '+', gain: 1.0, latency: '<1 s', evidence: 'Established', why: 'Carotid glomus cells are the dominant O₂ sensor.', refs: [4] },
+                { from: 'paco2_up', to: 'carotid_body', sign: '+', gain: 0.3, latency: '<1 s', evidence: 'Established', why: 'Carotid body has a secondary CO₂/pH sensitivity.', refs: [4] },
+                { from: 'paco2_up', to: 'central_chemo', sign: '+', gain: 1.0, latency: '1–3 s', evidence: 'Established', why: 'RTN and friends sense CO₂/pH directly — the main central drive.', refs: [4] },
+                { from: 'paco2_up', to: 'raphe_5ht', sign: '+', gain: 0.6, latency: '1–3 s', evidence: 'Animal models', why: 'Medullary raphé 5-HT neurons are intrinsically CO₂-sensitive.', refs: [9] },
+                { from: 'paco2_up', to: 'lc', sign: '+', gain: 0.5, latency: '1–3 s', evidence: 'Animal models', why: 'Locus coeruleus neurons are CO₂-sensitive and feed arousal.', refs: [4] },
+                { from: 'carotid_body', to: 'nts', sign: '+', gain: 1.0, latency: '<1 s', evidence: 'Established', why: 'Carotid sinus nerve (CN IX) projects to the NTS.', refs: [4] },
+                { from: 'central_chemo', to: 'prebotc', sign: '+', gain: 0.5, latency: '1–2 s', evidence: 'Established', why: 'Central chemodrive excites the respiratory rhythm generator.', refs: [4] },
+                { from: 'nts', to: 'prebotc', sign: '+', gain: 0.3, latency: '<1 s', evidence: 'Established', why: 'NTS relays peripheral chemodrive onward to rhythm generation.', refs: [4] },
+                { from: 'raphe_5ht', to: 'prebotc', sign: '+', gain: 0.6, latency: '2–5 s', evidence: 'Animal models', why: 'Raphé 5-HT is modulatory, supporting and stabilising respiratory drive.', refs: [4, 13] },
+                { from: 'raphe_5ht', to: 'gasping', sign: '+', gain: 0.8, latency: 'late (s)', evidence: 'Animal models', why: '5-HT is required for effective gasping / autoresuscitation in rodent models.', refs: [10, 11, 12, 13] },
+                { from: 'pao2_down', to: 'gasping', sign: '+', gain: 0.3, latency: 'late (s)', evidence: 'Established', why: 'Severe hypoxia is the trigger that eventually recruits gasping.', refs: [11] },
+                { from: 'raphe_5ht', to: 'parabrachial', sign: '+', gain: 1.0, latency: '2–5 s', evidence: 'Hypothesized / animal models', why: 'Proposed serotonergic support of the CO₂-arousal relay.', refs: [6, 9] },
+                { from: 'central_chemo', to: 'parabrachial', sign: '+', gain: 0.2, latency: '1–3 s', evidence: 'Animal models', why: 'Chemosensory drive converges on the parabrachial arousal relay.', refs: [6, 7] },
+                { from: 'nts', to: 'parabrachial', sign: '+', gain: 0.2, latency: '<1 s', evidence: 'Animal models', why: 'NTS relays respiratory/visceral afferents to parabrachial.', refs: [7] },
+                { from: 'parabrachial', to: 'cortical_arousal', sign: '+', gain: 1.0, latency: '1–3 s', evidence: 'Animal models', why: 'Glutamatergic parabrachial projections drive forebrain arousal to CO₂.', refs: [7, 8] },
+                { from: 'lc', to: 'cortical_arousal', sign: '+', gain: 0.3, latency: '1–3 s', evidence: 'Established', why: 'Noradrenergic LC output promotes cortical arousal.', refs: [4] },
+                { from: 'prebotc', to: 'ventilation', sign: '+', gain: 1.0, latency: 'breaths', evidence: 'Established', why: 'Rhythm generator output drives respiratory muscles.', refs: [4] },
+                { from: 'cortical_arousal', to: 'ventilation', sign: '+', gain: 0.5, latency: '1–3 s', evidence: 'Established', why: 'Arousal terminates apnea and augments ventilation.', refs: [6] },
+                { from: 'ventilation', to: 'paco2_up', sign: '−', gain: -0.8, latency: 'breaths', evidence: 'Established', why: 'Negative feedback: ventilation washes out CO₂.', refs: [4, 5] },
+                { from: 'ventilation', to: 'pao2_down', sign: '−', gain: -0.6, latency: 'breaths', evidence: 'Established', why: 'Negative feedback: ventilation restores O₂.', refs: [4] },
+                { from: 'nts', to: 'autonomic', sign: '+', gain: 0.8, latency: '<1 s', evidence: 'Established', why: 'NTS drives autonomic premotor nuclei.', refs: [4] },
+                { from: 'autonomic', to: 'hr_bp', sign: '+', gain: 1.0, latency: '<1 s', evidence: 'Established', why: 'Autonomic output sets heart rate and blood pressure.', refs: [4] },
+                { from: 'cortical_arousal', to: 'nvc', sign: '+', gain: 1.0, latency: '2–6 s', evidence: 'Established', why: 'Cortical activation during arousal drives a local HbO increase.', refs: [5] },
+                { from: 'cortical_arousal', to: 'motion', sign: '+', gain: 1.0, latency: '0–2 s', evidence: 'Established', why: 'Arousal produces movement and head-turning.', refs: [16] },
+                { from: 'paco2_up', to: 'cvr', sign: '+', gain: 1.0, latency: '2–8 s', evidence: 'Established', why: 'CO₂/pH dilates cerebral vessels — a mostly local mechanism.', refs: [5] },
+                { from: 'raphe_5ht', to: 'cvr', sign: 'weak', gain: 0.1, latency: 'uncertain', evidence: 'Hypothesized', why: 'Any serotonergic modulation of CO₂ vasoreactivity is weak and uncertain; CVR is driven mostly by local pH, not the raphé.', refs: [5], weak: true },
+                { from: 'hr_bp', to: 'scalp_flow', sign: '+', gain: 0.5, latency: '1–3 s', evidence: 'Established', why: 'Systemic BP / sympathetic tone drives extracerebral scalp flow.', refs: [5] },
+                { from: 'cvr', to: 'cortical_hbo', sign: '+', gain: 1.0, latency: '2–8 s', evidence: 'Established', why: 'CO₂ vasodilation raises the measured cortical HbO.', refs: [5] },
+                { from: 'nvc', to: 'cortical_hbo', sign: '+', gain: 0.8, latency: '2–6 s', evidence: 'Established', why: 'Neurovascular coupling adds a local HbO bump.', refs: [5] },
+                { from: 'scalp_flow', to: 'cortical_hbo', sign: '+', gain: 0.4, latency: '1–3 s', evidence: 'Established', why: 'Scalp hemodynamics contaminate the CW-fNIRS signal (confound).', refs: [5], confound: true },
+                { from: 'pao2_down', to: 'cortical_hbo', sign: '−', gain: -0.6, latency: '2–8 s', evidence: 'Established', why: 'Systemic desaturation directly lowers measured HbO.', refs: [14] },
+                { from: 'motion', to: 'cortical_hbo', sign: 'artifact', gain: 0.2, latency: '0–2 s', evidence: 'Established', why: 'Motion corrupts optode coupling — an artifact, not physiology.', refs: [5], artifact: true }
+            ],
+
+            perturbations: {
+                sht: {
+                    name: 'Medullary 5-HT deficit', tag: 'pathology',
+                    note: 'Scales raphé 5-HT output down. Models the SIDS neuropathology.',
+                    nodeMult: { raphe_5ht: 0.3 }, refs: [2]
+                },
+                prone: {
+                    name: 'Prone / face-down sleep', tag: 'env',
+                    note: 'Bigger effective stimulus — more rebreathing, larger ↑PaCO₂ per second of apnea. Also linked to depressed arousal and altered cerebrovascular control.',
+                    stimMult: { paco2_up: 1.5, pao2_down: 1.25 }, refs: [14, 17]
+                },
+                prem: {
+                    name: 'Prematurity / immaturity', tag: 'developmental',
+                    note: 'Weaker chemoreflex gain and weaker arousal gain.',
+                    nodeMult: { carotid_body: 0.7, central_chemo: 0.75, cortical_arousal: 0.6 }, refs: [15]
+                },
+                nic: {
+                    name: 'Prenatal nicotine exposure', tag: 'animal + human',
+                    note: 'Blunted arousal gain (and blunted cardiorespiratory defence); human infant and animal evidence.',
+                    nodeMult: { cortical_arousal: 0.6, carotid_body: 0.8 }, refs: [16, 17]
+                }
+            },
+
+            // instruments: `observes` lists node ids this device reads out
+            instruments: {
+                fnirs: {
+                    name: 'fNIRS (CW)', observes: ['cortical_hbo'],
+                    confounds: ['scalp_flow', 'motion', 'pao2_down'],
+                    note: 'Observes the cortical HbO/HbR composite only. Superficial cortex, ~1 cm sensitivity depth in an infant at 20–25 mm source–detector separation. Cannot see the brainstem. Reports changes, not absolute saturation.'
+                },
+                eeg: {
+                    name: 'EEG / aEEG', observes: ['cortical_arousal'], confounds: ['motion'],
+                    note: 'Observes cortical arousal (EEG desynchronization). Confounded by motion artifact.'
+                },
+                ecg: {
+                    name: 'ECG', observes: ['hr_bp'], confounds: [],
+                    note: 'Observes heart rate (part of the HR & BP response).'
+                },
+                spo2: {
+                    name: 'Pulse oximetry', observes: ['pao2_down'], confounds: ['motion'],
+                    note: 'Observes SpO₂ — i.e. PaO₂ (inverted). Motion-sensitive.'
+                },
+                co2: {
+                    name: 'TcCO₂ / end-tidal CO₂', observes: ['paco2_up'], confounds: [],
+                    note: 'Observes PaCO₂ — the stimulus itself. Measuring the driver is what resolves most of the fNIRS sign ambiguity.'
+                },
+                belt: {
+                    name: 'Respiratory belt (RIP)', observes: ['ventilation', 'apnea', 'gasping'], confounds: [],
+                    note: 'Respiratory inductance plethysmography / chest belt. Observes ventilation, the apnea itself, and gasping.'
+                },
+                video: {
+                    name: 'Video / actigraphy', observes: ['motion'], confounds: [],
+                    note: 'Observes movement and behavioural arousal.'
+                }
+            },
+
+            // the set of "output" nodes a biomarker study cares about observing
+            outputNodesForCoverage: ['ventilation', 'gasping', 'hr_bp', 'cortical_arousal', 'nvc', 'cvr', 'scalp_flow', 'motion', 'cortical_hbo'],
+
+            // named scenarios for the discriminability check
+            scenarios: {
+                normal_strong: { name: 'Normal infant, strong stimulus', dur: 22, perts: [], stimMult: {} },
+                normal_normal: { name: 'Normal infant, normal stimulus', dur: 15, perts: [], stimMult: {} },
+                sht_normal: { name: '5-HT deficit, normal stimulus', dur: 15, perts: ['sht'], stimMult: {} },
+                prone_normal: { name: 'Prone sleeping, normal infant', dur: 15, perts: ['prone'], stimMult: {} },
+                weak_stim: { name: 'Weak stimulus, normal CVR', dur: 15, perts: [], stimMult: { paco2_up: 0.7, pao2_down: 0.7 } },
+                weak_cvr: { name: 'Normal stimulus, weak CVR', dur: 15, perts: [], stimMult: {}, cvrMult: 0.6 }
+            },
+
+            references: [
+                { id: 1, text: 'Kinney HC, Thach BT. The sudden infant death syndrome. N Engl J Med. 2009;361(8):795–805.', doi: '10.1056/NEJMra0803836' },
+                { id: 2, text: 'Duncan JR, Paterson DS, Hoffman JM, et al. Brainstem serotonergic deficiency in sudden infant death syndrome. JAMA. 2010;303(5):430–437.', doi: '10.1001/jama.2010.45' },
+                { id: 3, text: 'Filiano JJ, Kinney HC. A perspective on neuropathologic findings in victims of the sudden infant death syndrome: the triple-risk model. Biol Neonate. 1994;65(3–4):194–197.', doi: '10.1159/000244052' },
+                { id: 4, text: 'Guyenet PG, Bayliss DA. Neural control of breathing and CO₂ homeostasis. Neuron. 2015;87(5):946–961.', doi: '10.1016/j.neuron.2015.08.001' },
+                { id: 5, text: 'Ainslie PN, Duffin J. Integration of cerebrovascular CO₂ reactivity and chemoreflex control of breathing: mechanisms of regulation, measurement, and interpretation. Am J Physiol Regul Integr Comp Physiol. 2009;296(5):R1473–R1495.', doi: '10.1152/ajpregu.91008.2008' },
+                { id: 6, text: 'Kaur S, Saper CB. Neural circuitry underlying waking up to hypercapnia. Front Neurosci. 2019;13:401.', doi: '10.3389/fnins.2019.00401' },
+                { id: 7, text: 'Kaur S, Wang JL, Ferrari L, et al. A genetically defined circuit for arousal from sleep during hypercapnia. Neuron. 2017;96(5):1153–1167.', doi: '10.1016/j.neuron.2017.10.009' },
+                { id: 8, text: 'Kaur S, Pedersen NP, Yokota S, et al. Glutamatergic signaling from the parabrachial nucleus plays a critical role in hypercapnic arousal. J Neurosci. 2013;33(18):7627–7640.', doi: '10.1523/JNEUROSCI.0173-13.2013' },
+                { id: 9, text: 'Buchanan GF, Richerson GB. Central serotonin neurons are required for arousal to CO₂. Proc Natl Acad Sci U S A. 2010;107(37):16354–16359.', doi: '10.1073/pnas.1004587107' },
+                { id: 10, text: 'Cummings KJ, Hewitt JC, Li A, Daubenspeck JA, Nattie EE. Postnatal loss of brainstem serotonin neurones compromises the ability of neonatal rats to survive episodic severe hypoxia. J Physiol. 2011;589(Pt 21):5247–5256.', doi: '10.1113/jphysiol.2011.214445' },
+                { id: 11, text: 'Cummings KJ, Commons KG, Hewitt JC, et al. Failed heart rate recovery at a critical age in 5-HT-deficient mice exposed to episodic anoxia: implications for SIDS. J Appl Physiol. 2011;111(3):825–833.', doi: '10.1152/japplphysiol.00336.2011' },
+                { id: 12, text: 'Chen J, Magnusson J, Karsenty G, Cummings KJ. Time- and age-dependent effects of serotonin on gasping and autoresuscitation in neonatal mice. J Appl Physiol. 2013;114(12):1668–1676.', doi: '10.1152/japplphysiol.00003.2013' },
+                { id: 13, text: 'Barrett KT, Dosumu-Johnson RT, Daubenspeck JA, et al. Partial raphé dysfunction in neurotransmission is sufficient to increase mortality after anoxic exposures in mice at a critical period in postnatal development. J Neurosci. 2016;36(14):3943–3953.', doi: '10.1523/JNEUROSCI.1796-15.2016' },
+                { id: 14, text: 'Wong FY, Witcombe NB, Yiallourou SR, et al. Cerebral oxygenation is depressed during sleep in healthy term infants when they sleep prone. Pediatrics. 2011;127(3):e558–e565.', doi: '10.1542/peds.2010-2724' },
+                { id: 15, text: 'Wong F, Yiallourou SR, Odoi A, Browne P, Walker AM, Horne RSC. Cerebrovascular control is altered in healthy term infants when they sleep prone. Sleep. 2013;36(12):1911–1918.', doi: '10.5665/sleep.3228' },
+                { id: 16, text: 'Richardson HL, Walker AM, Horne RSC. Maternal smoking impairs arousal patterns in sleeping infants. Sleep. 2009;32(4):515–521.', doi: '10.1093/sleep/32.4.515' },
+                { id: 17, text: 'Hafström O, Milerad J, Sundell HW. Prenatal nicotine exposure blunts the cardiorespiratory response to hypoxia in lambs. Am J Respir Crit Care Med. 2002;166(12 Pt 1):1544–1549.', doi: '10.1164/rccm.200204-289OC' }
+            ]
+        };
+
+        /* ============================================================
+         *  PROPAGATION MODEL (qualitative, transparent)
+         * ============================================================ */
+        const ORDER = Object.keys(MODEL.nodes);
+
+        function steadyState(cfg) {
+            // cfg: {dur, perts:[ids], extraStimMult:{}, extraNodeMult:{}, cvrMult}
+            const P = MODEL.params;
+            const u = cfg.dur / 15;               // normalized stimulus from duration
+            const nodeMult = {};                  // per-node output multiplier
+            const stimMult = {};                  // per-gas multiplier on the apnea edges
+            let cvrMult = 1;
+
+            (cfg.perts || []).forEach(pid => {
+                const p = MODEL.perturbations[pid];
+                if (!p) return;
+                if (p.nodeMult) for (const k in p.nodeMult) nodeMult[k] = (nodeMult[k] ?? 1) * p.nodeMult[k];
+                if (p.stimMult) for (const k in p.stimMult) stimMult[k] = (stimMult[k] ?? 1) * p.stimMult[k];
+            });
+            if (cfg.extraNodeMult) for (const k in cfg.extraNodeMult) nodeMult[k] = (nodeMult[k] ?? 1) * cfg.extraNodeMult[k];
+            if (cfg.extraStimMult) for (const k in cfg.extraStimMult) stimMult[k] = (stimMult[k] ?? 1) * cfg.extraStimMult[k];
+            if (cfg.cvrMult != null) cvrMult *= cfg.cvrMult;
+
+            const x = {}; ORDER.forEach(n => x[n] = 0);
+            x.apnea = u;
+            for (let it = 0; it < P.iterations; it++) {
+                const sum = {}; ORDER.forEach(n => sum[n] = 0);
+                for (const e of MODEL.edges) {
+                    let g = e.gain * (nodeMult[e.from] ?? 1);
+                    if (e.from === 'apnea') g *= (stimMult[e.to] ?? 1);
+                    sum[e.to] += g * x[e.from];
+                }
+                for (const n of ORDER) {
+                    if (n === 'apnea') continue;
+                    let t = sum[n];
+                    if (n === 'cortical_arousal') t = P.arousalSaturation * Math.tanh(t / P.arousalSaturation);
+                    if (n === 'cvr') t *= cvrMult;
+                    x[n] += P.relax * (t - x[n]);
+                }
+            }
+            return x;
+        }
+
+        function classify(val, base) {
+            const denom = Math.max(Math.abs(base), 0.05);
+            const rel = (val - base) / denom;
+            if (rel > MODEL.params.sameBand) return { cls: 'up', glyph: '↑', rel };
+            if (rel < -MODEL.params.sameBand) return { cls: 'down', glyph: '↓', rel };
+            return { cls: 'same', glyph: '=', rel };
+        }
+
+        /* ============================================================
+         *  STATE
+         * ============================================================ */
+        const state = {
+            dur: 15,
+            stimType: 'spontaneous',
+            perts: new Set(),
+            instruments: new Set()
+        };
+
+        const stimTypes = {
+            spontaneous: { name: 'Spontaneous central apnea', stimMult: {} },
+            rebreathing: { name: 'Face-down rebreathing', stimMult: { paco2_up: 1.3, pao2_down: 1.1 } },
+            hypercapnic: { name: 'Controlled mild hypercapnic challenge', stimMult: { paco2_up: 1.0, pao2_down: 0.5 } }
+        };
+
+        function currentCfg() {
+            return {
+                dur: state.dur,
+                perts: [...state.perts],
+                extraStimMult: stimTypes[state.stimType].stimMult
+            };
+        }
+
+        /* ============================================================
+         *  LAYOUT
+         * ============================================================ */
+        const SVGNS = 'http://www.w3.org/2000/svg';
+        const GW = 980, GH = 660;
+        const laneX = { challenge: 70, gases: 215, sensors: 360, brainstem: 525, outputs: 730, instruments: 915 };
+        const NODE_W = 118, NODE_H = 46;
+
+        // vertical placement within each lane (center y for each node)
+        function layoutNodes() {
+            const byLane = {};
+            MODEL.lanes.forEach(l => byLane[l.id] = []);
+            for (const id of ORDER) byLane[MODEL.nodes[id].lane].push(id);
+            const pos = {};
+            const top = 70, bottom = GH - 30;
+            for (const lane in byLane) {
+                if (lane === 'instruments') continue;
+                const ids = byLane[lane];
+                const n = ids.length;
+                ids.forEach((id, i) => {
+                    const y = n === 1 ? (top + bottom) / 2 : top + (bottom - top) * (i / (n - 1));
+                    pos[id] = { x: laneX[lane], y };
+                });
+            }
+            return pos;
+        }
+        const POS = layoutNodes();
+
+        /* ============================================================
+         *  RENDER GRAPH
+         * ============================================================ */
+        const svg = document.getElementById('graph');
+        let edgeEls = [], nodeEls = {};
+
+        function el(tag, attrs, parent) {
+            const e = document.createElementNS(SVGNS, tag);
+            for (const k in attrs) e.setAttribute(k, attrs[k]);
+            if (parent) parent.appendChild(e);
+            return e;
+        }
+
+        function evClass(ev) {
+            const e = (ev || '').toLowerCase();
+            if (e.includes('established')) return 'ev-established';
+            if (e.includes('animal')) return 'ev-animal';
+            return 'ev-hypothesized';
+        }
+
+        function buildGraph() {
+            svg.setAttribute('viewBox', `0 0 ${GW} ${GH}`);
+            svg.innerHTML = '';
+
+            // defs: arrowheads
+            const defs = el('defs', {}, svg);
+            const mkMarker = (id, color, type) => {
+                const m = el('marker', { id, markerWidth: 10, markerHeight: 10, refX: 8, refY: 3, orient: 'auto', markerUnits: 'strokeWidth' }, defs);
+                if (type === 'inhibit') {
+                    el('path', { d: 'M1,0 L1,6', stroke: color, 'stroke-width': 2, fill: 'none' }, m);
+                } else {
+                    el('path', { d: 'M0,0 L8,3 L0,6 Z', fill: color }, m);
+                }
+            };
+            // arrowheads reference currentColor via explicit colors; we recolor per-edge class through CSS stroke, but markers need fixed fills
+            mkMarker('arrowPos', 'var(--text-muted)', 'arrow');
+            mkMarker('arrowNeg', 'var(--down)', 'inhibit');
+            mkMarker('arrowHl', 'var(--phase3)', 'arrow');
+
+            // lane backgrounds + labels
+            MODEL.lanes.forEach(l => {
+                const cx = laneX[l.id];
+                const w = NODE_W + 46;
+                el('rect', { class: 'lane-rect', x: cx - w / 2, y: 44, width: w, height: GH - 54, rx: 8 }, svg);
+                const lbl = el('text', { class: 'lane-label', x: cx, y: 30, 'text-anchor': 'middle' }, svg);
+                // wrap lane name to 2 lines if needed
+                const words = l.name.split(' ');
+                if (l.name.length > 14 && words.length > 1) {
+                    const mid = Math.ceil(words.length / 2);
+                    lbl.setAttribute('y', 22);
+                    const t1 = el('tspan', { x: cx, dy: 0 }, lbl); t1.textContent = words.slice(0, mid).join(' ');
+                    const t2 = el('tspan', { x: cx, dy: 12 }, lbl); t2.textContent = words.slice(mid).join(' ');
+                } else {
+                    lbl.textContent = l.name;
+                }
+            });
+
+            // edges first (under nodes)
+            edgeEls = [];
+            MODEL.edges.forEach((e, i) => {
+                const a = POS[e.from], b = POS[e.to];
+                const d = edgePath(a, b, e);
+                const cls = `edge ${e.sign === '−' ? 'neg' : 'pos'} ${evClass(e.evidence)}${e.weak ? ' weak' : ''}`;
+                const hit = el('path', { class: 'edge-hit', d }, svg);
+                const path = el('path', { class: cls, d, 'stroke-width': e.weak ? 1 : 1.8 }, svg);
+                const marker = e.sign === '−' ? 'url(#arrowNeg)' : 'url(#arrowPos)';
+                path.setAttribute('marker-end', marker);
+                hit.addEventListener('click', () => openEdge(e));
+                path.addEventListener('click', () => openEdge(e));
+                edgeEls.push({ e, path, hit });
+            });
+
+            // nodes
+            nodeEls = {};
+            for (const id of ORDER) {
+                const p = POS[id], nd = MODEL.nodes[id];
+                const g = el('g', {
+                    class: 'node' + (nd.composite ? ' composite' : ''),
+                    tabindex: 0, role: 'button',
+                    'aria-label': `${stripTags(nd.label + ' ' + (nd.sub || ''))}. Press Enter for details.`
+                }, svg);
+                g.dataset.id = id;
+                el('rect', { x: p.x - NODE_W / 2, y: p.y - NODE_H / 2, width: NODE_W, height: NODE_H, rx: 7 }, g);
+                const t = el('text', { class: 'nlabel', x: p.x - NODE_W / 2 + 8, y: p.y - 3 }, g);
+                t.textContent = nd.label;
+                if (nd.sub) { const s = el('text', { class: 'nsub', x: p.x - NODE_W / 2 + 8, y: p.y + 11 }, g); s.textContent = nd.sub; }
+                // glyph (change classification) top-right
+                const glyph = el('text', { class: 'glyph', x: p.x + NODE_W / 2 - 14, y: p.y - 7, 'text-anchor': 'middle' }, g);
+                glyph.textContent = '';
+                // observed eye bottom-right
+                const eye = el('text', { class: 'obseye', x: p.x + NODE_W / 2 - 12, y: p.y + 14, 'text-anchor': 'middle' }, g);
+                eye.textContent = '';
+                g.addEventListener('click', () => openNode(id));
+                g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openNode(id); } });
+                nodeEls[id] = { g, glyph, eye };
+            }
+
+            // instruments tray (right lane)
+            buildInstrumentTray();
+        }
+
+        function edgePath(a, b, e) {
+            // feedback edges (ventilation -> gases) curve backward
+            if (b.x < a.x) {
+                const mx = (a.x + b.x) / 2;
+                const off = 60;
+                return `M ${a.x - NODE_W / 2} ${a.y} C ${a.x - NODE_W / 2 - off} ${a.y - 40}, ${b.x + NODE_W / 2 + off} ${b.y - 40}, ${b.x + NODE_W / 2} ${b.y}`;
+            }
+            const x1 = a.x + NODE_W / 2, x2 = b.x - NODE_W / 2;
+            const cx = (x1 + x2) / 2;
+            return `M ${x1} ${a.y} C ${cx} ${a.y}, ${cx} ${b.y}, ${x2} ${b.y}`;
+        }
+
+        function buildInstrumentTray() {
+            const x = laneX.instruments;
+            const ids = Object.keys(MODEL.instruments);
+            const top = 70, gap = 70;
+            ids.forEach((iid, i) => {
+                const y = top + i * gap;
+                const g = el('g', {
+                    class: 'instr-node' + (state.instruments.has(iid) ? ' on' : ''),
+                    tabindex: 0, role: 'checkbox',
+                    'aria-checked': state.instruments.has(iid) ? 'true' : 'false',
+                    'aria-label': MODEL.instruments[iid].name + ' instrument toggle'
+                }, svg);
+                g.dataset.iid = iid;
+                el('rect', { x: x - 60, y: y - 22, width: 120, height: 44, rx: 7 }, g);
+                const nm = MODEL.instruments[iid].name;
+                const t = el('text', { x: x, y: y - 2, 'text-anchor': 'middle' }, g);
+                t.textContent = nm.length > 15 ? nm.split(' ')[0] : nm;
+                const t2 = el('text', { x: x, y: y + 12, 'text-anchor': 'middle', 'font-size': 8, fill: 'var(--text-muted)' }, g);
+                t2.textContent = nm.length > 15 ? nm.split(' ').slice(1).join(' ') : '';
+                const toggle = () => { toggleInstrument(iid); };
+                g.addEventListener('click', toggle);
+                g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } });
+            });
+        }
+
+        function stripTags(s) { return (s || '').replace(/<[^>]*>/g, ''); }
+
+        /* ============================================================
+         *  UPDATE (recolor nodes/edges from current state)
+         * ============================================================ */
+        function update() {
+            const cfg = currentCfg();
+            const base = steadyState({ dur: state.dur, perts: [], extraStimMult: stimTypes[state.stimType].stimMult });
+            const cur = steadyState(cfg);
+
+            const observed = observedNodes(state.instruments);
+
+            for (const id of ORDER) {
+                const { g, glyph, eye } = nodeEls[id];
+                g.classList.remove('dim', 'observed');
+                if (id === 'apnea') {
+                    glyph.textContent = '';
+                } else {
+                    const c = classify(cur[id], base[id]);
+                    glyph.textContent = c.glyph;
+                    glyph.style.fill = c.cls === 'up' ? 'var(--up)' : c.cls === 'down' ? 'var(--down)' : 'var(--same)';
+                }
+                if (state.instruments.size) {
+                    if (observed.has(id)) { g.classList.add('observed'); eye.textContent = '◉'; eye.style.fill = 'var(--phase5)'; }
+                    else { g.classList.add('dim'); eye.textContent = ''; }
+                } else {
+                    eye.textContent = '';
+                }
+            }
+
+            // instrument tray visuals
+            svg.querySelectorAll('.instr-node').forEach(g => {
+                const on = state.instruments.has(g.dataset.iid);
+                g.classList.toggle('on', on);
+                g.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+
+            updateCoverage(observed);
+            drawTimecourse(base, cur);
+            updateDiscriminability();
+        }
+
+        function observedNodes(instrSet) {
+            const s = new Set();
+            instrSet.forEach(iid => (MODEL.instruments[iid].observes || []).forEach(n => s.add(n)));
+            return s;
+        }
+
+        /* ============================================================
+         *  COVERAGE
+         * ============================================================ */
+        function updateCoverage(observed) {
+            const cov = document.getElementById('coverage');
+            if (!state.instruments.size) {
+                cov.innerHTML = '<span class="muted">No instruments selected. Toggle instruments (in the panel above or on the tray at right of the map) to see what they can and cannot observe.</span>';
+                return;
+            }
+            const outs = MODEL.outputNodesForCoverage;
+            const seen = outs.filter(n => observed.has(n));
+            const blind = outs.filter(n => !observed.has(n));
+            const names = ids => ids.map(i => stripTags(MODEL.nodes[i].label + (MODEL.nodes[i].sub ? ' (' + MODEL.nodes[i].sub + ')' : ''))).join(', ');
+            const instrNames = [...state.instruments].map(i => MODEL.instruments[i].name).join(', ');
+            cov.innerHTML = `<b>${instrNames}</b> &rarr; your instruments can see <b>${seen.length} of ${outs.length}</b> output nodes.` +
+                (seen.length ? ` <span class="muted">Observed:</span> ${names(seen)}.` : '') +
+                (blind.length ? `<br><span class="muted">Blind to:</span> ${names(blind)}. <span class="muted">Every brainstem node is unobservable with any of these instruments.</span>` : '<br><span class="muted">All output nodes observed — but the brainstem drivers remain invisible.</span>');
+        }
+
+        /* ============================================================
+         *  TIME COURSE
+         * ============================================================ */
+        const TC = {
+            channels: [
+                { id: 'paco2_up', label: 'PaCO₂', color: 'var(--phase3)' },
+                { id: 'pao2_down', label: 'SpO₂', color: 'var(--phase5)', invert: true },
+                { id: 'hr_bp', label: 'HR', color: 'var(--phase4)' },
+                { id: 'cortical_arousal', label: 'EEG arousal', color: 'var(--phase2)' },
+                { id: 'ventilation', label: 'Ventilation', color: 'var(--phase1)' },
+                { id: 'cortical_hbo', label: 'fNIRS ΔHbO', color: 'var(--up)' }
+            ]
+        };
+
+        function firstOrderTrace(target, tau, t, tEvent) {
+            // simple first-order approach toward `target` during event, decay after
+            const n = t.length, out = new Array(n).fill(0);
+            let v = 0;
+            const dt = t[1] - t[0];
+            for (let i = 0; i < n; i++) {
+                const drive = t[i] <= tEvent ? target : 0;
+                v += (dt / tau) * (drive - v);
+                out[i] = v;
+            }
+            return out;
+        }
+
+        function drawTimecourse(base, cur) {
+            const tcsvg = document.getElementById('timecourse');
+            const W = 460, H = 300, padL = 8, padR = 8, padT = 10, padB = 18;
+            tcsvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+            tcsvg.setAttribute('width', '100%');
+            tcsvg.innerHTML = '';
+            const rows = TC.channels.length;
+            const rowH = (H - padT - padB) / rows;
+            const tEvent = state.dur;
+            const tMax = Math.max(35, state.dur + 12);
+            const N = 120;
+            const t = Array.from({ length: N }, (_, i) => i * tMax / (N - 1));
+            const xOf = tt => padL + (W - padL - padR) * tt / tMax;
+
+            // event band
+            el('rect', { x: xOf(0), y: padT, width: xOf(tEvent) - xOf(0), height: H - padT - padB, fill: 'var(--phase3)', opacity: 0.08 }, tcsvg);
+
+            TC.channels.forEach((ch, ri) => {
+                const y0 = padT + ri * rowH;
+                const yMid = y0 + rowH * 0.5;
+                const amp = rowH * 0.38;
+                // baseline guide
+                el('line', { x1: padL, y1: yMid, x2: W - padR, y2: yMid, stroke: 'var(--border)', 'stroke-width': 1, 'stroke-dasharray': '2 3' }, tcsvg);
+                const lbl = el('text', { x: padL + 2, y: y0 + 9, class: 'tc-channel-label', fill: 'var(--text-muted)' }, tcsvg);
+                lbl.textContent = ch.label;
+
+                const tau = ch.id === 'cortical_hbo' || ch.id === 'cvr' || ch.id === 'nvc' ? 4 : (ch.id === 'cortical_arousal' ? 3 : 2);
+                const sgnB = ch.invert ? -1 : 1;
+                const tgtB = base[ch.id] * sgnB, tgtC = cur[ch.id] * sgnB;
+                // normalize amplitude across both so they share scale
+                const scale = amp / Math.max(0.15, Math.abs(tgtB), Math.abs(tgtC));
+                const bTrace = firstOrderTrace(tgtB, tau, t, tEvent);
+                const cTrace = firstOrderTrace(tgtC, tau, t, tEvent);
+                const path = (arr, dash) => {
+                    let d = '';
+                    arr.forEach((v, i) => { const x = xOf(t[i]), y = yMid - v * scale; d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1) + ' '; });
+                    const p = el('path', { d, fill: 'none', stroke: ch.color, 'stroke-width': 1.8 }, tcsvg);
+                    if (dash) p.setAttribute('stroke-dasharray', '4 3');
+                };
+                path(bTrace, false);
+                path(cTrace, true);
+            });
+
+            // time axis label
+            el('text', { x: W - padR, y: H - 4, 'text-anchor': 'end', 'font-size': 8, fill: 'var(--text-muted)' }, tcsvg).textContent = `time → (${tMax.toFixed(0)} s window, illustrative)`;
+
+            // legend
+            const leg = document.getElementById('tcLegend');
+            leg.innerHTML = TC.channels.map(ch =>
+                `<span style="display:flex;align-items:center;gap:0.25rem"><span style="width:14px;height:0;border-top:2px solid ${ch.color};display:inline-block"></span>${ch.label}</span>`
+            ).join('') + '<span class="muted">solid = baseline · dashed = perturbed</span>';
+        }
+
+        /* ============================================================
+         *  DISCRIMINABILITY
+         * ============================================================ */
+        function scenarioState(key) {
+            const s = MODEL.scenarios[key];
+            return steadyState({ dur: s.dur, perts: s.perts, extraStimMult: s.stimMult || {}, cvrMult: s.cvrMult });
+        }
+
+        function updateDiscriminability() {
+            const a = document.getElementById('scenA').value;
+            const b = document.getElementById('scenB').value;
+            const xa = scenarioState(a), xb = scenarioState(b);
+            const observed = observedNodes(state.instruments);
+            const verdict = document.getElementById('verdict');
+            const table = document.getElementById('discTable');
+
+            if (!state.instruments.size) {
+                verdict.className = 'verdict no';
+                verdict.innerHTML = '<span class="hd">No instruments</span><br>Select at least one instrument — with nothing measured, no two scenarios can be told apart.';
+                table.innerHTML = '';
+                return;
+            }
+
+            // compare observed channels only
+            const tol = MODEL.params.discTol;
+            const rows = [];
+            let anyDiff = false, biggest = null;
+            observed.forEach(nid => {
+                const va = xa[nid], vb = xb[nid];
+                const denom = Math.max(Math.abs(va), Math.abs(vb), 0.05);
+                const rel = Math.abs(va - vb) / denom;
+                const diff = rel > tol;
+                if (diff) { anyDiff = true; if (!biggest || rel > biggest.rel) biggest = { nid, rel }; }
+                rows.push({ nid, va, vb, rel, diff });
+            });
+            rows.sort((p, q) => q.rel - p.rel);
+
+            if (anyDiff) {
+                const n = MODEL.nodes[biggest.nid];
+                const instrFor = [...state.instruments].filter(i => MODEL.instruments[i].observes.includes(biggest.nid)).map(i => MODEL.instruments[i].name);
+                verdict.className = 'verdict yes';
+                verdict.innerHTML = `<span class="hd">✔ Distinguishable</span><br>These instruments produce different readings. The clearest difference is in <b>${stripTags(n.label + ' ' + (n.sub || ''))}</b>, read by ${instrFor.join(', ')}.`;
+            } else {
+                verdict.className = 'verdict no';
+                verdict.innerHTML = `<span class="hd">✘ Indistinguishable with these instruments</span><br>Every observed channel differs by less than the ${(tol * 100).toFixed(0)}% tolerance. The two scenarios diverge mainly in channels you are not measuring — add an instrument that reads one of them.`;
+            }
+
+            table.innerHTML = '<tr><th>Observed channel</th><th>A</th><th>B</th><th>diff</th></tr>' +
+                rows.map(r => {
+                    const n = MODEL.nodes[r.nid];
+                    const chip = r.diff ? '<span class="chip up">differs</span>' : '<span class="chip same">same</span>';
+                    return `<tr><td>${stripTags(n.label)} <span class="muted">${n.sub ? '· ' + n.sub : ''}</span></td><td>${r.va.toFixed(2)}</td><td>${r.vb.toFixed(2)}</td><td>${chip}</td></tr>`;
+                }).join('');
+        }
+
+        /* ============================================================
+         *  SIDE PANEL
+         * ============================================================ */
+        const scrim = document.getElementById('scrim');
+        const sidepanel = document.getElementById('sidepanel');
+        let lastFocus = null;
+
+        function openPanel(html) {
+            document.getElementById('spContent').innerHTML = html;
+            scrim.classList.add('open');
+            sidepanel.classList.add('open');
+            lastFocus = document.activeElement;
+            sidepanel.focus();
+            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([sidepanel]);
+        }
+        function closePanel() {
+            scrim.classList.remove('open');
+            sidepanel.classList.remove('open');
+            if (lastFocus && lastFocus.focus) lastFocus.focus();
+        }
+        document.getElementById('spClose').addEventListener('click', closePanel);
+        scrim.addEventListener('click', closePanel);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+        function refsHtml(ids) {
+            if (!ids || !ids.length) return '';
+            const items = ids.map(id => {
+                const r = MODEL.references.find(x => x.id === id);
+                if (!r) return '';
+                return `<li><span class="rid">[${r.id}]</span> ${r.text} ${r.doi ? `<a href="https://doi.org/${r.doi}" target="_blank" rel="noopener">DOI</a>` : ''}</li>`;
+            }).join('');
+            return `<ul class="sp-refs">${items}</ul>`;
+        }
+
+        function evPill(ev) {
+            const cls = evClass(ev);
+            return `<span class="ev-pill ${cls}">${ev}</span>`;
+        }
+
+        function openNode(id) {
+            const nd = MODEL.nodes[id];
+            const cfg = currentCfg();
+            const base = steadyState({ dur: state.dur, perts: [], extraStimMult: stimTypes[state.stimType].stimMult });
+            const cur = steadyState(cfg);
+            const c = id === 'apnea' ? null : classify(cur[id], base[id]);
+            const stateLine = c ? `<div class="sp-meta"><dt>Current state</dt><dd><span class="chip ${c.cls}">${c.glyph} ${c.cls === 'up' ? 'increased' : c.cls === 'down' ? 'decreased' : 'about the same'}</span> vs baseline (${(c.rel * 100).toFixed(0)}%)</dd></div>` : '';
+            const observed = observedNodes(state.instruments).has(id);
+            const obsLine = state.instruments.size ? `<div class="sp-meta"><dt>Observed?</dt><dd>${observed ? '<b style="color:var(--phase5)">◉ Yes</b>, by ' + [...state.instruments].filter(i => MODEL.instruments[i].observes.includes(id)).map(i => MODEL.instruments[i].name).join(', ') : '○ No — invisible to the current instrument set'}</dd></div>` : '';
+
+            openPanel(`
+                <span class="sp-kicker">${MODEL.lanes.find(l => l.id === nd.lane).name}${nd.composite ? ' · composite node' : ''}</span>
+                <h2 class="sp-title" id="spTitle">${stripTags(nd.label)} ${nd.sub ? '<span style="font-size:0.7em;color:var(--text-muted)">' + nd.sub + '</span>' : ''}</h2>
+                <div class="sp-body"><p>${nd.what}</p></div>
+                <div class="sp-meta">
+                    <dt>Where</dt><dd>${nd.location || '—'}</dd>
+                    ${nd.depth ? `<dt>Depth</dt><dd>${nd.depth}</dd>` : ''}
+                    <dt>Timescale</dt><dd>${nd.timescale || '—'}</dd>
+                    <dt>Evidence</dt><dd>${evPill(nd.evidence)}</dd>
+                </div>
+                ${stateLine}${obsLine}
+                <div class="sp-kicker" style="margin-top:0.9rem">References</div>
+                ${refsHtml(nd.refs)}
+            `);
+        }
+
+        function openEdge(e) {
+            const from = MODEL.nodes[e.from], to = MODEL.nodes[e.to];
+            const signWord = e.sign === '+' ? 'Excitatory (+)' : e.sign === '−' ? 'Inhibitory / negative (−)' : e.sign === 'weak' ? 'Weak / uncertain' : e.sign === 'artifact' ? 'Artifact' : e.sign;
+            openPanel(`
+                <span class="sp-kicker">Edge</span>
+                <h2 class="sp-title" id="spTitle">${stripTags(from.label)} &rarr; ${stripTags(to.label)}</h2>
+                <div class="sp-meta">
+                    <dt>Sign</dt><dd>${signWord}</dd>
+                    <dt>Latency</dt><dd>${e.latency || '—'}</dd>
+                    <dt>Evidence</dt><dd>${evPill(e.evidence)}</dd>
+                    <dt>Weight</dt><dd>${e.gain} <span class="muted">(qualitative)</span></dd>
+                </div>
+                <div class="sp-body"><p>${e.why}</p>
+                ${e.weak ? '<p class="muted">Drawn as a thin dotted line: this is the hypothesized, weak raphé modulation of CO₂ vasoreactivity — the crux of why fNIRS CO₂ reactivity is a poor readout of a serotonergic deficit.</p>' : ''}
+                ${e.confound ? '<p class="muted">This edge is a <b>confound</b> for fNIRS: it feeds the measured HbO without reflecting cortical activity.</p>' : ''}
+                ${e.artifact ? '<p class="muted">This is an <b>artifact</b> path, not physiology.</p>' : ''}
+                </div>
+                <div class="sp-kicker" style="margin-top:0.9rem">References</div>
+                ${refsHtml(e.refs)}
+            `);
+        }
+
+        /* ============================================================
+         *  CONTROLS WIRING
+         * ============================================================ */
+        function buildControls() {
+            // stim type
+            const st = document.getElementById('stimType');
+            Object.entries(stimTypes).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v.name; st.appendChild(o); });
+            st.value = state.stimType;
+            st.addEventListener('change', () => { state.stimType = st.value; update(); });
+
+            // duration
+            const dur = document.getElementById('dur'), durOut = document.getElementById('durOut');
+            dur.addEventListener('input', () => { state.dur = +dur.value; durOut.textContent = dur.value + ' s'; update(); });
+
+            // perturbations
+            const pl = document.getElementById('pertList');
+            Object.entries(MODEL.perturbations).forEach(([k, p]) => {
+                const lab = document.createElement('label'); lab.className = 'check';
+                lab.innerHTML = `<input type="checkbox" value="${k}"><span>${p.name}<span class="tag">${p.tag}</span></span>`;
+                const cb = lab.querySelector('input');
+                cb.addEventListener('change', () => { cb.checked ? state.perts.add(k) : state.perts.delete(k); setLessonCaption(''); update(); });
+                pl.appendChild(lab);
+            });
+
+            // instruments
+            const il = document.getElementById('instrList');
+            Object.entries(MODEL.instruments).forEach(([k, inst]) => {
+                const lab = document.createElement('label'); lab.className = 'check';
+                lab.innerHTML = `<input type="checkbox" value="${k}"><span>${inst.name}</span>`;
+                const cb = lab.querySelector('input');
+                cb.dataset.iid = k;
+                cb.addEventListener('change', () => { cb.checked ? state.instruments.add(k) : state.instruments.delete(k); setLessonCaption(''); update(); });
+                il.appendChild(lab);
+            });
+
+            // discriminability scenario selects
+            const sa = document.getElementById('scenA'), sb = document.getElementById('scenB');
+            Object.entries(MODEL.scenarios).forEach(([k, v]) => {
+                [sa, sb].forEach(sel => { const o = document.createElement('option'); o.value = k; o.textContent = v.name; sel.appendChild(o); });
+            });
+            sa.value = 'normal_strong'; sb.value = 'sht_normal';
+            sa.addEventListener('change', updateDiscriminability);
+            sb.addEventListener('change', updateDiscriminability);
+
+            // lessons
+            buildLessons();
+
+            document.getElementById('resetBtn').addEventListener('click', resetAll);
+
+            // references list
+            const rl = document.getElementById('refList');
+            rl.innerHTML = MODEL.references.map(r => `<li><span class="rid">[${r.id}]</span> ${r.text} ${r.doi ? `<a href="https://doi.org/${r.doi}" target="_blank" rel="noopener">https://doi.org/${r.doi}</a>` : ''}</li>`).join('');
+
+            // legend
+            buildLegend();
+        }
+
+        function syncControlCheckboxes() {
+            document.querySelectorAll('#pertList input').forEach(cb => cb.checked = state.perts.has(cb.value));
+            document.querySelectorAll('#instrList input').forEach(cb => cb.checked = state.instruments.has(cb.value));
+            document.getElementById('dur').value = state.dur;
+            document.getElementById('durOut').textContent = state.dur + ' s';
+            document.getElementById('stimType').value = state.stimType;
+        }
+
+        function toggleInstrument(iid) {
+            state.instruments.has(iid) ? state.instruments.delete(iid) : state.instruments.add(iid);
+            setLessonCaption('');
+            syncControlCheckboxes();
+            update();
+        }
+
+        function resetAll() {
+            state.dur = 15; state.stimType = 'spontaneous';
+            state.perts.clear(); state.instruments.clear();
+            setLessonCaption('');
+            syncControlCheckboxes();
+            update();
+        }
+
+        /* ============================================================
+         *  LESSONS
+         * ============================================================ */
+        const LESSONS = [
+            {
+                name: 'What fNIRS sees',
+                caption: 'fNIRS alone is on. Notice the cortical HbO/HbR node is the only one observed (◉), and every brainstem node is dimmed. ΔHbO is a composite of CVR + NVC + scalp flow + desaturation + motion — click it to see the mixture. The mechanism the hypothesis blames (raphé 5-HT → arousal) is entirely unobservable.',
+                apply: () => { resetSoft(); state.instruments = new Set(['fnirs']); }
+            },
+            {
+                name: 'The sign ambiguity',
+                caption: 'fNIRS only, comparing a 5-HT deficit (scenario B) to a normal strong-stimulus infant (scenario A). With the deficit, failed ventilation lets PaCO₂ rise more (bigger CVR push), while the missing arousal removes the NVC bump and desaturation pulls HbO down. Try the duration slider: at short apneas ΔHbO drops, at long ones it can rise — the sign of the fNIRS change is not predictable without measuring the stimulus and arousal.',
+                apply: () => { resetSoft(); state.instruments = new Set(['fnirs']); state.perts = new Set(['sht']); state.dur = 10; setDisc('normal_strong', 'sht_normal'); }
+            },
+            {
+                name: 'Measure the stimulus',
+                caption: '“Weak stimulus + normal CVR” vs “normal stimulus + weak CVR.” With fNIRS alone these are indistinguishable — the ΔHbO lands in nearly the same place by two different routes. Now tick TcCO₂: the verdict flips to distinguishable, because the two scenarios differ sharply in PaCO₂. Moral: measure the driver.',
+                apply: () => { resetSoft(); state.instruments = new Set(['fnirs']); setDisc('weak_stim', 'weak_cvr'); }
+            },
+            {
+                name: 'Add an arousal readout',
+                caption: 'fNIRS + EEG + CO₂ + respiration belt. Coverage jumps, and crucially EEG gives a direct arousal channel and CO₂ gives the stimulus. This set separates the 5-HT deficit from prone sleeping, because the deficit shows blunted arousal at a comparable (or larger) CO₂ stimulus, whereas prone sleeping mostly raises the stimulus. Compare scenarios to confirm.',
+                apply: () => { resetSoft(); state.instruments = new Set(['fnirs', 'eeg', 'co2', 'belt']); setDisc('sht_normal', 'prone_normal'); }
+            }
+        ];
+
+        function resetSoft() { state.dur = 15; state.stimType = 'spontaneous'; state.perts = new Set(); state.instruments = new Set(); }
+        function setDisc(a, b) { document.getElementById('scenA').value = a; document.getElementById('scenB').value = b; }
+        function setLessonCaption(txt) { document.getElementById('lessonCaption').textContent = txt; }
+
+        function buildLessons() {
+            const box = document.getElementById('lessonBtns');
+            LESSONS.forEach((L, i) => {
+                const b = document.createElement('button');
+                b.className = 'btn' + (i === 0 ? ' primary' : '');
+                b.textContent = (i + 1) + '. ' + L.name;
+                b.addEventListener('click', () => {
+                    L.apply();
+                    syncControlCheckboxes();
+                    setLessonCaption(L.caption);
+                    update();
+                });
+                box.appendChild(b);
+            });
+        }
+
+        /* ============================================================
+         *  LEGEND
+         * ============================================================ */
+        function buildLegend() {
+            const lg = document.getElementById('legend');
+            const line = (cls, label) => `<span class="li"><svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" stroke="var(--text-muted)" stroke-width="2" ${cls}></line></svg>${label}</span>`;
+            lg.innerHTML = [
+                line('', 'Established'),
+                line('stroke-dasharray="7 4"', 'Animal models'),
+                line('stroke-dasharray="2 4"', 'Hypothesized'),
+                `<span class="li"><svg width="34" height="10"><line x1="1" y1="5" x2="27" y2="5" stroke="var(--text-muted)" stroke-width="2"></line><path d="M27,2 L33,5 L27,8 Z" fill="var(--text-muted)"></path></svg>Excitatory (+)</span>`,
+                `<span class="li"><svg width="34" height="10"><line x1="1" y1="5" x2="30" y2="5" stroke="var(--down)" stroke-width="2"></line><line x1="31" y1="1" x2="31" y2="9" stroke="var(--down)" stroke-width="2"></line></svg>Inhibitory (−)</span>`,
+                `<span class="li"><span class="lg-glyph" style="color:var(--up)">↑</span>increased</span>`,
+                `<span class="li"><span class="lg-glyph" style="color:var(--down)">↓</span>decreased</span>`,
+                `<span class="li"><span class="lg-glyph" style="color:var(--same)">=</span>±${(MODEL.params.sameBand * 100).toFixed(0)}% band</span>`,
+                `<span class="li"><span style="color:var(--phase5);font-size:0.9em">◉</span> observed node</span>`,
+                `<span class="li"><svg width="18" height="14"><rect x="1" y="1" width="16" height="12" rx="3" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="2 2"></rect></svg>composite node</span>`
+            ].join('');
+        }
+
+        /* ============================================================
+         *  INIT
+         * ============================================================ */
+        buildControls();
+        buildGraph();
+        syncControlCheckboxes();
+        update();
+
+        // expose for inline/headless tests
+        window.__SIDS = { MODEL, steadyState, classify, observedNodes, scenarioState, state };
+    </script>
+</body>
+
+</html>

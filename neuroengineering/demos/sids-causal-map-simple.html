@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanism to Measurement: the short version</title>
+    <meta name="description"
+        content="A greatly simplified causal chain from apnea to the fNIRS signal, showing why fNIRS cannot see a brainstem serotonergic deficit. IDNE 701, UAB.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --phase1: #2dd4bf;
+            --phase2: #a78bfa;
+            --phase3: #fb923c;
+            --phase4: #f472b6;
+            --phase5: #38bdf8;
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --border: #e5e5e5;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --up: #dc2626;
+            --down: #2563eb;
+            --same: #9ca3af;
+            --reach: rgba(56, 189, 248, 0.10);
+            --reach-line: #38bdf8;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #0a0a0b;
+                --bg-secondary: #141416;
+                --bg-card: #1a1a1e;
+                --text-primary: #fafafa;
+                --text-secondary: #a1a1aa;
+                --text-muted: #71717a;
+                --border: #27272a;
+                --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+                --up: #f87171;
+                --down: #60a5fa;
+                --same: #6b7280;
+                --reach: rgba(56, 189, 248, 0.08);
+                --reach-line: #38bdf8;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        a {
+            color: var(--phase5);
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 1.75rem 1.25rem 4rem;
+        }
+
+        header {
+            margin-bottom: 1.25rem;
+        }
+
+        .course-tag {
+            display: inline-block;
+            font-size: 0.64rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.9rem;
+            border-radius: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(1.9rem, 5.5vw, 3rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            line-height: 1.08;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: var(--phase3);
+        }
+
+        .subtitle {
+            font-size: 0.86rem;
+            color: var(--text-secondary);
+            max-width: 680px;
+            margin-top: 0.75rem;
+        }
+
+        .toplinks {
+            margin-top: 0.85rem;
+            font-size: 0.74rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .banner {
+            margin-top: 1rem;
+            display: inline-flex;
+            gap: 0.5rem;
+            align-items: center;
+            font-size: 0.72rem;
+            background: color-mix(in srgb, var(--phase3) 14%, transparent);
+            border: 1px solid var(--phase3);
+            padding: 0.45rem 0.85rem;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+        .section-label {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin: 1.9rem 0 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.9rem;
+            align-items: stretch;
+        }
+
+        .ctl-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            box-shadow: var(--shadow);
+            flex: 1 1 240px;
+        }
+
+        .ctl-card h3 {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-bottom: 0.6rem;
+            font-weight: 700;
+        }
+
+        /* big toggle */
+        .toggle {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .toggle button {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: none;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.74rem;
+            padding: 0.55rem 0.4rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .toggle button[aria-pressed="true"] {
+            background: var(--phase3);
+            color: #1a1a1a;
+            font-weight: 700;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .slider-row output {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--phase3);
+            min-width: 2.8rem;
+            text-align: right;
+        }
+
+        .btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.72rem;
+            padding: 0.5rem 0.7rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            border-color: var(--text-muted);
+        }
+
+        .btn:focus-visible,
+        .toggle button:focus-visible,
+        input:focus-visible,
+        .node:focus-visible {
+            outline: 2px solid var(--phase5);
+            outline-offset: 2px;
+        }
+
+        /* Chain */
+        .chain-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+        }
+
+        svg#chain {
+            display: block;
+            min-width: 860px;
+            width: 100%;
+            height: auto;
+        }
+
+        .reach-rect {
+            fill: var(--reach);
+            stroke: var(--reach-line);
+            stroke-width: 1.5;
+            stroke-dasharray: 5 4;
+            rx: 10;
+        }
+
+        .reach-label {
+            fill: var(--reach-line);
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .lane-cap {
+            fill: var(--text-muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .edge {
+            fill: none;
+            stroke: var(--text-muted);
+            stroke-width: 1.8;
+        }
+
+        .edge.neg {
+            stroke: var(--down);
+        }
+
+        .edge.weak {
+            stroke-width: 1;
+            stroke-dasharray: 2 4;
+            opacity: 0.7;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node rect {
+            fill: var(--bg-secondary);
+            stroke: var(--border);
+            stroke-width: 1.5;
+        }
+
+        .node.lesion rect {
+            stroke: var(--phase4);
+            stroke-width: 2.5;
+        }
+
+        .node.composite rect {
+            stroke-dasharray: 3 2;
+            stroke-width: 2;
+        }
+
+        .node .nlabel {
+            fill: var(--text-primary);
+            font-size: 12px;
+            font-family: 'Space Mono', monospace;
+            pointer-events: none;
+        }
+
+        .node .nsub {
+            fill: var(--text-muted);
+            font-size: 9px;
+            pointer-events: none;
+        }
+
+        .node .glyph {
+            font-size: 17px;
+            font-weight: 700;
+            pointer-events: none;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem 1.1rem;
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+            margin-top: 0.75rem;
+            padding: 0.7rem 0.85rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .legend .li {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .lg-glyph {
+            font-weight: 700;
+            width: 1.1em;
+            display: inline-block;
+            text-align: center;
+        }
+
+        /* Key insight card */
+        .insight {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--phase5);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 1.1rem 1.2rem;
+        }
+
+        .insight h2 {
+            font-family: 'Instrument Serif', serif;
+            font-weight: 400;
+            font-size: 1.35rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .insight p {
+            font-size: 0.84rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.6rem;
+        }
+
+        .readout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin: 0.75rem 0 0.4rem;
+        }
+
+        .readchip {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 0.55rem 0.7rem;
+            font-size: 0.74rem;
+            background: var(--bg-secondary);
+            flex: 1 1 150px;
+        }
+
+        .readchip .lbl {
+            color: var(--text-muted);
+            font-size: 0.64rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .readchip .val {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .val.up {
+            color: var(--up);
+        }
+
+        .val.down {
+            color: var(--down);
+        }
+
+        .val.same {
+            color: var(--same);
+        }
+
+        .fnirs-call {
+            margin-top: 0.75rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            background: color-mix(in srgb, var(--phase5) 10%, transparent);
+            border: 1px solid var(--phase5);
+        }
+
+        /* Instruments strip */
+        .instr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 0.7rem;
+        }
+
+        .instr {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 0.85rem;
+            box-shadow: var(--shadow);
+            font-size: 0.78rem;
+        }
+
+        .instr .nm {
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+
+        .instr .sees {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+        }
+
+        .instr .verdict {
+            font-size: 0.68rem;
+            margin-top: 0.4rem;
+            font-weight: 700;
+        }
+
+        .instr.can .verdict {
+            color: var(--phase1);
+        }
+
+        .instr.cant .verdict {
+            color: var(--phase4);
+        }
+
+        /* Flags */
+        .flags {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 1rem 1.15rem;
+        }
+
+        .flag {
+            border-left: 3px solid var(--phase4);
+            padding: 0.2rem 0 0.2rem 0.85rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .flag:last-child {
+            margin-bottom: 0;
+        }
+
+        .flag .q {
+            font-weight: 700;
+            font-size: 0.82rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .flag .a {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+
+        .flag .evtag {
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0 0.3rem;
+            color: var(--text-muted);
+            margin-left: 0.3rem;
+            white-space: nowrap;
+        }
+
+        .prompts {
+            list-style: none;
+            counter-reset: p;
+        }
+
+        .prompts li {
+            position: relative;
+            padding-left: 2rem;
+            margin-bottom: 0.65rem;
+            font-size: 0.8rem;
+            counter-increment: p;
+        }
+
+        .prompts li::before {
+            content: counter(p);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1.4rem;
+            height: 1.4rem;
+            background: var(--phase3);
+            color: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 1rem 1.15rem;
+        }
+
+        .reflist {
+            list-style: none;
+            font-size: 0.73rem;
+            color: var(--text-secondary);
+        }
+
+        .reflist li {
+            margin-bottom: 0.55rem;
+            padding-left: 1.6rem;
+            text-indent: -1.6rem;
+        }
+
+        .reflist .rid {
+            color: var(--phase3);
+            font-weight: 700;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2.5rem 0 1rem;
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .skip {
+            position: absolute;
+            left: -999px;
+            top: 0;
+            background: var(--phase3);
+            color: #1a1a1a;
+            padding: 0.5rem 1rem;
+            z-index: 100;
+        }
+
+        .skip:focus {
+            left: 0;
+        }
+
+        /* side panel */
+        .scrim {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 40;
+        }
+
+        .scrim.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .sidepanel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: min(400px, 92vw);
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+            transform: translateX(105%);
+            transition: transform 0.25s ease;
+            z-index: 50;
+            overflow-y: auto;
+            padding: 1.25rem 1.3rem 2.5rem;
+        }
+
+        .sidepanel.open {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 640px) {
+            .sidepanel {
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                height: auto;
+                max-height: 82vh;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                border-radius: 14px 14px 0 0;
+                transform: translateY(105%);
+            }
+
+            .sidepanel.open {
+                transform: translateY(0);
+            }
+        }
+
+        .sp-close {
+            float: right;
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .sp-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin: 0.1rem 0 0.6rem;
+        }
+
+        .sp-body {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .sp-body p {
+            margin-bottom: 0.5rem;
+        }
+
+        .sp-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.25rem 0.8rem;
+            font-size: 0.76rem;
+            margin: 0.6rem 0;
+        }
+
+        .sp-meta dt {
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+    <a href="#chain-section" class="skip">Skip to the chain</a>
+    <div class="container">
+        <header>
+            <span class="course-tag">IDNE 701 · the short version</span>
+            <h1>Mechanism <em>to</em> Measurement <span style="font-family:'Space Mono',monospace;font-size:0.4em;color:var(--text-muted);vertical-align:middle">simplified</span></h1>
+            <p class="subtitle">One chain, one switch. Flip on a brainstem serotonin (5-HT) deficit and watch what
+                happens, then ask the only question that matters for a biomarker: <strong>can an fNIRS cap on the scalp
+                    actually see the thing that broke?</strong></p>
+            <div class="toplinks">
+                <a href="sids-causal-map.html">→ Full interactive map (all nodes, instruments, time courses)</a>
+            </div>
+            <div class="banner" role="note">⚠ Qualitative teaching model. Not fitted to data.</div>
+        </header>
+
+        <div class="section-label">Set the scenario</div>
+        <div class="controls">
+            <div class="ctl-card">
+                <h3>Brainstem 5-HT</h3>
+                <div class="toggle" role="group" aria-label="Serotonin state">
+                    <button id="healthyBtn" aria-pressed="true">Healthy</button>
+                    <button id="deficitBtn" aria-pressed="false">5-HT deficit</button>
+                </div>
+                <p style="font-size:0.68rem;color:var(--text-muted);margin-top:0.5rem">The deficit lives in the medullary
+                    raphé — deep in the brainstem.</p>
+            </div>
+            <div class="ctl-card">
+                <h3>Apnea duration</h3>
+                <div class="slider-row">
+                    <input type="range" id="dur" min="5" max="30" step="1" value="10" aria-describedby="durOut">
+                    <output id="durOut">10 s</output>
+                </div>
+                <p style="font-size:0.68rem;color:var(--text-muted);margin-top:0.5rem">Short vs long changes the
+                    <em>sign</em> of the fNIRS signal — try both ends.</p>
+            </div>
+            <div class="ctl-card">
+                <h3>Reset</h3>
+                <button class="btn" id="resetBtn" style="width:100%">↺ Healthy, 10 s</button>
+            </div>
+        </div>
+
+        <div class="section-label" id="chain-section">The chain <span
+                style="text-transform:none;letter-spacing:0;color:var(--text-muted)">&nbsp;— click any box for a plain-language note</span></div>
+        <div class="chain-wrap">
+            <svg id="chain" role="group" aria-label="Simplified causal chain from apnea to the fNIRS signal"></svg>
+        </div>
+        <div class="legend" id="legend"></div>
+
+        <div class="section-label">What this run says</div>
+        <div class="insight">
+            <h2 id="insightTitle">Healthy infant, short apnea</h2>
+            <p id="insightText"></p>
+            <div class="readout" id="readout"></div>
+            <div class="fnirs-call" id="fnirsCall"></div>
+        </div>
+
+        <div class="section-label">Can each instrument see the break?</div>
+        <div class="instr-grid" id="instrGrid"></div>
+
+        <div class="section-label">Physiology this model simplifies — flag, don't trust</div>
+        <div class="flags" id="flags"></div>
+
+        <div class="section-label">Think about</div>
+        <div class="card">
+            <ol class="prompts">
+                <li>With the deficit on, which boxes change? Which of those can an fNIRS cap on the scalp actually
+                    reach?</li>
+                <li>Drag the duration slider. At what point does the fNIRS ΔHbO flip from down to up, and why does its
+                    sign depend on something fNIRS never measures?</li>
+                <li>You get to add one more sensor to fNIRS. Which one tells a 5-HT deficit apart from "the baby just
+                    had a longer apnea"? (Hint: measure the stimulus, or measure arousal directly.)</li>
+            </ol>
+        </div>
+
+        <div class="section-label">References</div>
+        <div class="card">
+            <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.7rem">A short list; all verified against
+                PubMed / DOI. The <a href="sids-causal-map.html">full map</a> carries the complete bibliography.</p>
+            <ol class="reflist" id="refList"></ol>
+        </div>
+
+        <footer>
+            Built for IDNE 701, Introduction to Neuroengineering · UAB · FA26 · A teaching tool, not a clinical or
+            research instrument. · <a href="sids-causal-map.html">Full version →</a>
+        </footer>
+    </div>
+
+    <div class="scrim" id="scrim"></div>
+    <aside class="sidepanel" id="sidepanel" role="dialog" aria-modal="false" aria-labelledby="spTitle" tabindex="-1">
+        <button class="sp-close" id="spClose" aria-label="Close panel">✕</button>
+        <div id="spContent"></div>
+    </aside>
+
+    <script>
+        /* ============================================================
+         *  SIMPLIFIED MODEL  — edit physiology here, not rendering.
+         * ============================================================ */
+        const MODEL = {
+            params: {
+                sameBand: 0.10,                 // +/-10% "about the same" band
+                raphaeDeficitMultiplier: 0.3,   // 5-HT deficit scales raphe output
+                iterations: 200, relax: 0.5,
+                nvcSaturation: 0.25,            // ceiling on arousal->NVC drive
+                desatSaturation: 0.4,           // SpO2 floors out at long apneas
+                bigStimMultiplier: 1.4          // "longer/harder apnea" comparison
+            },
+
+            // 10 nodes across 6 simple lanes; `reach` = within fNIRS optical reach
+            nodes: {
+                apnea: {
+                    lane: 0, label: 'Apnea', sub: 'the event',
+                    what: 'The breath stops — a central apnea, face-down rebreathing, or a mild CO₂ challenge. Everything to the right is the body trying to respond. The slider sets how long it lasts.',
+                    where: 'Whole infant, asleep.', reach: false
+                },
+                gas: {
+                    lane: 1, label: '↑CO₂ ↓O₂', sub: 'blood gases',
+                    what: 'With no fresh air, CO₂ climbs and O₂ falls. The CO₂ rise is the main thing the control system defends against, and it is also what makes brain vessels dilate.',
+                    where: 'Arterial blood.', reach: false
+                },
+                chemo: {
+                    lane: 2, label: 'Chemoreceptors', sub: 'the sensors',
+                    what: 'Sensors that detect the bad gases: the carotid body in the neck (mostly ↓O₂) and central CO₂ sensors in the brainstem. Crucially, these keep working under a 5-HT deficit — they report a <em>bigger</em> problem, not a smaller one.',
+                    where: 'Neck + brainstem.', reach: false
+                },
+                raphe: {
+                    lane: 3, label: 'Raphé 5-HT', sub: 'the lesion site', lesion: true,
+                    what: 'Medullary serotonin neurons — the part the SIDS hypothesis says is deficient. They help keep breathing going, help trigger gasping, and help wake the baby up to CO₂. This is the box the "5-HT deficit" switch turns down. It sits deep in the brainstem, far from any scalp sensor.',
+                    where: 'Deep in the medulla (≈50–80 mm below the scalp).', reach: false
+                },
+                breathing: {
+                    lane: 4, label: 'Breathing', sub: 'the fix',
+                    what: 'The response that actually fixes the problem: more breathing blows off CO₂ and restores O₂, ending the event. A 5-HT deficit weakens this, so the gases stay bad for longer.',
+                    where: 'Respiratory muscles.', reach: false
+                },
+                arousal: {
+                    lane: 4, label: 'Arousal', sub: 'waking up',
+                    what: 'Waking up / stirring — the brain’s backup alarm that ends the apnea and shows up on EEG. The 5-HT → arousal pathway is a leading SIDS suspect, and it is blunted here. An EEG can see this directly; fNIRS can only see it indirectly, through blood flow.',
+                    where: 'Cortex / behaviour.', reach: true
+                },
+                cvr: {
+                    lane: 4, label: 'CO₂ → vessels', sub: 'local dilation (CVR)',
+                    what: 'Brain vessels dilate when CO₂ rises. This is <strong>mostly a local chemistry effect</strong> (perivascular pH) — it barely needs the raphé at all. That is the crux: this is a big part of what fNIRS measures, and it is almost blind to the serotonin deficit.',
+                    where: 'Cortical vessels (≈5–15 mm — fNIRS can reach).', reach: true
+                },
+                nvc: {
+                    lane: 4, label: 'Activity → flow', sub: 'arousal’s blood bump (NVC)',
+                    what: 'When the cortex activates during arousal, local blood flow rises (neurovascular coupling). Unlike the CO₂ effect, this one <em>does</em> ride on whether arousal happens — so the deficit removes it.',
+                    where: 'Cortical microvessels (≈5–15 mm — fNIRS can reach).', reach: true
+                },
+                hbo: {
+                    lane: 5, label: 'fNIRS ΔHbO', sub: 'what you measure', composite: true,
+                    what: 'The fNIRS signal is a <strong>sum</strong>: CO₂ dilation (big, barely 5-HT-dependent) + arousal’s flow bump (gone with the deficit) − whole-body desaturation. Because these pull in opposite directions, the net ΔHbO can go up OR down for the same deficit, depending on the apnea length — which fNIRS alone cannot measure.',
+                    where: 'Top ~1 cm of tissue under the optodes (scalp + skull + surface cortex).', reach: true
+                }
+            },
+
+            laneNames: ['Challenge', 'Gases', 'Sensors', 'Brainstem', 'Body & brain response', 'Measured'],
+
+            edges: [
+                { from: 'apnea', to: 'gas', sign: '+' },
+                { from: 'gas', to: 'chemo', sign: '+' },
+                { from: 'chemo', to: 'raphe', sign: '+' },
+                { from: 'chemo', to: 'breathing', sign: '+' },
+                { from: 'raphe', to: 'breathing', sign: '+' },
+                { from: 'raphe', to: 'arousal', sign: '+' },
+                { from: 'chemo', to: 'arousal', sign: '+' },
+                { from: 'breathing', to: 'gas', sign: '−' },
+                { from: 'gas', to: 'cvr', sign: '+' },
+                { from: 'raphe', to: 'cvr', sign: 'weak' },
+                { from: 'arousal', to: 'nvc', sign: '+' },
+                { from: 'cvr', to: 'hbo', sign: '+' },
+                { from: 'nvc', to: 'hbo', sign: '+' },
+                { from: 'gas', to: 'hbo', sign: '−' }
+            ],
+
+            // numeric weights for the PROPAGATION graph (kept apart from the
+            // display edges above). `desat` is an internal, undrawn node: it
+            // lets the O2-desaturation pull on HbO SATURATE (SpO2 floors out at
+            // long apneas) while the CO2->CVR push keeps climbing. That is what
+            // makes the fNIRS sign flip with apnea duration. The drawn gas>hbo
+            // (minus) edge is the human-readable stand-in for this path.
+            weights: {
+                'apnea>gas': 1.0, 'gas>chemo': 1.0, 'chemo>raphe': 0.6,
+                'chemo>breathing': 0.5, 'raphe>breathing': 0.8, 'raphe>arousal': 1.0,
+                'chemo>arousal': 0.3, 'breathing>gas': -1.0, 'gas>cvr': 1.0,
+                'raphe>cvr': 0.1, 'arousal>nvc': 1.0, 'gas>desat': 1.0,
+                'cvr>hbo': 1.2, 'nvc>hbo': 2.0, 'desat>hbo': -0.8
+            },
+
+            instruments: [
+                { name: 'fNIRS (CW)', sees: 'cortical ΔHbO only', target: 'hbo', can: false,
+                    note: 'Sees the composite blood signal, not the brainstem. And its sign is ambiguous — so on its own it cannot isolate a 5-HT deficit.' },
+                { name: 'EEG / aEEG', sees: 'cortical arousal', target: 'arousal', can: true,
+                    note: 'Reads arousal directly — the clearest window on the arousal failure the hypothesis cares about.' },
+                { name: 'Respiratory belt', sees: 'breathing, apnea, gasping', target: 'breathing', can: true,
+                    note: 'Shows the blunted ventilatory response and failed recovery.' },
+                { name: 'TcCO₂ / end-tidal', sees: 'the CO₂ stimulus', target: 'gas', can: true,
+                    note: 'Measures the driver, which is what resolves the fNIRS sign ambiguity.' },
+                { name: 'Pulse oximetry', sees: 'SpO₂ (the O₂ drop)', target: 'gas', can: true,
+                    note: 'Tracks the stimulus severity, though not the brainstem itself.' },
+                { name: 'Any scalp sensor', sees: 'nothing below the cortex', target: 'raphe', can: false,
+                    note: 'No non-invasive scalp instrument reaches the medullary raphé — the actual lesion site.' }
+            ],
+
+            // the open physiology questions (the "flags")
+            flags: [
+                { q: 'Does the raphé really modulate cortical CO₂ reactivity?', ev: 'speculative',
+                    a: 'Drawn as a thin dotted "weak/uncertain" arrow. In humans the evidence that medullary 5-HT tunes <em>cortical</em> CO₂ vasoreactivity is thin; CVR is dominated by local perivascular pH. This is the single biggest simplification, and it is deliberate — it is the whole teaching point.', refs: [5] },
+                { q: 'Are the sensors truly unchanged by a 5-HT deficit?', ev: 'simplified',
+                    a: 'Here they read "up" (they see a bigger stimulus from weaker feedback). But the raphé is itself one of the CO₂-sensing populations, so a deficit modestly lowers <em>central</em> chemosensitivity. The honest story is "net up, despite a small sensing loss."', refs: [4, 9] },
+                { q: 'How deep can infant fNIRS actually see?', ev: 'approximate',
+                    a: '"~1 cm at 20–25 mm separation" is the right teaching number, but infant penetration depends on the thin skull and the source–detector spacing; real reach varies. Either way it never approaches the brainstem.', refs: [5] },
+                { q: 'Is gasping a steady value?', ev: 'simplified',
+                    a: 'This short model folds gasping into "breathing." Gasping is really a late, all-or-nothing autoresuscitation event, not a graded level — the <a href="sids-causal-map.html">full map</a> gives it its own node.', refs: [10, 12, 13] }
+            ],
+
+            references: [
+                { id: 1, text: 'Kinney HC, Thach BT. The sudden infant death syndrome. N Engl J Med. 2009;361(8):795–805.', doi: '10.1056/NEJMra0803836' },
+                { id: 2, text: 'Duncan JR, Paterson DS, Hoffman JM, et al. Brainstem serotonergic deficiency in sudden infant death syndrome. JAMA. 2010;303(5):430–437.', doi: '10.1001/jama.2010.45' },
+                { id: 4, text: 'Guyenet PG, Bayliss DA. Neural control of breathing and CO₂ homeostasis. Neuron. 2015;87(5):946–961.', doi: '10.1016/j.neuron.2015.08.001' },
+                { id: 5, text: 'Ainslie PN, Duffin J. Integration of cerebrovascular CO₂ reactivity and chemoreflex control of breathing. Am J Physiol Regul Integr Comp Physiol. 2009;296(5):R1473–R1495.', doi: '10.1152/ajpregu.91008.2008' },
+                { id: 9, text: 'Buchanan GF, Richerson GB. Central serotonin neurons are required for arousal to CO₂. Proc Natl Acad Sci U S A. 2010;107(37):16354–16359.', doi: '10.1073/pnas.1004587107' },
+                { id: 10, text: 'Cummings KJ, Hewitt JC, Li A, Daubenspeck JA, Nattie EE. Postnatal loss of brainstem serotonin neurones compromises the ability of neonatal rats to survive episodic severe hypoxia. J Physiol. 2011;589(Pt 21):5247–5256.', doi: '10.1113/jphysiol.2011.214445' },
+                { id: 12, text: 'Chen J, Magnusson J, Karsenty G, Cummings KJ. Time- and age-dependent effects of serotonin on gasping and autoresuscitation in neonatal mice. J Appl Physiol. 2013;114(12):1668–1676.', doi: '10.1152/japplphysiol.00003.2013' },
+                { id: 13, text: 'Barrett KT, Dosumu-Johnson RT, Daubenspeck JA, et al. Partial raphé dysfunction in neurotransmission is sufficient to increase mortality after anoxic exposures in mice. J Neurosci. 2016;36(14):3943–3953.', doi: '10.1523/JNEUROSCI.1796-15.2016' }
+            ]
+        };
+
+        /* ============================================================
+         *  PROPAGATION (same qualitative scheme as the full version,
+         *  on the reduced graph)
+         * ============================================================ */
+        // visible nodes (drawn); PROP_NODES also includes internal ones (desat)
+        const NODES = Object.keys(MODEL.nodes);
+        const PROP_EDGES = Object.keys(MODEL.weights).map(k => { const [from, to] = k.split('>'); return { from, to, w: MODEL.weights[k] }; });
+        const PROP_NODES = [...new Set(PROP_EDGES.flatMap(e => [e.from, e.to]))];
+        function steadyState(deficit, dur, stimMult) {
+            const P = MODEL.params, u = (dur / 15) * (stimMult || 1);
+            const x = {}; PROP_NODES.forEach(n => x[n] = 0); x.apnea = u;
+            for (let k = 0; k < P.iterations; k++) {
+                const s = {}; PROP_NODES.forEach(n => s[n] = 0);
+                for (const e of PROP_EDGES) {
+                    let g = e.w;
+                    if (e.from === 'raphe') g *= deficit ? P.raphaeDeficitMultiplier : 1;
+                    s[e.to] += g * x[e.from];
+                }
+                for (const n of PROP_NODES) {
+                    if (n === 'apnea') continue;
+                    let t = s[n];
+                    if (n === 'nvc') t = P.nvcSaturation * Math.tanh(t / P.nvcSaturation);
+                    if (n === 'desat') t = P.desatSaturation * Math.tanh(t / P.desatSaturation);
+                    x[n] += P.relax * (t - x[n]);
+                }
+            }
+            return x;
+        }
+        function classify(val, base) {
+            const rel = (val - base) / Math.max(Math.abs(base), 0.05);
+            if (rel > MODEL.params.sameBand) return { cls: 'up', glyph: '↑', word: 'increased', rel };
+            if (rel < -MODEL.params.sameBand) return { cls: 'down', glyph: '↓', word: 'decreased', rel };
+            return { cls: 'same', glyph: '=', word: 'about the same', rel };
+        }
+
+        /* ============================================================
+         *  STATE + LAYOUT
+         * ============================================================ */
+        const state = { deficit: false, dur: 10 };
+        const SVGNS = 'http://www.w3.org/2000/svg';
+        const GW = 900, GH = 420;
+        const laneX = [70, 200, 335, 480, 650, 838];
+        const NW = 112, NH = 44;
+
+        function layout() {
+            const byLane = {};
+            NODES.forEach(id => { const l = MODEL.nodes[id].lane; (byLane[l] = byLane[l] || []).push(id); });
+            const pos = {}, top = 60, bot = GH - 30;
+            for (const l in byLane) {
+                const ids = byLane[l], n = ids.length;
+                ids.forEach((id, i) => {
+                    const y = n === 1 ? (top + bot) / 2 : top + (bot - top) * (i / (n - 1));
+                    pos[id] = { x: laneX[l], y };
+                });
+            }
+            return pos;
+        }
+        const POS = layout();
+
+        function el(tag, attrs, parent) {
+            const e = document.createElementNS(SVGNS, tag);
+            for (const k in attrs) e.setAttribute(k, attrs[k]);
+            if (parent) parent.appendChild(e);
+            return e;
+        }
+        const strip = s => (s || '').replace(/<[^>]*>/g, '');
+
+        const svg = document.getElementById('chain');
+        let nodeEls = {};
+
+        function buildChain() {
+            svg.setAttribute('viewBox', `0 0 ${GW} ${GH}`);
+            svg.innerHTML = '';
+            const defs = el('defs', {}, svg);
+            const mk = (id, color, inhibit) => {
+                const m = el('marker', { id, markerWidth: 9, markerHeight: 9, refX: 7, refY: 3, orient: 'auto', markerUnits: 'strokeWidth' }, defs);
+                if (inhibit) el('path', { d: 'M1,0 L1,6', stroke: color, 'stroke-width': 2 }, m);
+                else el('path', { d: 'M0,0 L7,3 L0,6 Z', fill: color }, m);
+            };
+            mk('aPos', 'var(--text-muted)'); mk('aNeg', 'var(--down)', true);
+
+            // "fNIRS can reach" band around the reachable nodes (lane 4 upper vessels + lane 5)
+            const reachNodes = NODES.filter(n => MODEL.nodes[n].reach);
+            const xs = reachNodes.map(n => POS[n].x), ys = reachNodes.map(n => POS[n].y);
+            const rx1 = Math.min(...xs) - NW / 2 - 12, rx2 = Math.max(...xs) + NW / 2 + 12;
+            const ry1 = Math.min(...ys) - NH / 2 - 26, ry2 = Math.max(...ys) + NH / 2 + 12;
+            el('rect', { class: 'reach-rect', x: rx1, y: ry1, width: rx2 - rx1, height: ry2 - ry1, rx: 10 }, svg);
+            el('text', { class: 'reach-label', x: rx1 + 8, y: ry1 + 16 }, svg).textContent = '◉ within fNIRS reach';
+
+            // lane captions
+            MODEL.laneNames.forEach((nm, i) => {
+                const t = el('text', { class: 'lane-cap', x: laneX[i], y: 24, 'text-anchor': 'middle' }, svg);
+                t.textContent = nm;
+            });
+
+            // edges
+            MODEL.edges.forEach(e => {
+                const a = POS[e.from], b = POS[e.to];
+                let d;
+                if (b.x < a.x) { // feedback
+                    d = `M ${a.x - NW / 2} ${a.y} C ${a.x - NW / 2 - 50} ${a.y + 46}, ${b.x + NW / 2 + 50} ${b.y + 46}, ${b.x + NW / 2} ${b.y + 8}`;
+                } else if (b.x === a.x) { // same lane vertical
+                    d = `M ${a.x} ${a.y + NH / 2} C ${a.x + 40} ${a.y + NH / 2}, ${b.x + 40} ${b.y - NH / 2}, ${b.x} ${b.y - NH / 2}`;
+                } else {
+                    const x1 = a.x + NW / 2, x2 = b.x - NW / 2, cx = (x1 + x2) / 2;
+                    d = `M ${x1} ${a.y} C ${cx} ${a.y}, ${cx} ${b.y}, ${x2} ${b.y}`;
+                }
+                const cls = 'edge ' + (e.sign === '−' ? 'neg' : e.sign === 'weak' ? 'weak' : 'pos');
+                const p = el('path', { class: cls, d }, svg);
+                p.setAttribute('marker-end', e.sign === '−' ? 'url(#aNeg)' : 'url(#aPos)');
+            });
+
+            // nodes
+            nodeEls = {};
+            for (const id of NODES) {
+                const p = POS[id], nd = MODEL.nodes[id];
+                const g = el('g', {
+                    class: 'node' + (nd.lesion ? ' lesion' : '') + (nd.composite ? ' composite' : ''),
+                    tabindex: 0, role: 'button', 'aria-label': strip(nd.label + ' ' + (nd.sub || '')) + '. Press Enter for a note.'
+                }, svg);
+                el('rect', { x: p.x - NW / 2, y: p.y - NH / 2, width: NW, height: NH, rx: 7 }, g);
+                el('text', { class: 'nlabel', x: p.x - NW / 2 + 8, y: p.y - 2 }, g).textContent = nd.label;
+                if (nd.sub) el('text', { class: 'nsub', x: p.x - NW / 2 + 8, y: p.y + 12 }, g).textContent = nd.sub;
+                const glyph = el('text', { class: 'glyph', x: p.x + NW / 2 - 13, y: p.y + 2, 'text-anchor': 'middle' }, g);
+                g.addEventListener('click', () => openNode(id));
+                g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openNode(id); } });
+                nodeEls[id] = { glyph };
+            }
+        }
+
+        /* ============================================================
+         *  UPDATE
+         * ============================================================ */
+        function update() {
+            const base = steadyState(false, state.dur);
+            const cur = steadyState(state.deficit, state.dur);
+
+            for (const id of NODES) {
+                const gl = nodeEls[id].glyph;
+                if (id === 'apnea' || !state.deficit) { gl.textContent = ''; continue; }
+                const c = classify(cur[id], base[id]);
+                gl.textContent = c.glyph;
+                gl.style.fill = c.cls === 'up' ? 'var(--up)' : c.cls === 'down' ? 'var(--down)' : 'var(--same)';
+            }
+
+            // insight
+            document.getElementById('insightTitle').textContent =
+                (state.deficit ? '5-HT deficit' : 'Healthy infant') + ', ' + (state.dur <= 12 ? 'short' : state.dur >= 22 ? 'long' : 'medium') + ' apnea (' + state.dur + ' s)';
+
+            const hbo = classify(cur.hbo, base.hbo);
+            const aro = classify(cur.arousal, base.arousal);
+            const bre = classify(cur.breathing, base.breathing);
+            const co2 = classify(cur.gas, base.gas);
+            const cvr = classify(cur.cvr, base.cvr);
+
+            const readout = document.getElementById('readout');
+            if (!state.deficit) {
+                readout.innerHTML = '<div class="readchip" style="flex-basis:100%"><span class="lbl">Baseline</span><span class="val same">Flip the 5-HT deficit on to see what changes vs this healthy baseline.</span></div>';
+            } else {
+                const chip = (lbl, c, reach) => `<div class="readchip"><span class="lbl">${lbl}${reach ? ' · fNIRS can see' : ''}</span><span class="val ${c.cls}">${c.glyph} ${c.word}</span></div>`;
+                readout.innerHTML =
+                    chip('Breathing', bre, false) +
+                    chip('Arousal', aro, true) +
+                    chip('CO₂ stimulus', co2, false) +
+                    chip('CO₂→vessels (CVR)', cvr, true) +
+                    chip('fNIRS ΔHbO', hbo, true);
+            }
+
+            const text = document.getElementById('insightText');
+            const call = document.getElementById('fnirsCall');
+            if (!state.deficit) {
+                text.innerHTML = 'This is the healthy reference. The breath stops, gases worsen, the brainstem drives breathing and arousal, the event ends. Now turn on the 5-HT deficit.';
+                call.innerHTML = '<strong>fNIRS reads the box on the right (ΔHbO).</strong> Notice it never touches the brainstem — the deepest it reaches is the cortical vessels.';
+            } else {
+                text.innerHTML = 'The deficit is in the <strong>brainstem raphé</strong> (pink box). It weakens breathing and blunts arousal, so the gases stay bad longer — which actually pushes the local CO₂→vessel response <em>up</em>. The sensors still fire; they just report a bigger problem.';
+                const signWord = hbo.cls === 'up' ? 'rise' : hbo.cls === 'down' ? 'fall' : 'barely move';
+                call.innerHTML = `<strong>And here is the trap:</strong> fNIRS ΔHbO ${hbo.cls === 'same' ? 'barely moves' : 'happens to ' + signWord} at ${state.dur} s. Drag the slider: at short apneas the lost arousal bump wins (ΔHbO down), at long apneas the extra CO₂ dilation wins (ΔHbO up). <strong>The same deficit gives opposite fNIRS readings</strong> — because fNIRS cannot see the stimulus or the arousal that decide the sign.`;
+            }
+
+            document.getElementById('healthyBtn').setAttribute('aria-pressed', String(!state.deficit));
+            document.getElementById('deficitBtn').setAttribute('aria-pressed', String(state.deficit));
+        }
+
+        /* ============================================================
+         *  SIDE PANEL
+         * ============================================================ */
+        const scrim = document.getElementById('scrim'), panel = document.getElementById('sidepanel');
+        let lastFocus = null;
+        function openPanel(html) {
+            document.getElementById('spContent').innerHTML = html;
+            scrim.classList.add('open'); panel.classList.add('open');
+            lastFocus = document.activeElement; panel.focus();
+            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([panel]);
+        }
+        function closePanel() { scrim.classList.remove('open'); panel.classList.remove('open'); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+        document.getElementById('spClose').addEventListener('click', closePanel);
+        scrim.addEventListener('click', closePanel);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+        function openNode(id) {
+            const nd = MODEL.nodes[id];
+            const base = steadyState(false, state.dur), cur = steadyState(state.deficit, state.dur);
+            const c = id === 'apnea' ? null : classify(cur[id], base[id]);
+            const stateLine = (state.deficit && c) ? `<div class="sp-meta"><dt>With deficit</dt><dd><span class="val ${c.cls}">${c.glyph} ${c.word}</span> vs healthy</dd></div>` : '';
+            openPanel(`
+                <span style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--text-muted)">${MODEL.laneNames[nd.lane]}${nd.lesion ? ' · the lesion site' : ''}${nd.composite ? ' · composite' : ''}</span>
+                <h2 class="sp-title" id="spTitle">${strip(nd.label)} ${nd.sub ? '<span style="font-size:0.6em;color:var(--text-muted)">' + nd.sub + '</span>' : ''}</h2>
+                <div class="sp-body"><p>${nd.what}</p></div>
+                <div class="sp-meta">
+                    <dt>Where</dt><dd>${nd.where}</dd>
+                    <dt>fNIRS?</dt><dd>${nd.reach ? '<b style="color:var(--reach-line)">◉ within optical reach</b>' : '○ too deep / not optical — invisible to fNIRS'}</dd>
+                </div>
+                ${stateLine}
+            `);
+        }
+
+        /* ============================================================
+         *  STATIC SECTIONS
+         * ============================================================ */
+        function buildLegend() {
+            document.getElementById('legend').innerHTML = [
+                `<span class="li"><svg width="30" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="var(--text-muted)" stroke-width="2"></line><path d="M23,2 L29,5 L23,8 Z" fill="var(--text-muted)"></path></svg>helps / increases</span>`,
+                `<span class="li"><svg width="30" height="10"><line x1="1" y1="5" x2="27" y2="5" stroke="var(--down)" stroke-width="2"></line><line x1="28" y1="1" x2="28" y2="9" stroke="var(--down)" stroke-width="2"></line></svg>negative feedback</span>`,
+                `<span class="li"><svg width="30" height="10"><line x1="1" y1="5" x2="29" y2="5" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="2 4"></line></svg>weak / uncertain</span>`,
+                `<span class="li"><span class="lg-glyph" style="color:var(--up)">↑</span>increased</span>`,
+                `<span class="li"><span class="lg-glyph" style="color:var(--down)">↓</span>decreased</span>`,
+                `<span class="li"><span class="lg-glyph" style="color:var(--same)">=</span>±${(MODEL.params.sameBand * 100).toFixed(0)}% band</span>`,
+                `<span class="li"><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" rx="2" fill="none" stroke="var(--phase4)" stroke-width="2"></rect></svg>lesion site (5-HT)</span>`,
+                `<span class="li"><svg width="40" height="12"><rect x="1" y="1" width="38" height="10" rx="3" fill="var(--reach)" stroke="var(--reach-line)" stroke-width="1.5" stroke-dasharray="5 4"></rect></svg>fNIRS reach</span>`
+            ].join('');
+        }
+
+        function buildInstruments() {
+            document.getElementById('instrGrid').innerHTML = MODEL.instruments.map(i => `
+                <div class="instr ${i.can ? 'can' : 'cant'}">
+                    <div class="nm">${i.name}</div>
+                    <div class="sees">Sees: ${i.sees}</div>
+                    <div class="verdict">${i.can ? '✔ can help isolate the deficit' : '✘ cannot, on its own'}</div>
+                    <div class="sees" style="margin-top:0.35rem;color:var(--text-muted)">${i.note}</div>
+                </div>`).join('');
+        }
+
+        function buildFlags() {
+            document.getElementById('flags').innerHTML = MODEL.flags.map(f => `
+                <div class="flag">
+                    <div class="q">${f.q}<span class="evtag">${f.ev}</span></div>
+                    <div class="a">${f.a} ${f.refs ? f.refs.map(r => refLink(r)).join(' ') : ''}</div>
+                </div>`).join('');
+        }
+
+        function refLink(id) {
+            const r = MODEL.references.find(x => x.id === id);
+            return r ? `<a href="https://doi.org/${r.doi}" target="_blank" rel="noopener" title="${strip(r.text)}">[${id}]</a>` : '';
+        }
+
+        function buildRefs() {
+            document.getElementById('refList').innerHTML = MODEL.references.map(r =>
+                `<li><span class="rid">[${r.id}]</span> ${r.text} <a href="https://doi.org/${r.doi}" target="_blank" rel="noopener">https://doi.org/${r.doi}</a></li>`).join('');
+        }
+
+        /* ============================================================
+         *  WIRING
+         * ============================================================ */
+        document.getElementById('healthyBtn').addEventListener('click', () => { state.deficit = false; update(); });
+        document.getElementById('deficitBtn').addEventListener('click', () => { state.deficit = true; update(); });
+        const dur = document.getElementById('dur'), durOut = document.getElementById('durOut');
+        dur.addEventListener('input', () => { state.dur = +dur.value; durOut.textContent = dur.value + ' s'; update(); });
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            state.deficit = false; state.dur = 10; dur.value = 10; durOut.textContent = '10 s'; update();
+        });
+
+        buildChain();
+        buildLegend();
+        buildInstruments();
+        buildFlags();
+        buildRefs();
+        update();
+
+        window.__SIDS_SIMPLE = { MODEL, steadyState, classify, state };
+    </script>
+</body>
+
+</html>
