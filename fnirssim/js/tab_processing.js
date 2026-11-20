@@ -29,9 +29,11 @@
         <td>${x.mean.map(v => NIRS.fmtPower(v)).join(' / ')}</td><td>${x.cv.map(v => (100 * v).toFixed(1)).join(' / ')}%</td><td>${isFinite(x.sci) ? x.sci.toFixed(2) : 'n/a'}</td>
         <td style="text-align:left">${x.bad ? `<span class="badge bad">${x.reasons.join('; ')}</span>` : '<span class="badge ok">kept</span>'}</td></tr>`;
     }).join('');
+    $('qTable').innerHTML = `<tr><th>Channel</th><th>Distance</th><th>Mean light</th><th>CV</th><th>SCI</th><th style="text-align:left">Verdict</th></tr>${rows}`;
+    // say when the coupling check is missing, rather than letting rejection stop silently
     const band = NIRS.dsp.sciBand(ds);
-    const note = band.ok ? '' : `<tr><td colspan="6" style="text-align:left;color:var(--muted);white-space:normal">SCI n/a: ${band.why}. Coupling is not checked, so only the CV, saturation and the light level can reject a channel.</td></tr>`;
-    $('qTable').innerHTML = `<tr><th>Channel</th><th>Distance</th><th>Mean light</th><th>CV</th><th>SCI</th><th style="text-align:left">Verdict</th></tr>${rows}${note}`;
+    $('qNote').hidden = band.ok;
+    $('qNote').textContent = band.ok ? '' : `SCI n/a: ${band.why}. Coupling is not checked, so only the CV, saturation and the light level can reject a channel.`;
     $('qTable').querySelectorAll('tr[data-i]').forEach(tr => tr.addEventListener('click', () => { S.selCh = +tr.dataset.i; NIRS.app.markAll(); }));
   }
 

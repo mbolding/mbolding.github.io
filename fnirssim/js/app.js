@@ -51,7 +51,7 @@
     readouts(el, pairs) {
       el.innerHTML = pairs.map(([k, v, title]) => `<div class="ro"${title ? ` title="${title}"` : ''}><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
     },
-    busy(on) { $('busy').classList.toggle('on', !!on); },
+    busy(on, label) { const b = $('busy'); b.classList.toggle('on', !!on); b.textContent = on && label ? label : 'Working'; },
     // Channel picker shared by every tab: changing it anywhere changes S.selCh.
     chSelect(sel, opts) {
       opts = opts || {};
@@ -93,8 +93,8 @@
     render();
   }
   NIRS.app = { run, render: () => render(), markAll: () => { Object.keys(TABS).forEach(t => { dirty[t] = true; }); render(); } };
-  NIRS.app.later = function (fn) {
-    ui.busy(true);
+  NIRS.app.later = function (fn, label) {
+    ui.busy(true, label);
     requestAnimationFrame(() => setTimeout(() => { try { fn(); } catch (e) { console.error(e); } ui.busy(false); }, 15));
   };
   NIRS.app.truth = function () {
@@ -180,10 +180,12 @@
       return false;
     }
     S.cfg = cfg; S.src = src;
-    if (cfg.samples > 1e6) {
+    builtOk = false;     // until this build finishes, a reload brings back the previous one
+    const big = cfg.samples > 1e6 ? `Building about ${(cfg.samples / 1e6).toFixed(1)} million samples. The page will not respond until it is done.` : null;
+    if (big) {
       // say so before the page stops responding
       box.className = 'errbox ok';
-      box.textContent = `Building about ${(cfg.samples / 1e6).toFixed(1)} million samples. The page will not respond until it is done.`;
+      box.textContent = big;
     }
     NIRS.app.later(() => {
       const t0 = performance.now();
@@ -207,9 +209,10 @@
         (S.ds.events.length ? `, ${S.ds.events.length} ${S.ds.events.some(e => e.dur >= 3) ? 'blocks' : 'trials'}` : '') + ` in ${ms} ms.`;
       warnings(cfg);
       experimentSummary();
+      builtOk = true;
       keep();
       if (opts.thenTab) showTab(opts.thenTab);
-    });
+    }, big);
     return true;
   }
   /* ---------- keeping the recording across a reload ----------
@@ -218,15 +221,17 @@
      go into sessionStorage (this browser tab only, cleared when it closes).
      A reload then rebuilds the same recording rather than the first example. */
   const KEEP = 'fnirssim-session';
+  let builtOk = false;   // only a build that finished is worth bringing back
   function keep() {
-    if (!S.ds || !S.src) return;
+    if (!builtOk || !S.ds || !S.src) return;
     try {
       sessionStorage.setItem(KEEP, JSON.stringify({ src: S.src, editor: ed.value, ex: S.exIndex, P: S.P, enabled: Array.from(S.enabled), selCh: S.selCh }));
     } catch (e) {}
   }
   function restore() {
     let k = null;
-    try { k = JSON.parse(sessionStorage.getItem(KEEP) || 'null'); } catch (e) {}
+    // taken out until it builds again, so a state that fails cannot come back on every reload
+    try { k = JSON.parse(sessionStorage.getItem(KEEP) || 'null'); sessionStorage.removeItem(KEEP); } catch (e) {}
     if (!k || typeof k.src !== 'string') return false;
     const i = NIRS.EXAMPLES[k.ex] ? k.ex : 0;
     S.exIndex = i; $('exSelect').value = String(i); $('exDesc').textContent = NIRS.EXAMPLES[i].desc;

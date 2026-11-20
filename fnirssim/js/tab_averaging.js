@@ -256,7 +256,8 @@
   function render() {
     if (!S.ds) return;
     ['avg', 'glm', 'conn'].forEach(v => { $('avPanel' + v[0].toUpperCase() + v.slice(1)).hidden = v !== st.view; });
-    if (st.view === 'avg') renderAvg(); else if (st.view === 'glm') { NIRS.app.later(renderGlm); } else renderConn();
+    const big = !S.glm && S.cfg.samples > 1e6 ? `Fitting the GLM to about ${(S.cfg.samples / 1e6).toFixed(1)} million samples. This can take a minute.` : null;
+    if (st.view === 'avg') renderAvg(); else if (st.view === 'glm') { NIRS.app.later(renderGlm, big); } else renderConn();
   }
 
   NIRS.tabs.averaging = {

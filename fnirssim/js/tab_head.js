@@ -76,7 +76,7 @@
         ['Brain begins at', (bt * 10).toFixed(1) + ' mm'], ['Region centre', (reg.depth * 10).toFixed(1) + ' mm deep'],
         [`${c.label}: path inside region`, (s.L * 10).toFixed(2) + ' mm'], [`${c.label}: share of its path`, (100 * s.frac).toFixed(2) + '%', 'path inside the region / whole mean path, at 850 nm. One over this is the partial-volume factor.'],
         ['Most sensitive channel', ds.chans[best[1]].label],
-        ['Local HbO peak (one 15 s block)', isFinite(peak) ? '+' + peak.toFixed(1) + ' µM' : '–', 'The change inside the region for one 15 s block of average strength. The Beer-Lambert tab quotes the largest change in the recording, which is bigger because trials vary.'],
+        ['Local HbO peak (one 15 s block)', isFinite(peak) ? '+' + peak.toFixed(1) + ' µM' : '–', 'The change inside the region for one 15 s block of average strength. The Beer-Lambert tab quotes the largest change in the recording itself, which depends on its timeline and on how much the trials vary.'],
         [`${c.label}: expected Beer-Lambert peak`, isFinite(peak) ? '≈ +' + (peak * s.frac).toFixed(3) + ' µM' : '–', 'local peak × share of the path inside the region: what the law reports with the true DPF, before filtering']
       ]);
       bars(sv);

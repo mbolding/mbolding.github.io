@@ -113,13 +113,6 @@
     return out;
   };
 
-  /* ---------- channel quality ----------
-     SCI (Pollonini and colleagues 2014): the correlation between the two
-     wavelengths' signals in the cardiac band.  Light that went through
-     tissue carries the heartbeat at every wavelength; light that leaked
-     around a badly seated optode, or noise, does not.  CV: standard
-     deviation over mean of the raw intensity.  Also flags saturation and
-     intensity too close to the detector's noise floor. */
   /* The band the SCI correlates in: 0.5 to 2.5 Hz, cut to 0.45 x the
      sampling rate (0.9 x Nyquist) so the filter stays below Nyquist.  It
      needs two wavelengths and the heartbeat inside that band; otherwise
@@ -132,6 +125,13 @@
       : `at ${fs} Hz ${beat} lies above 0.9 × the Nyquist frequency (${hi.toFixed(2)} Hz)` };
     return { ok: true, lo: 0.5, hi };
   };
+  /* ---------- channel quality ----------
+     SCI (Pollonini and colleagues 2014): the correlation between the two
+     wavelengths' signals in the cardiac band.  Light that went through
+     tissue carries the heartbeat at every wavelength; light that leaked
+     around a badly seated optode, or noise, does not.  CV: standard
+     deviation over mean of the raw intensity.  Also flags saturation and
+     intensity too close to the detector's noise floor. */
   dsp.quality = function (ds, rec, thr) {
     const fs = ds.fs, nL = ds.nL, band = dsp.sciBand(ds);
     return ds.chans.map((c, ci) => {
