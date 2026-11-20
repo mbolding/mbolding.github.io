@@ -16,3 +16,4 @@
 - [ ] Fit the inner shells to the template too. The brain, CSF and skull shells keep their version 1 radii, so the frontal and occipital poles reach past the brain shell: MEG does not mind, but the EEG model clamps sources there.
 - [ ] A boundary element model from the template's inner skull and scalp, to set beside the sphere on the Fields tab.
 - [ ] Regularize the SSS inside expansion, as MaxFilter and MNE do. Unregularized, at orders 8 and 3 it multiplies the magnetometers' white sensor noise by about 3.9 (the gradiometers' by 0.7); the Noise tab states the factor and why.
+- [ ] Let ICA's Reveal follow the head. It takes every pattern at the starting head position, so with the head moving, and above all with movement compensation, the shares of sources near the sensors can be far off (in the head movement example an HPI coil reads 11% of a component it makes 36% of).
