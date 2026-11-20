@@ -64,6 +64,8 @@
     });
     ui.legend($('psdLegend'), runs.map(r => ({ color: r.color, label: r.label, dash: !!r.dash })));
     if (runs.length && dataKind !== 'proc' && S.filt.pairs) $('psdLegend').insertAdjacentHTML('beforeend', `<span>As recorded here means ${ch.replace('-', ' minus ')} before the offline filters.</span>`);
+    // the online reference electrode is zero as recorded, so its spectrum has nothing to draw
+    if (runs.length && dataKind !== 'proc' && ch === S.cfg.recording.reference) $('psdLegend').insertAdjacentHTML('beforeend', `<span>${ch} is the online reference, so as recorded it is zero and has no spectrum.</span>`);
     if (!runs.length) $('psdLegend').textContent = segKind === 'eyes' ? 'This recording has no eyes-closed or eyes-open blocks.' : 'Nothing to show for this choice.';
   }
 

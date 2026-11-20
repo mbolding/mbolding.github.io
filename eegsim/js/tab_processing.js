@@ -22,7 +22,7 @@
     const step = (t, s) => `<button disabled style="opacity:1;cursor:default"><span>${t}</span><small>${s}</small></button>`;
     const arrow = '<span class="arrow" aria-hidden="true">&rarr;</span>';
     $('pipeline').innerHTML = [
-      step('Recorded', `against ${R.reference}, hardware ${R.hp ? R.hp + ' Hz' : 'DC'} to ${R.lp ? R.lp + ' Hz' : 'no low-pass'}`),
+      step('Recorded', `against ${R.reference}, hardware ` + (R.lp ? `${R.hp ? R.hp + ' Hz' : 'DC'} to ${R.lp} Hz` : `${R.hp ? 'high-pass ' + R.hp + ' Hz' : 'DC'}, no low-pass`)),
       step('1 · Re-reference', REF_INFO[P.reref][0]),
       step('2 · Filters', [P.hp ? 'HP ' + EEG.fmt(P.hp, 2) + ' Hz' : null, P.lp ? 'LP ' + P.lp + ' Hz' : null, P.notch ? 'notch ' + P.notch + ' Hz' : null].filter(Boolean).join(', ') + (P.hp || P.lp || P.notch ? `, order ${P.order}, ${P.phase === 'zero' ? 'zero-phase' : 'causal'}` : 'none')),
       step('3 · ICA', I.model ? (I.stale ? 'out of date, run again' : `${I.rejected.size} of ${I.model.k} removed`) : 'not run'),
