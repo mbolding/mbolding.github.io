@@ -1194,31 +1194,35 @@
             const v = dftAt(spec.fid.re, spec.fid.im, win, dt, fc);
             ph0 = -(atan2(v.im, v.re) * 180 / PI + ph1 * fc / 1000);
             /* The tallest line can be upside down. A second CHESS pulse past
-               the best flip leaves the residual water inverted, and phasing
-               it upright turns every metabolite negative. Every line shares
-               the receiver phase, so look at the metabolite region alone,
-               4.0 to 0.5 ppm (0.7 to 4.2 ppm below the water line; a
-               suppressed water residual can have lobes of both signs, so
-               the water region says nothing):
-               when it is clearly negative, the tallest line was an inverted
-               one, and the spectrum is turned over so the metabolites read
+               the best flip leaves the residual water inverted (its net Mz
+               before the excitation, info.waterResidual, is negative), and
+               phasing that line upright turns every metabolite over. Every
+               line shares the receiver phase, so the sign is settled on the
+               lines that cannot be inverted: each non-water component (the
+               metabolites, and lipid, untouched by the water-selective
+               pulses), read at its own tallest point, where its line is far
+               above any baseline offset or water tail. If together they come
+               out negative, ph0 turns by 180 deg: the metabolites read
                upright and the inverted residual shows as a negative line.
-               Only with water suppression on: without it water is never
-               inverted, and the region may hold nothing but the tails of
-               the one line phased, which say nothing about its sign. */
+               Only when the residual is inverted, the lines are not far too
+               broad (beyond about 2.5 x BROAD_HZ the tallest point is a
+               distorted, partly dispersive lobe and no single sign is
+               right), and the lines agree: their real parts together reach
+               at least half their magnitudes, pointing down. */
             const info = spec.info || {};
-            const suppressed = Number.isFinite(info.waterSuppression) && info.waterSuppression > 1;
-            const wHz = Number.isFinite(info.waterPeakHz) ? info.waterPeakHz : (WATER_PPM - refPpm) * PPM_HZ;
-            let metRe = 0, metMag = 0;
-            for (let k = 0; suppressed && k < N; k++) {
-                const below = (wHz - hz[k]) / PPM_HZ;               // ppm below the water line
-                if (below < 0.7 || below > 4.2) continue;           // 4.0 to 0.5 ppm
-                if (Math.abs(hz[k] - fc) < 0.1 * PPM_HZ) continue;  // not the line just phased
-                const a = (ph0 + ph1 * hz[k] / 1000) * PI / 180;
-                metRe += total.re[k] * cos(a) - total.im[k] * sin(a);
-                metMag += Math.hypot(total.re[k], total.im[k]);
+            const narrow = !(info.linewidthHz > 2.5 * BROAD_HZ);
+            if (Number.isFinite(info.waterResidual) && info.waterResidual < 0 && narrow) {
+                let score = 0, size = 0;
+                for (const c of comps) {
+                    if (c.id === 'water') continue;
+                    let kc = 0, mc = -1;
+                    for (let k = 0; k < N; k++) { const m = c.re[k] * c.re[k] + c.im[k] * c.im[k]; if (m > mc) { mc = m; kc = k; } }
+                    const a = (ph0 + ph1 * hz[kc] / 1000) * PI / 180;
+                    score += c.re[kc] * cos(a) - c.im[kc] * sin(a);
+                    size += Math.sqrt(mc);
+                }
+                if (size > 0 && score < -0.5 * size) ph0 += 180;
             }
-            if (metMag > 0 && metRe < -0.2 * metMag) ph0 += 180;
             ph0 = ((ph0 % 360) + 540) % 360 - 180;           // wrap to (-180, 180]
         }
         applyPhase(total, hz, ph0, ph1);
@@ -1373,18 +1377,30 @@
                 else if (!(pk.area > 0)) reason = 'negative area';
                 /* Water is the one line that can be negative: a second CHESS
                    pulse past the best flip leaves the residual inverted (its
-                   Mz before the excitation, info.waterResidual, is negative).
-                   Report that as a negative height rather than as missing. A
-                   residual with a positive net Mz can still have lobes of both
-                   signs across the field spread; it is not called inverted. */
+                   net Mz before the excitation, info.waterResidual, is
+                   negative). Then the window's raw extremes decide: a clearly
+                   dominant negative line is measured on the negated spectrum
+                   and reported with a negative height; a clearly dominant
+                   positive one is measured as usual; a residual with lobes of
+                   both signs across the field spread is left unresolved. Raw
+                   values, not heights over the local baseline, because an
+                   inverted line drags that baseline down and makes a ripple
+                   or a window edge look like a positive peak. */
                 const waterInverted = !!(spec.info && Number.isFinite(spec.info.waterResidual) && spec.info.waterResidual < 0);
                 let wpk = pk, inverted = false;
-                if (P.id === 'water' && waterInverted && pk && reason !== null && reason !== broadReason) {
-                    if (!negRe) { negRe = new Float64Array(total.re.length); for (let k = 0; k < negRe.length; k++) negRe[k] = -total.re[k]; }
-                    const nk = windowPeak(negRe, ppm, lo, hi, step, tol, zf);
-                    if (nk && !nk.atEdge && nk.height > 0 && nk.area > 0 && !(noisy && nk.height < 3 * sd)) {
-                        wpk = { index: nk.index, ppm: nk.ppm, height: -nk.height, area: -nk.area, baseline: -nk.baseline };
-                        inverted = true; reason = null;
+                if (P.id === 'water' && waterInverted && pk) {
+                    const rr = ppmRange(ppm, lo, hi);
+                    let rmax = -Infinity, rmin = Infinity;
+                    for (let k = rr[0]; k <= rr[1]; k++) { const x = total.re[k]; if (x > rmax) rmax = x; if (x < rmin) rmin = x; }
+                    if (rmin < 0 && -rmin > 2 * Math.max(rmax, 0)) {
+                        if (!negRe) { negRe = new Float64Array(total.re.length); for (let k = 0; k < negRe.length; k++) negRe[k] = -total.re[k]; }
+                        const nk = windowPeak(negRe, ppm, lo, hi, step, tol, zf);
+                        if (nk && !nk.atEdge && nk.height > 0 && nk.area > 0 && !(noisy && nk.height < 3 * sd)) {
+                            wpk = { index: nk.index, ppm: nk.ppm, height: -nk.height, area: -nk.area, baseline: -nk.baseline };
+                            inverted = true; reason = null;
+                        } else reason = reason || 'inverted, but no clear minimum inside the window';
+                    } else if (!(rmax > 0 && rmax > 2 * Math.max(-rmin, 0))) {
+                        reason = 'lobes of both signs (a partly inverted residual)';
                     }
                 }
                 const ok = reason === null;

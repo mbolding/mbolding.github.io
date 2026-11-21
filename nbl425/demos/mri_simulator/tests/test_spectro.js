@@ -204,6 +204,30 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
         const w = peak(sp, 'water');
         if (flip >= 150) ok(w && w.height < 0 && w.inverted === true, 'CHESS 2 at ' + flip + ' deg: the peak table reports water as inverted, height ' + (w && w.height));
     }
+    // Cases the first version of this rule got wrong (all at the default CHESS 100 deg,
+    // where nothing is inverted): an acquisition delay, hand shimming, broad lines.
+    const ZEROC = { z0: 0, x: 0, y: 0, xy: 0, x2y2: 0, z2: 0 };
+    for (const [label, ph, ov, b0] of [
+        ['delay 1 ms', braino, { delay: 0.001 }, { susceptibility: 1, shim: 0 }],
+        ['delay 2 ms, brain', phantom('brain'), { delay: 0.002 }, { susceptibility: 1, shim: 0 }],
+        ['unshimmed, Z2 -20 Hz', braino, null, { susceptibility: 1, shim: 1, shimCoeffs: Object.assign({}, ZEROC, { z2: -20 }) }]]) {
+        const pr = compile('fid_ws', ov || {});
+        const ar = art({ b0: b0 }), dd = sim(pr, ph, ar);
+        const fresh = proc(dd), ph0 = fresh.phase.ph0;
+        ok(Math.abs(ph0) < 90, 'CHESS 100 deg, ' + label + ': spectrum not turned over (ph0 ' + ph0.toFixed(1) + ')');
+        ok(!peak(fresh, 'water').inverted, 'CHESS 100 deg, ' + label + ': water not called inverted');
+    }
+    // An inverted line drags the local baseline down; the water row must still read it as inverted.
+    {
+        const src = MRI.presets.get('fid_ws').source.replace('rf 100 water dur 20 ms', 'rf 150 water dur 20 ms');
+        const pr = MRI.dsl.compile(src, { overrides: { NP: 256 } });
+        const w = peak(proc(sim(pr, braino, art({ noise: 0 }))), 'water');
+        ok(w.inverted === true && w.height < 0, 'CHESS 150 deg, NP 256: water reported inverted (' + w.height + ')');
+        for (const seed of [2, 5, 7, 13]) {
+            const ws = peak(proc(sim(MRI.dsl.compile(src, {}), braino, art(), seed)), 'water');
+            ok(ws.inverted === true && ws.height < 0, 'CHESS 150 deg, seed ' + seed + ': water reported inverted (' + ws.height + ')');
+        }
+    }
     // Unsuppressed and normally suppressed spectra are not turned over.
     ok(peak(s0, 'water').height > 0 && !peak(s0, 'water').inverted && peak(s1, 'water').height > 0, 'fid and fid_ws report an upright water line');
     ok(Math.abs(s0.phase.ph0) < 90 && Math.abs(s1.phase.ph0) < 90, 'fid and fid_ws keep ph0 near 0 (' + s0.phase.ph0.toFixed(1) + ', ' + s1.phase.ph0.toFixed(1) + ')');

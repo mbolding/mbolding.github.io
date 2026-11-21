@@ -889,13 +889,16 @@ doublet (and its quartet) with J = 6.93 Hz. Processing: exponential (lb, Hz)
 and Gaussian (gb) apodisation, zero-fill ×zf, FFT, fftshift, phase
 `ph0 + ph1·(f/1000)` degrees with f in Hz (ph1 in deg/kHz), autoPhase that
 sets ph1 from the known acquisition delay (−360°·delay·f) and ph0 by
-maximising the real part of the tallest peak. With water suppression on,
-ph0 is then turned by 180° when the metabolite region (4.0 to 0.5 ppm) comes
-out clearly negative: a second CHESS flip past the best one leaves the water
-residual inverted, and phasing that line upright would turn every metabolite
-over. The peak table then reports water with a negative height and
-`inverted: true` (only when the net residual, `info.waterResidual`, is
-negative; a residual with lobes of both signs is left unresolved). ppm axis = 4.7 + f/PPM_HZ,
+maximising the real part of the tallest peak. A second CHESS flip past the
+best one leaves the water residual inverted (`info.waterResidual` < 0), and
+phasing that line upright would turn every metabolite over. So when the
+residual is inverted and the water line is no broader than 2.5 × BROAD_HZ,
+ph0 turns by 180° if the non-water components, each read at its own tallest
+point, point down with real parts summing below −0.5 of their magnitudes.
+The peak table then reports water from the window's raw extremes: a clearly
+dominant negative line gets a negative height and `inverted: true`, a
+clearly dominant positive one is measured as usual, and a residual with
+lobes of both signs is left unresolved. ppm axis = 4.7 + f/PPM_HZ,
 displayed with ppm increasing to the left.
 
 Measurement: peak windows move by `info.waterPeakHz` (the peak of the fully
