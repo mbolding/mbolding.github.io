@@ -249,10 +249,10 @@
       <div class="meter-box">
         <div class="meter-title">
           <span>EEG Scalp Voltage Sensitivity:</span>
-          <span id="meterEEGVal" style="color:var(--eeg-color);">100% (Strong)</span>
+          <span id="meterEEGVal" style="color:var(--eeg-color);">58% (Moderate)</span>
         </div>
         <div class="meter-bar-track">
-          <div class="meter-bar-fill" id="meterEEGBar" style="width: 100%; background: var(--eeg-color);"></div>
+          <div class="meter-bar-fill" id="meterEEGBar" style="width: 58%; background: var(--eeg-color);"></div>
         </div>
       </div>
 
@@ -266,6 +266,7 @@
         </div>
       </div>
     </div>
+    <p class="note" style="margin-top: 6px;">Readouts and meters use the largest value over the scalp points drawn in the maps. A meter shows that peak as a percentage of the largest peak its modality reaches at any angle or depth on these sliders, for the same current moment.</p>
 
     <!-- Readout Grid -->
     <div class="readout-grid">
@@ -283,7 +284,7 @@
       </div>
       <div class="readout-card">
         <div class="readout-label">Peak EEG Voltage</div>
-        <div class="readout-val" id="dispEEG" style="color:var(--eeg-color);">+15.4 &mu;V</div>
+        <div class="readout-val" id="dispEEG" style="color:var(--eeg-color);">74.0 &mu;V</div>
       </div>
       <div class="readout-card">
         <div class="readout-label">Peak MEG Field</div>
@@ -484,26 +485,61 @@ function renderAnatCanvas() {
   ctxA.fillText(label, 14, h - 14);
 }
 
+// --- Sensor grid shared by the maps and the readouts ---
+// The maps sample a GRID x GRID array of scalp points inside the head outline. The
+// cards and meters report the largest |V| and |Br| over those same points, so the
+// numbers always match what the maps show.
+const GRID = 40;
+function forEachSensor(fn) {
+  for (let iy = 0; iy < GRID; iy++) {
+    for (let ix = 0; ix < GRID; ix++) {
+      const nx = ((ix + 0.5) / GRID) * 2.0 - 1.0;
+      const ny = ((iy + 0.5) / GRID) * 2.0 - 1.0;
+      if (nx * nx + ny * ny <= 1.0) fn(ix, iy, nx, ny);
+    }
+  }
+}
+function scanPeaks() {
+  let peakE = 0, peakM = 0;
+  forEachSensor((ix, iy, nx, ny) => {
+    const { eeg, meg } = calcFields(nx, ny);
+    if (Math.abs(eeg) > peakE) peakE = Math.abs(eeg);
+    if (Math.abs(meg) > peakM) peakM = Math.abs(meg);
+  });
+  return { peakE, peakM };
+}
+
+// Largest peak each modality reaches anywhere on the angle and depth sliders, for a
+// source of the current moment. Fields are linear in the moment, so this is found once
+// at the default moment and rescaled. The meters are a percentage of it.
+const REF_PEAKS = (() => {
+  const save = [thetaDeg, depth, moment];
+  let refE = 0, refM = 0;
+  moment = 20.0;
+  for (let a = 0; a <= 90; a += 5) {
+    for (let k = 0; k <= 34; k++) {
+      thetaDeg = a; depth = 0.20 + 0.02 * k;
+      const p = scanPeaks();
+      if (p.peakE > refE) refE = p.peakE;
+      if (p.peakM > refM) refM = p.peakM;
+    }
+  }
+  [thetaDeg, depth, moment] = save;
+  return { eeg: refE, meg: refM };
+})();
+
 // --- Render 2: EEG Scalp Potential Map ---
-function renderEEGCanvas() {
+function renderEEGCanvas(peakE) {
   const w = cEEG.width, h = cEEG.height;
   ctxE.clearRect(0, 0, w, h);
 
   const cx = w / 2, cy = h / 2;
   const R = w * 0.40;
 
-  const res = 40;
-  const cell = (R * 2) / res;
+  const cell = (R * 2) / GRID;
 
-  let peakE = 0;
-
-  for (let iy = 0; iy < res; iy++) {
-    for (let ix = 0; ix < res; ix++) {
-      const nx = ((ix + 0.5) / res) * 2.0 - 1.0;
-      const ny = ((iy + 0.5) / res) * 2.0 - 1.0;
-      if (nx * nx + ny * ny <= 1.0) {
+  forEachSensor((ix, iy, nx, ny) => {
         const { eeg } = calcFields(nx, ny);
-        if (Math.abs(eeg) > peakE) peakE = Math.abs(eeg);
 
         const norm = Math.max(-1.0, Math.min(1.0, eeg / 18.0));
         let r = 10, g = 14, b = 24;
@@ -519,9 +555,7 @@ function renderEEGCanvas() {
 
         ctxE.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctxE.fillRect(cx - R + ix * cell, cy - R + iy * cell, cell + 0.6, cell + 0.6);
-      }
-    }
-  }
+  });
 
   // Head Circle & Nose
   ctxE.strokeStyle = '#ffffff';
@@ -540,25 +574,17 @@ function renderEEGCanvas() {
 }
 
 // --- Render 3: MEG Radial Magnetic Field Map ---
-function renderMEGCanvas() {
+function renderMEGCanvas(peakM) {
   const w = cMEG.width, h = cMEG.height;
   ctxM.clearRect(0, 0, w, h);
 
   const cx = w / 2, cy = h / 2;
   const R = w * 0.40;
 
-  const res = 40;
-  const cell = (R * 2) / res;
+  const cell = (R * 2) / GRID;
 
-  let peakM = 0;
-
-  for (let iy = 0; iy < res; iy++) {
-    for (let ix = 0; ix < res; ix++) {
-      const nx = ((ix + 0.5) / res) * 2.0 - 1.0;
-      const ny = ((iy + 0.5) / res) * 2.0 - 1.0;
-      if (nx * nx + ny * ny <= 1.0) {
+  forEachSensor((ix, iy, nx, ny) => {
         const { meg } = calcFields(nx, ny);
-        if (Math.abs(meg) > peakM) peakM = Math.abs(meg);
 
         const norm = Math.max(-1.0, Math.min(1.0, meg / 90.0));
         let r = 10, g = 14, b = 24;
@@ -576,9 +602,7 @@ function renderMEGCanvas() {
 
         ctxM.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctxM.fillRect(cx - R + ix * cell, cy - R + iy * cell, cell + 0.6, cell + 0.6);
-      }
-    }
-  }
+  });
 
   // SQUID Helmet Sensor Array Outline
   ctxM.strokeStyle = '#22d3ee';
@@ -606,37 +630,40 @@ function updateAll() {
   document.getElementById('dispRadial').textContent = (qRad * 100).toFixed(1) + '%';
   document.getElementById('dispTangential').textContent = (qTan * 100).toFixed(1) + '%';
 
-  // Calculate maximum signals
-  const { eeg: peakE } = calcFields(0, -depth - 0.15);
-  const { meg: peakM } = calcFields(0, -depth + 0.35);
+  // Largest |V| and |Br| over the sensor grid, the same points the maps draw
+  const { peakE, peakM } = scanPeaks();
 
-  document.getElementById('dispEEG').textContent = `+${Math.abs(peakE).toFixed(1)} µV`;
-  document.getElementById('dispMEG').textContent = Math.abs(peakM) < 0.1 ? '0.0 fT (Silent)' : `${Math.abs(peakM).toFixed(1)} fT`;
+  document.getElementById('dispEEG').textContent = `${peakE.toFixed(1)} µV`;
+  document.getElementById('dispMEG').textContent = peakM < 0.1 ? '0.0 fT (Silent)' : `${peakM.toFixed(1)} fT`;
 
-  // Update Sensitivity Progress Bars
-  const eegSens = Math.min(100, Math.round((Math.abs(peakE) / 16.0) * 100));
-  const megSens = Math.round(qTan * 100);
+  // Meters: the peak as a percentage of the largest peak that modality reaches at any
+  // angle and depth on the sliders, for a source of this moment
+  const scale = moment / 20.0;
+  const eegSens = Math.min(100, Math.round(100 * peakE / (REF_PEAKS.eeg * scale)));
+  const megSens = Math.min(100, Math.round(100 * peakM / (REF_PEAKS.meg * scale)));
+  const word = v => v >= 60 ? 'Strong' : v >= 25 ? 'Moderate' : 'Weak';
 
   document.getElementById('meterEEGBar').style.width = `${eegSens}%`;
-  document.getElementById('meterEEGVal').textContent = `${eegSens}% (${eegSens > 80 ? 'Strong' : 'Moderate'})`;
+  document.getElementById('meterEEGVal').textContent = `${eegSens}% (${word(eegSens)})`;
 
   document.getElementById('meterMEGBar').style.width = `${megSens}%`;
-  document.getElementById('meterMEGVal').textContent = megSens === 0 ? '0% (BLIND · 0.0 fT)' : `${megSens}% (${Math.abs(peakM).toFixed(0)} fT)`;
+  document.getElementById('meterMEGVal').textContent = peakM < 0.1 ? '0% (BLIND · 0.0 fT)' : `${megSens}% (${word(megSens)})`;
 
   renderAnatCanvas();
-  renderEEGCanvas();
-  renderMEGCanvas();
+  renderEEGCanvas(peakE);
+  renderMEGCanvas(peakM);
 }
 
 // --- Presets ---
 function setPreset(p) {
-  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  // Un-highlight every preset (a button with neither class would keep the accent colour)
+  document.querySelectorAll('.preset-bar button').forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
   const bannerText = document.getElementById('bannerText');
 
   if (p === 'radial') {
     document.getElementById('btnRadial').classList.add('active');
     thetaDeg = 0; depth = 0.82;
-    bannerText.innerHTML = '<strong>Radial Dipole (Gyral Crown):</strong> Dipole is aligned perpendicular to skull. External magnetic field cancels completely: <strong>MEG is identically 0.0 fT</strong>, while EEG records a strong focal peak.';
+    bannerText.innerHTML = '<strong>Radial Dipole (Gyral Crown):</strong> Dipole is aligned perpendicular to skull. External magnetic field cancels completely: <strong>MEG is identically 0.0 fT</strong>, while EEG still records a clear focal peak.';
   } else if (p === 'tangential') {
     document.getElementById('btnTangential').classList.add('active');
     thetaDeg = 90; depth = 0.82;

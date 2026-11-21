@@ -70,7 +70,7 @@
     const fs = S.ds.fs, kind = $('testSig').value;
     const pre = 2, post = 3, n = Math.round((pre + post) * fs), x = new Float64Array(n), t = i => i / fs - pre;
     const g = (c, s, a) => { for (let i = 0; i < n; i++) { const z = (t(i) - c) / s; x[i] += a * Math.exp(-0.5 * z * z); } };
-    let view = [-0.3, 0.8], note = '', unit = 'fT';
+    let view = [-0.3, 0.8], note = '', unit = 'fT', win = 80;
     if (kind === 'erp') {
       const tr = await MEG.app.truth();
       const k = parseInt($('testCh').value, 10);
@@ -90,8 +90,8 @@
       for (let i = 0; i < n; i++) { const tt = t(i) - c, z = tt / (tt < 0 ? sr : sf); x[i] += 1500 * Math.exp(-0.5 * z * z); }
       g(c + 0.035 + 0.13, 0.07, 700);
     } else if (kind === 'step') { for (let i = 0; i < n; i++) if (t(i) >= 0) x[i] = 3000; view = [-0.5, 2.5]; note = 'A flux jump is a step that stays: a high-pass filter turns it into a decaying transient, and a zero-phase filter spreads it backward in time too.'; }
-    else { for (let i = 0; i < n; i++) { const tt = t(i) - 0.4; x[i] = 400 * Math.sin(2 * Math.PI * 10 * tt) * Math.exp(-0.5 * Math.pow(tt / 0.12, 2)); } view = [-0.2, 1]; }
-    return { x, n, pre, view, note, unit };
+    else { for (let i = 0; i < n; i++) { const tt = t(i) - 0.4; x[i] = 400 * Math.sin(2 * Math.PI * 10 * tt) * Math.exp(-0.5 * Math.pow(tt / 0.12, 2)); } view = [-0.2, 1]; win = 50; }
+    return { x, n, pre, view, note, unit, win };
   }
   async function drawTest() {
     const T = D.theme(), fs = S.ds.fs;
@@ -109,15 +109,27 @@
       vlines: [{ x: 0, color: T.muted, label: 'onset' }], tipX: x => `${x.toFixed(0)} ms`, tipFmt: v => ui.fmtV(v, ts.unit)
     });
     ui.legend($('filtTestLegend'), [{ color: T.ink2, label: 'original', dash: true }, { color: T.series[0], label: 'after the offline filters' }]);
-    const pk = arr => { let m = 0, im = 0; for (let i = a; i < b; i++) if (Math.abs(arr[i]) > Math.abs(m)) { m = arr[i]; im = i; } return { m, t: (im / fs - ts.pre) * 1000 }; };
-    const p0 = pk(ts.x), p1 = pk(y);
+    const pk = arr => { let m = 0, im = 0; for (let i = a; i < b; i++) if (Math.abs(arr[i]) > Math.abs(m)) { m = arr[i]; im = i; } return { m, i: im, t: (im / fs - ts.pre) * 1000 }; };
+    const p0 = pk(ts.x);
+    /* The same peak after filtering: the largest deflection of the same sign
+       within a window around the original peak, so a later lobe of the
+       opposite sign (or the next cycle of a burst) is not taken for it.
+       The window is half a period for the 10 Hz burst. */
+    const winMs = ts.win || 80, wa = Math.max(a, p0.i - Math.round(winMs / 1000 * fs)), wb = Math.min(b, p0.i + Math.round(winMs / 1000 * fs) + 1);
+    let p1 = null;
+    for (let i = wa; i < wb; i++) if (Math.sign(y[i]) === Math.sign(p0.m) && (!p1 || Math.abs(y[i]) > Math.abs(p1.m))) p1 = { m: y[i], i };
+    // at the edge of the window and still growing: no peak of its own inside the window
+    if (p1 && ((p1.i === wa && wa > a && Math.abs(y[wa - 1]) > Math.abs(p1.m) && Math.sign(y[wa - 1]) === Math.sign(p0.m)) ||
+      (p1.i === wb - 1 && wb < b && Math.abs(y[wb]) > Math.abs(p1.m) && Math.sign(y[wb]) === Math.sign(p0.m)))) p1 = null;
+    if (p1) p1.t = (p1.i / fs - ts.pre) * 1000;
     let preMax = 0; for (let i = a; i < Math.round(ts.pre * fs); i++) preMax = Math.max(preMax, Math.abs(y[i] - ts.x[i]));
     let opp = 0; for (let i = a; i < b; i++) if (Math.sign(y[i]) === -Math.sign(p0.m) && Math.abs(y[i]) > opp) opp = Math.abs(y[i]);
+    const within = `the largest deflection of the same sign as the original peak, within ${winMs} ms of it`;
     ui.readouts($('filtReadouts'), [
       ['Peak, original', `${ui.fmtV(p0.m, ts.unit)} at ${p0.t.toFixed(0)} ms`],
-      ['Peak, filtered', `${ui.fmtV(p1.m, ts.unit)} at ${p1.t.toFixed(0)} ms`],
-      ['Amplitude change', `${(Math.round((p1.m / (p0.m || 1) - 1) * 100) || 0)}%`],
-      ['Latency shift', `${(p1.t - p0.t).toFixed(0)} ms`],
+      ['Peak, filtered', p1 ? `${ui.fmtV(p1.m, ts.unit)} at ${p1.t.toFixed(0)} ms` : `none within ${winMs} ms`, within],
+      ['Amplitude change', p1 ? `${(Math.round((p1.m / (p0.m || 1) - 1) * 100) || 0)}%` : '–', 'of that same-sign peak'],
+      ['Latency shift', p1 ? `${(p1.t - p0.t).toFixed(0)} ms` : '–', 'of that same-sign peak'],
       ['Before onset', ui.fmtV(preMax, ts.unit), 'largest change before the stimulus: only an acausal filter can put it there'],
       ['Opposite-polarity lobe', ui.fmtV(opp, ts.unit), 'deflection of the opposite sign that the original does not have']
     ]);
@@ -125,39 +137,6 @@
   }
 
   /* ---------- ICA ---------- */
-  function corr(a, b) {
-    const n = a.length; let ma = 0, mb = 0; for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; } ma /= n; mb /= n;
-    let sab = 0, saa = 0, sbb = 0;
-    for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; sab += x * y; saa += x * x; sbb += y * y; }
-    return saa && sbb ? sab / Math.sqrt(saa * sbb) : 0;
-  }
-  // What could have made a component: every generator's pattern, eyes taken together, on the noise-scaled channels.
-  function truthCandidates(sigma) {
-    const ds = S.ds, out = [], scaled = v => Float64Array.from(v, (x, i) => x / sigma[i]);
-    const byGroup = {};
-    ds.gens.forEach(g => {
-      if (!S.enabled.has(g.group) || g.kind === 'background') return;
-      const p = MEG.genPattern(ds, g);
-      if (g.group === 'blinks' || g.group === 'saccades') { byGroup[g.group] = byGroup[g.group] ? byGroup[g.group].map((x, i) => x + p[i]) : Float64Array.from(p); return; }
-      out.push({ label: g.kind === 'source' ? g.label : (MEG.ARTIFACT_INFO[g.group] ? MEG.ARTIFACT_INFO[g.group].label + (ds.gens.filter(x => x.group === g.group).length > 1 ? ': ' + g.label : '') : g.label), group: g.group, v: scaled(p) });
-    });
-    Object.keys(byGroup).forEach(k => out.push({ label: MEG.ARTIFACT_INFO[k].label, group: k, v: scaled(byGroup[k]) }));
-    return out;
-  }
-  function matchComponents() {
-    const I = S.ica, arr = S.ds.array;
-    const cands = truthCandidates(I.sigma);
-    I.matches = I.model.comps.map(c => {
-      let best = null, br = 0;
-      cands.forEach(t => { const r = Math.abs(corr(c.topo, t.v)); if (r > br) { br = r; best = t; } });
-      let e = 0, mx = 0, at = 0; c.topo.forEach((x, i) => { e += x * x; if (x * x > mx) { mx = x * x; at = i; } });
-      const single = mx / e > 0.5;
-      if (best && br >= 0.9) return { text: `≈ ${best.label}`, r: br, group: best.group };
-      if (single) return { text: `one sensor, ${arr.channels[at].name}: a flux jump or a bad channel`, r: mx / e, group: 'single' };
-      if (best && br >= 0.7) return { text: `resembles ${best.label}`, r: br, group: best.group };
-      return { text: 'mixed: brain activity or noise', r: br, group: null };
-    });
-  }
   async function runICA() {
     const k = parseInt($('icaK').value, 10);
     const bar = $('icaProgress').firstElementChild;
@@ -167,8 +146,8 @@
     await new Promise(r => setTimeout(r, 20));
     const t0 = performance.now();
     const hp = (S.proc.hp || 0) < 1 ? 1 : null;
-    const sigma = MEG.app.chanSigma();
-    const rows = S.filt.rows.map((r, c) => Float32Array.from(r, x => x / sigma[c]));
+    const sigma = MEG.app.chanSigma(), sup = S.sup, filt = S.filt;
+    const rows = filt.rows.map((r, c) => Float32Array.from(r, x => x / sigma[c]));
     try {
       const model = await MEG.ica.fit(rows, { k, fs: S.ds.fs, highpass: hp, seed: S.cfg.recording.seed }, async (it, ch) => {
         bar.style.width = Math.min(95, 5 + it / 2) + '%';
@@ -176,7 +155,7 @@
         await new Promise(r => setTimeout(r, 0));
       });
       S.ica = { model, sigma, rejected: new Set(), stale: false, changed: false, type: S.ds.array.type };
-      matchComponents();
+      S.ica.matches = MEG.ica.identify(S.ds, model, { rows: filt.rows, sigma, sup, enabled: S.enabled, room: S.shield.room, chain: filt.chain });
       st.sel = 0;
       bar.style.width = '100%';
       $('icaStatus').textContent = `${model.k} components in ${Math.round(performance.now() - t0)} ms, ${model.iterations} iterations${model.converged ? '' : ' (stopped at the limit)'}. ` +
@@ -198,7 +177,7 @@
       <button class="ghost small x" data-x="${i}">${I.rejected.has(i) ? 'Keep' : 'Remove'}</button>
       <canvas class="bare" data-c="${i}"></canvas>
       <div class="t"><b>IC ${i + 1}</b><span>${(c.pvaf * 100).toFixed(1)}%</span></div>
-      <div class="m">${reveal ? I.matches[i].text + (I.matches[i].group && I.matches[i].group !== 'single' ? ` (r ${I.matches[i].r.toFixed(2)})` : '') : (I.rejected.has(i) ? 'removed' : '&nbsp;')}</div></div>`).join('');
+      <div class="m">${reveal ? I.matches[i].text + (I.matches[i].group && I.matches[i].group !== 'single' ? ` (${Math.round(Math.min(1, I.matches[i].share) * 100)}% of its variance)` : '') : (I.rejected.has(i) ? 'removed' : '&nbsp;')}</div></div>`).join('');
     grid.querySelectorAll('canvas').forEach(cv => {
       const i = +cv.dataset.c, c = I.model.comps[i];
       const { ctx, w, h } = D.fit(cv, w => w * 0.92);
@@ -224,7 +203,7 @@
       if (!st.plots.spec) st.plots.spec = new D.Plot($('cvICASpec'), { height: 150 });
       st.plots.spec.draw({ x: sp.f, series: [{ y: sp.p, color: T.series[0], label: 'power' }], xRange: [0.5, Math.min(fs / 2, 100)], yLog: true, xLabel: 'frequency (Hz)', yLabel: 'power (a.u.)', tipX: x => `${x.toFixed(1)} Hz` });
       const m = I.matches[st.sel];
-      $('icaActCap').innerHTML = `IC ${st.sel + 1} explains ${(c.pvaf * 100).toFixed(1)}% of the variance.` + ($('icaTruth').checked ? ` Ground truth: <strong>${m.text}</strong>.` : ' Judge it from its map, time course and spectrum, then reveal the truth to check.');
+      $('icaActCap').innerHTML = `IC ${st.sel + 1} explains ${(c.pvaf * 100).toFixed(1)}% of the variance.` + ($('icaTruth').checked ? ` Ground truth: <strong>${m.text}</strong>${m.group && m.group !== 'single' ? ` (${Math.round(Math.min(1, m.share) * 100)}% of its variance)` : ''}.` : ' Judge it from its map, time course and spectrum, then reveal the truth to check.');
     } else {
       [$('cvICAAct'), $('cvICASpec')].forEach(cv => D.message(cv, 'Run ICA to see component time courses.', 40));
     }

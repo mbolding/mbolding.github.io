@@ -51,4 +51,23 @@ ok(sp(m, 0.1) > 3 * sp(m, 0.3), 'Mayer waves sit near 0.1 Hz');
 const tb2 = NIRS.physio.taskBP(1200, 10, [{ t: 10, dur: 30 }], r, { variability: 0 });
 near(tb2[350], 1, 0.05, 'task-evoked blood pressure plateaus at its amplitude');
 ok(NIRS.SYSTEMIC.taskbp.layers.gray < 0.2 * NIRS.SYSTEMIC.taskbp.layers.scalp, 'the brain sees little of the task-evoked blood pressure');
+
+// the main response: peaks and times to peak ignore the transient after a block ends
+{
+  const dt = 0.05, i0 = 100, run = (n, len) => {
+    const u = new Float64Array(1200); for (let i = i0; i < i0 + Math.round(len / dt); i++) u[i] = 1;
+    const hb = NIRS.balloon(u, dt, 0.5, { n });
+    return { hb, mr: NIRS.mainResponse(hb, dt, i0, len) };
+  };
+  const d = run(2.5, 20).mr;
+  ok(d.hbo.t > 8 && d.hbo.t < 10.5 && d.hbr.t > 10 && d.hbr.t < 13 && d.hbr.v < 0 && d.bold.v > 0, `default coupling: HbO peaks at ${d.hbo.t.toFixed(1)} s, HbR falls to its peak at ${d.hbr.t.toFixed(1)} s`);
+  const two = run(2, 20);
+  let gmin = 0, gi = 0; two.hb.hbr.forEach((v, i) => { if (v < gmin) { gmin = v; gi = i; } });
+  ok((gi - i0) * dt > 20, 'n = 2: the most negative HbR of the whole run comes after the block ends');
+  ok(two.mr.hbr.t < 15, `n = 2: the time to peak of HbR stays on the main response (${two.mr.hbr.t.toFixed(1)} s)`);
+  const low = run(1.3, 20).mr;
+  ok(low.bold.t < 20 && low.hbr.v > 0, `n = 1.3: BOLD's peak is taken during the block (${low.bold.t.toFixed(1)} s) and HbR rises`);
+  const ev = run(2.5, 2).mr;
+  ok(ev.hbo.t > 4 && ev.hbo.t < 7 && ev.hbr.t > 5 && ev.hbr.t < 9, 'a 2 s event: peaks 4 to 9 s after onset');
+}
 summary('hemo');

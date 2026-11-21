@@ -238,7 +238,7 @@
           <tr><td>ground AFz</td><td>Ground electrode (drawn on the cap; it does not enter the measurement).</td></tr>
           <tr><td>rate 250 Hz</td><td>Sampling rate, 100 to 2000 Hz.</td></tr>
           <tr><td>highpass 0.1 Hz | off</td><td>Hardware high-pass (first order, causal). <code>off</code> records DC.</td></tr>
-          <tr><td>lowpass 70 Hz | off</td><td>Hardware anti-alias low-pass (fourth-order Butterworth). Default 0.4 &times; rate.</td></tr>
+          <tr><td>lowpass 70 Hz | off</td><td>Hardware anti-alias low-pass (fourth-order Butterworth). Default 0.4 &times; rate. <code>off</code> records without one, so mains harmonics above the Nyquist frequency alias.</td></tr>
           <tr><td>bits 16 &nbsp; range 3.2 mV</td><td>Digitizer resolution and input range (&plusmn;). Step = 2 &times; range / 2<sup>bits</sup>.</td></tr>
           <tr><td>impedance 5 kOhm</td><td>Typical electrode impedance; each electrode varies around it.</td></tr>
           <tr><td>mains 60 Hz</td><td>Line frequency, 50 or 60 Hz.</td></tr>
@@ -411,7 +411,7 @@
           <div class="ctl"><label for="bandSeg">Segments</label><select id="bandSeg"><option value="all">Whole recording</option><option value="closed">Eyes closed</option><option value="open">Eyes open</option><option value="ratio">Closed / open ratio</option></select></div>
         </div>
         <canvas id="cvBandTopo"></canvas>
-        <p class="cap">Processed data. Power is integrated over the band from each channel's spectrum and interpolated between electrodes.</p>
+        <p class="cap">Processed data. Power is integrated over the band from each channel's spectrum and interpolated between electrodes. Hover an electrode for its value.</p>
       </div>
     </div>
     <div class="panel">
@@ -660,7 +660,9 @@
         <strong>Experiment</strong> tab to choose or write a session; everything else is computed from it. The <strong>Sources</strong> and
         <strong>Recording</strong> tabs show what the electrodes pick up and why; <strong>Spectra</strong>, <strong>Processing</strong> and
         <strong>ERP averaging</strong> are the analysis; <strong>Localization</strong> runs the problem backwards. The concept boxes at the top
-        of each tab open and close, so a projected screen can stay uncluttered.</p>
+        of each tab open and close, so a projected screen can stay uncluttered. The page keeps the last program you built, and the text in
+        the editor, through a reload in the same browser tab. Changes made on the other tabs are not kept: a dipole moved on Sources but not
+        copied into the program, and the re-reference, filter and ICA choices, start again from the program.</p>
       <h3>Things worth trying</h3>
       <ul>
         <li><strong>Berger's alpha.</strong> Load <em>Eyes closed, eyes open</em>. On Spectra choose O1 and "Eyes closed vs open": the 10 Hz peak
@@ -679,12 +681,14 @@
           their average stays noisier than the standards' at every point in the session. Then set the P3 jitter to 0 ms and rebuild: the peak
           grows and narrows.</li>
         <li><strong>Filters distort.</strong> On Processing set the high-pass to 2 Hz with the true ERP as the test signal. The P300 shrinks
-          and grows negative lobes that were never there. Switch to causal phase and the peak moves later; switch back to zero phase and
-          ripples appear before the stimulus.</li>
+          and grows negative lobes that were never there. Switch to causal phase: nothing appears before the stimulus, but the peak moves
+          earlier and a negative lobe follows it. Switch back to zero phase and ripples appear before the stimulus. A causal low-pass, by
+          contrast, delays the peak.</li>
         <li><strong>ICA.</strong> In the <em>Artifact zoo</em>, run ICA, find the blink, eye movement, muscle and heart components from their
           maps and spectra, remove them and check with "Reveal". Then look at the ERP before and after.</li>
         <li><strong>Depth and the inverse.</strong> On Localization fit a source 2 cm deep, then 5 cm deep with the same noise. The cloud of
-          fitted positions spreads mostly in depth. Use 19 electrodes, then 64. Fit with the homogeneous head and watch a systematic error
+          fitted positions grows in every direction, to more than twice its width at 2 cm. For the default, mostly radial source it spreads more
+          sideways than in depth. Use 19 electrodes, then 64. Fit with the homogeneous head and watch a systematic error
           appear that no amount of averaging removes.</li>
         <li><strong>Two sources fitted as one.</strong> Add the mirror-image source and fit a single dipole: it lands between them, deep, with a
           goodness of fit that looks respectable.</li>

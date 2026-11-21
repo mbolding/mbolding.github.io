@@ -45,7 +45,10 @@
     const q = S.res.quality;
     let vals, range, fmt, title;
     if (st.metric === 'intensity') { vals = ds.chans.map((c, i) => Math.log10(Math.max(1e-6, q[i].mean[ds.nL - 1]))); fmt = v => NIRS.fmtPower(Math.pow(10, v)); title = `detected light at ${ds.lambdas[ds.nL - 1]} nm (log scale)`; }
-    else if (st.metric === 'sci') { vals = q.map(x => x.sci); range = [0, 1]; fmt = v => v.toFixed(2); title = 'scalp coupling index'; }
+    else if (st.metric === 'sci') {
+      vals = q.map(x => x.sci); range = [0, 1]; fmt = v => (isFinite(v) ? v.toFixed(2) : 'n/a');
+      title = NIRS.dsp.sciBand(ds).ok ? 'scalp coupling index' : ds.nL < 2 ? 'scalp coupling index: n/a, it needs two wavelengths' : `scalp coupling index: n/a at ${ds.fs} Hz`;
+    }
     else { vals = C.map(c => NIRS.std(c.hbo)); fmt = v => v.toFixed(3) + ' µM'; title = 'SD of unprocessed HbO'; }
     if (!range) {
       // scale to the long channels; short ones, far brighter, sit at the top of the scale

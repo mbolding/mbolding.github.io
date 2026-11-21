@@ -153,6 +153,12 @@ for (const n of [128, 256]) {
     near(T.trueAcceptance(0, 1e-9, 400e-12), 1, 0.01, '1 ns window keeps central trues');
     const f = T.randomsTofFraction(4e-9, G.ds, G.nT);
     near(f.perBin, 2 * 20 / 2.99792458e11 / 4e-9, 1e-6, 'randoms fraction per TOF bin');
+    // With TOF the bins, not the window, limit the randoms (the UI says so)
+    const span = 2 * G.nT * G.ds / 2.99792458e11;
+    near(T.randomsWindow(4.5e-9, true), span, 1e-15, 'TOF on: randoms window is the TOF span (' + (span * 1e9).toFixed(2) + ' ns)');
+    near(T.randomsWindow(9e-9, true), span, 1e-15, 'TOF on: a 9 ns window keeps the same randoms');
+    near(T.randomsWindow(2e-9, true), 2e-9, 1e-15, 'TOF on: a window narrower than the bins still limits them');
+    near(T.randomsWindow(9e-9, false), 9e-9, 1e-15, 'TOF off: the window itself');
 }
 
 // Isotopes

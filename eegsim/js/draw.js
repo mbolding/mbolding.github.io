@@ -72,6 +72,7 @@
     if (typeof h === 'function') h = h(w);
     h = Math.round(h);
     cv._h = h;
+    cv._maps = null;   // scalp maps drawn since, for their hover read-out
     cv.style.height = h + 'px';
     const W = Math.round(w * dpr), H = Math.round(h * dpr);
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
@@ -111,6 +112,7 @@
   };
   function logTicks(a, b) {
     const out = [];
+    if (!(a > 0 && b > a && isFinite(b))) return out;
     const d0 = Math.floor(Math.log10(a)), d1 = Math.ceil(Math.log10(b));
     const few = d1 - d0 <= 2;
     for (let d = d0; d <= d1; d++) [1, 2, 5].forEach(m => { const v = m * Math.pow(10, d); if (v >= a * 0.999 && v <= b * 1.001 && (m === 1 || few)) out.push(v); });
@@ -153,6 +155,7 @@
       if (!xr) {
         let a = Infinity, b = -Infinity;
         all.forEach(s => { const xs = s.x || spec.x; if (!xs) return; for (let i = 0; i < xs.length; i++) { const v = xs[i]; if (isFinite(v) && (!spec.xLog || v > 0)) { if (v < a) a = v; if (v > b) b = v; } } });
+        if (!isFinite(a)) { a = spec.xLog ? 1 : 0; b = spec.xLog ? 10 : 1; }
         xr = [a, b];
       }
       if (!yr) {
@@ -166,8 +169,9 @@
           }
         });
         (spec.markers || []).forEach(m => { if (isFinite(m.y)) { a = Math.min(a, m.y); b = Math.max(b, m.y); } });
-        if (!isFinite(a)) { a = 0; b = 1; }
-        if (a === b) { a -= 1; b += 1; }
+        // nothing to plot: an empty frame (a log axis cannot start at 0)
+        if (!isFinite(a)) { a = spec.yLog ? 1 : 0; b = spec.yLog ? 10 : 1; }
+        if (a === b) { if (spec.yLog) { a /= 10; b *= 10; } else { a -= 1; b += 1; } }
         if (spec.yLog) { yr = [a / 1.3, b * 1.3]; } else { const p = (b - a) * 0.06; yr = [a - p, b + p]; }
         if (spec.yZero && !spec.yLog) { yr[0] = Math.min(0, yr[0]); yr[1] = Math.max(0, yr[1]); }
       }
@@ -360,8 +364,29 @@
         if (opts.names && r > 70) { ctx.fillStyle = T.ink; ctx.font = D.font(Math.max(8, Math.min(11, r * 0.055))); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(l, x, y - 3); }
       });
     }
-    return { range, lo, hi, xy: c.xy.map(([mx, my]) => [cx + mx * r, cy - my * r]) };
+    const xy = c.xy.map(([mx, my]) => [cx + mx * r, cy - my * r]);
+    if (opts.electrodes !== false) topoHover(ctx.canvas, { labels, values: Array.from(values), xy, r, unit: opts.unit, fmt: opts.fmt });
+    return { range, lo, hi, xy };
   };
+
+  // Hovering a map shows the value at the nearest electrode.
+  function topoHover(cv, map) {
+    (cv._maps || (cv._maps = [])).push(map);
+    if (cv._topoTip) return;
+    cv._topoTip = true;
+    cv.addEventListener('mousemove', e => {
+      const b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top;
+      let best = null, bd = Infinity;
+      (cv._maps || []).forEach(m => m.xy.forEach(([px, py], j) => {
+        const d = Math.hypot(px - x, py - y);
+        if (d < bd && d <= Math.max(8, m.r * 0.12)) { bd = d; best = { m, j }; }
+      }));
+      if (!best) { D.tip(0, 0, null); return; }
+      const { m, j } = best, v = m.values[j];
+      D.tip(e.clientX, e.clientY, D.tipRow(null, m.labels[j], (m.fmt ? m.fmt(v) : EEG.fmt(v, Math.abs(v) < 10 ? 2 : 1)) + (m.unit ? ' ' + m.unit : '')));
+    });
+    cv.addEventListener('mouseleave', () => D.tip(0, 0, null));
+  }
 
   // Marching squares at evenly spaced levels; zero drawn dashed.
   function contours(ctx, f, res, cx, cy, r, range, T) {

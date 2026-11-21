@@ -1282,7 +1282,8 @@
         '<p class="note">The clock starts at 0 at the top of the protocol; only <code>wait</code>, <code>static</code> and <code>frames</code> move it. ',
         'Frame times are counted from the injection, so frames written before <code>inject DOSE at 2 min</code> start at negative times. ',
         'For a dynamic scan, put the <code>frames</code> lines straight after <code>inject</code>. <code>tof off 600 ps</code> turns TOF off but keeps the ',
-        'timing resolution, which still decides how many true events a narrow coincidence window loses.</p>',
+        'timing resolution, which still decides how many true events a narrow coincidence window loses. With <code>tof on</code>, randoms whose time difference falls outside the 17 TOF bins (about 2.3 ns in all) are dropped, ' +
+        'so a coincidence window wider than that adds no randoms; with <code>tof off</code> the randoms grow in proportion to the window.</p>',
         '<p class="note">Limits: dose up to 2 GBq; weight 20 to 200 kg; energy window lower level 250 to 510 keV, upper level 520 to 800 keV; ',
         'coincidence window 0.5 to 20 ns; timing resolution 100 to 1000 ps; at most 64 frames, ending within 6 h of the injection. ',
         'Warnings, not errors: a lower level under 350 keV, a coincidence window under 2.5 ns, a scan starting more than 5 half-lives after the injection, ',

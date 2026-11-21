@@ -65,6 +65,46 @@
     if (tl < 0.97) { ctx.strokeStyle = T.series[1]; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p0[0], p0[1], 5, 0, 2 * Math.PI); ctx.stroke(); }
     ctx.restore();
   }
+  /* The extrema of both maps, found from the fields themselves.  The MEG map
+     is interpolated between 105 sites, so its extrema sit on or near a site
+     and move in jumps of a few centimetres, and both maps are drawn on a grid
+     of a few millimetres.  So each extremum is located on the grid and then
+     refined by a local search on the sphere that halves its step down to a
+     fraction of a millimetre, and the readouts follow depth smoothly. */
+  function climb(f, u, minZ) {
+    let fu = f(u);
+    for (let step = 0.04; step > 2e-5; step /= 2) {
+      let moved = true;
+      while (moved) {
+        moved = false;
+        const e1 = v3.unit(v3.cross(u, Math.abs(u[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])), e2 = v3.cross(u, e1);
+        for (const d of [e1, v3.scale(e1, -1), e2, v3.scale(e2, -1)]) {
+          const w = v3.unit(v3.add(u, v3.scale(d, step)));
+          if (w[2] < minZ) continue;
+          const fw = f(w);
+          if (fw > fu) { u = w; fu = fw; moved = true; break; }
+        }
+      }
+    }
+    return u;
+  }
+  // The magnetometer field over the helmet, only where there are sensors.
+  function megExtrema(g, grid) {
+    const minZ = Math.min(...MEG.SITES.map(s => s.u[2]));
+    const chan = u => { const h = MEG.helmetPoint(u); return { pts: [{ r: h.r, n: h.n, w: 1 }] }; };
+    const field = u => MEG.forwardMEG([chan(u)], g.pos, g.q)[0];
+    const us = grid.pts.filter(u => u[2] >= minZ);
+    const B = MEG.forwardMEG(us.map(chan), g.pos, g.q);
+    let iMax = 0, iMin = 0; B.forEach((x, i) => { if (x > B[iMax]) iMax = i; if (x < B[iMin]) iMin = i; });
+    return { max: climb(field, us[iMax], minZ), min: climb(u => -field(u), us[iMin], minZ) };
+  }
+  // The EEG potential over the map's area of the scalp.
+  function eegExtrema(g, e) {
+    const minZ = Math.min(...e.grid.pts.map(u => u[2])), model = eegModel();
+    const pot = u => MEG.forwardEEG(model, g.pos, g.q, [u])[0];
+    let iMax = 0, iMin = 0; e.vals.forEach((x, i) => { if (x > e.vals[iMax]) iMax = i; if (x < e.vals[iMin]) iMin = i; });
+    return { max: climb(pot, e.grid.pts[iMax], minZ), min: climb(u => -pot(u), e.grid.pts[iMin], minZ) };
+  }
   function eegGrid(g, res) {
     const grid = D.grid(res), model = eegModel();
     const Vg = MEG.forwardEEG(model, g.pos, g.q, grid.pts), V64 = MEG.forwardEEG(model, g.pos, g.q, U64());
@@ -120,20 +160,19 @@
     // readouts: the angle between the two patterns' axes, at the source
     const u0 = v3.unit(g.pos);
     const axis = (pMax, pMin) => { const d = v3.sub(pMax, pMin); return v3.sub(d, v3.scale(u0, v3.dot(d, u0))); };
-    // extrema of both maps on the same grid (the MEG map interpolated between the sites)
-    let mMax = -1, mMin = -1; e.grid.idx.forEach((q, p) => { const x = full[q]; if (mMax < 0 || x > full[e.grid.idx[mMax]]) mMax = p; if (mMin < 0 || x < full[e.grid.idx[mMin]]) mMin = p; });
-    let gMax = 0, gMin = 0; e.vals.forEach((x, i) => { if (x > e.vals[gMax]) gMax = i; if (x < e.vals[gMin]) gMin = i; });
-    const aM = axis(e.grid.pts[mMax], e.grid.pts[mMin]), aE = axis(e.grid.pts[gMax], e.grid.pts[gMin]);
+    // extrema of the magnetometer field and of the potential, found between the sensors and the pixels
+    const xm = megExtrema(g, e.grid), xe = eegExtrema(g, e);
+    const aM = axis(xm.max, xm.min), aE = axis(xe.max, xe.min);
     const ang = pm > 1e-3 * (mm.peak + 1e-9) && v3.norm(aM) > 0 && v3.norm(aE) > 0 ? Math.acos(MEG.clamp(Math.abs(v3.dot(aM, aE)) / (v3.norm(aM) * v3.norm(aE)), 0, 1)) / Math.PI * 180 : NaN;
-    const sepM = Math.acos(MEG.clamp(v3.dot(e.grid.pts[mMax], e.grid.pts[mMin]), -1, 1)) * MEG.HEAD.R;
-    const sepE = Math.acos(MEG.clamp(v3.dot(e.grid.pts[gMax], e.grid.pts[gMin]), -1, 1)) * MEG.HEAD.R;
+    const sepM = Math.acos(MEG.clamp(v3.dot(xm.max, xm.min), -1, 1)) * MEG.HEAD.R;
+    const sepE = Math.acos(MEG.clamp(v3.dot(xe.max, xe.min), -1, 1)) * MEG.HEAD.R;
     const radialShare = Math.abs(v3.dot(g.ori, u0));
     ui.readouts($('fdReadouts'), [
       ['MEG peak', ui.fmtV(mm.peak, mm.unit), MEG.SENSOR_INFO[st.sens].label],
       ['EEG peak', MEG.fmt(pe, pe < 10 ? 2 : 1) + ' µV', '64 electrodes, average reference'],
-      ['Angle between the maps', isFinite(ang) ? Math.round(ang) + '°' : 'no MEG field', 'between the line joining the two MEG extrema and the line joining the two EEG extrema'],
-      ['MEG extrema apart', pm > 1e-3 ? sepM.toFixed(1) + ' cm' : '–', 'magnetometers, measured along the scalp; grows with depth'],
-      ['EEG extrema apart', sepE.toFixed(1) + ' cm'],
+      ['Angle between the maps', isFinite(ang) ? Math.round(ang) + '°' : 'no MEG field', 'between the line joining the two MEG extrema (of the magnetometer field, found between the sensors) and the line joining the two EEG extrema'],
+      ['MEG extrema apart', pm > 1e-3 ? sepM.toFixed(1) + ' cm' : '–', 'the magnetometer field’s maximum and minimum, found between the sensors, measured along the scalp; grows with depth'],
+      ['EEG extrema apart', sepE.toFixed(1) + ' cm', 'the potential’s maximum and minimum over the area of the map, measured along the scalp'],
       ['Radial part of the moment', Math.round(radialShare * 100) + '%', 'invisible to MEG in a spherical head']
     ]);
   }

@@ -21,4 +21,61 @@ const A = PET.app;
 // State and actions exist without a document
 ok(PET.state && PET.actions && typeof PET.actions.runScan === 'function', 'state and actions created');
 ok(A._merged({ a: { b: 1, c: 2 } }, { a: { c: 3 } }).a.b === 1, 'deep merge keeps untouched keys');
-summary('app');
+
+/* Out-of-date results and carried-over settings, with the protocol
+   compiler loaded but no acquisition engine (so a re-scan fails). */
+(async function () {
+    const P = load(['core', 'isotopes', 'scanner', 'kinetics', 'phantoms', 'dsl', 'presets', 'app']);
+    const S = P.state, Ac = P.actions, App = P.app;
+    const events = [];
+    P.bus.on('results:outdated', function (e) { events.push(e); });
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    ok(Ac.loadPreset('fdg_static') && S.program && S.program.ok, 'preset compiles');
+    await wait(350);                                  // the debounced re-scan fails: no engine
+    S.acq = { frames: [{}], totals: {} };             // pretend an earlier scan is on screen
+    S.stale = false;
+    ok(!App.resultsOutdated(), 'a fresh scan is not out of date');
+    // a change with Auto re-scan on: a re-scan is pending, so not yet out of date
+    Ac.setParam('DOSE', 300e6);
+    ok(S.stale && !App.resultsOutdated(), 'pending re-scan: stale but not reported out of date');
+    await wait(350);
+    ok(App.resultsOutdated() && /failed/.test(App.outdatedReason()), 're-scan failed: out of date (' + App.outdatedReason() + ')');
+    // Auto re-scan off
+    Ac.setAutoRescan(false);
+    Ac.setParam('DOSE', 200e6);
+    ok(App.resultsOutdated() && /Auto re-scan is off/.test(App.outdatedReason()), 'Auto re-scan off: out of date at once');
+    // a protocol that does not compile
+    Ac.setAutoRescan(true);
+    Ac.setSource(S.source.replace(/^static.*$/m, 'static 10'));
+    ok(!S.program.ok && App.resultsOutdated() && /protocol has errors/.test(App.outdatedReason()), 'compile error: out of date');
+    ok(events.length > 0 && events[events.length - 1].outdated === true, 'results:outdated event emitted');
+    // fixing the protocol with Auto re-scan off: still out of date, for another reason, and the tabs hear of it
+    Ac.setAutoRescan(false);
+    const before = events.length;
+    Ac.setSource(S.source.replace(/^static.*$/m, 'static DUR'));
+    ok(S.program.ok && App.resultsOutdated() && /Auto re-scan is off/.test(App.outdatedReason()), 'protocol fixed, Auto re-scan off: still out of date');
+    ok(events.length > before && /Auto re-scan is off/.test(events[events.length - 1].reason), 'results:outdated carries the new reason');
+    Ac.setAutoRescan(true);
+    ok(!App.resultsOutdated(), 'Auto re-scan on again: a re-scan is pending, so not out of date');
+    await wait(350);
+    // carried-over settings
+    ok(App.changedSettings().physics.length === 0 && App.changedSettings().recon.length === 0, 'defaults: nothing carried over');
+    Ac.setPhysics({ attenuation: false, muMap: { dx: 8 } });
+    Ac.setRecon({ iterations: 8, corrections: { scatter: false } });
+    const c = App.changedSettings();
+    ok(c.physics.indexOf('attenuation') >= 0 && c.physics.indexOf('mu map used for correction') >= 0, 'physics changes listed (' + c.physics.join(', ') + ')');
+    ok(c.recon.indexOf('iterations') >= 0 && c.recon.indexOf('scatter correction') >= 0, 'recon changes listed (' + c.recon.join(', ') + ')');
+    Ac.loadPreset('cyl_uniform');
+    ok(App.changedSettings().physics.length === 2, 'loadPreset keeps physics changes (and the Protocol tab says so)');
+    // the loadPreset toast lists only what was carried over, not what a "Try this" button sets right after
+    const snap = JSON.parse(JSON.stringify({ physics: S.physics, recon: S.recon }));
+    Ac.setRecon({ postFilter: 0, iterations: 4 });
+    const kept = App.changedSettings(snap);
+    ok(kept.recon.indexOf('post-filter') < 0 && kept.recon.indexOf('iterations') < 0 && kept.recon.indexOf('scatter correction') >= 0 && kept.physics.length === 2,
+        'carried-over list leaves out settings changed after the snapshot (' + kept.recon.join(', ') + ')');
+    ok(App.changedSettings().recon.indexOf('post-filter') >= 0, 'the full list still has them');
+    Ac.resetPhysics(); Ac.resetRecon();
+    ok(App.changedSettings().physics.length === 0 && App.changedSettings().recon.length === 0, 'reset clears them');
+    await wait(350);
+    summary('app');
+})();

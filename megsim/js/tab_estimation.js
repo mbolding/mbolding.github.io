@@ -155,6 +155,9 @@
     if (srcs.length) pairs.push(['Error at the source', mm(M.errorAt(st.T, srcs[0].pos)), 'How far from its true place on the anatomy a perfect estimate of source 1 would be drawn']);
     pairs.push(['Largest in the cortex', mm(worst), 'The largest displacement anywhere on the brain’s surface']);
     ui.readouts($('coReadouts'), pairs);
+    if (FIDS.every(f => errF(f) < 0.01) && !$('coICP').checked) $('coReadouts').insertAdjacentHTML('beforeend', '<div class="note" style="grid-column:1/-1">The marks on the MRI are exact, ' +
+      'but the digitizer pen missed each landmark on the head by about a millimetre in each direction. A fit to three points turns those small ' +
+      'misses into a small rotation, so the error is not zero, and it is largest far from the landmarks.</div>');
   }
   // A new transform redraws everything drawn through it; nothing needs recomputing.
   function coregChanged() { coregRender(); rowsRender(); }

@@ -5,6 +5,9 @@
   'use strict';
   const NIRS = G.NIRS, D = NIRS.draw, ui = NIRS.ui, S = NIRS.S, $ = ui.$;
   const SHORT = 0.8;
+  // The photon readouts count this many photons from a fixed seed and then
+  // stop changing, so every reader gets the same numbers.
+  const BUDGET = 300000;
   const st = { head: 'adult', rho: 3, nm: 850, view: 'both', running: true, mc: null, anim: null, bg: null, key: '', lastStats: 0, curve: null, curveKey: '' };
   let ctl = {};
   const XR = [-1.3, 6.2], ZMAX = 2.6;
@@ -17,7 +20,7 @@
     const M = model();
     st.M = M;
     st.mc = new NIRS.MC(M.ol, { rho: st.rho, aperture: st.rho < 1.2 ? 0.12 : 0.2, short: $('lightShort').checked ? SHORT : 0,
-      grid: { x0: XR[0], x1: XR[1], nx: 150, zmax: ZMAX, nz: 56 }, keep: 60, seed: 17 });
+      grid: { x0: XR[0], x1: XR[1], nx: 150, zmax: ZMAX, nz: 56 }, keep: 60, seed: 17, budget: BUDGET });
     st.bg = null;
   }
 
@@ -91,7 +94,8 @@
       ['Mean path / DPF', `${pl.total.toFixed(1)} cm / ${pl.dpf.toFixed(2)}`],
       ['Share of path in the brain', (100 * brain(pl)).toFixed(1) + '%'],
       ['…for the 8 mm channel', (100 * brain(ps)).toFixed(2) + '%'],
-      ['Photons launched', mcs.launched.toLocaleString()],
+      ['Photons counted', mcs.done ? mcs.launched.toLocaleString() + ' (done)' : `${mcs.launched.toLocaleString()} of ${BUDGET.toLocaleString()}`,
+        `The photon readouts count the first ${BUDGET.toLocaleString()} photons and then stop changing, so everyone reads the same values. The animation carries on.`],
       ['Detected at ' + st.rho.toFixed(1) + ' cm', mcs.detected.toLocaleString()],
       ['Photon DPF', mcs.detected > 5 ? mcs.dpf.toFixed(2) : '–', 'From the detected Monte Carlo photons, weighted by absorption'],
       ['Photons’ mean deepest point', mcs.detected > 5 ? (mcs.meanDepth * 10).toFixed(1) + ' mm' : '–']
@@ -183,13 +187,12 @@
       bands: [{ x0: gate, x1: 8, fill: D.alpha(T.hbo, 0.07), label: 'late gate' }], vlines: [{ x: gate, color: T.hbo, dash: [4, 3] }],
       tipX: x => `${x.toFixed(2)} ns`, tipFmt: v => (v * 100).toFixed(1) + '%/ns'
     });
-    const det = mc.detected, early = det.filter(d => d.tof < gate), late = det.filter(d => d.tof >= gate);
-    const md = a => a.length ? (a.reduce((s, d) => s + d.depth * d.w, 0) / a.reduce((s, d) => s + d.w, 0) * 10).toFixed(1) + ' mm' : '–';
-    let lateW = 0; for (let i = 0; i < n; i++) if ((i + 0.5) * dt >= gate) lateW += mc.tof[i];
+    // from every counted photon, not only the few drawn
+    const gs = mc.gate(gate), md = v => (isFinite(v) ? (v * 10).toFixed(1) + ' mm' : '–');
     ui.readouts($('tofReadouts'), [
-      ['Mean time of flight', mc.detected ? (mc.wL / mc.wDet / NIRS.C_TISSUE).toFixed(2) + ' ns' : '–'],
-      ['Photons after the gate', (100 * lateW / tot).toFixed(0) + '%'],
-      ['Deepest point, early photons', md(early)], ['Deepest point, late photons', md(late)]
+      ['Mean time of flight', mc.nDet ? (mc.wL / mc.wDet / NIRS.C_TISSUE).toFixed(2) + ' ns' : '–'],
+      ['Photons after the gate', mc.nDet ? (100 * gs.lateShare).toFixed(0) + '%' : '–'],
+      ['Deepest point, early photons', md(gs.earlyDepth)], ['Deepest point, late photons', md(gs.lateDepth)]
     ]);
   }
 

@@ -228,7 +228,7 @@
     <!-- Status Banner -->
     <div class="banner" id="banner">
       <span id="bannerText"><strong>18F-FDG Glucose Metabolism:</strong> Trapped intracellularly after phosphorylation by hexokinase (<i>k</i><sub>4</sub> = 0). Linear Patlak slope measures net influx rate (<i>K</i><sub>i</sub>).</span>
-      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Net Influx K<sub>i</sub> = 0.035 mL/min/g &middot; CMR<sub>glu</sub> = 29.2 &mu;mol/min/100g</span>
+      <span id="bannerSub" style="font-size: 0.78rem; opacity: 0.85;">Net Influx <i>K</i><sub>i</sub> = 0.035 mL/min/g &middot; CMR<sub>glu</sub> = 26.8 &mu;mol/100g/min</span>
     </div>
 
     <!-- Dual Canvases -->
@@ -264,7 +264,7 @@
       </div>
       <div class="readout-card">
         <div class="readout-label">CMR<sub>glu</sub> (Glucose Rate)</div>
-        <div class="readout-val" id="dispCMR">29.2 &mu;mol/100g/min</div>
+        <div class="readout-val" id="dispCMR">26.8 &mu;mol/100g/min</div>
       </div>
       <div class="readout-card">
         <div class="readout-label">Distribution Volume (<i>V</i><sub>T</sub>)</div>
@@ -279,6 +279,7 @@
         <div class="readout-val" id="dispK3K4">&infin; (Irreversible)</div>
       </div>
     </div>
+    <p class="note" id="kiNote" hidden>With <i>k</i><sub>4</sub> &gt; 0 the tracer leaves the bound compartment again, so nothing is trapped and there is no steady net influx. <i>K</i><sub>i</sub> = <i>K</i><sub>1</sub><i>k</i><sub>3</sub>/(<i>k</i><sub>2</sub>+<i>k</i><sub>3</sub>) and the CMR<sub>glu</sub> built from it only hold for an irreversible tracer (<i>k</i><sub>4</sub> = 0), so they are not shown. The Patlak plot bends down instead of becoming a straight line, and its slope underestimates <i>K</i><sub>1</sub><i>k</i><sub>3</sub>/(<i>k</i><sub>2</sub>+<i>k</i><sub>3</sub>). Use <i>V</i><sub>T</sub> and the Logan plot.</p>
 
     <!-- Parameter Sliders -->
     <div class="controls-grid">
@@ -420,15 +421,35 @@ function runSimulation() {
   renderGraphCanvas();
 }
 
-function updateMetrics() {
-  const Ki = (K1 * k3) / Math.max(1e-5, k2 + k3);
-  document.getElementById('dispKi').textContent = Ki.toFixed(3);
+// k4 above this counts as reversible (the k4 slider steps by 0.002)
+const K4_REVERSIBLE = 0.0005;
 
+function updateMetrics() {
+  // Ki = K1 k3 / (k2 + k3) is the net influx only when the tracer is trapped (k4 = 0).
+  // With k4 > 0 it leaves the bound pool again, there is no steady net influx, and
+  // neither Ki nor the CMRglu built from it means anything.
+  const reversible = k4 > K4_REVERSIBLE;
+  const Ki = (K1 * k3) / Math.max(1e-5, k2 + k3);
   // CMRglu = (Ki * plasmaGluc / LC) * 100 g conversion (~umol/100g/min)
   const cmr = (Ki * plasmaGluc * 100.0) / LC;
-  document.getElementById('dispCMR').innerHTML = cmr.toFixed(1) + ' &mu;mol/100g/min';
+  const bannerSub = document.getElementById('bannerSub');
+  document.getElementById('kiNote').hidden = !reversible;
+  if (reversible) {
+    document.getElementById('dispKi').textContent = '— (k4 > 0)';
+    document.getElementById('dispCMR').textContent = '— (k4 > 0)';
+  } else {
+    document.getElementById('dispKi').textContent = Ki.toFixed(3);
+    document.getElementById('dispCMR').innerHTML = cmr.toFixed(1) + ' &mu;mol/100g/min';
+  }
 
-  if (k4 > 0.0005) {
+  if (reversible) {
+    const VT = (K1 / k2) * (1.0 + k3 / k4);
+    bannerSub.innerHTML = 'Reversible: <i>V</i><sub>T</sub> = ' + VT.toFixed(2) + ' &middot; <i>BP</i><sub>ND</sub> = ' + (k3 / k4).toFixed(2);
+  } else {
+    bannerSub.innerHTML = 'Net Influx <i>K</i><sub>i</sub> = ' + Ki.toFixed(3) + ' mL/min/g &middot; CMR<sub>glu</sub> = ' + cmr.toFixed(1) + ' &mu;mol/100g/min';
+  }
+
+  if (reversible) {
     const VT = (K1 / k2) * (1.0 + k3 / k4);
     const BPnd = k3 / k4;
     document.getElementById('dispVT').textContent = VT.toFixed(2);
@@ -628,9 +649,10 @@ function renderGraphCanvas() {
     // Slope Badge on plot
     ctxGraph.font = 'bold 11px ui-monospace, monospace';
     ctxGraph.fillStyle = '#f87171';
+    const reversible = k4 > K4_REVERSIBLE;
     const slopeText = activePlot === 'patlak'
-      ? `Slope (Ki) = ${slope.toFixed(3)} mL/min/g`
-      : `Slope (VT) = ${slope.toFixed(2)}`;
+      ? (reversible ? `Slope = ${slope.toFixed(3)} (not Ki: k4 > 0)` : `Slope (Ki) = ${slope.toFixed(3)} mL/min/g`)
+      : (reversible ? `Slope (VT) = ${slope.toFixed(2)}` : `Slope = ${slope.toFixed(2)} (VT is infinite: k4 = 0)`);
     ctxGraph.fillText(slopeText, padLeft + 14, padTop + 18);
   }
 }
@@ -638,7 +660,8 @@ function renderGraphCanvas() {
 // --- Presets ---
 function setPreset(p) {
   document.querySelectorAll('.preset-bar button').forEach(b => {
-    if (b.id !== 'btnPlotPatlak' && b.id !== 'btnPlotLogan') b.classList.remove('active');
+    // Un-highlight every preset (a button with neither class would keep the accent colour)
+    if (b.id !== 'btnPlotPatlak' && b.id !== 'btnPlotLogan') { b.classList.remove('active'); b.classList.add('secondary'); }
   });
   const bannerText = document.getElementById('bannerText');
 

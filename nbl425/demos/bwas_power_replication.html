@@ -269,9 +269,9 @@
             <span>Sample Size per Cohort (N)</span>
             <span class="ctrl-val" id="nVal">35</span>
           </div>
-          <input type="range" id="nSlider" min="20" max="3000" step="20" value="35">
+          <input type="range" id="nSlider" min="20" max="3000" step="5" value="35">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-top:2px;">
-            <span>N = 25 (Historical)</span>
+            <span>N = 20 (Historical)</span>
             <span>N = 3,000 (Biobank)</span>
           </div>
         </div>
@@ -296,7 +296,7 @@
         <div style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;line-height:1.45;">
           <strong>Interactive Takeaway:</strong>
           <p style="margin:4px 0 0;color:var(--muted);">
-            Set \(N = 35\) and run the Monte Carlo audit. Notice how the few studies that reach \(p < 0.05\) report \(r \approx 0.45\) (a 4.5&times; inflation of the true \(r = 0.10\) effect), and replication rate is under 15%. Now increase \(N \ge 2,000\) to see inflation disappear and replication climb above 90%.
+            Set \(N = 35\) and run the Monte Carlo audit. Notice how the few studies that reach \(p < 0.05\) report \(|r| \approx 0.40\) (about a 4&times; inflation of the true \(r = 0.10\) effect), and replication rate is under 15%. Now increase \(N \ge 2,000\) to see inflation disappear and replication climb above 90%.
           </p>
         </div>
       </div>
@@ -313,7 +313,7 @@
       </div>
       <div>
         <strong>2. The Mechanism of the Winner's Curse:</strong>
-        <p>When an underpowered study (\(N = 30\)) searches for a small effect (\(r = 0.10\)), statistical power is typically below 8%. For an observed estimate to clear the conventional two-tailed threshold of \(p < 0.05\), it requires \(|r_{\text{obs}}| > 0.33\). Thus, the only studies that get published are those where thermal noise, sampling variability, and chance alignment happen to align in the same direction, generating massive effect size inflation.</p>
+        <p>When an underpowered study (\(N = 35\)) searches for a small effect (\(r = 0.10\)), statistical power is under 10%. For an observed estimate to clear the conventional two-tailed threshold of \(p < 0.05\), it requires \(|r_{\text{obs}}| > 0.33\). Thus, the only studies that get published are those where thermal noise, sampling variability, and chance alignment happen to align in the same direction, generating massive effect size inflation.</p>
       </div>
       <div>
         <strong>3. The Replication Crisis &amp; Sample Size Scaling:</strong>
@@ -409,32 +409,61 @@
     }
     const sampleR = (denX > 0 && denY > 0) ? (num / Math.sqrt(denX * denY)) : 0;
 
-    // Two-tailed p-value via Student's t approximation: t = r * sqrt(df / (1 - r^2))
+    // Two-tailed p-value from Student's t with df = N - 2: t = r * sqrt(df / (1 - r^2))
     const df = numPts - 2;
-    const tStat = Math.abs(sampleR) * Math.sqrt(df / Math.max(1e-6, 1 - sampleR * sampleR));
-    // Normal approximation for p-value
-    const pVal = 2 * (1 - normalCdf(tStat));
+    const tStat = Math.abs(sampleR) * Math.sqrt(df / Math.max(1e-12, 1 - sampleR * sampleR));
+    const pVal = tTwoTailedP(tStat, df);
 
     return { x, y, r: sampleR, p: pVal };
   }
 
-  function normalCdf(x) {
-    // Abramowitz and Stegun approximation
-    const b1 = 0.319381530;
-    const b2 = -0.356563782;
-    const b3 = 1.781477937;
-    const b4 = -1.821255978;
-    const b5 = 1.330274429;
-    const p = 0.2316419;
-    const c = 0.39894228;
+  // Two-tailed p for Student's t: P(|T| > t) = I_x(df/2, 1/2) with x = df / (df + t^2),
+  // the regularized incomplete beta function. Exact for the correlation test, so a true
+  // null rejects 5% of the time at any N (a normal approximation rejects more at small N).
+  function tTwoTailedP(t, df) {
+    if (!isFinite(t)) return 0;
+    return incBeta(df / (df + t * t), df / 2, 0.5);
+  }
 
-    if (x >= 0.0) {
-      const t = 1.0 / (1.0 + p * x);
-      return 1.0 - c * Math.exp(-x * x / 2.0) * t * (t * (t * (t * (t * b5 + b4) + b3) + b2) + b1);
-    } else {
-      const t = 1.0 / (1.0 - p * x);
-      return c * Math.exp(-x * x / 2.0) * t * (t * (t * (t * (t * b5 + b4) + b3) + b2) + b1);
+  function lnGamma(z) {
+    // Lanczos approximation (g = 7, n = 9)
+    const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+      -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lnGamma(1 - z);
+    z -= 1;
+    let x = c[0];
+    for (let i = 1; i < 9; i++) x += c[i] / (z + i);
+    const t = z + 7.5;
+    return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+  }
+
+  // Regularized incomplete beta I_x(a, b), by Lentz's continued fraction
+  function incBeta(x, a, b) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const front = Math.exp(lnGamma(a + b) - lnGamma(a) - lnGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    if (x > (a + 1) / (a + b + 2)) return 1 - incBetaCF(1 - x, b, a, front) ;
+    return incBetaCF(x, a, b, front);
+  }
+  function incBetaCF(x, a, b, front) {
+    const TINY = 1e-300;
+    let f = 1, c = 1, d = 1 - (a + b) * x / (a + 1);
+    if (Math.abs(d) < TINY) d = TINY;
+    d = 1 / d; f = d;
+    for (let m = 1; m <= 300; m++) {
+      let num = m * (b - m) * x / ((a + 2 * m - 1) * (a + 2 * m));
+      d = 1 + num * d; if (Math.abs(d) < TINY) d = TINY;
+      c = 1 + num / c; if (Math.abs(c) < TINY) c = TINY;
+      d = 1 / d; f *= d * c;
+      num = -(a + m) * (a + b + m) * x / ((a + 2 * m) * (a + 2 * m + 1));
+      d = 1 + num * d; if (Math.abs(d) < TINY) d = TINY;
+      c = 1 + num / c; if (Math.abs(c) < TINY) c = TINY;
+      d = 1 / d;
+      const delta = d * c;
+      f *= delta;
+      if (Math.abs(delta - 1) < 1e-12) break;
     }
+    return front * f / a;
   }
 
   // Resample single pair of Discovery & Replication cohorts
@@ -654,23 +683,35 @@
     hCtx.restore();
   }
 
+  // The 1,000-study audit takes up to a second at large N, so while a slider is moving
+  // only the single study pair is redrawn; the audit runs once the slider rests.
+  let auditTimer = null;
+  function scheduleAudit() {
+    clearTimeout(auditTimer);
+    for (const el of [metricPower, metricInflated, metricFactor, metricRepRate]) {
+      el.innerText = '\u2026';
+      el.style.color = '';
+    }
+    auditTimer = setTimeout(() => { auditTimer = null; runMonteCarloAudit(); }, 250);
+  }
+
   // Sliders
   nSlider.addEventListener('input', (e) => {
     N = parseInt(e.target.value, 10);
     nVal.innerText = N;
     resampleSingleStudy();
-    runMonteCarloAudit();
+    scheduleAudit();
   });
 
   rTrueSlider.addEventListener('input', (e) => {
     rTrue = parseFloat(e.target.value);
     rTrueVal.innerText = rTrue.toFixed(2);
     resampleSingleStudy();
-    runMonteCarloAudit();
+    scheduleAudit();
   });
 
   btnResample.addEventListener('click', resampleSingleStudy);
-  btnAudit.addEventListener('click', runMonteCarloAudit);
+  btnAudit.addEventListener('click', () => { clearTimeout(auditTimer); auditTimer = null; runMonteCarloAudit(); });
 
   window.addEventListener('resize', () => {
     resampleSingleStudy();

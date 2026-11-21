@@ -223,7 +223,12 @@
       });
       $('btnWriteBack').addEventListener('click', () => {
         const ed = $('editor');
-        ed.value = EEG.dsl.serialize(S.cfg, (EEG.EXAMPLES[S.exIndex] || {}).name + ', edited on the Sources tab');
+        // Name the program that is running: an example only if its text still is one,
+        // or the name an earlier write-back put in its first line
+        const ex = EEG.EXAMPLES.find(e => e.src.trim() === (S.src || '').trim());
+        const prev = /^# (.+), edited on the Sources tab$/.exec((S.src || '').split('\n')[0].trim());
+        const name = ex ? ex.name : prev ? prev[1] : null;
+        ed.value = EEG.dsl.serialize(S.cfg, name ? name + ', edited on the Sources tab' : 'Program edited on the Sources tab');
         ed.dispatchEvent(new Event('input'));
         S.src = ed.value;
         $('srcNote').textContent = 'The program on the Experiment tab now matches these settings (its comments were not kept).';

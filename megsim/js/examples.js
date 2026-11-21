@@ -251,7 +251,7 @@ analysis { highpass 1 Hz  lowpass 70 Hz  notch 60 Hz }
     },
     {
       name: 'Noise zoo',
-      desc: 'Every source of trouble at once: environment, line, heart, eyes, muscle, dental work, flux jumps, a noisy channel and a moving head. Switch the noise rejection on step by step on the Noise tab, then run ICA.',
+      desc: 'Every source of trouble at once: environment, line, heart, eyes, muscle, dental work, flux jumps, a noisy channel and a moving head. Switch the noise rejection on step by step on the Noise tab, then run ICA (with the dental work switched off: the Guide explains why).',
       src: `# Everything that goes wrong, with all noise rejection switched off.
 recording {
   sensors magnetometers

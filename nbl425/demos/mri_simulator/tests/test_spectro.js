@@ -188,6 +188,49 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
     // A degraded shim spreads water over many Hz and part of it escapes the narrow CHESS band.
     const dBad = sim(FIDWS, braino, art({ b0: { susceptibility: 1, shim: 1 } }));
     ok(dBad.info.waterSuppression < d1.info.waterSuppression / 3, 'poor shim spoils water suppression: ' + dBad.info.waterSuppression);
+    // Past the best second flip the residual water is inverted. Auto phase must keep the
+    // metabolites upright (and show the water negative), not phase the water upright.
+    for (const flip of [124, 150, 180]) {
+        const src = MRI.presets.get('fid_ws').source.replace('rf 100 water dur 20 ms', 'rf ' + flip + ' water dur 20 ms');
+        const pr = MRI.dsl.compile(src, {});
+        if (!pr.ok) throw new Error('CHESS ' + flip + ' does not compile');
+        const dd = sim(pr, braino, art());
+        ok(dd.info.relativeSignal.water < 0, 'CHESS 2 at ' + flip + ' deg leaves water inverted (Mz ' + dd.info.relativeSignal.water.toFixed(3) + ')');
+        const sp = proc(dd), naa = peak(sp, 'NAA');
+        ok(naa && naa.height > 0, 'CHESS 2 at ' + flip + ' deg: NAA found and upright (' + (naa && naa.height) + ')');
+        if (naa) near(naa.height / peak(s1, 'NAA').height, 1, 0.1, 'CHESS 2 at ' + flip + ' deg: NAA height unchanged');
+        const k = sp.ppm.reduce((b, v, i) => Math.abs(v - 4.7) < Math.abs(sp.ppm[b] - 4.7) ? i : b, 0);
+        ok(sp.re[k] < 0, 'CHESS 2 at ' + flip + ' deg: the water residual shows negative (' + sp.re[k].toFixed(4) + ')');
+        const w = peak(sp, 'water');
+        if (flip >= 150) ok(w && w.height < 0 && w.inverted === true, 'CHESS 2 at ' + flip + ' deg: the peak table reports water as inverted, height ' + (w && w.height));
+    }
+    // Cases the first version of this rule got wrong (all at the default CHESS 100 deg,
+    // where nothing is inverted): an acquisition delay, hand shimming, broad lines.
+    const ZEROC = { z0: 0, x: 0, y: 0, xy: 0, x2y2: 0, z2: 0 };
+    for (const [label, ph, ov, b0] of [
+        ['delay 1 ms', braino, { delay: 0.001 }, { susceptibility: 1, shim: 0 }],
+        ['delay 2 ms, brain', phantom('brain'), { delay: 0.002 }, { susceptibility: 1, shim: 0 }],
+        ['unshimmed, Z2 -20 Hz', braino, null, { susceptibility: 1, shim: 1, shimCoeffs: Object.assign({}, ZEROC, { z2: -20 }) }]]) {
+        const pr = compile('fid_ws', ov || {});
+        const ar = art({ b0: b0 }), dd = sim(pr, ph, ar);
+        const fresh = proc(dd), ph0 = fresh.phase.ph0;
+        ok(Math.abs(ph0) < 90, 'CHESS 100 deg, ' + label + ': spectrum not turned over (ph0 ' + ph0.toFixed(1) + ')');
+        ok(!peak(fresh, 'water').inverted, 'CHESS 100 deg, ' + label + ': water not called inverted');
+    }
+    // An inverted line drags the local baseline down; the water row must still read it as inverted.
+    {
+        const src = MRI.presets.get('fid_ws').source.replace('rf 100 water dur 20 ms', 'rf 150 water dur 20 ms');
+        const pr = MRI.dsl.compile(src, { overrides: { NP: 256 } });
+        const w = peak(proc(sim(pr, braino, art({ noise: 0 }))), 'water');
+        ok(w.inverted === true && w.height < 0, 'CHESS 150 deg, NP 256: water reported inverted (' + w.height + ')');
+        for (const seed of [2, 5, 7, 13]) {
+            const ws = peak(proc(sim(MRI.dsl.compile(src, {}), braino, art(), seed)), 'water');
+            ok(ws.inverted === true && ws.height < 0, 'CHESS 150 deg, seed ' + seed + ': water reported inverted (' + ws.height + ')');
+        }
+    }
+    // Unsuppressed and normally suppressed spectra are not turned over.
+    ok(peak(s0, 'water').height > 0 && !peak(s0, 'water').inverted && peak(s1, 'water').height > 0, 'fid and fid_ws report an upright water line');
+    ok(Math.abs(s0.phase.ph0) < 90 && Math.abs(s1.phase.ph0) < 90, 'fid and fid_ws keep ph0 near 0 (' + s0.phase.ph0.toFixed(1) + ', ' + s1.phase.ph0.toFixed(1) + ')');
 }
 
 /* ---------- 5. Shim: lines broaden when the shim is degraded ---------- */
@@ -596,6 +639,32 @@ const FID = compile('fid'), FIDWS = compile('fid_ws');
     S.process(d, S.defaults);
     ok(Date.now() - t < 50, 'process under 50 ms: ' + (Date.now() - t) + ' ms');
     console.log('  timing: braino fid ' + warm.toFixed(0) + ' ms (cold ' + cold + ' ms), brain fid_ws shim 1 ' + tb + ' ms');
+}
+
+{
+    /* Peaks are measured on a grid of 2 Hz or finer, whatever the plotted
+       zero filling. At NP 256 (64 ms) Cho and Cr, 22 Hz apart, are resolved,
+       but on the 7.8 Hz grid of zero filling x2 the 15 Hz Cho and Cr windows
+       hold two points each, and the table used to call both unresolved
+       ("no maximum inside the window") while x4 found them. */
+    const p256 = compile('fid_ws', { NP: 256 });
+    const d = sim(p256, braino, art(), 1);
+    const ref = proc(d, { lb: 1, zf: 8 });
+    for (const zf of [1, 2, 4]) {
+        const sp = proc(d, { lb: 1, zf: zf });
+        ok(sp.n === 256 * zf && sp.ppm.length === 256 * zf, 'NP 256, zf ' + zf + ': the plotted spectrum keeps the chosen grid');
+        for (const id of ['Cho', 'Cr', 'NAA', 'Cr2', 'mI']) {
+            const a = peak(sp, id), b = peak(ref, id);
+            ok(a.resolved && b.resolved, 'NP 256, zf ' + zf + ': ' + id + ' resolved (' + a.reason + ')');
+            if (a.resolved && b.resolved) near(a.height / b.height, 1, 0.01, 'NP 256, zf ' + zf + ': ' + id + ' height as at zf 8');
+        }
+        near(sp.metrics.noiseSd / ref.metrics.noiseSd, 1, 1e-3, 'NP 256, zf ' + zf + ': the same noise SD (original grid points; autophasing from a coarser grid differs by a hair)');
+        ok(sp.notes.some(t => /^The peak table measures the spectrum on a 1\.95 Hz grid \(zero filling ×8\)/.test(t)), 'NP 256, zf ' + zf + ': a note says the table uses a finer grid');
+        ok(sp.notes.some(t => /Zero filling adds no information/.test(t)) && !sp.notes.some(t => /Only the acquisition time/.test(t)), 'NP 256, zf ' + zf + ': the note claims no more than it does');
+    }
+    ok(!ref.notes.some(t => /The peak table measures/.test(t)), 'zf 8 (1.95 Hz) is fine enough: no note');
+    const def = proc(sim(FIDWS, braino, art(), 1));
+    ok(!def.notes.some(t => /The peak table measures/.test(t)) && def.n === 4096, 'defaults (NP 2048, zf 2, 0.98 Hz): measured on the plotted grid, no note');
 }
 
 summary('spectro');

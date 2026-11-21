@@ -102,6 +102,57 @@ const longs = ds => ds.chans.filter(c => !c.short);
   let pk = 0; for (let k = 1; k < w.p.length; k++) if (w.f[k] > 0.15 && w.f[k] < 0.5 && w.p[k] > w.p[pk]) pk = k;
   near(w.f[pk], 0.2, 0.03, 'the 72 bpm heartbeat folds down to 0.2 Hz');
 }
+// 7b. the coupling index needs only the heartbeat inside its band, not 5 Hz
+{
+  const tap = src('Finger tapping, block design');
+  const at3 = record(tap.replace('rate 10 Hz', 'rate 3 Hz').replace('analysis {', 'artifacts { poor D1 2% }\n\nanalysis {'));
+  ok(NIRS.dsp.sciBand(at3.ds).ok && at3.res.quality.every(q => isFinite(q.sci)), 'at 3 Hz the 72 bpm heartbeat is resolved and the SCI is computed');
+  const d1 = NIRS.channelsOfOptode(at3.ds, 'D1');
+  ok(d1.every(i => at3.res.bad.has(i)) && longs(at3.ds).every(c => d1.includes(c.index) || !at3.res.bad.has(c.index)), 'and it still rejects the poorly coupled D1 and nothing else');
+  const at25 = record(tap.replace('rate 10 Hz', 'rate 2.5 Hz')), band = NIRS.dsp.sciBand(at25.ds);
+  ok(!band.ok && /Nyquist/.test(band.why) && at25.res.quality.every(q => !isFinite(q.sci)), 'at 2.5 Hz it is not, and the reason says so');
+}
+// 7c. partial volume: one definition, the share of the true path, on the Head and Beer-Lambert tabs
+{
+  const R = record(src('Finger tapping, block design')), ds = R.ds, c = ds.chans.find(x => x.label === 'S3-D1'), q = c.per[ds.nL - 1];
+  const hb = ds.regionHb[ds.regions[0].id]; let pk = 0, ipk = 0; hb.hbo.forEach((v, i) => { if (v > pk) { pk = v; ipk = i; } });
+  const I = NIRS.assemble(ds, { enabled: new Set(ds.groups.filter(g => g.kind === 'brain').map(g => g.id)), noise: false }).I[c.index];
+  const odRest = I.map(x => Float64Array.of(-Math.log10(x[ipk] / x[0])));
+  const share = q.La[0] / q.L;
+  const truePath = NIRS.dsp.mbll(odRest, ds.lambdas, c.rho, c.per.map(p => p.dpf)).hbo[0];
+  near(pk / truePath * share, 1, 0.05, 'with the true DPF the law shrinks the local change by one over the share of the path');
+  const dpf = NIRS.dsp.dpfValues(ds, R.P, c), used = NIRS.dsp.mbll(odRest, ds.lambdas, c.rho, dpf).hbo[0];
+  near(pk / used * share * (q.L / (c.rho * dpf[ds.nL - 1])), 1, 0.05, 'and with the DPF in use, by that times the DPF error');
+  // the Beer-Lambert tab builds that optical density from the region's own term (path inside it times the true extinction)
+  const regionOD = (D, ch, h, i) => D.lambdas.map((_, l) => Float64Array.of(1e-6 * ch.per[l].La[0] * (D.extTrue[l][0] * (h.hbo[i] - h.hbo[0]) + D.extTrue[l][1] * (h.hbr[i] - h.hbr[0]))));
+  const own = regionOD(ds, c, hb, ipk);
+  ok(own.every((v, l) => Math.abs(v[0] / odRest[l][0] - 1) < 1e-6), 'with one region its own term equals the light of the whole cortex');
+  // with two regions a channel that sees only the second one must not count its light
+  const Q = record(src('Resting-state connectivity pair')), qd = Q.ds, h0 = qd.regionHb[qd.regions[0].id];
+  let qi = 0; h0.hbo.forEach((v, i) => { if (v > h0.hbo[qi]) qi = i; });
+  const blind = qd.chans.find(x => !x.short && x.per[qd.nL - 1].La[0] === 0 && x.per[qd.nL - 1].La[1] > 0.1);
+  const Iq = NIRS.assemble(qd, { enabled: new Set(qd.groups.filter(g => g.kind === 'brain').map(g => g.id)), noise: false }).I[blind.index];
+  ok(Math.abs(Math.log10(Iq[qd.nL - 1][qi] / Iq[qd.nL - 1][0])) > 1e-5 && regionOD(qd, blind, h0, qi).every(v => v[0] === 0),
+    `${blind.label} sees only the second region of the pair: the cortex's light changes there, the first region's term is zero`);
+}
+// 7d. the GLM lesson: OLS inflation is plain with short-channel regression off, small with it on
+{
+  const R = record(src('Event-related: right vs left hand'));
+  const count = (short, noise) => {
+    const P = Object.assign({}, R.P, { short, noise }), res = NIRS.pipeline.run(R.ds, R.rec, P), g = NIRS.pipeline.glm(R.ds, res, P);
+    const tr = NIRS.pipeline.truth(R.ds, P), L = longs(R.ds), alpha = 0.05 / (2 * L.length);
+    let fp = 0;
+    L.forEach(c => {
+      if (Math.abs(peak(tr.avg[0][c.index].mHbo.mean)) > 0.003) return;
+      const o = g[c.index].hbo, r = g[c.index].hbr;
+      fp += (NIRS.tToP(o.t[0], o.df) < alpha && o.t[0] > 0) + (NIRS.tToP(r.t[0], r.df) < alpha && r.t[0] < 0);
+    });
+    return fp;
+  };
+  const olsOff = count('off', 'ols'), arOff = count('off', 'ar'), olsOn = count('nearest', 'ols'), arOn = count('nearest', 'ar');
+  ok(olsOff >= 6 && arOff === 0, `short channels off: OLS marks ${olsOff} tests significant in channels that see no cortex, AR ${arOff}`);
+  ok(olsOn === 0 && arOn === 0, 'short channels on: neither does');
+}
 // 8. connectivity: systemic physiology correlates everything; short channels reveal the pair
 {
   const R = record(src('Resting-state connectivity pair'));
@@ -130,5 +181,14 @@ const longs = ds => ds.chans.filter(c => !c.short);
   ok(hd.lat < 0.4 && hd.z > 1.0, `HD-DOT finds the target within ${(hd.lat * 10).toFixed(0)} mm sideways, ${(hd.z * 10).toFixed(0)} mm deep (true 16)`);
   ok(sp.lat > hd.lat, 'a sparse array localizes worse');
   ok(nn.z < 0.6, 'nearest-neighbour channels alone put it at the surface');
+  // two targets: resolved only when the image puts them at their depth with a dip between them
+  const two = (arr, sep) => {
+    const M = NIRS.dotModel('adult', 850, arr), tg = [0, sep].map(dx => ({ x: 0.7 + dx, y: -0.4, z: 1.6, r: 0.5, dmua: 0.02 }));
+    const x = NIRS.dotTarget(M, tg), y = NIRS.dotForward(M, x, 0), ym = Math.max(...y.map(Math.abs));
+    return NIRS.dotResolved(M, NIRS.dotReconstruct(M, NIRS.dotForward(M, x, 0.02 * ym, 11), 0.01, 0.5), tg);
+  };
+  const nn14 = two('hdshort', 1.4), hd14 = two('hd', 1.4), hd25 = two('hd', 2.5);
+  ok(!nn14.ok && nn14.wrongDepth, 'nearest neighbours do not "resolve" targets 14 mm apart: their image sits at the surface');
+  ok(!hd14.ok && hd25.ok, 'the full array merges targets 14 mm apart and resolves them at 25 mm');
 }
 summary('lessons');

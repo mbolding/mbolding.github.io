@@ -80,4 +80,18 @@ const ms = mc.stats(), pd = NIRS.pathlengths(sol, 1.5);
 ok(ms.detected >= 400, `Monte Carlo detected ${ms.detected} photons`);
 near(ms.dpf / pd.dpf, 1, 0.15, 'Monte Carlo DPF matches diffusion within 15%');
 near(ms.layerL[0] / pd.layers[0], 1, 0.2, 'Monte Carlo scalp pathlength matches diffusion within 20%');
+
+// with a budget the photon readouts settle, and to the same values whatever the frame timing
+{
+  const mk = () => new NIRS.MC(ol, { rho: 1.5, aperture: 0.2, seed: 5, budget: 20000 });
+  const feed = (m, chunk, upTo) => { while (m.launched < upTo) for (let i = 0; i < chunk; i++) { m.launched++; m.photon(); } };
+  const a = mk(), b = mk();
+  feed(a, 100, 20000); const sa = a.stats(), ga = a.gate(0.4);
+  feed(a, 100, 26000); feed(b, 700, 26000);
+  const sa2 = a.stats(), sb = b.stats();
+  ok(sa2.done && sa2.launched === 20000, 'the budget caps the photons counted');
+  ok(sa2.detected === sa.detected && sa2.dpf === sa.dpf && a.gate(0.4).lateDepth === ga.lateDepth, 'photons after the budget change no readout');
+  ok(sb.detected === sa.detected && sb.dpf === sa.dpf && b.gate(0.4).earlyDepth === ga.earlyDepth, 'the same seed and budget give the same readouts in any chunks');
+  ok(a.detected.length > 0 && ga.lateDepth > ga.earlyDepth, 'late photons reach deeper than early ones');
+}
 summary('optics');

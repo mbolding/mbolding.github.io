@@ -202,6 +202,8 @@ body.over .views canvas { outline: 2px dashed var(--link); outline-offset: 3px; 
       <button type="button" data-show="real">Real part</button>
       <button type="button" data-show="diff">Difference</button>
     </div>
+    <div class="row"><button type="button" id="reset">Reset to defaults</button></div>
+    <p class="note">This browser remembers the sampling, brush, view and size you last used. Reset puts everything back as a first visit has it.</p>
   </div>
 </div>
 
@@ -244,7 +246,8 @@ const TOOL_NOTES = {
     spike: 'Click to add one bad data point, as a static discharge in the scanner room would.',
     wave: 'Click a point to see the single wave it stands for, in the real part.',
 };
-const S = { mask: 'full', amounts: {}, noise: 0, motion: 0, brush: 8, tool: 'erase', show: 'mag', size: 256 };
+const DEFAULTS = { mask: 'full', noise: 0, motion: 0, brush: 8, tool: 'erase', show: 'mag', size: 256 };
+const S = Object.assign({ amounts: {} }, DEFAULTS);
 for (const k in AMOUNTS) S.amounts[k] = AMOUNTS[k].def;
 try {
     const saved = JSON.parse(localStorage.getItem('kspace') || '{}');
@@ -373,16 +376,27 @@ function buildMask() {
         case 'edges': { const r = a / 100 * h; set((kx, ky) => kx * kx + ky * ky > r * r); break; }
         case 'truncate': { const w = a / 100 * h; set((kx, ky) => Math.abs(kx) <= w && Math.abs(ky) <= w); break; }
         case 'lines': set((kx, ky) => ((ky % a) + a) % a === 0); break;
-        case 'partial': { const top = -h + a / 100 * n; set((kx, ky) => ky < top); break; }
+        case 'partial': {
+            // The first a% of the lines, but never fewer than reach the centre line:
+            // without ky = 0 there is nothing to fill the missing half from.
+            const kept = Math.max(Math.ceil(a / 100 * n - 1e-9), h + 1);
+            set((kx, ky) => ky < -h + kept);
+            break;
+        }
         case 'random': {
-            // Keep each line with a probability that falls away from the centre, scaled to
-            // the fraction asked for; the centre few lines are always kept.
-            const r = rng(11), want = a / 100, p = [];
-            for (let y = 0; y < n; y++) p.push(Math.exp(-Math.pow((y - h) / (0.28 * n), 2)));
-            let lo = 0, hi = 50;
-            for (let it = 0; it < 40; it++) { const m = (lo + hi) / 2; const got = p.reduce((s, v) => s + Math.min(1, v * m), 0) / n; got < want ? lo = m : hi = m; }
-            const keep = p.map(v => r() < Math.min(1, v * hi));
-            for (let y = 0; y < n; y++) if (Math.abs(y - h) < Math.max(2, n * 0.02)) keep[y] = true;
+            // Keep exactly the fraction of lines asked for. The centre few lines are always
+            // kept; the rest are drawn without replacement, each line weighted by a
+            // probability that falls away from the centre (larger u^(1/p) wins).
+            const r = rng(11), want = Math.round(a / 100 * n), keep = new Array(n).fill(false);
+            let count = 0;
+            for (let y = 0; y < n; y++) if (Math.abs(y - h) < Math.max(2, n * 0.02)) { keep[y] = true; count++; }
+            const order = [];
+            for (let y = 0; y < n; y++) {
+                const p = Math.exp(-Math.pow((y - h) / (0.28 * n), 2)), u = r();
+                if (!keep[y]) order.push({ y, key: Math.log(u || 1e-12) / p });
+            }
+            order.sort((A, B) => B.key - A.key);
+            for (let i = 0; i < order.length && count < want; i++, count++) keep[order[i].y] = true;
             set((kx, ky) => keep[ky + h]);
             break;
         }
@@ -584,6 +598,14 @@ for (const k of ['noise', 'motion']) {
 }
 $('clear').addEventListener('click', () => { spikes = []; wave = null; buildMask(); marks(); update(); });
 $('phantom').addEventListener('click', () => { source = null; load(); marks(); });
+$('reset').addEventListener('click', () => {
+    try { localStorage.removeItem('kspace'); } catch (e) {}
+    Object.assign(S, DEFAULTS);
+    for (const k in AMOUNTS) S.amounts[k] = AMOUNTS[k].def;
+    $('brush').value = S.brush; $('noise').value = S.noise; $('motion').value = S.motion;
+    source = null; wave = null; $('k-info').textContent = '';
+    load(); marks();
+});
 $('choose').addEventListener('click', () => $('file').click());
 $('file').addEventListener('change', () => { const f = $('file').files[0]; if (f) openPicture(f); $('file').value = ''; });
 

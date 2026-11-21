@@ -204,6 +204,7 @@
             '#tab-sinogram table.sg-counts tbody th { font-weight: 600; }',
             '#tab-sinogram table.sg-counts .sg-expl { display: block; font-weight: 400; color: var(--muted); font-size: 0.78rem; line-height: 1.4; margin-top: 2px; }',
             '#tab-sinogram table.sg-counts .swatch { margin-right: 6px; vertical-align: 0; }',
+            '#tab-sinogram table.sg-counts.is-outdated td.n { opacity: 0.5; }',
             '#tab-sinogram .sg-warn ul { margin: 4px 0 0; padding-left: 18px; }',
             '#tab-sinogram .sg-scroll { overflow-x: auto; }'
         ].join('\n'));
@@ -364,6 +365,7 @@
                 if (S.ringBg === 'image') drawRing();
             });
             ['phantom:changed', 'physics:changed', 'program:compiled'].forEach(function (evt) { PET.bus.on(evt, updateBadges); });
+            PET.bus.on('results:outdated', function () { updateBadges(); invalidate(); });
             PET.bus.on('theme:changed', function () { if (S.visible) { drawRing(); renderProfile(); } });
         }
         S.mounted = true;
@@ -1043,16 +1045,20 @@
             { name: 'Delayed window', f: cnt(delayedSum(F)), t: dyn ? cnt(dTot) : cnt(delayedSum(F)), ex: 'Coincidences with one photon delayed by far more than the window: only randoms can do that, so this measures them (with their own noise).' },
             { name: 'NEC', f: cnt(c.nec), t: cnt(tot.nec), ex: 'Noise-equivalent counts T² / (T + S + R): how many trues alone would give the same noise after scatter and randoms are subtracted.' },
             { name: 'Scatter fraction', f: isFinite(c.sf) ? U.fmtPct(c.sf) : '-', t: allTS > 0 ? U.fmtPct(tot.scatter / allTS) : '-', ex: 'S / (T + S): about 30 to 40 % for a head or a 20 cm cylinder in 3D.' },
-            { name: 'Randoms fraction', f: isFinite(c.rf) ? U.fmtPct(c.rf) : '-', t: all > 0 ? U.fmtPct(tot.randoms / all) : '-', ex: 'R / (T + S + R): rises with the dose and with the width of the timing window.' },
+            { name: 'Randoms fraction', f: isFinite(c.rf) ? U.fmtPct(c.rf) : '-', t: all > 0 ? U.fmtPct(tot.randoms / all) : '-', ex: 'R / (T + S + R): rises with the dose and, with TOF off, with the width of the timing window (with TOF on, only up to about 2.3 ns: randoms outside the TOF bins are dropped).' },
             { name: 'Tail-fit scatter scale', f: isFinite(F.scatterScale) ? F.scatterScale.toFixed(2) : '-',
                 t: dyn ? (isFinite(smin) ? (smin.toFixed(2) + ' to ' + smax.toFixed(2)) : '-') : (isFinite(F.scatterScale) ? F.scatterScale.toFixed(2) : '-'),
                 ex: 'The factor that made the scatter model match (prompts − delayed) in the tails outside the object. Near 1 when the model and the μ map are right.' }
         ];
-        const table = el('table', { class: 'sg-counts' });
+        // Out of date (the protocol does not compile, or Auto re-scan is off): say
+        // so in the table itself, not only in the scan bar.
+        const out = !cur.partial && PET.app && PET.app.resultsOutdated && PET.app.resultsOutdated();
+        if (out) E.counts.appendChild(w.callout(el('div', { text: PET.app.outdatedReason() }), 'warn'));
+        const table = el('table', { class: 'sg-counts' + (out ? ' is-outdated' : '') });
         table.appendChild(el('thead', {}, [el('tr', {}, [
             el('th', { scope: 'col', text: 'Quantity' }),
-            el('th', { scope: 'col', class: 'n', text: dyn ? 'This frame' : 'This scan' }),
-            dyn ? el('th', { scope: 'col', class: 'n', text: 'All frames' }) : null
+            el('th', { scope: 'col', class: 'n', text: out ? (dyn ? 'This frame, last scan (out of date)' : 'Last scan (out of date)') : (dyn ? 'This frame' : 'This scan') }),
+            dyn ? el('th', { scope: 'col', class: 'n', text: out ? 'All frames, last scan' : 'All frames' }) : null
         ])]));
         const body = el('tbody');
         rows.forEach(function (r) {

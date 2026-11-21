@@ -790,6 +790,8 @@
     /* ---------- Notes for the student ---------- */
     const BROAD_HZ = 10;             // water FWHM above which metabolite peaks cannot be measured
     const FOLLOW_PPM = 1.0;          // the largest water offset the peak windows follow (128 Hz at 3 T)
+    const MEASURE_STEP_HZ = 2;       // peaks are measured on a grid at least this fine (section 11)
+    const MEASURE_MAX_POINTS = 65536;
     function buildNotes(o) {
         const notes = [];
         const amp0 = {};
@@ -1191,6 +1193,36 @@
             }
             const v = dftAt(spec.fid.re, spec.fid.im, win, dt, fc);
             ph0 = -(atan2(v.im, v.re) * 180 / PI + ph1 * fc / 1000);
+            /* The tallest line can be upside down. A second CHESS pulse past
+               the best flip leaves the residual water inverted (its net Mz
+               before the excitation, info.waterResidual, is negative), and
+               phasing that line upright turns every metabolite over. Every
+               line shares the receiver phase, so the sign is settled on the
+               lines that cannot be inverted: each non-water component (the
+               metabolites, and lipid, untouched by the water-selective
+               pulses), read at its own tallest point, where its line is far
+               above any baseline offset or water tail. If together they come
+               out negative, ph0 turns by 180 deg: the metabolites read
+               upright and the inverted residual shows as a negative line.
+               Only when the residual is inverted, the lines are not far too
+               broad (beyond about 2.5 x BROAD_HZ the tallest point is a
+               distorted, partly dispersive lobe and no single sign is
+               right), and the lines agree: their real parts together reach
+               at least half their magnitudes, pointing down. */
+            const info = spec.info || {};
+            const narrow = !(info.linewidthHz > 2.5 * BROAD_HZ);
+            if (Number.isFinite(info.waterResidual) && info.waterResidual < 0 && narrow) {
+                let score = 0, size = 0;
+                for (const c of comps) {
+                    if (c.id === 'water') continue;
+                    let kc = 0, mc = -1;
+                    for (let k = 0; k < N; k++) { const m = c.re[k] * c.re[k] + c.im[k] * c.im[k]; if (m > mc) { mc = m; kc = k; } }
+                    const a = (ph0 + ph1 * hz[kc] / 1000) * PI / 180;
+                    score += c.re[kc] * cos(a) - c.im[kc] * sin(a);
+                    size += Math.sqrt(mc);
+                }
+                if (size > 0 && score < -0.5 * size) ph0 += 180;
+            }
             ph0 = ((ph0 % 360) + 540) % 360 - 180;           // wrap to (-180, 180]
         }
         applyPhase(total, hz, ph0, ph1);
@@ -1198,201 +1230,274 @@
         const mag = new Float64Array(N);
         for (let k = 0; k < N; k++) mag[k] = Math.hypot(total.re[k], total.im[k]);
 
-        /* Metrics on the real (absorption) spectrum.
-           With the noise switched off (and no spike or zipper) an SNR is
-           meaningless: it is reported as null. */
-        const sd = noiseSd(total.re, zf);
-        const noisy = sd > 0 && spec.noiseSigma !== 0;
-        const tol = 2 * sd;                         // how far above the baseline fit noise can reach
-        const byId = {};
-        for (const c of comps) byId[c.id] = c;
-        // the noise-free spectrum of one or more species, summed (null if none is present)
-        function speciesRe(ids) {
-            const have = ids.filter(function (id) { return byId[id]; });
-            if (!have.length) return null;
-            if (have.length === 1) return byId[have[0]].re;
-            const out = new Float64Array(N);
-            for (const id of have) { const r = byId[id].re; for (let k = 0; k < N; k++) out[k] += r[k]; }
-            return out;
+        /* The peak table and the metrics are measured on a frequency grid no
+           coarser than MEASURE_STEP_HZ: the same spectrum zero-filled further
+           when the chosen zero filling leaves a coarser grid. Whether a peak
+           has a maximum inside its window then depends mostly on the data
+           (the acquisition time and the line widths) rather than on where a
+           coarse grid's points happen to fall (a peak right at the edge of
+           its window can still come and go between a 2 Hz and a 1 Hz grid):
+           Cho and Cr, 22 Hz apart, are resolved by a 64 ms
+           acquisition, but a 15 Hz wide window on a 7.8 Hz grid holds two
+           points, and a maximum at the edge of a window does not count. Zero
+           filling adds no information, so this changes only the sampling of
+           what was measured. The plotted spectrum keeps the chosen grid. */
+        let zfm = zf;
+        while (sw / (n * zfm) > MEASURE_STEP_HZ * (1 + 1e-9) && n * zfm * 2 <= MEASURE_MAX_POINTS) zfm *= 2;
+        let res;
+        if (zfm === zf) res = measure(N, step, zf, ppm, total, comps, mag);
+        else {
+            const Nm = n * zfm, stepM = sw / Nm, hzM = new Float64Array(Nm), ppmM = new Float64Array(Nm), shM = floor(Nm / 2);
+            for (let k = 0; k < Nm; k++) { hzM[k] = (k - shM) * stepM; ppmM[k] = refPpm + hzM[k] / PPM_HZ; }
+            const totalM = transform(spec.fid.re, spec.fid.im, win, Nm, dt);
+            applyPhase(totalM, hzM, ph0, ph1);
+            const compsM = (spec.components || []).map(function (c) {
+                const t = transform(c.re, c.im, win, Nm, dt);
+                applyPhase(t, hzM, ph0, ph1);
+                return { id: c.id, name: c.name, color: c.color, re: t.re, im: t.im };
+            });
+            const magM = new Float64Array(Nm);
+            for (let k = 0; k < Nm; k++) magM[k] = Math.hypot(totalM.re[k], totalM.im[k]);
+            res = measure(Nm, stepM, zfm, ppmM, totalM, compsM, magM);
+            res.notes.push('The peak table measures the spectrum on a ' + U.fmtNum(stepM, 3) + ' Hz grid (zero filling ×' + zfm + ') rather than the plotted ' +
+                U.fmtNum(step, 3) + ' Hz grid, so a peak that falls between plotted points is still found. Zero filling adds no information: it only samples the same spectrum more finely.');
         }
-
-        /* Follow the water line. A centre-frequency (Z0) error moves every
-           line by the same number of Hz, so when water is present every
-           window moves by the same offset and the table still finds the
-           peaks. Where water is comes from the simulator (info.waterPeakHz,
-           the peak of the fully relaxed water line of this field, the same
-           number the Spectroscopy tab quotes), not from the spectrum, where
-           a suppressed or truncated water line, or the rising tail of a
-           line just outside a search window, can pass for it. The offset is
-           followed up to FOLLOW_PPM, which covers the Z0 range (+/-100 Hz,
-           0.78 ppm) plus an unshimmed field's own offset; beyond that the
-           windows stay at their nominal ppm.
-           SpecData without info.waterPeakHz: water is searched for over the
-           same range, on the real spectrum or, if it is not upright there
-           (suppressed water can be left inverted), the magnitude spectrum,
-           and only a clear maximum counts: a local maximum of the spectrum
-           itself, at least 3 points inside the search range, taller than
-           the spectrum at both ends of the range and than 5 noise SDs. */
-        let off = 0, offFar = null;
-        if (byId.water) {
-            const info = spec.info || {};
-            if (Number.isFinite(info.waterPeakHz)) {
-                const o = refPpm + info.waterPeakHz / PPM_HZ - WATER_PPM;
-                if (abs(o) <= FOLLOW_PPM) off = o; else offFar = o;
-            } else {
-                const r = ppmRange(ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM);
-                const found = function (w, y) {
-                    if (!w || w.atEdge || !(w.height > (noisy ? 5 * sd : 0))) return false;
-                    const k = w.index;
-                    if (k - r[0] < 3 || r[1] - k < 3) return false;
-                    return y[k] >= y[k - 1] && y[k] >= y[k + 1] && y[r[0]] < y[k] && y[r[1]] < y[k];
-                };
-                let w = windowPeak(total.re, ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM, step, tol, zf);
-                if (found(w, total.re)) off = w.ppm - WATER_PPM;
-                else {
-                    w = windowPeak(mag, ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM, step, tol, zf);
-                    if (found(w, mag)) off = w.ppm - WATER_PPM;
-                }
-            }
-        }
-
-        /* Each peak: position, height and area above the local baseline, SNR
-           = height / noise SD. A peak that is not there to measure (no
-           maximum inside its window, not above the baseline, a negative
-           area, or with noise on, less than 3 noise SDs tall) gets null
-           height, area and snr, and a reason, rather than a negative number:
-           what the window then holds is a baseline wiggle or a tail, not a
-           peak.
-           A metabolite whose window is dominated by something else, where
-           the lipid line, or water (the sinc wiggles of a truncated water
-           line, or a rolling baseline), stands taller above the local
-           baseline than the metabolite's own line, is flagged contaminatedBy
-           'lipid' or 'water'. Its height and area are still what the window
-           measures, but its snr is the metabolite's own height (from its
-           noise-free component, which only a simulator can separate) over
-           the noise SD. */
-        const heightIn = function (y, lo, hi) {
-            const w = y ? windowPeak(y, ppm, lo, hi, step, 0, zf) : null;
-            return w && w.height > 0 ? w.height : 0;
-        };
-        /* Lines broader than BROAD_HZ (the whole-object water line, set by
-           the field) smear every metabolite into its neighbours and into
-           the water tail: whatever maximum a metabolite window then holds
-           is a blend, often of the next metabolite over (NAA's hump lands
-           in the Glx window when the windows cannot follow a shifted
-           water line). So metabolite peaks are not reported then, which
-           is what the "too broad" note says; water and lipid still are.
-           The ratios below are withheld for the same reason. */
-        const broad = !!(spec.info && spec.info.linewidthHz > BROAD_HZ);
-        const broadReason = broad ? 'lines too broad (water ' + U.fmtNum(spec.info.linewidthHz, 3) + ' Hz wide): shim first' : null;
-        const peaks = PEAKS.map(function (P) {
-            const lo = P.lo + (P.id === 'water' ? 0 : off), hi = P.hi + (P.id === 'water' ? 0 : off);
-            const pk = windowPeak(total.re, ppm, lo, hi, step, tol, zf);
-            let reason = null;
-            if (!pk) reason = 'outside the spectrum';
-            else if (broad && P.of) reason = broadReason;
-            else if (pk.atEdge) reason = 'no maximum inside the window';
-            else if (!(pk.height > 0)) reason = 'not above the baseline';
-            else if (noisy && pk.height < 3 * sd) reason = 'below 3 noise SD';
-            else if (!(pk.area > 0)) reason = 'negative area';
-            const ok = reason === null;
-            const out = { id: P.id, name: P.name, nominalPpm: P.ppm, window: [lo, hi],
-                ppm: pk ? pk.ppm : null, height: ok ? pk.height : null, area: ok ? pk.area : null,
-                baseline: pk ? pk.baseline : null, snr: ok && noisy ? pk.height / sd : null,
-                resolved: ok, reason: reason, contaminatedBy: null, componentHeight: null };
-            const own = P.of ? speciesRe(P.of) : null;
-            if (own) {
-                const hOwn = heightIn(own, lo, hi);
-                const hLip = byId.lipid ? heightIn(byId.lipid.re, lo, hi) : 0, hWat = byId.water ? heightIn(byId.water.re, lo, hi) : 0;
-                out.componentHeight = hOwn;
-                if (max(hLip, hWat) > hOwn) {
-                    out.contaminatedBy = hLip >= hWat ? 'lipid' : 'water';
-                    if (ok && noisy) out.snr = hOwn > 0 ? hOwn / sd : null;
-                }
-            }
-            return out;
-        });
-        const peakOf = {};
-        for (const q of peaks) peakOf[q.id] = q;
-
-        let kTall = 0;
-        for (let k = 1; k < N; k++) if (total.re[k] > total.re[kTall]) kTall = k;
-        const naa = byId.NAA ? peakOf.NAA : null;
-        let snr = null, snrPeak = 'tallest';
-        const notes = [];
-        if (naa) {
-            if (broad) snrPeak = 'NAA (lines too broad)';          // no NAA SNR until the lines are narrow
-            else if (naa.contaminatedBy) {
-                snrPeak = 'NAA (under ' + naa.contaminatedBy + ')';
-                snr = noisy && naa.componentHeight > 0 ? naa.componentHeight / sd : null;
-                if (snr !== null) {
-                    notes.push((naa.contaminatedBy === 'lipid'
-                        ? 'The peak at 2.0 ppm is mostly lipid (a lipid line sits at 2.02 ppm, under NAA). '
-                        : 'The NAA window is dominated by water: the sinc wiggles of a truncated water line, or a rolling baseline. ') +
-                        'The SNR shown is NAA\'s own height, from the noise-free NAA component that only a simulator can separate, over the noise SD: ' +
-                        U.fmtNum(snr, 3) + (naa.height !== null ? ', against ' + U.fmtNum(naa.height / sd, 3) + ' for the peak as measured' : '') + '.');
-                }
-            } else if (naa.resolved) {
-                snrPeak = 'NAA';
-                snr = naa.snr;
-            } else snrPeak = 'NAA (not resolved)';
-        } else if (noisy) snr = total.re[kTall] / sd;
-        const others = peaks.filter(function (q) { return q.contaminatedBy && q.resolved && q.id !== 'NAA'; });
-        if (others.length && noisy) {
-            notes.push('Also dominated by ' + (others.every(function (q) { return q.contaminatedBy === 'lipid'; }) ? 'lipid' : 'lipid or water') + ': ' +
-                others.map(function (q) { return q.name; }).join(', ') + '. Their height and area are what the window holds; their SNR is the metabolite\'s own.');
-        }
-        if (abs(off) >= 0.02) {
-            notes.push('Water is at ' + (WATER_PPM + off).toFixed(2) + ' ppm rather than ' + WATER_PPM.toFixed(2) + ': every peak window was moved by ' +
-                (off > 0 ? '+' : '') + off.toFixed(2) + ' ppm to follow it.');
-        } else if (offFar !== null) {
-            notes.push('Water is at ' + (WATER_PPM + offFar).toFixed(2) + ' ppm, too far from ' + WATER_PPM.toFixed(2) +
-                ' for the peak windows to follow, so they stay at their nominal ppm and miss the shifted peaks. Correct the centre frequency (Z0) or re-reference the spectrum.');
-        }
-
-        /* NAA/Cr and Cho/Cr from integrals over fixed windows (moved with
-           water like the peak windows). On the measured spectrum they are
-           given only when the phantom contains all three metabolites, their
-           peaks are resolved and not dominated by lipid or water, the lines
-           are not too broad (water FWHM up to 10 Hz) and all three integrals
-           are positive. On the noise-free components (what the ratio would
-           be without overlap: glutamate sits under NAA at 2.04 ppm) they are
-           given when all three integrals are positive. */
-        function ratios(get) {
-            const iN = get('NAA'), iCr = get('Cr'), iCho = get('Cho');
-            if (!(iN > 0 && iCr > 0 && iCho > 0)) return { NAA_Cr: null, Cho_Cr: null };
-            return { NAA_Cr: iN / iCr, Cho_Cr: iCho / iCr };
-        }
-        const winArea = function (y, id, t) {
-            const w = windowPeak(y, ppm, RATIO_WIN[id][0] + off, RATIO_WIN[id][1] + off, step, t, zf);
-            return w ? w.area : 0;
-        };
-        const measurable = !broad && ['NAA', 'Cr', 'Cho'].every(function (id) {
-            return byId[id] && peakOf[id] && peakOf[id].resolved && !peakOf[id].contaminatedBy;
-        });
-        const ratioTotal = measurable ? ratios(function (id) { return winArea(total.re, id, tol); })
-            : { NAA_Cr: null, Cho_Cr: null };
-        const ratioComp = ratios(function (id) { return byId[id] ? winArea(byId[id].re, id, 0) : 0; });
 
         return {
             n: N, hz: hz, ppm: ppm,                // ascending frequency, so ppm ascends with index
             re: total.re, im: total.im, mag: mag,
             components: comps,
-            peaks: peaks,
-            metrics: {
-                snr: snr,
-                snrPeak: snrPeak,
-                noiseSd: sd,
-                fwhmHz: fwhmAt(total.re, kTall, step),
-                tallestPpm: ppm[kTall],
-                waterOffsetPpm: off,
-                ratios: ratioTotal,
-                componentRatios: ratioComp
-            },
-            notes: notes,
+            peaks: res.peaks,
+            metrics: res.metrics,
+            notes: res.notes,
             phase: { ph0: ph0, ph1: ph1, auto: !!p.autoPhase },
             params: p
         };
+
+        /* Peaks, SNR, line width and ratios of the phased spectrum on one
+           grid (N points, `step` Hz apart, zero-filled zf times). */
+        function measure(N, step, zf, ppm, total, comps, mag) {
+            /* Metrics on the real (absorption) spectrum.
+               With the noise switched off (and no spike or zipper) an SNR is
+               meaningless: it is reported as null. */
+            const sd = noiseSd(total.re, zf);
+            const noisy = sd > 0 && spec.noiseSigma !== 0;
+            const tol = 2 * sd;                         // how far above the baseline fit noise can reach
+            const byId = {};
+            for (const c of comps) byId[c.id] = c;
+            // the noise-free spectrum of one or more species, summed (null if none is present)
+            function speciesRe(ids) {
+                const have = ids.filter(function (id) { return byId[id]; });
+                if (!have.length) return null;
+                if (have.length === 1) return byId[have[0]].re;
+                const out = new Float64Array(N);
+                for (const id of have) { const r = byId[id].re; for (let k = 0; k < N; k++) out[k] += r[k]; }
+                return out;
+            }
+
+            /* Follow the water line. A centre-frequency (Z0) error moves every
+               line by the same number of Hz, so when water is present every
+               window moves by the same offset and the table still finds the
+               peaks. Where water is comes from the simulator (info.waterPeakHz,
+               the peak of the fully relaxed water line of this field, the same
+               number the Spectroscopy tab quotes), not from the spectrum, where
+               a suppressed or truncated water line, or the rising tail of a
+               line just outside a search window, can pass for it. The offset is
+               followed up to FOLLOW_PPM, which covers the Z0 range (+/-100 Hz,
+               0.78 ppm) plus an unshimmed field's own offset; beyond that the
+               windows stay at their nominal ppm.
+               SpecData without info.waterPeakHz: water is searched for over the
+               same range, on the real spectrum or, if it is not upright there
+               (suppressed water can be left inverted), the magnitude spectrum,
+               and only a clear maximum counts: a local maximum of the spectrum
+               itself, at least 3 points inside the search range, taller than
+               the spectrum at both ends of the range and than 5 noise SDs. */
+            let off = 0, offFar = null;
+            if (byId.water) {
+                const info = spec.info || {};
+                if (Number.isFinite(info.waterPeakHz)) {
+                    const o = refPpm + info.waterPeakHz / PPM_HZ - WATER_PPM;
+                    if (abs(o) <= FOLLOW_PPM) off = o; else offFar = o;
+                } else {
+                    const r = ppmRange(ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM);
+                    const found = function (w, y) {
+                        if (!w || w.atEdge || !(w.height > (noisy ? 5 * sd : 0))) return false;
+                        const k = w.index;
+                        if (k - r[0] < 3 || r[1] - k < 3) return false;
+                        return y[k] >= y[k - 1] && y[k] >= y[k + 1] && y[r[0]] < y[k] && y[r[1]] < y[k];
+                    };
+                    let w = windowPeak(total.re, ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM, step, tol, zf);
+                    if (found(w, total.re)) off = w.ppm - WATER_PPM;
+                    else {
+                        w = windowPeak(mag, ppm, WATER_PPM - FOLLOW_PPM, WATER_PPM + FOLLOW_PPM, step, tol, zf);
+                        if (found(w, mag)) off = w.ppm - WATER_PPM;
+                    }
+                }
+            }
+
+            /* Each peak: position, height and area above the local baseline, SNR
+               = height / noise SD. A peak that is not there to measure (no
+               maximum inside its window, not above the baseline, a negative
+               area, or with noise on, less than 3 noise SDs tall) gets null
+               height, area and snr, and a reason, rather than a negative number:
+               what the window then holds is a baseline wiggle or a tail, not a
+               peak.
+               A metabolite whose window is dominated by something else, where
+               the lipid line, or water (the sinc wiggles of a truncated water
+               line, or a rolling baseline), stands taller above the local
+               baseline than the metabolite's own line, is flagged contaminatedBy
+               'lipid' or 'water'. Its height and area are still what the window
+               measures, but its snr is the metabolite's own height (from its
+               noise-free component, which only a simulator can separate) over
+               the noise SD. */
+            const heightIn = function (y, lo, hi) {
+                const w = y ? windowPeak(y, ppm, lo, hi, step, 0, zf) : null;
+                return w && w.height > 0 ? w.height : 0;
+            };
+            /* Lines broader than BROAD_HZ (the whole-object water line, set by
+               the field) smear every metabolite into its neighbours and into
+               the water tail: whatever maximum a metabolite window then holds
+               is a blend, often of the next metabolite over (NAA's hump lands
+               in the Glx window when the windows cannot follow a shifted
+               water line). So metabolite peaks are not reported then, which
+               is what the "too broad" note says; water and lipid still are.
+               The ratios below are withheld for the same reason. */
+            const broad = !!(spec.info && spec.info.linewidthHz > BROAD_HZ);
+            const broadReason = broad ? 'lines too broad (water ' + U.fmtNum(spec.info.linewidthHz, 3) + ' Hz wide): shim first' : null;
+            let negRe = null;                                   // the real spectrum negated, made when needed
+            const peaks = PEAKS.map(function (P) {
+                const lo = P.lo + (P.id === 'water' ? 0 : off), hi = P.hi + (P.id === 'water' ? 0 : off);
+                const pk = windowPeak(total.re, ppm, lo, hi, step, tol, zf);
+                let reason = null;
+                if (!pk) reason = 'outside the spectrum';
+                else if (broad && P.of) reason = broadReason;
+                else if (pk.atEdge) reason = 'no maximum inside the window';
+                else if (!(pk.height > 0)) reason = 'not above the baseline';
+                else if (noisy && pk.height < 3 * sd) reason = 'below 3 noise SD';
+                else if (!(pk.area > 0)) reason = 'negative area';
+                /* Water is the one line that can be negative: a second CHESS
+                   pulse past the best flip leaves the residual inverted (its
+                   net Mz before the excitation, info.waterResidual, is
+                   negative). Then the window's raw extremes decide: a clearly
+                   dominant negative line is measured on the negated spectrum
+                   and reported with a negative height; a clearly dominant
+                   positive one is measured as usual; a residual with lobes of
+                   both signs across the field spread is left unresolved. Raw
+                   values, not heights over the local baseline, because an
+                   inverted line drags that baseline down and makes a ripple
+                   or a window edge look like a positive peak. */
+                const waterInverted = !!(spec.info && Number.isFinite(spec.info.waterResidual) && spec.info.waterResidual < 0);
+                let wpk = pk, inverted = false;
+                if (P.id === 'water' && waterInverted && pk) {
+                    const rr = ppmRange(ppm, lo, hi);
+                    let rmax = -Infinity, rmin = Infinity;
+                    for (let k = rr[0]; k <= rr[1]; k++) { const x = total.re[k]; if (x > rmax) rmax = x; if (x < rmin) rmin = x; }
+                    if (rmin < 0 && -rmin > 2 * Math.max(rmax, 0)) {
+                        if (!negRe) { negRe = new Float64Array(total.re.length); for (let k = 0; k < negRe.length; k++) negRe[k] = -total.re[k]; }
+                        const nk = windowPeak(negRe, ppm, lo, hi, step, tol, zf);
+                        if (nk && !nk.atEdge && nk.height > 0 && nk.area > 0 && !(noisy && nk.height < 3 * sd)) {
+                            wpk = { index: nk.index, ppm: nk.ppm, height: -nk.height, area: -nk.area, baseline: -nk.baseline };
+                            inverted = true; reason = null;
+                        } else reason = reason || 'inverted, but no clear minimum inside the window';
+                    } else if (!(rmax > 0 && rmax > 2 * Math.max(-rmin, 0))) {
+                        reason = 'lobes of both signs (a partly inverted residual)';
+                    }
+                }
+                const ok = reason === null;
+                const out = { id: P.id, name: P.name, nominalPpm: P.ppm, window: [lo, hi],
+                    ppm: wpk ? wpk.ppm : null, height: ok ? wpk.height : null, area: ok ? wpk.area : null,
+                    baseline: wpk ? wpk.baseline : null, snr: ok && noisy ? Math.abs(wpk.height) / sd : null,
+                    resolved: ok, reason: reason, contaminatedBy: null, componentHeight: null };
+                if (inverted) out.inverted = true;
+                const own = P.of ? speciesRe(P.of) : null;
+                if (own) {
+                    const hOwn = heightIn(own, lo, hi);
+                    const hLip = byId.lipid ? heightIn(byId.lipid.re, lo, hi) : 0, hWat = byId.water ? heightIn(byId.water.re, lo, hi) : 0;
+                    out.componentHeight = hOwn;
+                    if (max(hLip, hWat) > hOwn) {
+                        out.contaminatedBy = hLip >= hWat ? 'lipid' : 'water';
+                        if (ok && noisy) out.snr = hOwn > 0 ? hOwn / sd : null;
+                    }
+                }
+                return out;
+            });
+            const peakOf = {};
+            for (const q of peaks) peakOf[q.id] = q;
+
+            let kTall = 0;
+            for (let k = 1; k < N; k++) if (total.re[k] > total.re[kTall]) kTall = k;
+            const naa = byId.NAA ? peakOf.NAA : null;
+            let snr = null, snrPeak = 'tallest';
+            const notes = [];
+            if (naa) {
+                if (broad) snrPeak = 'NAA (lines too broad)';          // no NAA SNR until the lines are narrow
+                else if (naa.contaminatedBy) {
+                    snrPeak = 'NAA (under ' + naa.contaminatedBy + ')';
+                    snr = noisy && naa.componentHeight > 0 ? naa.componentHeight / sd : null;
+                    if (snr !== null) {
+                        notes.push((naa.contaminatedBy === 'lipid'
+                            ? 'The peak at 2.0 ppm is mostly lipid (a lipid line sits at 2.02 ppm, under NAA). '
+                            : 'The NAA window is dominated by water: the sinc wiggles of a truncated water line, or a rolling baseline. ') +
+                            'The SNR shown is NAA\'s own height, from the noise-free NAA component that only a simulator can separate, over the noise SD: ' +
+                            U.fmtNum(snr, 3) + (naa.height !== null ? ', against ' + U.fmtNum(naa.height / sd, 3) + ' for the peak as measured' : '') + '.');
+                    }
+                } else if (naa.resolved) {
+                    snrPeak = 'NAA';
+                    snr = naa.snr;
+                } else snrPeak = 'NAA (not resolved)';
+            } else if (noisy) snr = total.re[kTall] / sd;
+            const others = peaks.filter(function (q) { return q.contaminatedBy && q.resolved && q.id !== 'NAA'; });
+            if (others.length && noisy) {
+                notes.push('Also dominated by ' + (others.every(function (q) { return q.contaminatedBy === 'lipid'; }) ? 'lipid' : 'lipid or water') + ': ' +
+                    others.map(function (q) { return q.name; }).join(', ') + '. Their height and area are what the window holds; their SNR is the metabolite\'s own.');
+            }
+            if (abs(off) >= 0.02) {
+                notes.push('Water is at ' + (WATER_PPM + off).toFixed(2) + ' ppm rather than ' + WATER_PPM.toFixed(2) + ': every peak window was moved by ' +
+                    (off > 0 ? '+' : '') + off.toFixed(2) + ' ppm to follow it.');
+            } else if (offFar !== null) {
+                notes.push('Water is at ' + (WATER_PPM + offFar).toFixed(2) + ' ppm, too far from ' + WATER_PPM.toFixed(2) +
+                    ' for the peak windows to follow, so they stay at their nominal ppm and miss the shifted peaks. Correct the centre frequency (Z0) or re-reference the spectrum.');
+            }
+
+            /* NAA/Cr and Cho/Cr from integrals over fixed windows (moved with
+               water like the peak windows). On the measured spectrum they are
+               given only when the phantom contains all three metabolites, their
+               peaks are resolved and not dominated by lipid or water, the lines
+               are not too broad (water FWHM up to 10 Hz) and all three integrals
+               are positive. On the noise-free components (what the ratio would
+               be without overlap: glutamate sits under NAA at 2.04 ppm) they are
+               given when all three integrals are positive. */
+            function ratios(get) {
+                const iN = get('NAA'), iCr = get('Cr'), iCho = get('Cho');
+                if (!(iN > 0 && iCr > 0 && iCho > 0)) return { NAA_Cr: null, Cho_Cr: null };
+                return { NAA_Cr: iN / iCr, Cho_Cr: iCho / iCr };
+            }
+            const winArea = function (y, id, t) {
+                const w = windowPeak(y, ppm, RATIO_WIN[id][0] + off, RATIO_WIN[id][1] + off, step, t, zf);
+                return w ? w.area : 0;
+            };
+            const measurable = !broad && ['NAA', 'Cr', 'Cho'].every(function (id) {
+                return byId[id] && peakOf[id] && peakOf[id].resolved && !peakOf[id].contaminatedBy;
+            });
+            const ratioTotal = measurable ? ratios(function (id) { return winArea(total.re, id, tol); })
+                : { NAA_Cr: null, Cho_Cr: null };
+            const ratioComp = ratios(function (id) { return byId[id] ? winArea(byId[id].re, id, 0) : 0; });
+
+            return {
+                peaks: peaks,
+                metrics: {
+                    snr: snr,
+                    snrPeak: snrPeak,
+                    noiseSd: sd,
+                    fwhmHz: fwhmAt(total.re, kTall, step),
+                    tallestPpm: ppm[kTall],
+                    waterOffsetPpm: off,
+                    ratios: ratioTotal,
+                    componentRatios: ratioComp
+                },
+                notes: notes
+            };
+        }
     }
 
     MRI.spectro = {

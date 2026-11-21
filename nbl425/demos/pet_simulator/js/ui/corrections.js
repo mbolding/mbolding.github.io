@@ -177,7 +177,7 @@
        Everything is reset to the defaults first, so a demonstration
        never inherits a switch left over from the previous one. */
     function demo(o) {
-        if (o.preset) act('loadPreset', o.preset);
+        if (o.preset) act('loadPreset', o.preset, { quiet: true });
         if (o.edit) {
             const src = st().source || '', ns = o.edit(src);
             if (ns !== src) act('setSource', ns);
@@ -287,11 +287,14 @@
                 const P = p.randoms !== false, C = !!c.randoms;
                 if (P && C) return ['corrected', 'good', 'Randoms are estimated (' + (c.randomsMethod === 'singles' ? 'from the singles rates' : 'from the delayed window') + ') and put in the model.'];
                 if (P) return ['not corrected', 'warn', 'A background lifts everything, even the air around the object.'];
-                if (C) return ['harmless', 'muted', 'The delayed window is empty, so there is nothing to subtract.'];
+                if (C) return ['harmless', 'muted', c.randomsMethod === 'singles'
+                    ? 'No randoms were simulated, and the simulator sets the singles-based estimate to zero with them, so there is nothing to subtract.'
+                    : 'The delayed window is empty, so there is nothing to subtract.'];
                 return ['off', 'muted', 'No randoms simulated, none corrected.'];
             },
             see: 'A background over the whole field of view: faint in the air outside the object, much stronger inside it, because attenuation correction multiplies the randoms like any other count (they are flat only in the sinogram). It lowers contrast and biases values up, worst in cold and low-uptake regions.',
-            why: 'Two photons from different decays that happen to arrive within the coincidence window τ are paired. Their rate is R = 2τ S<sub>1</sub>S<sub>2</sub>: it grows with the square of the activity (trues only grow linearly) and in proportion to the window.',
+            why: 'Two photons from different decays that happen to arrive within the coincidence window τ are paired. Their rate is R = 2τ S<sub>1</sub>S<sub>2</sub>: it grows with the square of the activity (trues only grow linearly) and in proportion to the window. ' +
+                'With TOF on, this scanner drops the randoms whose time difference falls outside its TOF bins (about ±1.1 ns), so τ in the formula is at most about 2.3 ns: a wider window adds no randoms. Switch TOF off to see them grow with the window.',
             how: 'Measure them in a delayed window (pairs offset in time can only be randoms; as noisy as the randoms themselves) or compute them from the singles rates (smooth), and add them to the model. TOF also rejects randoms whose time difference places them outside the object.',
             controls: function (box) {
                 const t = W().statTable([]);
@@ -305,11 +308,14 @@
                     seg.set(corr().randomsMethod === 'singles' ? 'singles' : 'delayed');
                     const acq = curAcq(), F = curFrame(acq);
                     if (!acq || !F) { t.update([{ label: 'Randoms fraction', value: 'after the first scan' }]); return; }
-                    const pr = acq.program || {};
+                    const pr = acq.program || {}, tau = pr.coincidence || 4.5e-9, tofOn = !!(acq.geom && acq.geom.tof);
+                    const tauR = PET.scanner && PET.scanner.timing.randomsWindow ? PET.scanner.timing.randomsWindow(tau, tofOn) : tau;
                     t.update([
-                        { label: 'Coincidence window τ', value: fmt((pr.coincidence || 4.5e-9) * 1e9, 3), unit: 'ns' },
+                        { label: 'Coincidence window τ', value: fmt(tau * 1e9, 3), unit: 'ns' },
                         { label: 'Injected activity', value: U.fmtActivity(acq.dose || 0) },
-                        { label: 'Time of flight', value: acq.geom && acq.geom.tof ? 'on (rejects far-off randoms)' : 'off' },
+                        { label: 'Time of flight', value: tofOn ? 'on (rejects far-off randoms)' : 'off' },
+                        { label: 'Window that limits randoms', value: fmt(tauR * 1e9, 3), unit: 'ns',
+                            hint: tofOn && tauR < tau - 1e-12 ? 'TOF on: only randoms inside the TOF bins are kept, so widening τ beyond this adds none' : 'The coincidence window itself' },
                         { label: 'Randoms fraction R / prompts', value: pct(F.counts ? F.counts.rf : NaN, 1) },
                         { label: 'Randoms to trues', value: fmt(F.counts ? F.counts.rt : NaN, 3) }
                     ]);
@@ -378,7 +384,8 @@
                         try {
                             // two pixels in from the edge, so the CoV is noise rather than spill from the neighbours
                             const s = PET.analysis.roiStats(res.image, PET.analysis.roiMask(ph, res.n, uni, { erode: 2 }));
-                            rows.push({ label: 'Noise (CoV) in ' + (uni === 'white_matter' ? 'white matter' : uni === 'centre' ? 'the centre' : 'the background'), value: pct(s.cov, 1) });
+                            rows.push({ label: 'Noise (CoV) in ' + (uni === 'white_matter' ? 'white matter' : uni === 'centre' ? 'the centre' : 'the background'), value: pct(s.cov, 1),
+                                hint: 'From one noise realisation (the seed is fixed), so it moves by a point or two between nearby settings: compare large changes, or the counts and NEC, which do not jump.' });
                         } catch (e) { /* no ROI */ }
                     }
                     t.update(rows);
@@ -985,7 +992,7 @@
             const cl = function (v) { if (!(tv > 0)) return null; const r = v / tv; return Math.abs(r - 1) <= 0.1 ? 'good' : (Math.abs(r - 1) <= 0.25 ? 'warn' : 'bad'); };
             rows.push([td(mk.name), td(fmt(so.mean / 1000, 3), cl(so.mean)), td(fmt(sn.mean / 1000, 3), cl(sn.mean)), td(isFinite(tv) ? fmt(tv / 1000, 3) : '-')]);
         });
-        if (rows.length) C.table.appendChild(dataTable(['ROI (kBq/mL)', offLabel, onLabel, 'True'], rows));
+        if (rows.length) C.table.appendChild(dataTable(['ROI (kBq/mL)', offLabel, onLabel, 'True, same pixels'], rows));
     }, 'comparison');
 
     /* ---------- building the tab ---------- */
@@ -998,7 +1005,11 @@
         panel.appendChild(w.concept({
             title: 'Every artifact has a cause and a cure',
             body: '<p>Each effect that degrades a PET image has a <b>physical cause</b>, switched on the left of the switchboard, and a <b>correction</b>, switched on the right. ' +
-                'They are independent on purpose: leave a correction out and you see what the effect does; apply a correction when its effect is absent and you get the <b>opposite artifact</b>. ' +
+                'They are independent on purpose: leave a correction out and you see what the effect does. Apply a correction when its effect is absent and the result depends on how the correction is made. ' +
+                '<b>Attenuation</b> correction comes from the mu map alone, so it still multiplies every line and gives the <b>opposite artifact</b>, a hot middle. ' +
+                '<b>Scatter</b> and <b>randoms</b> corrections are estimated from the measured data (the sinogram tails, the delayed window), so their estimates fall to zero and change nothing. ' +
+                '<b>Normalisation</b> of identical crystals divides by 1, and <b>motion</b> correction of a still object moves nothing. ' +
+                '<b>Resolution modelling</b> (PSF, positron range) for a blur that is not there sharpens too much: edges overshoot and small hot spots peak above their true value. ' +
                 'Corrections are computed the way a scanner computes them, from a mu map, delayed coincidences, a scatter model fitted to the sinogram tails and a normalisation scan.</p>',
             formula: 'y<sub>i</sub> ~ Poisson( n<sub>i</sub> a<sub>i</sub> &kappa; (H x)<sub>i</sub> + s<sub>i</sub> + r<sub>i</sub> )',
             tryThis: [
@@ -1182,7 +1193,7 @@
         if (s.scanning) { txt = 'Re-scanning...'; busy = true; }
         else if (s.reconstructing) { txt = 'Reconstructing...'; busy = true; }
         else if (!s.acq) txt = 'No scan yet.';
-        else if (s.stale && !s.autoRescan) txt = 'Physics changed: press Acquire (auto re-scan is off).';
+        else if (PET.app && PET.app.resultsOutdated && PET.app.resultsOutdated()) txt = PET.app.outdatedReason();
         else txt = 'Up to date.';
         live.textContent = txt;
         live.classList.toggle('busy', busy);
@@ -1227,6 +1238,7 @@
         bus.on('scan:start', function () { cancelCmp(); markCmpStale('A new scan is on its way: this pair will be recomputed from it.'); if (S.visible) renderLive(); });
         bus.on('scan:done', function () { if (S.visible) { syncAll(); updateCards(); } else S.dirty = true; });
         bus.on('scan:error', function () { if (S.visible) renderLive(); });
+        bus.on('results:outdated', function () { if (S.visible) renderLive(); });
         bus.on('recon:start', function () { if (S.visible) renderLive(); });
         bus.on('recon:done', function (e) {
             if (!S.visible) { S.dirty = true; return; }

@@ -206,6 +206,17 @@
     }
     const M = st.conn, n = longs.length;
     const g = D.fit($('cvConn'), w => Math.min(420, w * 0.85));
+    if (n < 2) {
+      // every long channel but one (or all) failed the quality check: nothing to correlate
+      g.ctx.fillStyle = T.muted; g.ctx.font = D.font(12); g.ctx.textAlign = 'left'; g.ctx.textBaseline = 'top';
+      g.ctx.fillText(`${n ? 'Only one long channel passes' : 'No long channel passes'} the quality check,`, 12, 16);
+      g.ctx.fillText('so there is nothing to correlate.', 12, 34);
+      D.fit($('cvConnMap'), w => Math.min(300, w * 0.66)); st.cmap = null;
+      ui.legend($('connLegend'), []);
+      ui.readouts($('connReadouts'), [['Mean correlation, all channel pairs', '–'], ['Between the channels over the two regions', '–'], ['True correlation of the two regions', '–'], ['Among channels that see neither region', '–']]);
+      $('connText').innerHTML = '<p class="cap">See the Signal quality table on the Processing tab, or switch the quality check off there.</p>';
+      return;
+    }
     const ctx = g.ctx, L = 64, top = 8, size = Math.min(g.w - L - 60, g.h - top - 56);
     const cell = size / n;
     D.heat(ctx, L, top, size, size, M.map(r => Float32Array.from(r)), v => D.lutRGB(v, false), false);
@@ -256,7 +267,8 @@
   function render() {
     if (!S.ds) return;
     ['avg', 'glm', 'conn'].forEach(v => { $('avPanel' + v[0].toUpperCase() + v.slice(1)).hidden = v !== st.view; });
-    if (st.view === 'avg') renderAvg(); else if (st.view === 'glm') { NIRS.app.later(renderGlm); } else renderConn();
+    const big = !S.glm && S.cfg.samples > 1e6 ? `Fitting the GLM to about ${(S.cfg.samples / 1e6).toFixed(1)} million samples. This can take a minute.` : null;
+    if (st.view === 'avg') renderAvg(); else if (st.view === 'glm') { NIRS.app.later(renderGlm, big); } else renderConn();
   }
 
   NIRS.tabs.averaging = {

@@ -35,8 +35,15 @@ engine. Every design decision follows from that.
    windows, isotope or object, which is the whole point.
 3. **Every degradation has a physics switch and every correction has its
    own switch.** They are independent on purpose: a correction applied when
-   the effect is absent produces the opposite artifact, and that is worth
-   seeing. Corrections are computed the way a scanner computes them (from
+   the effect is absent shows what the correction assumes, and that is
+   worth seeing. Attenuation correction, computed from the mu map alone,
+   then gives the opposite artifact (a hot middle); scatter and randoms
+   corrections, estimated from the measured data, fall to zero and change
+   nothing, as do normalisation of identical crystals and motion
+   correction of a still object; PSF or positron-range modelling without
+   the blur sharpens too much (edges overshoot, small hot spots peak above
+   the truth). The Corrections concept card says so. Corrections are
+   computed the way a scanner computes them (from
    delayed coincidences, a mu map, a scatter model scaled to the sinogram
    tails), never by peeking at the simulator's ground truth, except where
    this file says so and the UI says so too.
@@ -153,6 +160,7 @@ sumTOF(sino, nT) -> non-TOF sinogram
 timing.sigmaPos(ctr) -> mm        // c·σt/2 ; 400 ps gives 25.5 mm
 timing.trueAcceptance(s, tau, ctr)   // P(true from position s survives a window of total width tau)
 timing.randomsTofFraction(tau, ds, nT) -> {perBin, inside}
+timing.randomsWindow(tau, tofOn) -> s   // the window that limits randoms: min(tau, 2·nT·ds/c ≈ 2.27 ns) with TOF
 energy.sigma(E), windowProb(E, lo, hi), comptonEnergy(phi), kleinNishina(phi),
 energy.sampleScatterAngle(rng), photopeakAcceptance(lo, hi), scatterAcceptance(lo, hi),
 energy.spectrum(E) -> {photopeak, scatter}          // pdfs per keV, for plots
@@ -565,7 +573,10 @@ For each frame `[t0, t1]` (relative to injection):
    integrate `A_s²` over the frame. Spread uniformly over the sinogram,
    times the normalisation (randoms see crystal efficiencies too) but no
    attenuation. TOF: only randoms whose time difference falls inside the TOF
-   bins are kept, `timing.randomsTofFraction(τ, ds, nT)` per bin.
+   bins are kept, `timing.randomsTofFraction(τ, ds, nT)` per bin. So with
+   TOF on, a window wider than the bins' span (`timing.randomsWindow`,
+   about 2.27 ns) adds no randoms; the Protocol tab and the Randoms card
+   say so.
    Calibrate so `fdg_static` gives randoms/trues about 0.25 at 4.5 ns.
 7. **2D mode** (septa in): sensitivity ×0.2, scatter ×0.35, singles ×0.4
    (randoms ×0.16). Put the factors in `CAL`.
@@ -815,7 +826,7 @@ PET.state = {
 PET.actions = {
   getPhantom() -> Phantom, getTACs() -> tacs (for the current phantom + program, cached),
   setPhantom(id, opts?), setPhantomOpts(patch),
-  loadPreset(id), setSource(text), setParam(name, valueSI),
+  loadPreset(id, { quiet }?), setSource(text), setParam(name, valueSI),
   setPhysics(patch /* deep merge */), resetPhysics(),
   setRecon(patch /* deep merge, corrections included */), resetRecon(), reconstruct() -> Promise,
   reconstructAllFrames() -> Promise<ReconResult>,      // for the kinetics tab; cached in state.reconAll
@@ -829,6 +840,28 @@ Changing phantom, source/params or physics triggers a debounced (300 ms)
 instant re-scan when `autoRescan` is on and the program compiled. `setRecon`
 only re-runs the reconstruction.
 
+A preset sets the protocol and its phantom only; physics and reconstruction
+changes stay. `loadPreset` says so in a toast that lists them, unless
+`quiet` (the Guide and the "Show me" demonstrations set physics and
+reconstruction themselves), and the Protocol tab lists them under the preset
+picker with a button that resets both
+(`PET.app.changedSettings(since?) -> {physics: [names], recon: [names]}`).
+The toast is computed on the next tick and lists only the settings that
+still have the value they had before the load (`since`, a snapshot), so a
+setting that a "Try this" button applies right after loading a preset is
+not called kept.
+
+**Out-of-date results.** `PET.app.resultsOutdated()` is true when the
+settings changed since the last scan and no re-scan is coming: the protocol
+does not compile, Auto re-scan is off, or the re-scan failed or was
+stopped. `PET.app.outdatedReason()` says which, in a sentence. Then the scan
+bar shows "Out of date" (after a failed or stopped re-scan it first shows
+that error, and "Out of date" from the next reconstruction on, instead of
+"Done"), the Sinogram counts table, the Reconstruction image
+panel, Static quantification and the Corrections status say the results are
+from the last scan, and the bus carries `results:outdated {outdated, reason}`
+whenever the state or its reason changes.
+
 Bus events: `phantom:changed {phantom}` · `program:compiled {program, errors}`
 · `physics:changed {physics}` · `scan:start {animate}` · `scan:progress {frac,
 stage: 'compute'|'playback'}` · `playback:tick {frac, t /* protocol time, s */,
@@ -838,7 +871,7 @@ frame, nFrames, frameFrac, counts: {prompts}}` · `scan:done {acq, partial?}` ·
 `recon:iteration {k, image}` · `recon:done {result, partial}` ·
 `recon:allstart` · `recon:allprogress {frac}` · `recon:alldone {result, error?}` ·
 `frame:changed {frame}` · `analysis:changed {analysis}` · `tab:shown {id}` ·
-`theme:changed {dark}`. `PET.app.notify(msg, kind)` shows a toast;
+`theme:changed {dark}` · `results:outdated {outdated, reason}`. `PET.app.notify(msg, kind)` shows a toast;
 `PET.app.isDark()`, `PET.app.activeTab()`.
 
 **Playback.** After `engine.simulate` finishes, an animated scan reveals the
@@ -898,7 +931,11 @@ goes from noise to picture. Instant skips to the end.
 - **Reconstruction (recon.js)**: method, filter and cutoff (with the filter
   response plotted), iterations and subsets, TOF, PSF, matrix, post-filter;
   image, truth and difference; iteration scrubber with a convergence plot
-  (ROI mean and noise vs iteration); profiles; ROI statistics.
+  (ROI mean and noise vs iteration); profiles; ROI statistics. "ROI
+  recovery" is the ROI mean over the truth image averaged over the same
+  pixels (so the pixel grid's own partial volume is not counted); the
+  spheres' NEMA table gives "contrast recovery", (C/B − 1)/(true ratio − 1),
+  which subtracts the background and is lower. The two are labelled apart.
 - **Degradations & corrections (corrections.js)**: a compact switchboard
   (each effect's physics switch beside its correction switch), then one card
   per effect: attenuation, scatter, randoms, low-count noise, positron range,
@@ -913,7 +950,13 @@ goes from noise to picture. Instant skips to the end.
   of a dynamic scan next to the true TACs, SUV and SUVR with a selectable
   target and reference region and window, SUVR over time against the true
   DVR, Patlak and Logan plots, and a comparison table of the true binding
-  value against SUVR − 1, Logan and the measured values.
+  value against SUVR − 1, Logan and the measured values. SUVR over time
+  runs the model on the same 2 s grid as the scan, so its window SUVR equals
+  the noise-free SUVR of Static quantification. The SUVR error is split into
+  parts that multiply: reference region (equilibrium ratio VT/VT,ref over the
+  DVR), kinetic (noise-free window SUVR over the equilibrium ratio) and
+  imaging (measured over noise-free); SUVR over time shows the window against
+  the DVR and, when they differ, the kinetic part alone.
 
 ---
 

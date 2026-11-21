@@ -113,6 +113,18 @@
     return out;
   };
 
+  /* The band the SCI correlates in: 0.5 to 2.5 Hz, cut to 0.45 x the
+     sampling rate (0.9 x Nyquist) so the filter stays below Nyquist.  It
+     needs two wavelengths and the heartbeat inside that band; otherwise
+     { ok: false, why } says why it cannot be computed. */
+  dsp.sciBand = function (ds) {
+    const fs = ds.fs, hr = ds.cfg.physiology.cardiac.rate, hi = Math.min(2.5, 0.45 * fs);
+    const beat = `the heartbeat (${Math.round(hr * 60)} bpm, ${hr.toFixed(2)} Hz)`;
+    if (ds.nL < 2) return { ok: false, why: 'it needs two wavelengths' };
+    if (hr > hi) return { ok: false, lo: 0.5, hi, why: hr > 2.5 ? `${beat} lies above the 0.5 to 2.5 Hz band it uses`
+      : `at ${fs} Hz ${beat} lies above 0.9 × the Nyquist frequency (${hi.toFixed(2)} Hz)` };
+    return { ok: true, lo: 0.5, hi };
+  };
   /* ---------- channel quality ----------
      SCI (Pollonini and colleagues 2014): the correlation between the two
      wavelengths' signals in the cardiac band.  Light that went through
@@ -121,7 +133,7 @@
      deviation over mean of the raw intensity.  Also flags saturation and
      intensity too close to the detector's noise floor. */
   dsp.quality = function (ds, rec, thr) {
-    const fs = ds.fs, nL = ds.nL;
+    const fs = ds.fs, nL = ds.nL, band = dsp.sciBand(ds);
     return ds.chans.map((c, ci) => {
       const I = rec.I[ci];
       const mean = I.map(x => NIRS.mean(x));
@@ -129,9 +141,8 @@
       let sat = 0;
       I.forEach(x => { let k = 0; for (let i = 0; i < x.length; i++) if (x[i] >= ds.det.sat * 0.999) k++; sat = Math.max(sat, k / x.length); });
       let sci = NaN;
-      if (fs >= 5 && nL >= 2) {
-        const hi = Math.min(2.5, fs / 2 * 0.9);
-        const a = dsp.bandpass(dsp.od(I[0]), fs, 0.5, hi, [3, 3]), b = dsp.bandpass(dsp.od(I[nL - 1]), fs, 0.5, hi, [3, 3]);
+      if (band.ok) {
+        const a = dsp.bandpass(dsp.od(I[0]), fs, band.lo, band.hi, [3, 3]), b = dsp.bandpass(dsp.od(I[nL - 1]), fs, band.lo, band.hi, [3, 3]);
         sci = NIRS.corr(a, b);
       }
       const low = Math.min(...mean) < 10 * ds.det.floor;
@@ -147,10 +158,9 @@
   };
   // Scalp coupling index in sliding windows, for the time-resolved view.
   dsp.sciWindows = function (ds, I, win) {
-    const fs = ds.fs, nL = ds.nL, n = I[0].length, w = Math.round((win || 10) * fs);
-    if (fs < 5 || nL < 2) return null;
-    const hi = Math.min(2.5, fs / 2 * 0.9);
-    const a = dsp.bandpass(dsp.od(I[0]), fs, 0.5, hi, [3, 3]), b = dsp.bandpass(dsp.od(I[nL - 1]), fs, 0.5, hi, [3, 3]);
+    const fs = ds.fs, nL = ds.nL, n = I[0].length, w = Math.round((win || 10) * fs), band = dsp.sciBand(ds);
+    if (!band.ok) return null;
+    const a = dsp.bandpass(dsp.od(I[0]), fs, band.lo, band.hi, [3, 3]), b = dsp.bandpass(dsp.od(I[nL - 1]), fs, band.lo, band.hi, [3, 3]);
     const out = [];
     for (let s = 0; s + w <= n; s += w) out.push({ t: (s + w / 2) / fs, sci: NIRS.corr(a, b, s, s + w) });
     return out;

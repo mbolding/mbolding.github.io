@@ -122,6 +122,13 @@
         const perBin = Math.min(1, (2 * ds / C.C_MM_PER_S) / tau);
         return { perBin: perBin, inside: Math.min(1, perBin * nT) };
     }
+    /* The window that actually decides how many randoms are kept (s). With
+       TOF the randoms outside the nT bins are dropped, so it is the smaller
+       of tau and the time span of the bins (2 nT ds / c, about 2.27 ns):
+       above that, widening the coincidence window adds no randoms. */
+    function randomsWindow(tau, tofOn) {
+        return tofOn ? tau * randomsTofFraction(tau, G.ds, G.nT).inside : tau;
+    }
 
     /* ---------- energy ---------- */
     const ME = 511;
@@ -507,7 +514,7 @@
         projector: projector, plainProjector: plainProjector, subsets: subsets,
         blurRadial: blurRadial, blurMatrix: blurMatrix, isoKernel: isoKernel, combineKernels: combineKernels,
         normalization: normalization, attenuationFactors: attenuationFactors, sumTOF: sumTOF,
-        timing: { sigmaPos: sigmaPos, trueAcceptance: trueAcceptance, randomsTofFraction: randomsTofFraction },
+        timing: { sigmaPos: sigmaPos, trueAcceptance: trueAcceptance, randomsTofFraction: randomsTofFraction, randomsWindow: randomsWindow },
         energy: {
             sigma: energySigma, windowProb: windowProb, comptonEnergy: comptonEnergy, kleinNishina: kleinNishina,
             sampleScatterAngle: sampleScatterAngle, photopeakAcceptance: photopeakAcceptance,

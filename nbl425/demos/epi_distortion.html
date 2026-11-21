@@ -252,11 +252,11 @@
       </div>
       <div class="readout-item">
         <span class="readout-label">Max Shift &Delta;<i>y</i>:</span>
-        <span class="readout-val" id="dispShift">4.8 pixels</span>
+        <span class="readout-val" id="dispShift">10.0 pixels</span>
       </div>
       <div class="readout-item">
         <span class="readout-label">Orbitofrontal Dropout:</span>
-        <span class="readout-val" id="dispDropout" style="color:#ef4444;">-68% signal</span>
+        <span class="readout-val" id="dispDropout" style="color:#ef4444;">-83% signal</span>
       </div>
     </div>
 
@@ -571,7 +571,9 @@ function renderAll() {
 
 // --- Presets ---
 function setPreset(p) {
-  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  // Un-highlight every preset (a button with neither class would keep the accent colour);
+  // the grid toggle keeps its own state
+  document.querySelectorAll('.preset-bar button').forEach(b => { if (b.id === 'btnToggleGrid') return; b.classList.remove('active'); b.classList.add('secondary'); });
   const bannerText = document.getElementById('bannerText');
 
   if (p === '3tap') {
@@ -584,8 +586,8 @@ function setPreset(p) {
     bannerText.innerHTML = '<strong>Standard 3T fMRI (P&rarr;A):</strong> Reversed Posterior-to-Anterior phase encoding flips the displacement sign, stretching the frontal lobes forward.';
   } else if (p === '7t') {
     document.getElementById('btn7T').classList.add('active');
-    B0 = 7.0; bwPE = 25.0; TE = 25.0; peDir = 1; sinusScale = 1.2;
-    bannerText.innerHTML = '<strong>Ultra-High Field 7T fMRI:</strong> Field offsets scale with B0 (&Delta;f &gt; 250 Hz), magnifying geometric distortion and severe orbitofrontal signal dropout!';
+    B0 = 7.0; bwPE = 25.0; TE = 25.0; peDir = 1; sinusScale = 1.0;
+    bannerText.innerHTML = '<strong>Ultra-High Field 7T fMRI:</strong> Field offsets scale with B0 (&Delta;f &gt; 250 Hz), magnifying geometric distortion and severe orbitofrontal signal dropout. This preset also shortens TE to 25 ms, as 7T protocols usually do.';
   } else if (p === 'accel') {
     document.getElementById('btnAccel').classList.add('active');
     B0 = 3.0; bwPE = 50.0; TE = 30.0; peDir = 1; sinusScale = 1.0;

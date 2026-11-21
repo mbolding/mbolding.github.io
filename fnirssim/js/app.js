@@ -51,7 +51,7 @@
     readouts(el, pairs) {
       el.innerHTML = pairs.map(([k, v, title]) => `<div class="ro"${title ? ` title="${title}"` : ''}><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
     },
-    busy(on) { $('busy').classList.toggle('on', !!on); },
+    busy(on, label) { const b = $('busy'); b.classList.toggle('on', !!on); b.textContent = on && label ? label : 'Working'; },
     // Channel picker shared by every tab: changing it anywhere changes S.selCh.
     chSelect(sel, opts) {
       opts = opts || {};
@@ -93,8 +93,8 @@
     render();
   }
   NIRS.app = { run, render: () => render(), markAll: () => { Object.keys(TABS).forEach(t => { dirty[t] = true; }); render(); } };
-  NIRS.app.later = function (fn) {
-    ui.busy(true);
+  NIRS.app.later = function (fn, label) {
+    ui.busy(true, label);
     requestAnimationFrame(() => setTimeout(() => { try { fn(); } catch (e) { console.error(e); } ui.busy(false); }, 15));
   };
   NIRS.app.truth = function () {
@@ -180,23 +180,64 @@
       return false;
     }
     S.cfg = cfg; S.src = src;
+    builtOk = false;     // until this build finishes, a reload brings back the previous one
+    const big = cfg.samples > 1e6 ? `Building about ${(cfg.samples / 1e6).toFixed(1)} million samples. The page will not respond until it is done.` : null;
+    if (big) {
+      // say so before the page stops responding
+      box.className = 'errbox ok';
+      box.textContent = big;
+    }
     NIRS.app.later(() => {
       const t0 = performance.now();
       S.ds = NIRS.simulate(cfg);
       S.enabled = new Set(S.ds.groups.filter(g => g.on).map(g => g.id));
       S.P = NIRS.pipeline.defaults(cfg);
       S.selCh = NIRS.app.bestChannel();
+      const R = opts.restore;
+      if (R) {
+        // the analysis settings, switches and channel in use before the reload
+        if (R.P && typeof R.P === 'object') Object.assign(S.P, R.P);
+        if (Array.isArray(R.enabled)) S.enabled = new Set(R.enabled.filter(id => S.ds.groups.some(g => g.id === id)));
+        if (S.ds.chans[R.selCh]) S.selCh = R.selCh;
+      }
       Object.values(TABS).forEach(t => { if (t.onBuild) { try { t.onBuild(); } catch (e) { console.error(e); } } });
       run('assemble');
       const ms = Math.round(performance.now() - t0);
       box.className = 'errbox ok';
-      box.textContent = `Recorded ${Math.round(S.ds.dur)} s on ${S.ds.chans.length} channels at ${cfg.recording.fs} Hz and ${cfg.recording.wavelengths.length} wavelength${cfg.recording.wavelengths.length > 1 ? 's' : ''}` +
+      box.textContent = (R ? 'Restored after a reload: the same program, analysis settings and channel. ' : '') +
+        `Recorded ${Math.round(S.ds.dur)} s on ${S.ds.chans.length} channels at ${cfg.recording.fs} Hz and ${cfg.recording.wavelengths.length} wavelength${cfg.recording.wavelengths.length > 1 ? 's' : ''}` +
         (S.ds.events.length ? `, ${S.ds.events.length} ${S.ds.events.some(e => e.dur >= 3) ? 'blocks' : 'trials'}` : '') + ` in ${ms} ms.`;
       warnings(cfg);
       experimentSummary();
+      builtOk = true;
+      keep();
       if (opts.thenTab) showTab(opts.thenTab);
-    });
+    }, big);
     return true;
+  }
+  /* ---------- keeping the recording across a reload ----------
+     The running program, the editor text, the example it came from, the
+     analysis settings, the switched-on components and the selected channel
+     go into sessionStorage (this browser tab only, cleared when it closes).
+     A reload then rebuilds the same recording rather than the first example. */
+  const KEEP = 'fnirssim-session';
+  let builtOk = false;   // only a build that finished is worth bringing back
+  function keep() {
+    if (!builtOk || !S.ds || !S.src) return;
+    try {
+      sessionStorage.setItem(KEEP, JSON.stringify({ src: S.src, editor: ed.value, ex: S.exIndex, P: S.P, enabled: Array.from(S.enabled), selCh: S.selCh }));
+    } catch (e) {}
+  }
+  function restore() {
+    let k = null;
+    // taken out until it builds again, so a state that fails cannot come back on every reload
+    try { k = JSON.parse(sessionStorage.getItem(KEEP) || 'null'); sessionStorage.removeItem(KEEP); } catch (e) {}
+    if (!k || typeof k.src !== 'string') return false;
+    const i = NIRS.EXAMPLES[k.ex] ? k.ex : 0;
+    S.exIndex = i; $('exSelect').value = String(i); $('exDesc').textContent = NIRS.EXAMPLES[i].desc;
+    ed.value = typeof k.editor === 'string' ? k.editor : k.src;
+    syncHighlight();
+    return build(k.src, { restore: k });
   }
   NIRS.app.build = build;
   // Rebuild from a modified configuration and, optionally, rewrite the program to match.
@@ -330,6 +371,8 @@
     let first = 'system';
     try { first = location.hash.slice(1) || localStorage.getItem('fnirssim-tab') || 'system'; } catch (e) {}
     showTab(tabNames.includes(first) ? first : 'system');
-    loadExample(0, true);
+    window.addEventListener('pagehide', keep);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') keep(); });
+    if (!restore()) loadExample(0, true);
   };
 })(typeof window !== 'undefined' ? window : globalThis);

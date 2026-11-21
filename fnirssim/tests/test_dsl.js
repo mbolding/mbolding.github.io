@@ -62,5 +62,16 @@ fails('analysis { dpf 6 5 4 }', /3 values but the recording has 2/, 'too many DP
 fails('timeline { rest 1800 s rest 1800 s }\nrecording { rate 50 Hz }', /million samples/, 'recording too large');
 ok(B('recording { wavelengths 800 nm }').warnings.some(w => /single wavelength/.test(w.msg)), 'a single wavelength warns');
 ok(B('recording { rate 1 Hz }').warnings.some(w => /alias/.test(w.msg)), 'slow sampling warns about cardiac aliasing');
+ok(!B('recording { rate 2 Hz }\nphysiology { cardiac 50 bpm 1 uM }').warnings.some(w => /alias/.test(w.msg)), 'a 50 bpm heartbeat does not alias at 2 Hz');
+ok(B('recording { rate 3 Hz }\nphysiology { cardiac 100 bpm 1 uM }').warnings.some(w => /alias/.test(w.msg)), 'a 100 bpm heartbeat aliases at 3 Hz');
+ok(!B('recording { power 10 mW }').warnings.some(w => /exposure/.test(w.msg)), 'the default 10 mW raises no safety note');
+{
+  const w30 = B('recording {\n  wavelengths 760 850 nm\n  power 30 mW\n}').warnings.find(w => /exposure/.test(w.msg));
+  ok(w30 && /above the laser limit/.test(w30.msg) && w30.line === 3, '30 mW per source gets a safety note on its line, above the limit at 760 nm');
+  const w15 = B('recording { power 15 mW }').warnings.find(w => /exposure/.test(w.msg));
+  ok(w15 && /below the laser limit/.test(w15.msg), '15 mW gets the note, below the limit');
+}
+ok(B('recording { rate 50 Hz }\ntimeline { blocks 40 on 15 s off 20 s }').warnings.some(w => /large/.test(w.msg)), 'a recording over a million samples warns that the page will freeze');
+ok(!B('recording { rate 10 Hz }\ntimeline { blocks 10 on 15 s off 20 s }').warnings.some(w => /large/.test(w.msg)), 'an ordinary recording does not');
 ok(/tk-key/.test(NIRS.dsl.highlight('recording { rate 10 Hz }')) && /tk-unit/.test(NIRS.dsl.highlight('rate 10 Hz')), 'highlighter marks keywords and units');
 summary('dsl');

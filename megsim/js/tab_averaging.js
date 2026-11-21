@@ -6,7 +6,7 @@
   'use strict';
   const MEG = G.MEG, D = MEG.draw, ui = MEG.ui, S = MEG.S;
   const $ = ui.$;
-  const st = { N: 1, playing: false, lat: null, shown: null, plots: {}, mapMode: 'rms' };
+  const st = { N: 1, want: null, playing: false, lat: null, shown: null, plots: {}, mapMode: 'rms' };
 
   function chIndex() { return parseInt($('avgCh').value, 10); }
   function accepted(ci) { return S.ep.list.filter(e => e.ev.ci === ci && !e.rejected); }
@@ -92,7 +92,7 @@
   function drawSNR(k, truth) {
     const T = D.theme(), ep = S.ep, cv = $('cvSNR');
     if (!truth) { D.message(cv, S.truthNone ? 'This recording has no evoked sources,\nso there is no true signal to measure against.' : 'Computing the true evoked field…', 120); ui.legend($('snrLegend'), []); st.snr = null; return; }
-    const ci = focusCond(k, truth);
+    const pick = $('snrCond').value, ci = pick === '' || pick === 'auto' ? focusCond(k, truth) : MEG.clamp(+pick, 0, truth.conds.length - 1);
     const { cum } = st.cums[ci] ? { cum: st.cums[ci] } : cumulative(ci, k);
     const tr = truth.conds[ci].data.subarray(k * ep.nT, (k + 1) * ep.nT);
     const nT = ep.nT, zero = ep.zero, E = S.epoch;
@@ -106,7 +106,7 @@
       let stt = 0; for (let t = 0; t < nT; t++) stt += (a[t] - tr[t]) ** 2;
       Ns.push(n); snrB.push(sig / Math.sqrt(sb / (b1 - b0) || 1e-30)); snrT.push(sig / Math.sqrt(stt / nT || 1e-30));
     }
-    if (!Ns.length) { D.message(cv, 'No accepted trials.'); return; }
+    if (!Ns.length) { D.message(cv, 'No accepted trials.'); ui.legend($('snrLegend'), []); st.snr = null; return; }
     let a = 0; Ns.forEach((n, i) => { a += Math.log(snrT[i]) - 0.5 * Math.log(n); }); a = Math.exp(a / Ns.length);
     const theory = Ns.map(n => a * Math.sqrt(n));
     const curN = Math.min(st.N, Ns.length);
@@ -203,7 +203,7 @@
   function readouts() {
     const conds = S.ds.conditions;
     const pairs = conds.map((c, ci) => { const all = S.ep.list.filter(e => e.ev.ci === ci).length, ok = accepted(ci).length; return [c, `${ok} of ${all} kept`, `${all - ok} rejected`]; });
-    if (st.snr) pairs.push(['SNR now', `${st.snr.snrB.toFixed(1)} (baseline) · ${st.snr.snrT.toFixed(1)} (truth)`, `${st.snr.cond}, N = ${st.snr.N}`], ['To double it', `${st.snr.need2x} trials`, 'four times as many']);
+    if (st.snr) pairs.push([`SNR now, ${st.snr.cond}`, `${st.snr.snrB.toFixed(1)} (baseline) · ${st.snr.snrT.toFixed(1)} (truth)`, `${st.snr.cond}, N = ${st.snr.N}; choose the condition above the SNR plot`], ['To double it', `${st.snr.need2x} trials`, 'four times as many']);
     const rej = S.ep.list.filter(e => e.rejected);
     if (rej.length) {
       const arr = S.ds.array, count = {};
@@ -214,7 +214,15 @@
     ui.readouts($('avgReadouts'), pairs);
   }
   function maxN() { let m = 1; S.ds.conditions.forEach((_, ci) => { if (st.shown.has(ci)) m = Math.max(m, accepted(ci).length); }); return m; }
-  function syncN() { const m = maxN(); st.N = MEG.clamp(st.N, 1, m); $('avgN').max = m; $('avgN').value = st.N; $('avgNV').textContent = st.N; }
+  /* Rejection can leave fewer trials than the N chosen. Clamp N to what is
+     left, but remember the choice (st.want) so that switching rejection off
+     again restores it; any explicit change of N forgets it. */
+  function syncN() {
+    const m = maxN();
+    if (st.N > m) { st.want = Math.max(st.want || 0, st.N); st.N = m; }
+    else if (st.want && st.want > st.N && m > st.N) { st.N = Math.min(st.want, m); if (st.N >= st.want) st.want = null; }
+    st.N = MEG.clamp(st.N, 1, m); $('avgN').max = m; $('avgN').value = st.N; $('avgNV').textContent = st.N;
+  }
 
   function epochLabels() {
     $('epT0V').textContent = $('epT0').value + ' ms'; $('epT1V').textContent = $('epT1').value + ' ms';
@@ -260,6 +268,7 @@
     $('avgConds').innerHTML = S.ds.conditions.map((c, i) => `<label class="check"><input type="checkbox" data-ci="${i}" ${st.shown.has(i) ? 'checked' : ''}><span class="sw dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${ui.condColor(i)}"></span>${c}</label>`).join('');
     const most = S.ds.conditions.map((_, i) => S.ds.events.filter(e => e.ci === i).length).reduce((b, n, i, a) => (n > a[b] ? i : b), 0);
     ui.fill($('imgCond'), S.ds.conditions.map((c, i) => ({ value: String(i), label: c })), $('imgCond').value || String(most));
+    ui.fill($('snrCond'), [{ value: 'auto', label: 'the one with the best SNR at this sensor' }].concat(S.ds.conditions.map((c, i) => ({ value: String(i), label: c }))), $('snrCond').value || 'auto');
     $('avgDiff').disabled = !diffPair();
     $('avgMapBox').hidden = arr.type !== 'planar';
     syncN();
@@ -274,7 +283,7 @@
   function play() {
     if (!st.playing || S.tab !== 'averaging') { st.playing = false; $('avgPlay').textContent = 'Play'; return; }
     if (st.N >= maxN()) { st.playing = false; $('avgPlay').textContent = 'Play'; return; }
-    st.N += st.N < 20 ? 1 : st.N < 60 ? 2 : 4;
+    st.want = null; st.N = Math.min(maxN(), st.N + (st.N < 20 ? 1 : st.N < 60 ? 2 : 4));
     quick();
     st.timer = setTimeout(play, st.N < 20 ? 170 : 120);
   }
@@ -291,17 +300,18 @@
       $('avgConds').addEventListener('change', e => { const ci = +e.target.dataset.ci; if (e.target.checked) st.shown.add(ci); else st.shown.delete(ci); quick(); });
       ['avgSingle', 'avgTruth', 'avgButterfly'].forEach(id => $(id).addEventListener('change', drawERP));
       $('avgDiff').addEventListener('change', () => { drawERP(); drawTopos(); });
-      $('avgN').addEventListener('input', () => { st.N = +$('avgN').value; quick(); });
+      $('avgN').addEventListener('input', () => { st.N = +$('avgN').value; st.want = null; quick(); });
       $('avgPlay').addEventListener('click', () => {
         st.playing = !st.playing; $('avgPlay').textContent = st.playing ? 'Pause' : 'Play';
-        if (st.playing) { if (st.N >= maxN()) st.N = 1; play(); } else clearTimeout(st.timer);
+        if (st.playing) { st.want = null; if (st.N >= maxN()) st.N = 1; play(); } else clearTimeout(st.timer);
       });
-      $('avgStep').addEventListener('click', () => { st.N++; quick(); });
-      $('avgAll').addEventListener('click', () => { st.N = maxN(); quick(); });
-      $('avgReset').addEventListener('click', () => { st.N = 1; quick(); });
+      $('avgStep').addEventListener('click', () => { st.N++; st.want = null; quick(); });
+      $('avgAll').addEventListener('click', () => { st.N = maxN(); st.want = null; quick(); });
+      $('avgReset').addEventListener('click', () => { st.N = 1; st.want = null; quick(); });
       ['imgCond', 'imgSort', 'imgSmooth'].forEach(id => $(id).addEventListener('change', drawImage));
+      $('snrCond').addEventListener('change', () => { drawERP(); readouts(); });
     },
-    onBuild(keep) { if (!keep) { st.N = 1; st.lat = null; st.shown = null; st.resetCh = true; $('imgCond').innerHTML = ''; } S.truthNone = false; },
+    onBuild(keep) { if (!keep) { st.N = 1; st.want = null; st.lat = null; st.shown = null; st.resetCh = true; $('imgCond').innerHTML = ''; $('snrCond').innerHTML = ''; } S.truthNone = false; },
     onArray() { st.resetCh = true; st.lat = null; },
     render
   };

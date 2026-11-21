@@ -220,6 +220,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => wind
     <label class="check"><input type="checkbox" id="spins"> Show each isochromat</label>
     <label class="check"><input type="checkbox" id="trail"> Trace the tip</label>
     <label class="check"><input type="checkbox" id="xy"> Plot M<sub>x′</sub> and M<sub>y′</sub></label>
+    <div class="row"><button type="button" id="reset">Reset to defaults</button></div>
+    <p class="note">This browser remembers your settings between visits. Reset puts everything back as a first visit has it.</p>
   </div>
 </div>
 
@@ -660,8 +662,15 @@ function readout() {
 function status() {
     let s = '';
     if (S.seq === 'ir') {
-        const nul = S.T1 * Math.LN2;
-        s = `M<sub>z</sub> crosses zero at T1 ln 2 = ${fmtMs(nul)}` + (Math.abs(S.TI - nul) < 0.04 * nul ? ', about now: the signal is nulled.' : '. Set TI there to null it.');
+        if (repeating()) {
+            // From the second repetition on, the 180° starts from M_z = 1 − e^(−(TR−TI)/T1),
+            // not 1, so M_z(TI) = 1 − 2e^(−TI/T1) + e^(−TR/T1) and the null comes earlier.
+            const nul = S.T1 * Math.log(2 / (1 + Math.exp(-S.TR / S.T1)));
+            s = `Repeating every TR, M<sub>z</sub> has not fully recovered before each 180°, so after the first repetition it crosses zero earlier than T1 ln 2, at T1 ln(2 / (1 + e<sup>−TR/T1</sup>)) = ${fmtMs(nul)}` + (Math.abs(S.TI - nul) < 0.04 * nul ? ', about now: the signal is nulled.' : '. Set TI there to null it.');
+        } else {
+            const nul = S.T1 * Math.LN2;
+            s = `M<sub>z</sub> crosses zero at T1 ln 2 = ${fmtMs(nul)}` + (Math.abs(S.TI - nul) < 0.04 * nul ? ', about now: the signal is nulled.' : '. Set TI there to null it.');
+        }
     } else if (S.seq === 'se') s = `The 180° lands at TE/2 = ${fmtMs(S.TE / 2)} and the echo forms at TE = ${fmtMs(S.TE)}.`;
     else if (S.seq === 'cpmg') s = 'The echo peaks follow the red T2 curve; without the 180°s the signal would follow T2*.';
     else if (S.seq === 'fid') s = 'One 90° pulse, then the free induction decay.';
@@ -790,6 +799,16 @@ $('tip').addEventListener('click', () => {
 $('spoil').addEventListener('click', () => {
     for (const s of spins) { s[0] = 0; s[1] = 0; }
     st.excite = null; st.marks.push({ t: st.t, label: 'spoil' }); sample(); dirty = true;
+});
+$('reset').addEventListener('click', () => {
+    try { localStorage.removeItem('bloch'); } catch (e) {}
+    Object.assign(S, DEFAULTS);
+    for (const k of Object.keys(LOG)) { $(k).value = toLog(k, S[k]); setOut(k); }
+    for (const k of ['echoes', 'angle', 'df', 'fwhm', 'n']) { $(k).value = S[k]; setOut(k); }
+    for (const k of ['repeat', 'lab', 'spins', 'trail', 'xy']) $(k).checked = S[k];
+    $('preset').value = '';
+    cam.az = -Math.PI / 2 - 0.55; cam.el = 0.38;
+    buildOffsets(); showFor(); restart(false); dirty = true;
 });
 $('equil').addEventListener('click', () => {
     equilibrium(); st.excite = null; st.trail = []; sample(); dirty = true;

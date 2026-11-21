@@ -343,7 +343,7 @@
       6. <strong>Temporal Autocorrelation &amp; Prewhitening:</strong> BOLD noise is not independent from volume to volume: neighbouring time points are correlated, which an AR(1) process with coefficient &rho; captures reasonably well. OLS still gives unbiased &beta;&#770;, but its <em>standard errors</em> assume independence, so it divides by a variance that is too small and the <i>t</i>-statistic comes out inflated. The fix is to prewhiten, applying the transform <i>y</i>*[<i>i</i>] = <i>y</i>[<i>i</i>] &minus; &rho;&#770;<i>y</i>[<i>i</i>&minus;1] to both <i>Y</i> and every column of <i>X</i>, which restores white residuals and honest standard errors. Press <strong>Audit Null False-Positive Rate</strong> to measure this directly: the audit re-runs the current design 500 times with both task effects set to <em>zero</em> and counts how often each estimator claims <i>p</i> &lt; 0.05. A calibrated test finds 5%. Turn &rho; up and watch OLS drift far above that while the prewhitened GLM holds.
     </p>
     <p class="note">
-      7. <strong>Where this simulation stops:</strong> &rho;&#770; here is the lag-1 autocorrelation of the OLS residuals, which is biased slightly toward zero because the design has already been projected out of those residuals. Production packages (SPM's AR(1), FSL FILM) add bias corrections and pool the estimate across neighbouring voxels for stability. Push &rho; up past about 0.8 and run the audit: the prewhitened GLM improves enormously on OLS but no longer lands exactly on 5%, because it is whitening with a &rho;&#770; that is slightly too small. Prewhitening also only removes the autocorrelation it models: a strong periodic physiological component is <em>not</em> AR(1), so with the physiological slider high the audit will show residual inflation that no amount of whitening removes. That is a modelling problem, not an estimation problem.
+      7. <strong>Where this simulation stops:</strong> &rho;&#770; here is the lag-1 autocorrelation of the OLS residuals, which is biased slightly toward zero because the design has already been projected out of those residuals. Production packages (SPM's AR(1), FSL FILM) add bias corrections and pool the estimate across neighbouring voxels for stability. Push &rho; up past about 0.8 and run the audit: the prewhitened GLM improves enormously on OLS but no longer lands exactly on 5%, because it is whitening with a &rho;&#770; that is slightly too small. Prewhitening also only removes the autocorrelation it models: a strong periodic physiological component is <em>not</em> AR(1), so with the physiological slider high the audit no longer lands on 5%, however you whiten. With these designs it lands <em>below</em> 5%: the test turns conservative and loses power, rather than producing extra false positives. That is a modelling problem, not an estimation problem.
     </p>
   </div>
 
@@ -541,7 +541,7 @@ function setPreset(p) {
   const bannerSub = document.getElementById('bannerSub');
 
   // Remove active from all preset buttons
-  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.preset-bar button').forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
 
   if (p === 'block') {
     document.getElementById('btnBlock').classList.add('active');
@@ -857,7 +857,7 @@ function runAudit() {
   el.textContent = `OLS ${fprOLS.toFixed(1)}% · GLS ${fprGLS.toFixed(1)}%`;
   el.style.color = fprOLS > 8 ? '#dc2626' : '';
   document.getElementById('bannerText').innerHTML =
-    `<strong>Null audit (${K} runs, no task effect):</strong> plain OLS called ${fprOLS.toFixed(1)}% of pure-noise datasets significant; the AR(1)-prewhitened GLM called ${fprGLS.toFixed(1)}%. Both should be 5%.`;
+    `<strong>Null audit (${K} runs, no task effect):</strong> plain OLS called ${fprOLS.toFixed(1)}% of pure-noise datasets significant; the AR(1)-prewhitened GLM called ${fprGLS.toFixed(1)}%. A calibrated test would call 5%.`;
 }
 
 // --- Canvases & Rendering ---
@@ -1173,7 +1173,8 @@ const btnCDiff = document.getElementById('cDiff');
 
 function setContrast(c, activeBtn) {
   currentContrast = c;
-  [btnCTaskA, btnCTaskB, btnCDiff].forEach(b => b.classList.remove('active'));
+  // Un-highlight every contrast (a button with neither class would keep the accent colour)
+  [btnCTaskA, btnCTaskB, btnCDiff].forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
   activeBtn.classList.add('active');
   updateSimulation();
 }
@@ -1239,7 +1240,7 @@ cTimeline.addEventListener('click', (e) => {
   }
 
   // Update preset buttons to custom
-  document.querySelectorAll('.preset-bar button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.preset-bar button').forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
   document.getElementById('bannerText').innerHTML = '<strong>Custom Paradigm:</strong> Timeline manually edited. Click to toggle Task A blocks; Shift+Click to toggle Task B blocks.';
   updateSimulation();
 });
